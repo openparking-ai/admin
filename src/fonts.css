@@ -1,0 +1,16 @@
+/* Both fonts ship with this repository (SIL Open Font License 1.1; the
+   licence files sit beside them), so nothing is fetched from another site. */
+@font-face {
+  font-family: 'Sora';
+  src: url('./fonts/Sora-Variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/JetBrainsMono-Variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}

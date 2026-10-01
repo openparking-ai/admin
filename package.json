@@ -9,13 +9,31 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "lint": "eslint .",
+    "test": "node --test test/*.test.js",
+    "check-plain-words": "node scripts/check-plain-words.js",
+    "check-readable-text": "node scripts/check-readable-text.js",
+    "check-languages-match": "node scripts/check-languages-match.js",
+    "check-contrast": "node scripts/check-contrast.js",
+    "check-browser": "node scripts/check-browser.js",
+    "fail-controls": "node scripts/fail-controls.js",
+    "fail-controls-browser": "node scripts/fail-controls.js --browser",
     "check-no-real-data": "node .github/scripts/check-no-real-data.js",
     "check-no-commercial-values": "node .github/scripts/check-no-commercial-values.js",
     "check-no-sibling-names": "node .github/scripts/check-no-sibling-names.js"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.17.0",
-    "globals": "^15.14.0"
+    "globals": "^15.14.0",
+    "playwright": "^1.63.0",
+    "vite": "^6.4.3"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }
