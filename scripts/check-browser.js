@@ -66,8 +66,9 @@ try {
     await document.fonts.ready;
     return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, ''));
   });
-  check(fonts.includes('Sora'), `the text font is loaded from the site itself (loaded: ${fonts.join(', ') || 'none'})`);
-  check(fonts.includes('JetBrains Mono'), 'the figures font is loaded from the site itself');
+  check(fonts.includes('DM Sans'), `the text font is loaded from the site itself (loaded: ${fonts.join(', ') || 'none'})`);
+  check(fonts.includes('DM Serif Display'), 'the title font is loaded from the site itself');
+  check(fonts.includes('JetBrains Mono'), 'the figures and labels font is loaded from the site itself');
   check((await page.getAttribute('html', 'lang')) === 'en', 'first visit from an English browser is in English');
   if (SCREENS) {
     mkdirSync(SCREENS, { recursive: true });

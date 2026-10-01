@@ -2,7 +2,6 @@
 // sits beside words that say the same thing.
 
 const PATHS = {
-  mark: ['M6 20V4h7a5 5 0 0 1 0 10H6'],
   home: ['M3 11l9-7 9 7', 'M5 10v10h14V10', 'M10 20v-6h4v6'],
   garage: ['M3 20V9l9-5 9 5v11', 'M7 20v-8h10v8', 'M7 15h10'],
   lane: ['M5 21L9 3', 'M19 21L15 3', 'M12 6v2', 'M12 11v2', 'M12 16v2'],

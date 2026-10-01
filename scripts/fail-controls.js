@@ -62,7 +62,7 @@ const CONTROLS = [
   },
   {
     check: '8 contrast: a pair below 4.5 : 1',
-    plant: { file: 'src/styles.css', anchor: '  --text-secondary: #999896;', with: '  --text-secondary: #5c5c5a;' },
+    plant: { file: 'src/styles.css', anchor: '  --text-secondary: rgba(249, 246, 240, 0.66);', with: '  --text-secondary: rgba(249, 246, 240, 0.3);' },
     run: ['node', 'scripts/check-contrast.js'],
     names: ['LOW night --text-secondary'],
   },

@@ -2,13 +2,15 @@
 
 export default {
   'app.name': 'Open Parking AI',
+  'app.wordmark': 'OpenParking',
+  'app.wordmarkEnd': '.ai',
   'app.tagline': 'Para el dueño',
 
   'nav.label': 'Páginas',
 
   'page.home.title': 'Inicio',
   'page.home.purpose':
-    'De un vistazo: qué carriles están funcionando, si todo anda bien y cuántos carros hay adentro ahora mismo, mensuales, visitantes y visitantes registrados.',
+    'De un vistazo: qué carriles están funcionando, si todo anda bien y cuántos carros hay adentro ahora mismo: con pase de garaje, mensuales, visitantes y visitantes registrados.',
   'page.home.words': 'inicio, principal, resumen, comienzo, hoy',
 
   'page.garages.title': 'Garajes',

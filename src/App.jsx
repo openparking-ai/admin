@@ -4,6 +4,7 @@ import { readLanguage, saveLanguage, translate } from './i18n/index.js';
 import { THEME_CHOICES } from './theme.js';
 import QuickFind from './QuickFind.jsx';
 import Icon from './Icon.jsx';
+import Logo from './Logo.jsx';
 
 function useHashPage() {
   const [page, setPage] = useState(() => pageForHash(window.location.hash));
@@ -57,11 +58,14 @@ export default function App({ theme, storage }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Icon name="mark" />
+          <span className="brand-mark">
+            <Logo label={t('app.name')} />
           </span>
           <span className="brand-text">
-            <span className="brand-name">{t('app.name')}</span>
+            <span className="brand-name">
+              {t('app.wordmark')}
+              <i>{t('app.wordmarkEnd')}</i>
+            </span>
             <span className="brand-tagline">{t('app.tagline')}</span>
           </span>
         </div>

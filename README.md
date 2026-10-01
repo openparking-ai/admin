@@ -29,9 +29,12 @@ npm run build      # the site, in dist/, ready to serve from any folder
   moment it does. `src/theme.js`.
 - **Quick Find** — Cmd/Ctrl+K anywhere, or the search pill. Finds pages and
   settings, in the language on screen. `src/search.js`, `src/QuickFind.jsx`.
-- **Fonts** — Sora for text, JetBrains Mono for figures, both under the SIL Open
-  Font License 1.1 and shipped in `src/fonts/` with their licence files, so a
-  computer on a garage's own network needs nothing from outside it.
+- **The look** continues the Open Parking AI site: its mark, its wordmark, its
+  colours (ink, paper, gold) and its three typefaces — DM Serif Display for the
+  wordmark and page titles, DM Sans for text, JetBrains Mono for figures and small
+  labels. All three are under the SIL Open Font License 1.1 and ship in
+  `src/fonts/` with their licence files, so a computer on a garage's own network
+  needs nothing from outside it.
 
 ## Checks
 

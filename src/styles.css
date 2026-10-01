@@ -1,44 +1,77 @@
-/* Colours, radii, shadows and type. Day is the default; night is applied by
-   setting data-theme="night" on the root element (see src/theme.js).
+/* Colours, radii, shadows and type. The day colours are the Open Parking AI
+   site's own, exactly; night is derived from the same three -- ink as the
+   base, paper as the text, gold as the accent. Night is applied by setting
+   data-theme="night" on the root element (see src/theme.js).
 
-   Every text colour below is var(--text-primary) or var(--text-secondary),
-   and scripts/check-contrast.js measures both against every background, in
-   both looks. A new text colour has to be added there or that check fails. */
+   The layout uses the role names below (--bg-*, --text-*), which point at
+   the site's names. Every text colour is var(--text-primary) or
+   var(--text-secondary), and scripts/check-contrast.js measures both against
+   every background, in both looks. A new text colour has to be added there or
+   that check fails.
+
+   The site's gold-deep measures under 4.5 : 1 on its own paper, so by day it
+   carries no text here except the ".ai" of the wordmark, which is the logo
+   (see NOT_TEXT in scripts/check-contrast.js). */
 :root {
-  --accent: #cc785c;
-  --accent-soft: #faece7;
-  --accent-strong: #993c1d;
+  /* The site, exactly. */
+  --ink: #0e0c09;
+  --paper: #f9f6f0;
+  --paper-2: #f2ede3;
+  --paper-3: #eae3d5;
+  --gold: #b8975a;
+  --gold-deep: #8a6f3e;
+  --gold-pale: rgba(184, 151, 90, 0.1);
+  --border: rgba(14, 12, 9, 0.1);
+  --border-mid: rgba(14, 12, 9, 0.18);
+  --ink-soft: rgba(14, 12, 9, 0.62);
+  --ink-softer: rgba(14, 12, 9, 0.4);
 
-  --bg-primary: #ffffff;
-  --bg-secondary: #f7f7f6;
-  --bg-tertiary: #f0efed;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --border-1: rgba(0, 0, 0, 0.08);
-  --border-2: rgba(0, 0, 0, 0.15);
-  --backdrop: rgba(26, 26, 26, 0.45);
+  /* Roles. */
+  --bg-page: var(--paper);
+  --bg-panel: var(--paper-2);
+  --bg-raised: var(--paper);
+  --bg-sunken: var(--paper-3);
+  --accent: var(--gold);
+  --accent-soft: var(--gold-pale);
+  /* Gold itself is under 3 : 1 on paper, too faint to show focus by day. */
+  --focus: var(--gold-deep);
+  --wordmark-end: var(--gold-deep);
+  --mark-tile: transparent;
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --border-1: var(--border);
+  --border-2: var(--border-mid);
+  --backdrop: rgba(14, 12, 9, 0.4);
 
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --shadow: 0 1px 2px rgba(26, 26, 26, 0.04), 0 4px 16px rgba(26, 26, 26, 0.05);
-  --shadow-hover: 0 4px 10px rgba(26, 26, 26, 0.08), 0 12px 32px rgba(26, 26, 26, 0.08);
+  --shadow: 0 1px 2px rgba(14, 12, 9, 0.04), 0 4px 16px rgba(14, 12, 9, 0.05);
+  --shadow-hover: 0 4px 10px rgba(14, 12, 9, 0.08), 0 12px 32px rgba(14, 12, 9, 0.08);
 
-  --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   color-scheme: light;
 }
 
 :root[data-theme='night'] {
-  --accent-soft: #3a241c;
-  --bg-primary: #1e1e1c;
-  --bg-secondary: #2a2a28;
-  --bg-tertiary: #161614;
-  --text-primary: #f0eeeb;
-  --text-secondary: #999896;
-  --border-1: rgba(255, 255, 255, 0.08);
-  --border-2: rgba(255, 255, 255, 0.15);
+  --bg-page: #0e0c09;
+  --bg-panel: #17140f;
+  --bg-raised: #1f1b15;
+  --bg-sunken: #2a251d;
+  --accent: #b8975a;
+  --accent-soft: rgba(184, 151, 90, 0.16);
+  --focus: #b8975a;
+  --wordmark-end: #b8975a;
+  /* The mark's ink faces are the site's ink and would vanish on an ink page;
+     at night the mark sits on a paper tile instead. The mark is unchanged. */
+  --mark-tile: #f9f6f0;
+  --text-primary: #f9f6f0;
+  --text-secondary: rgba(249, 246, 240, 0.66);
+  --border-1: rgba(249, 246, 240, 0.1);
+  --border-2: rgba(249, 246, 240, 0.18);
   --backdrop: rgba(0, 0, 0, 0.6);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-hover: 0 4px 10px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.4);
@@ -58,7 +91,7 @@ body,
 }
 body {
   font-family: var(--font-sans);
-  background: var(--bg-tertiary);
+  background: var(--bg-page);
   color: var(--text-primary);
   font-size: 16px;
   line-height: 1.5;
@@ -73,7 +106,7 @@ ul {
   list-style: none;
 }
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -86,7 +119,7 @@ ul {
 .sidebar {
   width: 256px;
   flex-shrink: 0;
-  background: var(--bg-primary);
+  background: var(--bg-panel);
   border-right: 1px solid var(--border-1);
   padding: 20px 14px;
   position: sticky;
@@ -101,33 +134,40 @@ ul {
   padding: 4px 10px 22px;
 }
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  background: var(--accent);
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--mark-tile);
   flex-shrink: 0;
 }
-.brand-mark .icon {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.4;
+.brand-mark svg {
+  width: 34px;
+  height: 34px;
 }
 .brand-text {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  gap: 6px;
+  line-height: 1;
 }
 .brand-name {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.brand-name i {
+  font-style: italic;
+  color: var(--wordmark-end);
 }
 .brand-tagline {
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   color: var(--text-secondary);
 }
 .nav {
@@ -144,17 +184,17 @@ ul {
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   position: relative;
 }
 .nav-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-sunken);
   color: var(--text-primary);
 }
 .nav-item[aria-current='page'] {
   background: var(--accent-soft);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: 500;
 }
 .nav-item[aria-current='page']::before {
   content: '';
@@ -182,7 +222,7 @@ ul {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 28px;
-  background: var(--bg-tertiary);
+  background: var(--bg-page);
   border-bottom: 1px solid var(--border-1);
   position: sticky;
   top: 0;
@@ -197,9 +237,10 @@ ul {
   padding: 28px 28px 60px;
 }
 .page-title {
+  font-family: var(--font-serif);
   font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   line-height: 1.2;
 }
 .page-purpose {
@@ -214,7 +255,7 @@ ul {
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  background: var(--bg-secondary);
+  background: var(--bg-panel);
   border: 1px solid var(--border-1);
   border-radius: 999px;
 }
@@ -225,9 +266,12 @@ ul {
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 13px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 13px;
   border-radius: 999px;
   color: var(--text-secondary);
 }
@@ -238,8 +282,11 @@ ul {
 .segment:hover {
   color: var(--text-primary);
 }
+.segment[aria-checked='true'] .icon {
+  stroke: var(--accent);
+}
 .segment[aria-checked='true'] {
-  background: var(--bg-primary);
+  background: var(--bg-raised);
   color: var(--text-primary);
   box-shadow: var(--shadow);
 }
@@ -253,7 +300,7 @@ ul {
   padding: 9px 10px 9px 14px;
   border-radius: 999px;
   border: 1px solid var(--border-2);
-  background: var(--bg-primary);
+  background: var(--bg-raised);
   color: var(--text-secondary);
   font-size: 15px;
   cursor: pointer;
@@ -271,7 +318,7 @@ ul {
   font-weight: 500;
   padding: 2px 8px;
   border-radius: 6px;
-  background: var(--bg-secondary);
+  background: var(--bg-sunken);
   border: 1px solid var(--border-1);
   color: var(--text-secondary);
 }
@@ -288,7 +335,7 @@ ul {
 .find-dialog {
   width: 600px;
   max-width: calc(100vw - 32px);
-  background: var(--bg-primary);
+  background: var(--bg-raised);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-hover);
@@ -328,10 +375,11 @@ ul {
   padding-top: 6px;
 }
 .find-group-heading {
+  font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 600;
+  letter-spacing: 0.15em;
+  font-weight: 500;
   color: var(--text-secondary);
   padding: 6px 18px 4px;
 }
@@ -363,7 +411,7 @@ ul {
 .find-hint {
   padding: 10px 18px;
   border-top: 1px solid var(--border-1);
-  background: var(--bg-secondary);
+  background: var(--bg-panel);
   font-size: 12px;
   color: var(--text-secondary);
 }

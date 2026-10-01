@@ -19,6 +19,8 @@ import { THEME_CHOICES } from '../src/theme.js';
 
 export const SAME_ON_PURPOSE = {
   'app.name': 'the name of the project',
+  'app.wordmark': 'the wordmark, set as the site sets it',
+  'app.wordmarkEnd': 'the wordmark, set as the site sets it',
   'language.en': 'each language is shown in its own name',
   'language.es': 'each language is shown in its own name',
   'quickFind.shortcutMac': 'the keys printed on the keyboard',

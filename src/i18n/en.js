@@ -6,13 +6,15 @@
 
 export default {
   'app.name': 'Open Parking AI',
+  'app.wordmark': 'OpenParking',
+  'app.wordmarkEnd': '.ai',
   'app.tagline': 'For the owner',
 
   'nav.label': 'Pages',
 
   'page.home.title': 'Home',
   'page.home.purpose':
-    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: monthly, transient and registered transient.',
+    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: garage pass, monthly, transient and registered transient.',
   'page.home.words': 'home, start, overview, summary, main, today',
 
   'page.garages.title': 'Garages',
