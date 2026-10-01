@@ -417,3 +417,285 @@ ul {
   font-size: 12px;
   color: var(--text-secondary);
 }
+
+/* ── Signing in ────────────────────────────────────────────────────────── */
+.checking {
+  min-height: 100vh;
+  background: var(--bg-page);
+}
+.signin-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-page);
+}
+.signin-top {
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 28px;
+}
+.signin-card {
+  width: 420px;
+  margin: 48px 16px;
+  padding: 32px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+}
+.signin-brand {
+  margin-bottom: 24px;
+}
+.signin-problem {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+}
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field > span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.field input {
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.primary-button {
+  padding: 11px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary-button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* ── The owner, in the frame ───────────────────────────────────────────── */
+.topbar-owner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+.garage-current {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.link-button {
+  white-space: nowrap;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Pages with figures ────────────────────────────────────────────────── */
+.panel {
+  margin-top: 24px;
+  padding: 20px 22px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 0 20px;
+  align-items: start;
+}
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.quiet {
+  color: var(--text-secondary);
+}
+.figure {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  line-height: 1.2;
+}
+.inside-counts {
+  margin-bottom: 8px;
+}
+.lane-list > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-1);
+}
+.lane-list > li:first-child {
+  border-top: none;
+}
+.lane-name {
+  font-weight: 600;
+  min-width: 120px;
+}
+.tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+}
+.lane-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--text-secondary);
+}
+.lane-row[data-state='working'] .dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.problem-note {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+.garage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.garage-choice {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+.garage-choice:hover {
+  background: var(--accent-soft);
+}
+.garage-choice-name {
+  font-weight: 600;
+}
+.list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.list {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.list th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-align: left;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--border-2);
+}
+.list td {
+  padding: 10px 10px 10px 0;
+  border-bottom: 1px solid var(--border-1);
+  vertical-align: top;
+}
+.device-name {
+  font-weight: 600;
+}
+.print-head {
+  display: none;
+}
+
+/* ── Printing a list: the browser's own print, plain dark text, no frame ── */
+@media print {
+  :root,
+  :root[data-theme] {
+    --text-primary: #000;
+    --text-secondary: #000;
+    --border-1: #000;
+    --border-2: #000;
+  }
+  html,
+  body,
+  .shell,
+  .main,
+  .content,
+  .panel {
+    background: none;
+    box-shadow: none;
+  }
+  .sidebar,
+  .topbar,
+  .page-title,
+  .page-purpose,
+  .no-print,
+  .list-head .section-title {
+    display: none;
+  }
+  .shell {
+    min-width: 0;
+  }
+  .content,
+  .panel {
+    padding: 0;
+    margin: 0;
+    border: none;
+  }
+  .print-head {
+    display: block;
+    margin-bottom: 16px;
+  }
+  .print-garage {
+    font-size: 20px;
+    font-weight: 600;
+  }
+}

@@ -87,8 +87,14 @@ jobs:
         run: npm run check-contrast
       - name: No colour from the first look
         run: npm run check-old-colours
-      - name: Quick Find, the look, the language
+      - name: Quick Find, the look, the language, the one place that talks to the platform
         run: npm test
+      - name: The page never touches the session, and asks only its own origin
+        run: npm run check-page-stays-home
+      - name: Home says only what it shows
+        run: npm run check-home-claims
+      - name: No dependency with a known high or critical problem
+        run: npm audit --audit-level=high
 
   browser:
     name: browser
@@ -106,16 +112,21 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
 
-      - name: The browser check, shown failing first
-        # A copy with one outside font link added must fail, naming it.
+      - name: The browser checks, shown failing first
+        # Five copies, each with one break, must each fail naming it: an
+        # outside font link, a raw code let through, the clear skipped on
+        # sign-out, an inline script, and the browser's time zone used.
         run: npm run fail-controls-browser
 
       - run: npm run build
 
+      - name: No source maps in the built site
+        run: npm run check-no-source-maps
+
       - name: No colour from the first look, in the built site too
         run: npm run check-old-colours
 
-      - name: The built site in a browser; no request leaves it
+      - name: The built site in a browser, signed in; no request leaves it; the page policy holds
         run: npm run check-browser
 
       - name: No name from outside this project, in the working tree and the built site

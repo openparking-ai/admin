@@ -4,9 +4,8 @@ The garage owner's screens for [Open Parking AI](https://github.com/openparking-
 one owner, at a computer, in English or Spanish, by day or by night.
 
 This repository is the interface only. It holds no data of its own; everything it
-will show comes from the platform, through the platform's own doors. This first
-version is the frame: the pages, the two languages, the day/night switch and
-Quick Find. It reads nothing from the platform yet.
+shows comes from the platform, through the platform's own doors: the owner signs
+in, picks a garage, and sees its lanes and the cars inside.
 
 ## Running it
 
@@ -14,11 +13,56 @@ Node 20 or newer.
 
 ```sh
 npm ci
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:5173, with /api sent to the platform
 npm run build      # the site, in dist/, ready to serve from any folder
 ```
 
+`npm run dev` sends `/api` to the platform at `OPENPARKING_PLATFORM`
+(default `http://127.0.0.1:3000`). The built site holds no address: it always asks
+its own origin.
+
+## Serving it
+
+**The site and the platform's `/api` must be served from the same origin.** The
+platform's sign-in cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api`
+and has no `Domain`, and the platform allows no other origin, so a site served from
+anywhere else cannot sign in. Serve `dist/` and send `/api/*` to the platform from
+one host name.
+
+`index.html` carries a page policy (`Content-Security-Policy` meta): everything from
+the page's own origin, nothing inline. A meta tag cannot carry everything, so the
+server in front must add these response headers:
+
+| Header | Value | Why a meta tag cannot |
+|---|---|---|
+| `Content-Security-Policy` | the policy in `index.html`, plus `frame-ancestors 'none'` | `frame-ancestors` is ignored in a meta tag |
+| `X-Frame-Options` | `DENY` | for browsers that do not read `frame-ancestors` |
+| `X-Content-Type-Options` | `nosniff` | response header only |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | response header only |
+| `Referrer-Policy` | `no-referrer` | the meta covers the page; the header covers every file |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | response header only |
+| `Cross-Origin-Opener-Policy` | `same-origin` | response header only |
+| `Cache-Control` on `index.html` | `no-store` | so a signed-out page is never served from a cache |
+
+The build publishes no source maps.
+
 ## What it holds
+
+- **Signing in**: email and password. The session is the platform's `HttpOnly`
+  cookie; the page never reads it, and whether someone is signed in is the
+  platform's answer to `GET /api/v1/auth/me`. One message for every refusal, one
+  when the session has ended, one when the platform cannot be reached. The
+  password field is emptied after every attempt. On sign-out, and on any 401 from
+  any request, everything held about the owner is dropped and the sign-in screen
+  shown. `src/SignIn.jsx`, `src/owner.js`.
+- **One place talks to the platform**, `src/api.js`. A body that is not JSON, a
+  dropped connection or a code it does not know each become words from the
+  dictionaries; no code, status number or error text reaches a screen.
+- **Home, Lanes and devices, Cars inside** show the chosen garage's lanes (in or
+  out, and when each lane computer was last heard from) and the cars inside, with
+  every time in the garage's own time zone. A lane computer counts as not heard
+  from after `LANE_QUIET_MINUTES` (`src/settings.js`, 5). Both lists print from
+  the browser's own print, without the frame.
 
 - **Pages**: Home, Garages, Lanes and devices, Card readers, Rates, Taxes and fees,
   Getting paid, Cars inside. `src/pages.js`.
@@ -50,7 +94,10 @@ name it.
 | Text against background is at least 4.5 : 1, day and night | `npm run check-contrast` |
 | No colour from the first look (all 25 of `d4c9301`), source and built | `npm run check-old-colours` |
 | Quick Find finds every page in both languages; day/night/auto; language | `npm test` |
-| The built site in a browser; no request leaves it | `npm run build && npm run check-browser` |
+| The page never touches the session; it asks only its own origin, by relative address | `npm run check-page-stays-home` |
+| Home says only what it shows (no breakdown the platform does not return) | `npm run check-home-claims` |
+| No source maps in the built site | `npm run build && npm run check-no-source-maps` |
+| The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 
 ## Licence
 

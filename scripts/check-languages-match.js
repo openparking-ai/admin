@@ -16,6 +16,7 @@ import { DICTIONARIES, LANGUAGES } from '../src/i18n/index.js';
 import { PAGES } from '../src/pages.js';
 import { FEATURES } from '../src/search.js';
 import { THEME_CHOICES } from '../src/theme.js';
+import { PROBLEM_KINDS } from '../src/api.js';
 
 export const SAME_ON_PURPOSE = {
   'app.name': 'the name of the project',
@@ -25,6 +26,7 @@ export const SAME_ON_PURPOSE = {
   'language.es': 'each language is shown in its own name',
   'quickFind.shortcutMac': 'the keys printed on the keyboard',
   'quickFind.shortcutOther': 'the keys printed on the keyboard',
+  no: '"no" is the same word in both languages',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -52,6 +54,7 @@ export function keysTheScreensUse() {
   for (const f of FEATURES) for (const part of ['title', 'words']) keys.add(`feature.${f.id}.${part}`);
   for (const c of THEME_CHOICES) keys.add(`theme.${c}`);
   for (const l of LANGUAGES) keys.add(`language.${l}`);
+  for (const k of PROBLEM_KINDS) keys.add(`problem.${k}`);
   return keys;
 }
 

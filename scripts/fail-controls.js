@@ -9,7 +9,7 @@
 // make the check look like it caught something it never saw.
 //
 //   node scripts/fail-controls.js            the controls that need no browser
-//   node scripts/fail-controls.js --browser  the one that does (builds a copy)
+//   node scripts/fail-controls.js --browser  the ones that do (each builds its copy)
 //
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
@@ -98,6 +98,37 @@ const CONTROLS = [
       '3 found',
     ],
   },
+  {
+    check: 'U2b-3 the page never touches the session',
+    plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = '/api/v1';\nexport const peek = () => document.cookie;" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['src/api.js:16: document.cookie'],
+  },
+  {
+    check: 'U2b-4 requests stay home: an absolute address',
+    plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = 'http://127.0.0.1:3000/api/v1';" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['src/api.js:15: an absolute address http://127.0.0.1:3000/api/v1'],
+  },
+  {
+    check: 'U2b-6 no source maps',
+    plant: { file: 'vite.config.js', anchor: '    sourcemap: false,', with: '    sourcemap: true,' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-no-source-maps.js'],
+    names: ['.js.map: a .map file', 'sourceMappingURL', 'Files in the build:'],
+  },
+  {
+    check: "U2b-8 Home says only what it shows",
+    // U1's four-kind sentence, put back.
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "    'See at a glance whether each lane is working, and how many cars are inside right now.',",
+      with:
+        "    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: garage pass, monthly, transient and registered transient.',",
+    },
+    run: ['node', 'scripts/check-home-claims.js'],
+    names: ['en: page.home.purpose: "garage pass"', 'en: page.home.purpose: "monthly"', 'en: page.home.purpose: "transient"'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -112,6 +143,57 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-browser.js'],
     names: ['went outside: https://fonts.googleapis.com/'],
   },
+  {
+    check: 'U2b-1 nothing raw reaches the screen',
+    // Let one raw code through: the client keeps the platform's code as the
+    // kind, and the note shows a kind it has no words for as it is.
+    plant: [
+      {
+        file: 'src/api.js',
+        anchor: "    if (!res.ok || data === undefined) throw new Problem('unexpected');",
+        with: "    if (!res.ok || data === undefined) throw new Problem(code ?? 'unexpected');",
+      },
+      {
+        file: 'src/parts.jsx',
+        anchor: '      <p>{t(problemKey({ kind }))}</p>',
+        with: "      <p>{kind.includes('_') ? kind : t(problemKey({ kind }))}</p>",
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL a code the screens do not know', 'RAW on screen: a code ("garage_frozen_for_audit")'],
+  },
+  {
+    check: 'U2b-2 sign-out and 401 clear everything',
+    // Skip the clear: the next owner starts from what the last one left.
+    plant: {
+      file: 'src/owner.js',
+      anchor: 'const cleared = (state) => ({ ...EMPTY_OWNER, epoch: state.epoch + 1 });',
+      with: 'const cleared = (state) => ({ ...state, epoch: state.epoch + 1 });',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL owner B: nothing of owner A was ever drawn'],
+  },
+  {
+    check: 'U2b-5 the page policy holds',
+    plant: { file: 'index.html', anchor: '    <title></title>\n', with: '    <title></title>\n    <script>window.planted = 1;</script>\n' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the page policy was never broken (', 'policy violation: '],
+  },
+  {
+    check: 'U2b-7 garage time, not browser time',
+    // Use the browser's zone.
+    plant: {
+      file: 'src/time.js',
+      anchor: '  return new Intl.DateTimeFormat(LOCALES[language] ?? LOCALES.en, { timeZone, ...options }).format(date);',
+      with: '  return new Intl.DateTimeFormat(LOCALES[language] ?? LOCALES.en, { ...options }).format(date);',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL garage time, not browser time', 'FAIL Cars inside: came in at'],
+  },
 ];
 
 function scratchCopy() {
@@ -121,7 +203,11 @@ function scratchCopy() {
   return dir;
 }
 
-function plant(dir, { file, anchor, with: replacement }) {
+function plant(dir, plants) {
+  for (const p of [plants].flat()) plantOne(dir, p);
+}
+
+function plantOne(dir, { file, anchor, with: replacement }) {
   const path = join(dir, file);
   const text = readFileSync(path, 'utf8');
   const found = text.split(anchor).length - 1;
@@ -147,7 +233,8 @@ for (const c of controls) {
     const r = run(dir, c.run);
     const missing = c.names.filter((n) => !r.out.includes(n));
     const ok = r.status !== 0 && missing.length === 0;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'} check ${c.check}: planted in ${c.plant.file} -> exit ${r.status}`);
+    const where = [c.plant].flat().map((p) => p.file).join(' + ');
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} check ${c.check}: planted in ${where} -> exit ${r.status}`);
     if (ok) {
       for (const n of c.names) console.log(`         named: ${n}`);
     } else {
