@@ -7,6 +7,11 @@
  * Usage:
  *   check-no-sibling-names.js              scan every tracked file
  *   check-no-sibling-names.js --self-test  prove the scan can fail
+ *   check-no-sibling-names.js --worktree   scan the working tree too: tracked
+ *                                          files, files git is not tracking
+ *                                          yet, and the built site in dist/,
+ *                                          with a control planted and caught
+ *                                          in the same run first
  *
  * ---------------------------------------------------------------------------
  * WHY THE FORBIDDEN WORDS ARE NOT WRITTEN DOWN HERE
@@ -47,7 +52,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
 /**
@@ -231,8 +237,80 @@ function selfTest() {
   return true;
 }
 
+/** Files git is not tracking and not ignoring: what `git add -A` would add. */
+function untrackedFiles() {
+  return execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' })
+    .split('\n')
+    .filter(Boolean)
+    .filter((f) => !SKIP.test(f));
+}
+
+/** The built site. Ignored by git, and exactly what a garage would serve. */
+function builtFiles(dir = 'dist') {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? builtFiles(join(dir, e.name)) : [join(dir, e.name)],
+  );
+}
+
+function scanFiles(files, digests) {
+  const failures = [];
+  for (const file of files) {
+    let text;
+    try {
+      text = readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    failures.push(...scan(file, text, digests));
+  }
+  return failures;
+}
+
+/**
+ * The working tree, with its positive control in the same run: a file holding
+ * the control word is written into the tree, the same walk must find it and
+ * nothing else, and only then is the real walk's result read.
+ */
+function worktree() {
+  //: Assembled at runtime: this file is inside the walk, and the whole word
+  //: written here would be caught here, as well as in the planted file.
+  const control = ['zzqx', 'inrun', 'control'].join('');
+  const planted = `.names-control-${process.pid}.tmp`;
+  const walk = () => [...new Set([...trackedFiles(), ...untrackedFiles(), ...builtFiles()])];
+  let caught;
+  try {
+    writeFileSync(planted, `a line that mentions ${control} once\n`);
+    caught = scanFiles(walk(), new Map([[digestOf(control), 'the in-run control word']]));
+  } finally {
+    try { unlinkSync(planted); } catch { /* already gone */ }
+  }
+  if (caught.length !== 1 || !caught[0].startsWith(`${planted}:`)) {
+    console.error('in-run control FAILED — the working-tree walk cannot be trusted.');
+    for (const line of caught) console.error(`  ${line}`);
+    process.exit(1);
+  }
+  console.log(`in-run control OK — the planted word was caught in ${planted}, and nowhere else.`);
+
+  const tracked = trackedFiles();
+  const untracked = untrackedFiles();
+  const built = builtFiles();
+  const failures = scanFiles(walk(), FORBIDDEN_DIGESTS);
+  for (const { where, text } of commitMessages()) failures.push(...scan(where, text, FORBIDDEN_DIGESTS));
+  if (failures.length) {
+    console.error('A name from the private estate appears in the working tree:\n');
+    for (const line of failures) console.error(`  ${line}`);
+    process.exit(1);
+  }
+  console.log(
+    `clean — ${tracked.length} tracked, ${untracked.length} untracked and ${built.length} built files, ` +
+      'and every commit message, carry no such name.',
+  );
+}
+
 function main() {
   if (process.argv[2] === '--self-test') process.exit(selfTest() ? 0 : 1);
+  if (process.argv[2] === '--worktree') return worktree();
 
   const range = process.argv[2];
   const failures = [];

@@ -58,3 +58,67 @@ jobs:
       - name: No name from outside this project (whole history)
         if: github.event_name != 'pull_request'
         run: node .github/scripts/check-no-sibling-names.js
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: Every check below, shown failing first
+        # Each control plants one break in a scratch copy of the repository
+        # and requires the check to fail and name it. Nothing below is read
+        # until all of them have.
+        run: npm run fail-controls
+
+      - name: No technical words, in either language
+        run: npm run check-plain-words
+      - name: Nothing readable outside the dictionaries
+        run: npm run check-readable-text
+      - name: The two languages match
+        run: npm run check-languages-match
+      - name: Text against background, by day and by night
+        run: npm run check-contrast
+      - name: No colour from the first look
+        run: npm run check-old-colours
+      - name: Quick Find, the look, the language
+        run: npm test
+
+  browser:
+    name: browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the name guard below reads every commit message.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: The browser check, shown failing first
+        # A copy with one outside font link added must fail, naming it.
+        run: npm run fail-controls-browser
+
+      - run: npm run build
+
+      - name: No colour from the first look, in the built site too
+        run: npm run check-old-colours
+
+      - name: The built site in a browser; no request leaves it
+        run: npm run check-browser
+
+      - name: No name from outside this project, in the working tree and the built site
+        # Plants its own control in the tree and requires it caught, in the
+        # same run, before the real scan is read.
+        run: node .github/scripts/check-no-sibling-names.js --worktree

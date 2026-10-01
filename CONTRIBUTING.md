@@ -27,7 +27,7 @@ to know before you spend time on a change.
 2. Branch from `main`. Nobody pushes to `main` directly; the branch protection
    refuses it.
 3. Open a pull request. Every required check must be green before it can merge:
-   `lint`, `cla` and `emails`.
+   `lint`, `test`, `browser`, `cla` and `emails`.
 4. A maintainer reviews and merges. Opening the pull request is not merging it.
 
 ## What gets rejected on sight
@@ -46,7 +46,8 @@ they are served — fonts included — because a garage's computer may only reac
 its own network.
 
 **A test that has never been seen to fail.** If you add a control, show it
-failing when the thing it protects is removed, and say where.
+failing when the thing it protects is removed. `npm run fail-controls` is the
+worked example.
 
 ## Style
 
