@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the two guards below that read COMMIT MESSAGES would
+          # see one synthetic merge commit at depth 1.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+      - name: No real personal data in the repository
+        run: node .github/scripts/check-no-real-data.js --self-test
+
+      - run: npm run check-no-real-data
+
+      - name: No commercial value of a deployment (self-test)
+        run: node .github/scripts/check-no-commercial-values.js --self-test
+
+      - name: No commercial value of a deployment (this pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/check-no-commercial-values.js "$BASE..$HEAD"
+
+      - name: No commercial value of a deployment (whole history)
+        if: github.event_name != 'pull_request'
+        run: node .github/scripts/check-no-commercial-values.js
+
+      - name: No name from outside this project (self-test)
+        run: node .github/scripts/check-no-sibling-names.js --self-test
+
+      - name: No name from outside this project (this pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/check-no-sibling-names.js "$BASE..$HEAD"
+
+      - name: No name from outside this project (whole history)
+        if: github.event_name != 'pull_request'
+        run: node .github/scripts/check-no-sibling-names.js

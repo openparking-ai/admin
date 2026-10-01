@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+# Screenshots and browser-check output; never tracked.
+.screens/
+test-results/

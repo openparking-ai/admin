@@ -1,0 +1,21 @@
+{
+  "name": "@openparking-ai/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open Parking AI admin — the garage owner's screens",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check-no-real-data": "node .github/scripts/check-no-real-data.js",
+    "check-no-commercial-values": "node .github/scripts/check-no-commercial-values.js",
+    "check-no-sibling-names": "node .github/scripts/check-no-sibling-names.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0"
+  }
+}
