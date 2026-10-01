@@ -76,6 +76,28 @@ const CONTROLS = [
     run: ['node', 'scripts/check-contrast.js'],
     names: ['.find-hint: color: #aaaaaa'],
   },
+  {
+    check: '9 no colour from the first look',
+    // The three night values the first gate found left in at ca0e68d, put back.
+    plant: {
+      file: 'src/styles.css',
+      anchor:
+        '  --backdrop: rgba(14, 12, 9, 0.72);\n' +
+        '  --shadow: 0 1px 2px rgba(14, 12, 9, 0.5), 0 4px 16px rgba(14, 12, 9, 0.5);\n' +
+        '  --shadow-hover: 0 4px 10px rgba(14, 12, 9, 0.6), 0 12px 32px rgba(14, 12, 9, 0.6);\n',
+      with:
+        '  --backdrop: rgba(0, 0, 0, 0.6);\n' +
+        '  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.3);\n' +
+        '  --shadow-hover: 0 4px 10px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.4);\n',
+    },
+    run: ['node', 'scripts/check-old-colours.js'],
+    names: [
+      'is rgba(0, 0, 0, 0.6) from the first look',
+      'is rgba(0, 0, 0, 0.3) from the first look',
+      'is rgba(0, 0, 0, 0.4) from the first look',
+      '3 found',
+    ],
+  },
 ];
 
 const BROWSER_CONTROLS = [

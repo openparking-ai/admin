@@ -18,6 +18,7 @@
     "check-readable-text": "node scripts/check-readable-text.js",
     "check-languages-match": "node scripts/check-languages-match.js",
     "check-contrast": "node scripts/check-contrast.js",
+    "check-old-colours": "node scripts/check-old-colours.js",
     "check-browser": "node scripts/check-browser.js",
     "fail-controls": "node scripts/fail-controls.js",
     "fail-controls-browser": "node scripts/fail-controls.js --browser",

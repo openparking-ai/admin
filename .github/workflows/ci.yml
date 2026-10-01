@@ -85,6 +85,8 @@ jobs:
         run: npm run check-languages-match
       - name: Text against background, by day and by night
         run: npm run check-contrast
+      - name: No colour from the first look
+        run: npm run check-old-colours
       - name: Quick Find, the look, the language
         run: npm test
 
@@ -109,6 +111,9 @@ jobs:
         run: npm run fail-controls-browser
 
       - run: npm run build
+
+      - name: No colour from the first look, in the built site too
+        run: npm run check-old-colours
 
       - name: The built site in a browser; no request leaves it
         run: npm run check-browser
