@@ -204,6 +204,11 @@ export async function startStub({ port = 0 } = {}) {
       const kind = failNext;
       failNext = null;
       if (kind === 'nonJson') {
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        return res.end('<html><body>500 Internal Server Error</body></html>');
+      }
+      // What a gateway in front of the platform answers when it cannot reach it.
+      if (kind === 'gateway') {
         res.writeHead(502, { 'Content-Type': 'text/html' });
         return res.end('<html><body>502 Bad Gateway</body></html>');
       }

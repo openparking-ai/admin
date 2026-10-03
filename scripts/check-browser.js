@@ -9,8 +9,9 @@
 // screen, a wrong password, signing in, picking a garage, Home, both lists
 // and their print view, every page from the side navigation in both
 // languages, day/night/auto, Quick Find, every failure the screens can meet,
-// sign-out, a 401 from a read, the next owner signing in, and every other
-// answer sign-in can give, in both languages. The page policy
+// sign-out, a 401 from a read, the next owner signing in, every other
+// answer sign-in can give, in both languages, and the platform stopped
+// behind the development proxy. The page policy
 // in index.html is enforced throughout.
 //
 // Then it requires that every request went to the site's own origin and
@@ -22,6 +23,7 @@
 
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createServer as listen } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
@@ -56,6 +58,9 @@ const server = await preview({
 });
 const base = server.resolvedUrls.local[0];
 const origin = new URL(base).origin;
+// The site's own origins: this one, and the one with the platform stopped.
+const origins = new Set([origin]);
+let stopped = null;
 stub.allowOrigin(origin);
 const browser = await chromium.launch();
 const requests = [];
@@ -64,7 +69,7 @@ const policyBroken = [];
 const builtPage = readFileSync(join(ROOT, 'dist', 'index.html'), 'utf8');
 check(/http-equiv="Content-Security-Policy"/.test(builtPage), 'the built page carries its page policy');
 
-async function open({ locale = 'en-US', colorScheme = 'light' } = {}) {
+async function open({ locale = 'en-US', colorScheme = 'light', at = base } = {}) {
   const context = await browser.newContext({ locale, colorScheme, timezoneId: BROWSER_ZONE, viewport: { width: 1360, height: 860 } });
   context.on('request', (r) => requests.push(r.url()));
   context.on('console', (m) => {
@@ -85,7 +90,7 @@ async function open({ locale = 'en-US', colorScheme = 'light' } = {}) {
   page.on('pageerror', (e) => {
     if (/Content Security Policy/i.test(e.message)) policyBroken.push(e.message);
   });
-  await page.goto(base);
+  await page.goto(at);
   await page.waitForSelector('.page-title');
   return { context, page };
 }
@@ -120,6 +125,54 @@ const inZone = (iso, timeZone, language, withDay = true) =>
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(iso));
+
+/** "Oct 3, 2026, 9:04 AM", as a printed page says it, in a zone. Spaces made plain. */
+const printedIn = (when, timeZone) =>
+  plain(new Intl.DateTimeFormat('en-US', { timeZone, dateStyle: 'medium', timeStyle: 'short' }).format(when));
+const plain = (text) => text.replace(/[\s\u202f\u00a0]+/g, ' ');
+
+/**
+ * The print view of the list on screen: no frame, black on white, the
+ * garage's name, and the time it was printed in the GARAGE'S zone, never the
+ * browser's. The minute may turn while it prints: either side of it will do.
+ */
+async function checkPrint(page, list, garage) {
+  await page.emulateMedia({ media: 'print' });
+  const from = new Date();
+  await page.click('[data-action="print"]').catch(() => {});
+  const printed = await page.evaluate(() => ({
+    frame: [...document.querySelectorAll('.sidebar, .topbar')].some((e) => getComputedStyle(e).display !== 'none'),
+    head: getComputedStyle(document.querySelector('.print-head')).display !== 'none',
+    text: document.querySelector('.print-head')?.innerText ?? '',
+    ink: getComputedStyle(document.body).color,
+  }));
+  const to = new Date();
+  const text = plain(printed.text);
+  const garageTimes = [...new Set([printedIn(from, garage.timezone), printedIn(to, garage.timezone)])];
+  const browserTimes = [...new Set([printedIn(from, BROWSER_ZONE), printedIn(to, BROWSER_ZONE)])];
+  check(!printed.frame, `print (${list}): no frame`);
+  check(printed.head && printed.text.includes(garage.name), `print (${list}): the garage name`);
+  check(
+    garageTimes.some((t) => text.includes(t)),
+    `print (${list}): the time it was printed is garage time, ${garageTimes.join(' or ')} (the print head says "${text}")`,
+  );
+  check(
+    !browserTimes.some((t) => text.includes(t)),
+    `print (${list}): the time it was printed is not browser time, ${browserTimes.join(' or ')} (Tokyo)`,
+  );
+  check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
+  await page.emulateMedia({ media: 'screen' });
+}
+
+/** An address on this computer that nothing is listening on. */
+async function nobodyThere() {
+  const s = listen();
+  await new Promise((resolve) => s.listen(0, '127.0.0.1', resolve));
+  const { port } = s.address();
+  await new Promise((resolve) => s.close(resolve));
+  return `http://127.0.0.1:${port}`;
+}
 
 // What a raw failure looks like on screen: a code, a status number, a brace,
 // or the browser's own words for a broken answer.
@@ -201,21 +254,7 @@ try {
   check(inside.includes(garageDay) || inside.includes(garageClock), `Cars inside: came in at ${garageDay}, garage time`);
   check(!inside.includes(tokyoClock), `garage time, not browser time: ${tokyoClock} (Tokyo) is not shown`);
   check(inside.includes('HT-0042') && inside.includes('HRB7731'), 'Cars inside: every open stay is listed');
-  // Print view.
-  await page.emulateMedia({ media: 'print' });
-  await page.click('[data-action="print"]').catch(() => {});
-  const printed = await page.evaluate(() => ({
-    frame: [...document.querySelectorAll('.sidebar, .topbar')].some((e) => getComputedStyle(e).display !== 'none'),
-    head: getComputedStyle(document.querySelector('.print-head')).display !== 'none',
-    text: document.querySelector('.print-head')?.innerText ?? '',
-    ink: getComputedStyle(document.body).color,
-  }));
-  check(!printed.frame, 'print: no frame');
-  check(printed.head && printed.text.includes(A.garages[0].name), 'print: the garage name');
-  check(printed.text.includes(EN['print.printed'].split('{time}')[0].trim()), 'print: the time it was printed');
-  check(printed.ink === 'rgb(0, 0, 0)', `print: black text (${printed.ink})`);
-  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'print-cars-inside.png'), fullPage: true });
-  await page.emulateMedia({ media: 'screen' });
+  await checkPrint(page, 'Cars inside', A.garages[0]);
 
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
@@ -223,6 +262,7 @@ try {
   check(lanes.includes(quiet), 'Lanes and devices: the quiet lane computer, in garage time');
   check(lanes.includes(EN['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'en'))), 'Lanes and devices: a disconnected computer, in garage time');
   check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), 'Lanes and devices: which lanes have a card reader');
+  await checkPrint(page, 'Lanes and devices', A.garages[0]);
 
   // ── Every page from the navigation, English ─────────────────────────────
   for (const p of PAGES) {
@@ -337,6 +377,7 @@ try {
   // Each failure is met by a read: the Cars inside page asks again on arrival.
   const failuresMet = [
     ['nonJson', 'a body that is not JSON', 'problem.unexpected'],
+    ['gateway', 'a gateway answering 502 with a page of its own', 'problem.unreachable'],
     ['unknownCode', 'a code the screens do not know', 'problem.unexpected'],
     ['serverError', 'a 500', 'problem.unexpected'],
     ['drop', 'a dropped connection', 'problem.unreachable'],
@@ -443,12 +484,36 @@ try {
   }
   await answering.page.click('[data-control="language"] [data-value="en"]');
   await answering.context.close();
+
+  // ── The platform stopped behind the development proxy ──────────────────
+  // This repository's own vite.config.js, its proxy sent to an address
+  // nothing answers: the platform cannot be reached, in its own words.
+  process.env.OPENPARKING_PLATFORM = await nobodyThere();
+  stopped = await preview({ root: ROOT, logLevel: 'silent', preview: { port: 4318, strictPort: false, host: '127.0.0.1' } });
+  const stoppedBase = stopped.resolvedUrls.local[0];
+  origins.add(new URL(stoppedBase).origin);
+  const down = await open({ at: stoppedBase });
+  for (const [language, words] of [['en', EN], ['es', ES]]) {
+    await down.page.click(`[data-control="language"] [data-value="${language}"]`);
+    await showsHeading(down.page, words['signIn.title']);
+    await signIn(down.page, A);
+    const shown = await showsText(down.page, words['problem.unreachable']);
+    const raw = rawIn(await bodyText(down.page));
+    check(
+      shown && raw.length === 0,
+      `sign-in, the platform stopped behind the development proxy (${language}): the screen says "${words['problem.unreachable']}"` +
+        `${shown ? '' : `; it says "${(await down.page.textContent('[role="alert"]').catch(() => '')) || 'nothing'}"`}${raw.length ? `; RAW on screen: ${raw.join(', ')}` : ''}`,
+    );
+  }
+  await down.page.click('[data-control="language"] [data-value="en"]');
+  await down.context.close();
 } catch (error) {
   failures.push(`the walk stopped: ${error.message.split('\n')[0]}`);
   console.error(error);
 } finally {
   await browser.close();
   await new Promise((resolve) => server.httpServer.close(resolve));
+  if (stopped) await new Promise((resolve) => stopped.httpServer.close(resolve));
   await stub.close();
 }
 
@@ -457,7 +522,7 @@ check(policyBroken.length === 0, `the page policy was never broken (${policyBrok
 for (const v of [...new Set(policyBroken)]) console.error(`  policy violation: ${v.slice(0, 200)}`);
 
 // ── No request leaves the page, and none carries a credential in its address
-const outside = requests.filter((u) => new URL(u).origin !== origin);
+const outside = requests.filter((u) => !origins.has(new URL(u).origin));
 const secrets = [A.password, B.password, A.email, B.email, encodeURIComponent(A.email), encodeURIComponent(B.email), ...stub.issued];
 const carrying = requests.filter((u) => secrets.some((s) => u.includes(s)) || (new URL(u).pathname.startsWith('/api/') && new URL(u).search !== ''));
 const apiCount = requests.filter((u) => new URL(u).pathname.startsWith('/api/')).length;
@@ -472,6 +537,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `\nbrowser — ${passed} checks passed; ${requests.length} requests, all to ${origin}, ${apiCount} of them to the platform; ` +
+  `\nbrowser — ${passed} checks passed; ${requests.length} requests, all to ${[...origins].join(' and ')}, ${apiCount} of them to the platform; ` +
     `browser in ${BROWSER_ZONE}; 0 page policy violations.${SCREENS ? ` Screenshots in ${SCREENS}.` : ''}`,
 );

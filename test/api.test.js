@@ -32,7 +32,7 @@ test('every failure the client can meet becomes words from the dictionaries, and
   const cases = [
     ['a refusal', json(401, { error: 'sign in refused', code: 'sign_in_refused' }), (c) => c.signIn('a@example.com', 'pw'), 'refused'],
     ['a session that ended', json(401, { error: 'x', code: 'session_ended' }), (c) => c.garages(), 'ended'],
-    ['a body that is not JSON', { status: 502, body: '<html>502 Bad Gateway</html>' }, (c) => c.garages(), 'unexpected'],
+    ['a body that is not JSON', { status: 500, body: '<html>500 Internal Server Error</html>' }, (c) => c.garages(), 'unexpected'],
     ['a dropped connection', new TypeError('Failed to fetch'), (c) => c.garages(), 'unreachable'],
     ['a code it does not know', json(409, { error: 'garage_frozen', code: 'garage_frozen' }), (c) => c.garages(), 'unexpected'],
     ['a 500', json(500, { error: 'internal error' }), (c) => c.garages(), 'unexpected'],
@@ -49,6 +49,34 @@ test('every failure the client can meet becomes words from the dictionaries, and
       assert.doesNotMatch(words, RAW, `${what} (${language}): "${words}"`);
     }
   }
+});
+
+// Between the page and the platform there is a gateway: the development
+// proxy, or whatever a garage serves the site behind. When it cannot reach
+// the platform it answers for it, with a 502, 503 or 504 and a body that is
+// not the platform's. That is "cannot be reached", as much as no answer at
+// all. The platform's own answers keep their own words.
+test('a gateway answering for a platform it cannot reach: the platform cannot be reached', async () => {
+  const cases = [
+    ['a 502 with a page of its own', { status: 502, body: '<html><body>502 Bad Gateway</body></html>' }, 'unreachable'],
+    ['a 502 with no body', { status: 502, body: '' }, 'unreachable'],
+    ['a 503 with no body', { status: 503, body: '' }, 'unreachable'],
+    ['a 504 with a line of text', { status: 504, body: 'Gateway Timeout' }, 'unreachable'],
+    ["the platform's own busy", json(503, { error: 'sign-in is busy, try again shortly', code: 'sign_in_busy' }), 'busy'],
+    ["the platform's own 500", json(500, { error: 'internal error' }), 'unexpected'],
+    ['a 500 that is not JSON', { status: 500, body: '<html>500</html>' }, 'unexpected'],
+    ["a 503 of the platform's, not named", json(503, { error: 'x' }), 'unexpected'],
+  ];
+  // Every case is tried and every wrong one named, not only the first.
+  const wrong = [];
+  for (const [what, answer, kind] of cases) {
+    for (const [call, how] of [[(c) => c.signIn('a@example.com', 'pw'), 'signing in'], [(c) => c.garages(), 'a read']]) {
+      if (kind === 'busy' && how === 'a read') continue;
+      const problem = await problemOf(call(createClient({ fetch: fakeFetch(answer).fn })));
+      if (problem.kind !== kind) wrong.push(`${what}, ${how}: ${problem.kind}, not ${kind}`);
+    }
+  }
+  assert.equal(wrong.length, 0, wrong.join('; '));
 });
 
 test('requests are relative, same-origin, carry the cookie and never put anything in the address', async () => {

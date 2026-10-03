@@ -29,6 +29,14 @@ const NAMED = [
   [400, 'sign_in_unreadable', 'incomplete'],
 ];
 
+/**
+ * What a gateway in front of the platform answers when it cannot reach it:
+ * the development proxy, or whatever a garage serves the site behind. With a
+ * body that is not the platform's (any JSON object is), one of these is
+ * 'unreachable', the same as no answer at all.
+ */
+const GATEWAY = [502, 503, 504];
+
 /** Not shown, ever: the answer to a request made before the last sign-out. */
 export const STALE = 'stale';
 
@@ -87,7 +95,8 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     }
     if (stale(asked)) throw stale(asked);
 
-    const code = data && typeof data === 'object' ? data.code : undefined;
+    const fromPlatform = data !== null && typeof data === 'object' && !Array.isArray(data);
+    const code = fromPlatform ? data.code : undefined;
 
     if (res.status === 401) {
       const wasSignedIn = signedIn;
@@ -101,6 +110,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       onSignedOut(kind);
       throw new Problem(kind ?? 'ended');
     }
+    if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');
     if (!res.ok) throw new Problem(NAMED.find(([status, named]) => status === res.status && named === code)?.[2] ?? 'unexpected');
     if (data === undefined) throw new Problem('unexpected');
     return data;

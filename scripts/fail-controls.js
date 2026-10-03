@@ -143,6 +143,27 @@ const CONTROLS = [
     run: ['node', '--test', 'test/stub-matches-platform.test.js'],
     names: ['the stand-in differs from the platform at "sign-out"'],
   },
+  {
+    check: 'U2b-12 a gateway answering for a platform it cannot reach',
+    // Forget the gateway: its 502 page falls back to "something went wrong".
+    plant: { file: 'src/api.js', anchor: "    if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['a 502 with a page of its own, signing in'],
+  },
+  {
+    check: "U2b-12 the platform's own busy and 500 keep their words",
+    // Overreach: every 5xx made "cannot be reached".
+    plant: { file: 'src/api.js', anchor: 'if (GATEWAY.includes(res.status) && !fromPlatform)', with: 'if (res.status >= 500)' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ["the platform's own busy, signing in", "the platform's own 500, signing in"],
+  },
+  {
+    check: 'U2b-12 the development proxy answers as a gateway',
+    // The proxy left to answer a 500 when the platform is stopped.
+    plant: { file: 'vite.config.js', anchor: ", configure: answerAsAGateway }", with: ' }' },
+    run: ['node', '--test', 'test/dev-proxy.test.js'],
+    names: ['signing in: the platform stopped behind the development proxy'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -207,6 +228,34 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL garage time, not browser time', 'FAIL Cars inside: came in at'],
+  },
+  {
+    check: 'U2b-7 garage time on the printed page',
+    // The "Printed …" line in the browser's zone.
+    plant: {
+      file: 'src/time.js',
+      anchor: '  return parts(new Date(value), timeZone, language, {',
+      with: '  return parts(new Date(value), undefined, language, {',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL print (Cars inside): the time it was printed is garage time',
+      'FAIL print (Cars inside): the time it was printed is not browser time',
+      'FAIL print (Lanes and devices): the time it was printed is garage time',
+      'FAIL print (Lanes and devices): the time it was printed is not browser time',
+    ],
+  },
+  {
+    check: 'U2b-12 the platform cannot be reached, on screen',
+    plant: { file: 'src/api.js', anchor: "    if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');\n", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL a gateway answering 502 with a page of its own',
+      'FAIL sign-in, the platform stopped behind the development proxy (en)',
+      'FAIL sign-in, the platform stopped behind the development proxy (es)',
+    ],
   },
   {
     check: 'U2b-10 every sign-in answer has its own words, on screen',

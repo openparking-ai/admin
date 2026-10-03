@@ -7,6 +7,14 @@ import react from '@vitejs/plugin-react';
 // always asks its own origin.
 const PLATFORM = process.env.OPENPARKING_PLATFORM || 'http://127.0.0.1:3000';
 
+// With the platform stopped, the proxy answers as a gateway does, a 502 with
+// no body, so the screens say the platform cannot be reached. (Left to
+// itself it answers a 500, which reads as "something went wrong".)
+const answerAsAGateway = (proxy) =>
+  proxy.on('error', (_error, _req, res) => {
+    if (res && typeof res.writeHead === 'function' && !res.headersSent && !res.writableEnded) res.writeHead(502).end();
+  });
+
 // The page policy in index.html allows nothing inline. The development server
 // works by putting a script and styles inline, so it serves the page without
 // the policy; the built site always carries it.
@@ -22,7 +30,7 @@ export default defineConfig({
   // serves it from.
   base: './',
   server: {
-    proxy: { '/api': { target: PLATFORM } },
+    proxy: { '/api': { target: PLATFORM, configure: answerAsAGateway } },
   },
   build: {
     // Fonts stay files beside the page instead of being inlined as data.
