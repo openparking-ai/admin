@@ -18,7 +18,7 @@ test('the stand-in answers every call and refusal the screens meet as the platfo
     stub.allowOrigin(ORIGIN);
     const answers = await record(stub.url, { origin: ORIGIN, owner: stub.data.a });
     assert.deepEqual(answers.map((a) => a.what), recorded.answers.map((a) => a.what));
-    for (const [i, real] of recorded.answers.entries()) assert.deepEqual(answers[i], real, real.what);
+    for (const [i, real] of recorded.answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

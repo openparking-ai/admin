@@ -141,7 +141,7 @@ const CONTROLS = [
     // The stand-in's sign-out answers with a body, as it did before the platform was measured.
     plant: { file: 'test/stub-platform.js', anchor: '      return send(res, 204, undefined, clearCookie);', with: '      return send(res, 200, { signed_out: true }, clearCookie);' },
     run: ['node', '--test', 'test/stub-matches-platform.test.js'],
-    names: ['AssertionError [ERR_ASSERTION]: sign-out\n'],
+    names: ['the stand-in differs from the platform at "sign-out"'],
   },
 ];
 
