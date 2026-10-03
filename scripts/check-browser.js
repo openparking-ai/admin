@@ -9,7 +9,8 @@
 // screen, a wrong password, signing in, picking a garage, Home, both lists
 // and their print view, every page from the side navigation in both
 // languages, day/night/auto, Quick Find, every failure the screens can meet,
-// sign-out, a 401 from a read, and the next owner signing in. The page policy
+// sign-out, a 401 from a read, the next owner signing in, and every other
+// answer sign-in can give, in both languages. The page policy
 // in index.html is enforced throughout.
 //
 // Then it requires that every request went to the site's own origin and
@@ -412,6 +413,36 @@ try {
   const dark = await open({ colorScheme: 'dark' });
   check(await showsLook(dark.page, 'night'), 'first visit on a dark computer is night');
   await dark.context.close();
+
+  // ── Every other answer the sign-in route gives, each in its own words ───
+  // As the platform gives them (test/platform-shapes.json): the stand-in is
+  // asked for the ones only a platform set up for them gives; an empty
+  // password is sent as typed. Last, in a window of its own, so the waits
+  // here never move the clock the walk above reads its "a minute ago" by.
+  const answering = await open();
+  const signInAnswers = [
+    ['tooMany', 'too many tries from here'],
+    ['busy', 'sign-in busy'],
+    ['notSetUp', 'sign-in not set up'],
+    ['wrongPlace', 'a page at another address'],
+    ['incomplete', 'the password left empty'],
+  ];
+  for (const [language, words] of [['en', EN], ['es', ES]]) {
+    await answering.page.click(`[data-control="language"] [data-value="${language}"]`);
+    await showsHeading(answering.page, words['signIn.title']);
+    for (const [kind, what] of signInAnswers) {
+      if (kind === 'incomplete') await signIn(answering.page, A, { password: '' });
+      else {
+        stub.failSignIn(kind);
+        await signIn(answering.page, A);
+      }
+      const shown = await showsText(answering.page, words[`problem.${kind}`]);
+      const raw = rawIn(await bodyText(answering.page));
+      check(shown && raw.length === 0, `sign-in, ${what} (${language}): the screen says "${words[`problem.${kind}`]}"${raw.length ? `; RAW on screen: ${raw.join(', ')}` : ''}`);
+    }
+  }
+  await answering.page.click('[data-control="language"] [data-value="en"]');
+  await answering.context.close();
 } catch (error) {
   failures.push(`the walk stopped: ${error.message.split('\n')[0]}`);
   console.error(error);

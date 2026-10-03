@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createClient, problemKey, STALE } from '../src/api.js';
 import { translate } from '../src/i18n/index.js';
@@ -105,4 +106,45 @@ test('an answer that arrives after a sign-out is thrown away, never handed to a 
   release();
   const problem = await problemOf(pending);
   assert.equal(problem.kind, STALE);
+});
+
+// Every answer the real sign-in route gives, as recorded from the platform
+// (test/platform-shapes.json), and the words each one must show. A code the
+// recording holds and this list does not is a failure: it would have no words.
+const SIGN_IN_WORDS = {
+  sign_in_refused: 'refused',
+  sign_in_rate_limited: 'tooMany',
+  sign_in_busy: 'busy',
+  sign_in_not_configured: 'notSetUp',
+  origin_refused: 'wrongPlace',
+  sign_in_unreadable: 'incomplete',
+};
+
+test('every answer the real sign-in route gives has its own plain sentence, in both languages', async () => {
+  const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8'));
+  const answers = [
+    ...recorded.answers.filter((a) => a.what.startsWith('sign-in') && a.status >= 400),
+    ...Object.values(recorded.sign_in_answers),
+    // The route's own failure: 500 and nothing named (src/signIn.js, the error handler).
+    { status: 500, body: { error: 'internal error' } },
+  ];
+  const seen = new Map();
+  for (const { status, body } of answers) {
+    const expected = body.code === undefined ? 'unexpected' : SIGN_IN_WORDS[body.code];
+    assert.ok(expected, `the sign-in route answers ${status} "${body.code}", and no words are kept for it`);
+    const client = createClient({ fetch: fakeFetch(json(status, body)).fn });
+    const problem = await problemOf(client.signIn('a@example.com', 'pw'));
+    assert.equal(problem.kind, expected, `${status} ${body.code ?? '(no code)'}`);
+    for (const language of ['en', 'es']) {
+      const words = translate(language, problemKey(problem));
+      assert.doesNotMatch(words, RAW, `${expected} (${language}): "${words}"`);
+      seen.set(`${language} ${expected}`, words);
+    }
+  }
+  // Six answers and the route's own failure: seven different sentences in each language.
+  for (const language of ['en', 'es']) {
+    const sentences = [...seen].filter(([k]) => k.startsWith(`${language} `)).map(([, v]) => v);
+    assert.equal(sentences.length, 7, `${language}: seven answers met`);
+    assert.equal(new Set(sentences).size, 7, `${language}: each answer has its own sentence`);
+  }
 });

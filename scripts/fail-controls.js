@@ -129,6 +129,20 @@ const CONTROLS = [
     run: ['node', 'scripts/check-home-claims.js'],
     names: ['en: page.home.purpose: "garage pass"', 'en: page.home.purpose: "monthly"', 'en: page.home.purpose: "transient"'],
   },
+  {
+    check: 'U2b-10 every sign-in answer has its own words',
+    // Forget one of the platform's answers: busy falls back to "something went wrong".
+    plant: { file: 'src/api.js', anchor: "  [503, 'sign_in_busy', 'busy'],\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['every answer the real sign-in route gives has its own plain sentence', '503 sign_in_busy'],
+  },
+  {
+    check: 'U2b-11 the stand-in answers as the platform does',
+    // The stand-in's sign-out answers with a body, as it did before the platform was measured.
+    plant: { file: 'test/stub-platform.js', anchor: '      return send(res, 204, undefined, clearCookie);', with: '      return send(res, 200, { signed_out: true }, clearCookie);' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['AssertionError [ERR_ASSERTION]: sign-out\n'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -150,8 +164,8 @@ const BROWSER_CONTROLS = [
     plant: [
       {
         file: 'src/api.js',
-        anchor: "    if (!res.ok || data === undefined) throw new Problem('unexpected');",
-        with: "    if (!res.ok || data === undefined) throw new Problem(code ?? 'unexpected');",
+        anchor: "named === code)?.[2] ?? 'unexpected');",
+        with: "named === code)?.[2] ?? code ?? 'unexpected');",
       },
       {
         file: 'src/parts.jsx',
@@ -193,6 +207,13 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL garage time, not browser time', 'FAIL Cars inside: came in at'],
+  },
+  {
+    check: 'U2b-10 every sign-in answer has its own words, on screen',
+    plant: { file: 'src/api.js', anchor: "  [429, 'sign_in_rate_limited', 'tooMany'],\n", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL sign-in, too many tries from here (en)', 'FAIL sign-in, too many tries from here (es)'],
   },
 ];
 

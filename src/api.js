@@ -14,7 +14,20 @@
 
 const BASE = '/api/v1';
 
-export const PROBLEM_KINDS = ['refused', 'ended', 'unreachable', 'unexpected'];
+export const PROBLEM_KINDS = ['refused', 'tooMany', 'busy', 'notSetUp', 'wrongPlace', 'incomplete', 'ended', 'unreachable', 'unexpected'];
+
+/**
+ * The platform's named answers, each with its own words: the status and the
+ * code together, as the platform's src/signIn.js gives them. Any other pair is
+ * 'unexpected'.
+ */
+const NAMED = [
+  [429, 'sign_in_rate_limited', 'tooMany'],
+  [503, 'sign_in_busy', 'busy'],
+  [409, 'sign_in_not_configured', 'notSetUp'],
+  [403, 'origin_refused', 'wrongPlace'],
+  [400, 'sign_in_unreadable', 'incomplete'],
+];
 
 /** Not shown, ever: the answer to a request made before the last sign-out. */
 export const STALE = 'stale';
@@ -88,7 +101,8 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       onSignedOut(kind);
       throw new Problem(kind ?? 'ended');
     }
-    if (!res.ok || data === undefined) throw new Problem('unexpected');
+    if (!res.ok) throw new Problem(NAMED.find(([status, named]) => status === res.status && named === code)?.[2] ?? 'unexpected');
+    if (data === undefined) throw new Problem('unexpected');
     return data;
   }
 

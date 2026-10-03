@@ -84,6 +84,13 @@ export default {
 
   'problem.refused':
     'Ese correo y esa contraseña no funcionaron. Después de varios intentos fallidos, la entrada desde aquí se pausa por 30 minutos.',
+  'problem.tooMany': 'Hubo demasiados intentos de entrar desde aquí. Espere un rato e intente de nuevo.',
+  'problem.busy': 'La entrada está ocupada ahora mismo. Intente de nuevo en un momento.',
+  'problem.notSetUp':
+    'La entrada todavía no está preparada en el sistema de su garaje. Pida a quien lo instaló que termine de prepararla.',
+  'problem.wrongPlace':
+    'Esta página no se abrió desde la dirección de siempre de su sistema de garaje. Ábrala desde esa dirección e intente de nuevo.',
+  'problem.incomplete': 'Revise que el correo electrónico y la contraseña estén escritos e intente de nuevo.',
   'problem.ended': 'Se cerró su acceso. Por favor, entre de nuevo.',
   'problem.unreachable': 'No se puede comunicar con el sistema de su garaje ahora mismo. Revise la conexión a internet e intente de nuevo.',
   'problem.unexpected': 'Algo salió mal de nuestro lado. Intente de nuevo en un momento.',

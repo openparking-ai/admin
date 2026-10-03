@@ -1,0 +1,451 @@
+{
+  "recorded_from": "openparking-ai/platform 9cad9e1 (npm run demo, an admin made with create-admin, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-03",
+  "answers": [
+    {
+      "what": "who is signed in, before signing in",
+      "status": 401,
+      "body": {
+        "error": "Sign in first.",
+        "code": "sign_in_required"
+      }
+    },
+    {
+      "what": "a read, before signing in",
+      "status": 401,
+      "body": {
+        "error": "operator token required"
+      }
+    },
+    {
+      "what": "sign-in, a wrong password",
+      "status": 401,
+      "body": {
+        "error": "Sign-in refused. Check the email and password.",
+        "code": "sign_in_refused"
+      }
+    },
+    {
+      "what": "sign-in, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "sign-in, the password left empty",
+      "status": 400,
+      "body": {
+        "error": "The sign-in request could not be read. Send JSON: {\"email\", \"password\"}.",
+        "code": "sign_in_unreadable"
+      }
+    },
+    {
+      "what": "sign-in",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": false,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "who is signed in",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "garages",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garages": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "currency": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "live": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "timezone": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "lanes",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lanes": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "devices": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "last_seen_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "name": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "revoked_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "direction": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "reader": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "bound_at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "label": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "reader_id": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "cars inside",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "inside_count": {
+            "types": [
+              "number"
+            ]
+          },
+          "open_count": {
+            "types": [
+              "number"
+            ]
+          },
+          "sessions": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "currency": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "entry_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "entry_confirmation": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "entry_lane": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "plate": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "plate_region": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "ticket_ref": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "unconfirmable_count": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "lanes, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "cars inside, a garage not theirs",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "inside_count": {
+            "types": [
+              "number"
+            ]
+          },
+          "open_count": {
+            "types": [
+              "number"
+            ]
+          },
+          "sessions": {
+            "types": [
+              "array"
+            ]
+          },
+          "unconfirmable_count": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "sign-out, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "sign-out",
+      "status": 204,
+      "shape": "empty",
+      "cookie": {
+        "name": "op_session",
+        "cleared": true,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age=0",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "who is signed in, with the cookie from before the sign-out",
+      "status": 401,
+      "body": {
+        "error": "The session has ended. Sign in again.",
+        "code": "session_ended"
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": true,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age=0",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "a read, with the cookie from before the sign-out",
+      "status": 401,
+      "body": {
+        "error": "The session has ended. Sign in again.",
+        "code": "session_ended"
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": true,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age=0",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    }
+  ],
+  "sign_in_answers": {
+    "too many tries from here (SIGN_IN_ATTEMPTS_PER_ADDRESS=1)": {
+      "status": 429,
+      "body": {
+        "error": "Too many sign-in attempts from here. Try again later.",
+        "code": "sign_in_rate_limited"
+      }
+    },
+    "busy (SIGN_IN_HASH_LINE=1)": {
+      "status": 503,
+      "body": {
+        "error": "Sign-in is busy. Try again in a moment.",
+        "code": "sign_in_busy"
+      }
+    },
+    "not set up (no ADMIN_ORIGIN)": {
+      "status": 409,
+      "body": {
+        "error": "This deployment has no admin origin configured, so owner sign-in is off.",
+        "code": "sign_in_not_configured"
+      }
+    }
+  },
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 9cad9e1 src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+}

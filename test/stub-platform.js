@@ -1,18 +1,25 @@
 // A small stand-in for the platform, for the checks only. Never part of the
 // built site.
 //
-// It answers the routes these screens use, in the shapes the platform's
-// contract gives them:
+// It answers the routes these screens use as the platform does -- the same
+// statuses, the same refusals word for word, the same shapes and the same
+// cookie. test/stub-matches-platform.test.js holds it to that, against
+// test/platform-shapes.json, recorded from the real platform:
 //   POST /api/v1/auth/sign-in    { email, password } -> sets the session cookie
-//   POST /api/v1/auth/sign-out   ends the session
+//   POST /api/v1/auth/sign-out   ends the session: 204, no body
 //   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
 //   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader }] }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
-// A refusal is 401 with code `sign_in_refused`; an ended session is 401 with
-// code `session_ended`; a garage of another owner is 404. The cookie is
-// HttpOnly, Secure, SameSite=Strict, Path=/api, with no Domain, and a POST
-// carried by the cookie must come with the admin page's own Origin.
+// Sign-in answers as the platform's src/signIn.js does: not set up (no admin
+// page named), a page at another address, a body it cannot read, too many
+// tries from here, busy, refused (a wrong password, an unknown email, or ten
+// wrong from here, which pauses this address for 30 minutes). An ended session
+// is 401 `session_ended` and clears the cookie; a read with no cookie is 401
+// with no code. Lanes of a garage not the owner's are 404; its cars inside are
+// an empty list, as the platform answers. The cookie is HttpOnly, Secure,
+// SameSite=Strict, Path=/api, with no Domain, and a POST carried by it must
+// come with the admin page's own Origin.
 //
 // Every name, address and plate here is invented.
 
@@ -30,8 +37,8 @@ export function owners(now = Date.now()) {
       password: 'harbor-street-test-password',
       tenant_id: 'aaaaaaaa-0000-4000-8000-000000000001',
       garages: [
-        { id: 'a1000000-0000-4000-8000-000000000001', name: 'Harbor Street Garage', timezone: 'America/New_York', currency: 'usd', live: true },
-        { id: 'a2000000-0000-4000-8000-000000000002', name: 'Riverside Deck', timezone: 'America/Chicago', currency: 'usd', live: false },
+        { id: 'a1000000-0000-4000-8000-000000000001', name: 'Harbor Street Garage', timezone: 'America/New_York', currency: 'USD', live: true },
+        { id: 'a2000000-0000-4000-8000-000000000002', name: 'Riverside Deck', timezone: 'America/Chicago', currency: 'USD', live: false },
       ],
       lanes: {
         'a1000000-0000-4000-8000-000000000001': [
@@ -39,8 +46,8 @@ export function owners(now = Date.now()) {
             id: 'la100000-0000-4000-8000-000000000001',
             name: 'North Entry',
             direction: 'entry',
-            reader: { id: 'rd100000-0000-4000-8000-000000000001' },
-            devices: [{ id: 'dv100000-0000-4000-8000-000000000001', name: 'Harbor entry computer', created_at: ago(90 * 24 * 60 * MINUTE), last_seen_at: ago(MINUTE + 5000), revoked_at: null }],
+            reader: { reader_id: 'rd-stand-in-0001', label: 'North Entry reader', bound_at: ago(60 * 24 * 60 * MINUTE) },
+            devices: [{ id: 'dv100000-0000-4000-8000-000000000001', name: 'Harbor entry computer', last_seen_at: ago(MINUTE + 5000), revoked_at: null }],
           },
           {
             id: 'la100000-0000-4000-8000-000000000002',
@@ -49,8 +56,10 @@ export function owners(now = Date.now()) {
             reader: null,
             devices: [
               // 3:40 pm in New York on 10 March 2026; 4:40 am on the 11th in Tokyo.
-              { id: 'dv100000-0000-4000-8000-000000000002', name: 'Harbor exit computer', created_at: '2026-01-05T14:00:00Z', last_seen_at: '2026-03-10T19:40:00Z', revoked_at: null },
-              { id: 'dv100000-0000-4000-8000-000000000003', name: 'Harbor old exit computer', created_at: '2025-11-01T14:00:00Z', last_seen_at: '2026-01-04T22:10:00Z', revoked_at: '2026-01-05T13:55:00Z' },
+              { id: 'dv100000-0000-4000-8000-000000000002', name: 'Harbor exit computer', last_seen_at: '2026-03-10T19:40:00Z', revoked_at: null },
+              { id: 'dv100000-0000-4000-8000-000000000003', name: 'Harbor old exit computer', last_seen_at: '2026-01-04T22:10:00Z', revoked_at: '2026-01-05T13:55:00Z' },
+              // Added, never switched on: the platform's last_seen_at is null until a device is heard from.
+              { id: 'dv100000-0000-4000-8000-000000000004', name: 'Harbor spare exit computer', last_seen_at: null, revoked_at: null },
             ],
           },
           { id: 'la100000-0000-4000-8000-000000000003', name: 'Service Lane', direction: 'entry', reader: null, devices: [] },
@@ -60,9 +69,9 @@ export function owners(now = Date.now()) {
       open: {
         'a1000000-0000-4000-8000-000000000001': [
           // 11:05 am in New York on 10 March 2026; 1:05 am on the 11th in Tokyo.
-          { id: 'ss100000-0000-4000-8000-000000000001', entry_at: '2026-03-10T15:05:00Z', currency: 'usd', entry_confirmation: 'confirmed', plate: 'HRB4410', plate_region: 'FL', ticket_ref: null, entry_lane: 'North Entry' },
-          { id: 'ss100000-0000-4000-8000-000000000002', entry_at: '2026-03-10T17:20:00Z', currency: 'usd', entry_confirmation: 'confirmed', plate: null, plate_region: null, ticket_ref: 'HT-0042', entry_lane: 'North Entry' },
-          { id: 'ss100000-0000-4000-8000-000000000003', entry_at: '2026-03-10T18:45:00Z', currency: 'usd', entry_confirmation: 'unconfirmable', plate: 'HRB7731', plate_region: 'FL', ticket_ref: null, entry_lane: 'Service Lane' },
+          { id: 'ss100000-0000-4000-8000-000000000001', entry_at: '2026-03-10T15:05:00Z', currency: 'USD', entry_confirmation: 'confirmed', plate: 'HRB4410', plate_region: 'FL', ticket_ref: null, entry_lane: 'North Entry' },
+          { id: 'ss100000-0000-4000-8000-000000000002', entry_at: '2026-03-10T17:20:00Z', currency: 'USD', entry_confirmation: 'confirmed', plate: null, plate_region: null, ticket_ref: 'HT-0042', entry_lane: 'North Entry' },
+          { id: 'ss100000-0000-4000-8000-000000000003', entry_at: '2026-03-10T18:45:00Z', currency: 'USD', entry_confirmation: 'unconfirmable', plate: 'HRB7731', plate_region: 'FL', ticket_ref: null, entry_lane: 'Service Lane' },
         ],
         'a2000000-0000-4000-8000-000000000002': [],
       },
@@ -71,10 +80,10 @@ export function owners(now = Date.now()) {
       email: 'owner-b@example.com',
       password: 'elm-court-test-password',
       tenant_id: 'bbbbbbbb-0000-4000-8000-000000000002',
-      garages: [{ id: 'b1000000-0000-4000-8000-000000000001', name: 'Elm Court Garage', timezone: 'America/Los_Angeles', currency: 'usd', live: true }],
+      garages: [{ id: 'b1000000-0000-4000-8000-000000000001', name: 'Elm Court Garage', timezone: 'America/Los_Angeles', currency: 'USD', live: true }],
       lanes: {
         'b1000000-0000-4000-8000-000000000001': [
-          { id: 'lb100000-0000-4000-8000-000000000001', name: 'Elm Gate', direction: 'entry', reader: null, devices: [{ id: 'dvb00000-0000-4000-8000-000000000001', name: 'Elm gate computer', created_at: ago(30 * 24 * 60 * MINUTE), last_seen_at: ago(20 * 1000), revoked_at: null }] },
+          { id: 'lb100000-0000-4000-8000-000000000001', name: 'Elm Gate', direction: 'entry', reader: null, devices: [{ id: 'dvb00000-0000-4000-8000-000000000001', name: 'Elm gate computer', last_seen_at: ago(20 * 1000), revoked_at: null }] },
         ],
       },
       open: { 'b1000000-0000-4000-8000-000000000001': [] },
@@ -85,24 +94,50 @@ export function owners(now = Date.now()) {
 /** Every piece of text of owner A's that a screen could show. */
 export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com'];
 
-const COOKIE = 'opa_session';
+// The platform's own words, as test/platform-shapes.json recorded them.
+const SIGN_IN_REQUIRED = { error: 'Sign in first.', code: 'sign_in_required' };
+const TOKEN_REQUIRED = { error: 'operator token required' };
+const SESSION_ENDED = { error: 'The session has ended. Sign in again.', code: 'session_ended' };
+const REFUSED = { error: 'Sign-in refused. Check the email and password.', code: 'sign_in_refused' };
+const UNREADABLE = { error: 'The sign-in request could not be read. Send JSON: {"email", "password"}.', code: 'sign_in_unreadable' };
+const ORIGIN_REFUSED = { error: 'This request did not come from the admin site.', code: 'origin_refused' };
+const GARAGE_NOT_FOUND = { error: 'garage not found' };
+/** The sign-in answers a check can ask for, which only a platform set up for them gives. */
+const SIGN_IN_ANSWERS = {
+  tooMany: [429, { error: 'Too many sign-in attempts from here. Try again later.', code: 'sign_in_rate_limited' }],
+  busy: [503, { error: 'Sign-in is busy. Try again in a moment.', code: 'sign_in_busy' }, { 'Retry-After': '2' }],
+  notSetUp: [409, { error: 'This deployment has no admin origin configured, so owner sign-in is off.', code: 'sign_in_not_configured' }],
+  wrongPlace: [403, ORIGIN_REFUSED],
+};
+
+const COOKIE = 'op_session';
+const COOKIE_ATTRIBUTES = 'Path=/api; HttpOnly; SameSite=Strict';
+const SESSION_SECONDS = 12 * 60 * 60;
+const MAX_WRONG = 10;
+const PAUSE = 30 * MINUTE;
 
 export async function startStub({ port = 0 } = {}) {
   const data = owners();
   const sessions = new Map(); // token -> { owner, ended }
   const issued = [];
   let failNext = null;
+  let failSignIn = null;
   let allowedOrigin = null;
-  const wrongTries = new Map();
+  const wrongTries = new Map(); // address|email -> { count, pausedUntil }
 
   const send = (res, status, body, headers = {}) => {
-    res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers });
+    res.writeHead(status, {
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      ...headers,
+    });
     res.end(body === undefined ? '' : JSON.stringify(body));
   };
-  const refused = (res) => send(res, 401, { error: 'sign in refused', code: 'sign_in_refused' });
+  const clearCookie = { 'Set-Cookie': `${COOKIE}=; ${COOKIE_ATTRIBUTES}; Max-Age=0; Secure` };
 
   const cookieOf = (req) => {
-    const m = /(?:^|;\s*)opa_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? '');
+    const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]+)`).exec(req.headers.cookie ?? '');
     return m ? m[1] : null;
   };
 
@@ -119,6 +154,47 @@ export async function startStub({ port = 0 } = {}) {
       });
     });
 
+  /** The platform's reading of a sign-in body: exactly an email and a password, or nothing. */
+  const signInBody = (body) => {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+    const keys = Object.keys(body);
+    if (keys.length !== 2 || typeof body.email !== 'string' || typeof body.password !== 'string') return null;
+    const email = body.email.trim().toLowerCase();
+    if (email.length < 3 || email.length > 254 || body.password === '') return null;
+    return { email, password: body.password };
+  };
+
+  async function signIn(req, res) {
+    if (failSignIn) {
+      const [status, body, headers] = SIGN_IN_ANSWERS[failSignIn];
+      failSignIn = null;
+      return send(res, status, body, headers);
+    }
+    if (allowedOrigin === null) return send(res, ...SIGN_IN_ANSWERS.notSetUp);
+    if (req.headers.origin !== undefined && req.headers.origin !== allowedOrigin) return send(res, 403, ORIGIN_REFUSED);
+    const body = signInBody(await readBody(req));
+    if (!body) return send(res, 400, UNREADABLE);
+    const who = Object.values(data).find((o) => o.email === body.email);
+    const key = `${req.socket.remoteAddress}|${body.email}`;
+    const tries = wrongTries.get(key) ?? { count: 0, pausedUntil: 0 };
+    const paused = tries.pausedUntil > Date.now();
+    if (!who || paused || body.password !== who.password) {
+      // A wrong password counts, during a pause too, and the tenth pauses this address.
+      if (who && body.password !== who.password) {
+        const count = !paused && tries.pausedUntil ? 1 : tries.count + 1;
+        wrongTries.set(key, { count, pausedUntil: count >= MAX_WRONG ? Date.now() + PAUSE : tries.pausedUntil });
+      }
+      return send(res, 401, REFUSED);
+    }
+    wrongTries.delete(key);
+    const token = randomBytes(32).toString('base64url');
+    issued.push(token);
+    sessions.set(token, { owner: who, ended: false });
+    return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() }, {
+      'Set-Cookie': `${COOKIE}=${token}; ${COOKIE_ATTRIBUTES}; Max-Age=${SESSION_SECONDS}; Secure`,
+    });
+  }
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://stub');
     const path = url.pathname;
@@ -133,41 +209,24 @@ export async function startStub({ port = 0 } = {}) {
       }
       if (kind === 'unknownCode') return send(res, 409, { error: 'garage_frozen_for_audit', code: 'garage_frozen_for_audit' });
       if (kind === 'serverError') return send(res, 500, { error: 'internal error' });
-      if (kind === 'ended') return send(res, 401, { error: 'session ended', code: 'session_ended' });
-      if (kind === 'plain401') return send(res, 401, { error: 'unknown or revoked operator token' });
+      if (kind === 'ended') return send(res, 401, SESSION_ENDED, clearCookie);
+      if (kind === 'plain401') return send(res, 401, TOKEN_REQUIRED);
     }
 
-    if (path === '/api/v1/auth/sign-in' && req.method === 'POST') {
-      const body = await readBody(req);
-      const who = Object.values(data).find((o) => o.email === String(body?.email ?? '').toLowerCase());
-      const key = req.socket.remoteAddress + '|' + (who?.email ?? '');
-      const tries = wrongTries.get(key) ?? 0;
-      if (!who || tries >= 10 || body?.password !== who.password) {
-        if (who) wrongTries.set(key, tries + 1);
-        return refused(res);
-      }
-      wrongTries.delete(key);
-      const token = randomBytes(32).toString('base64url');
-      issued.push(token);
-      sessions.set(token, { owner: who, ended: false });
-      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() }, {
-        'Set-Cookie': `${COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/api`,
-      });
-    }
+    if (path === '/api/v1/auth/sign-in' && req.method === 'POST') return signIn(req, res);
 
+    // Who the cookie names: the auth routes and the reads answer "not signed in" differently.
+    const onAuth = path.startsWith('/api/v1/auth/');
     const token = cookieOf(req);
-    const session = token ? sessions.get(token) : null;
-    if (!session) return send(res, 401, { error: 'not signed in' });
-    if (session.ended) return send(res, 401, { error: 'session ended', code: 'session_ended' });
+    if (!token) return send(res, 401, onAuth ? SIGN_IN_REQUIRED : TOKEN_REQUIRED);
+    if (req.method !== 'GET' && (!allowedOrigin || req.headers.origin !== allowedOrigin)) return send(res, 403, ORIGIN_REFUSED);
+    const session = sessions.get(token);
+    if (!session || session.ended) return send(res, 401, SESSION_ENDED, clearCookie);
     const who = session.owner;
 
-    if (req.method !== 'GET') {
-      if (!allowedOrigin || req.headers.origin !== allowedOrigin) return send(res, 403, { error: 'cross-site request refused', code: 'origin_refused' });
-    }
-
     if (path === '/api/v1/auth/sign-out' && req.method === 'POST') {
-      sessions.delete(token);
-      return send(res, 200, { signed_out: true }, { 'Set-Cookie': `${COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0` });
+      session.ended = true;
+      return send(res, 204, undefined, clearCookie);
     }
     if (path === '/api/v1/auth/me' && req.method === 'GET') {
       return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() });
@@ -177,12 +236,15 @@ export async function startStub({ port = 0 } = {}) {
     const m = /^\/api\/v1\/garages\/([^/]+)(\/lanes|\/sessions\/open)?$/.exec(path);
     if (m && req.method === 'GET') {
       const garage = who.garages.find((g) => g.id === m[1]);
-      if (!garage) return send(res, 404, { error: 'garage not found' });
+      // The platform's open-stays read is scoped by the owner and finds none for a garage not theirs.
+      const stays = garage ? who.open[garage.id] ?? [] : [];
+      if (m[2] === '/sessions/open') {
+        const confirmed = stays.filter((s) => s.entry_confirmation === 'confirmed').length;
+        return send(res, 200, { inside_count: confirmed, unconfirmable_count: stays.length - confirmed, open_count: stays.length, sessions: stays });
+      }
+      if (!garage) return send(res, 404, GARAGE_NOT_FOUND);
       if (!m[2]) return send(res, 200, { garage });
-      if (m[2] === '/lanes') return send(res, 200, { lanes: who.lanes[garage.id] ?? [] });
-      const stays = who.open[garage.id] ?? [];
-      const confirmed = stays.filter((s) => s.entry_confirmation === 'confirmed').length;
-      return send(res, 200, { inside_count: confirmed, unconfirmable_count: stays.length - confirmed, open_count: stays.length, sessions: stays });
+      return send(res, 200, { lanes: who.lanes[garage.id] ?? [] });
     }
     return send(res, 404, { error: 'not found' });
   });
@@ -194,6 +256,11 @@ export async function startStub({ port = 0 } = {}) {
     issued,
     failNext: (kind) => {
       failNext = kind;
+    },
+    /** The next sign-in answers as a platform set up to give it would: tooMany, busy, notSetUp or wrongPlace. */
+    failSignIn: (kind) => {
+      if (!SIGN_IN_ANSWERS[kind]) throw new Error(`no such sign-in answer: ${kind}`);
+      failSignIn = kind;
     },
     endSessions: () => {
       for (const s of sessions.values()) s.ended = true;

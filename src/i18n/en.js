@@ -88,6 +88,13 @@ export default {
 
   'problem.refused':
     'That email and password did not work. After several wrong tries, signing in from here is paused for 30 minutes.',
+  'problem.tooMany': 'There have been too many tries to sign in from here. Please wait a while, then try again.',
+  'problem.busy': 'Signing in is busy right now. Please try again in a moment.',
+  'problem.notSetUp':
+    'Signing in is not set up on your garage system yet. Ask whoever installed it to finish setting it up.',
+  'problem.wrongPlace':
+    'This page was not opened from the usual address of your garage system. Open it from that address and try again.',
+  'problem.incomplete': 'Check that the email and the password are both filled in, then try again.',
   'problem.ended': 'You were signed out. Please sign in again.',
   'problem.unreachable': 'Your garage system cannot be reached right now. Check the internet connection and try again.',
   'problem.unexpected': 'Something went wrong on our side. Please try again in a moment.',
