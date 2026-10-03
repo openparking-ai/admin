@@ -10,7 +10,7 @@ export default {
 
   'page.home.title': 'Inicio',
   'page.home.purpose':
-    'De un vistazo: qué carriles están funcionando, si todo anda bien y cuántos carros hay adentro ahora mismo: con pase de garaje, mensuales, visitantes y visitantes registrados.',
+    'De un vistazo: si cada carril está funcionando y cuántos carros hay adentro ahora mismo.',
   'page.home.words': 'inicio, principal, resumen, comienzo, hoy',
 
   'page.garages.title': 'Garajes',
@@ -73,4 +73,72 @@ export default {
   'feature.en.words': 'inglés, english, idioma',
   'feature.es.title': 'Ver en español',
   'feature.es.words': 'español, idioma',
+
+  'signIn.title': 'Entrar',
+  'signIn.intro': 'Entre con el correo y la contraseña de sus garajes.',
+  'signIn.email': 'Correo electrónico',
+  'signIn.password': 'Contraseña',
+  'signIn.submit': 'Entrar',
+  'signIn.working': 'Entrando…',
+  'signOut': 'Salir',
+
+  'problem.refused':
+    'Ese correo y esa contraseña no funcionaron. Después de varios intentos fallidos, la entrada desde aquí se pausa por 30 minutos.',
+  'problem.tooMany': 'Hubo demasiados intentos de entrar desde aquí. Espere un rato e intente de nuevo.',
+  'problem.busy': 'La entrada está ocupada ahora mismo. Intente de nuevo en un momento.',
+  'problem.notSetUp':
+    'La entrada todavía no está preparada en el sistema de su garaje. Pida a quien lo instaló que termine de prepararla.',
+  'problem.wrongPlace':
+    'Esta página no se abrió desde la dirección de siempre de su sistema de garaje. Ábrala desde esa dirección e intente de nuevo.',
+  'problem.incomplete': 'Revise que el correo electrónico y la contraseña estén escritos e intente de nuevo.',
+  'problem.ended': 'Se cerró su acceso. Por favor, entre de nuevo.',
+  'problem.unreachable': 'No se puede comunicar con el sistema de su garaje ahora mismo. Revise la conexión a internet e intente de nuevo.',
+  'problem.unexpected': 'Algo salió mal de nuestro lado. Intente de nuevo en un momento.',
+
+  'loading': 'Cargando…',
+  'retry': 'Intentar de nuevo',
+  'yes': 'Sí',
+  'no': 'No',
+
+  'garage.choose': 'Escoja un garaje',
+  'garage.change': 'Cambiar de garaje',
+  'garage.none': 'Todavía no hay garajes en esta cuenta.',
+  'garage.live': 'Abierto',
+  'garage.notLive': 'Todavía no abre',
+
+  'home.lanes': 'Carriles',
+  'home.inside': 'Carros adentro',
+
+  'lane.in': 'Entrada',
+  'lane.out': 'Salida',
+  'lane.workingNow': 'Funcionando, se comunicó hace un momento',
+  'lane.workingOne': 'Funcionando, se comunicó hace un minuto',
+  'lane.workingMany': 'Funcionando, se comunicó hace {minutes} minutos',
+  'lane.quiet': 'Sin comunicarse desde: {time}',
+  'lane.never': 'Nunca se ha comunicado',
+  'lane.noComputer': 'Todavía sin computadora de carril',
+  'device.off': 'Desconectada: {time}',
+
+  'lanes.none': 'Este garaje todavía no tiene carriles.',
+  'lanes.lane': 'Carril',
+  'lanes.direction': 'Entrada o salida',
+  'lanes.computers': 'Computadoras del carril',
+  'lanes.reader': 'Lector de tarjetas',
+  'lanes.readerYes': 'Sí',
+  'lanes.readerNo': 'Ninguno',
+
+  'inside.countNone': 'No hay carros adentro',
+  'inside.countOne': '1 carro adentro',
+  'inside.countMany': '{count} carros adentro',
+  'inside.unconfirmedOne': '1 más recibió paso, pero el carril no pudo confirmar que entró.',
+  'inside.unconfirmedMany': '{count} más recibieron paso, pero el carril no pudo confirmar que entraron.',
+  'inside.empty': 'No hay carros adentro ahora mismo.',
+  'inside.plate': 'Placa',
+  'inside.ticket': 'Boleto',
+  'inside.cameIn': 'Entró',
+  'inside.lane': 'Carril de entrada',
+  'inside.confirmed': 'Confirmado adentro',
+
+  'print.button': 'Imprimir',
+  'print.printed': 'Impreso el {time}',
 };

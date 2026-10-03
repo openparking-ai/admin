@@ -9,7 +9,7 @@
 // make the check look like it caught something it never saw.
 //
 //   node scripts/fail-controls.js            the controls that need no browser
-//   node scripts/fail-controls.js --browser  the one that does (builds a copy)
+//   node scripts/fail-controls.js --browser  the ones that do (each builds its copy)
 //
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
@@ -98,6 +98,72 @@ const CONTROLS = [
       '3 found',
     ],
   },
+  {
+    check: 'U2b-3 the page never touches the session',
+    plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = '/api/v1';\nexport const peek = () => document.cookie;" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['src/api.js:16: document.cookie'],
+  },
+  {
+    check: 'U2b-4 requests stay home: an absolute address',
+    plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = 'http://127.0.0.1:3000/api/v1';" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['src/api.js:15: an absolute address http://127.0.0.1:3000/api/v1'],
+  },
+  {
+    check: 'U2b-6 no source maps',
+    plant: { file: 'vite.config.js', anchor: '    sourcemap: false,', with: '    sourcemap: true,' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-no-source-maps.js'],
+    names: ['.js.map: a .map file', 'sourceMappingURL', 'Files in the build:'],
+  },
+  {
+    check: "U2b-8 Home says only what it shows",
+    // U1's four-kind sentence, put back.
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "    'See at a glance whether each lane is working, and how many cars are inside right now.',",
+      with:
+        "    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: garage pass, monthly, transient and registered transient.',",
+    },
+    run: ['node', 'scripts/check-home-claims.js'],
+    names: ['en: page.home.purpose: "garage pass"', 'en: page.home.purpose: "monthly"', 'en: page.home.purpose: "transient"'],
+  },
+  {
+    check: 'U2b-10 every sign-in answer has its own words',
+    // Forget one of the platform's answers: busy falls back to "something went wrong".
+    plant: { file: 'src/api.js', anchor: "  [503, 'sign_in_busy', 'busy'],\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['every answer the real sign-in route gives has its own plain sentence', '503 sign_in_busy'],
+  },
+  {
+    check: 'U2b-11 the stand-in answers as the platform does',
+    // The stand-in's sign-out answers with a body, as it did before the platform was measured.
+    plant: { file: 'test/stub-platform.js', anchor: '      return send(res, 204, undefined, clearCookie);', with: '      return send(res, 200, { signed_out: true }, clearCookie);' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "sign-out"'],
+  },
+  {
+    check: 'U2b-12 a gateway answering for a platform it cannot reach',
+    // Forget the gateway: its 502 page falls back to "something went wrong".
+    plant: { file: 'src/api.js', anchor: "    if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['a 502 with a page of its own, signing in'],
+  },
+  {
+    check: "U2b-12 the platform's own busy and 500 keep their words",
+    // Overreach: every 5xx made "cannot be reached".
+    plant: { file: 'src/api.js', anchor: 'if (GATEWAY.includes(res.status) && !fromPlatform)', with: 'if (res.status >= 500)' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ["the platform's own busy, signing in", "the platform's own 500, signing in"],
+  },
+  {
+    check: 'U2b-12 the development proxy answers as a gateway',
+    // The proxy left to answer a 500 when the platform is stopped.
+    plant: { file: 'vite.config.js', anchor: ", configure: answerAsAGateway }", with: ' }' },
+    run: ['node', '--test', 'test/dev-proxy.test.js'],
+    names: ['signing in: the platform stopped behind the development proxy'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -112,6 +178,92 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-browser.js'],
     names: ['went outside: https://fonts.googleapis.com/'],
   },
+  {
+    check: 'U2b-1 nothing raw reaches the screen',
+    // Let one raw code through: the client keeps the platform's code as the
+    // kind, and the note shows a kind it has no words for as it is.
+    plant: [
+      {
+        file: 'src/api.js',
+        anchor: "named === code)?.[2] ?? 'unexpected');",
+        with: "named === code)?.[2] ?? code ?? 'unexpected');",
+      },
+      {
+        file: 'src/parts.jsx',
+        anchor: '      <p>{t(problemKey({ kind }))}</p>',
+        with: "      <p>{kind.includes('_') ? kind : t(problemKey({ kind }))}</p>",
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL a code the screens do not know', 'RAW on screen: a code ("garage_frozen_for_audit")'],
+  },
+  {
+    check: 'U2b-2 sign-out and 401 clear everything',
+    // Skip the clear: the next owner starts from what the last one left.
+    plant: {
+      file: 'src/owner.js',
+      anchor: 'const cleared = (state) => ({ ...EMPTY_OWNER, epoch: state.epoch + 1 });',
+      with: 'const cleared = (state) => ({ ...state, epoch: state.epoch + 1 });',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL owner B: nothing of owner A was ever drawn'],
+  },
+  {
+    check: 'U2b-5 the page policy holds',
+    plant: { file: 'index.html', anchor: '    <title></title>\n', with: '    <title></title>\n    <script>window.planted = 1;</script>\n' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the page policy was never broken (', 'policy violation: '],
+  },
+  {
+    check: 'U2b-7 garage time, not browser time',
+    // Use the browser's zone.
+    plant: {
+      file: 'src/time.js',
+      anchor: '  return new Intl.DateTimeFormat(LOCALES[language] ?? LOCALES.en, { timeZone, ...options }).format(date);',
+      with: '  return new Intl.DateTimeFormat(LOCALES[language] ?? LOCALES.en, { ...options }).format(date);',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL garage time, not browser time', 'FAIL Cars inside: came in at'],
+  },
+  {
+    check: 'U2b-7 garage time on the printed page',
+    // The "Printed …" line in the browser's zone.
+    plant: {
+      file: 'src/time.js',
+      anchor: '  return parts(new Date(value), timeZone, language, {',
+      with: '  return parts(new Date(value), undefined, language, {',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL print (Cars inside): the time it was printed is garage time',
+      'FAIL print (Cars inside): the time it was printed is not browser time',
+      'FAIL print (Lanes and devices): the time it was printed is garage time',
+      'FAIL print (Lanes and devices): the time it was printed is not browser time',
+    ],
+  },
+  {
+    check: 'U2b-12 the platform cannot be reached, on screen',
+    plant: { file: 'src/api.js', anchor: "    if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');\n", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL a gateway answering 502 with a page of its own',
+      'FAIL sign-in, the platform stopped behind the development proxy (en)',
+      'FAIL sign-in, the platform stopped behind the development proxy (es)',
+    ],
+  },
+  {
+    check: 'U2b-10 every sign-in answer has its own words, on screen',
+    plant: { file: 'src/api.js', anchor: "  [429, 'sign_in_rate_limited', 'tooMany'],\n", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL sign-in, too many tries from here (en)', 'FAIL sign-in, too many tries from here (es)'],
+  },
 ];
 
 function scratchCopy() {
@@ -121,7 +273,11 @@ function scratchCopy() {
   return dir;
 }
 
-function plant(dir, { file, anchor, with: replacement }) {
+function plant(dir, plants) {
+  for (const p of [plants].flat()) plantOne(dir, p);
+}
+
+function plantOne(dir, { file, anchor, with: replacement }) {
   const path = join(dir, file);
   const text = readFileSync(path, 'utf8');
   const found = text.split(anchor).length - 1;
@@ -147,7 +303,8 @@ for (const c of controls) {
     const r = run(dir, c.run);
     const missing = c.names.filter((n) => !r.out.includes(n));
     const ok = r.status !== 0 && missing.length === 0;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'} check ${c.check}: planted in ${c.plant.file} -> exit ${r.status}`);
+    const where = [c.plant].flat().map((p) => p.file).join(' + ');
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} check ${c.check}: planted in ${where} -> exit ${r.status}`);
     if (ok) {
       for (const n of c.names) console.log(`         named: ${n}`);
     } else {

@@ -1,0 +1,65 @@
+import { useCallback } from 'react';
+import { PrintButton, PrintHead, ProblemNote, useGarageRead, useNow, usePrint } from './parts.jsx';
+import { deviceWords, directionKey } from './lanes.js';
+import { garageTime } from './time.js';
+
+/** Every lane of the garage, its lane computers and whether it has a card reader. Read only. */
+export default function LanesPage({ t, language, client, garage }) {
+  const now = useNow();
+  const { printedAt, print } = usePrint();
+  const lanes = useGarageRead(useCallback((id) => client.lanes(id), [client]), garage.id);
+
+  if (lanes.problem) return <ProblemNote t={t} kind={lanes.problem} onRetry={lanes.retry} />;
+  if (!lanes.data) return <p className="quiet">{t('loading')}</p>;
+
+  return (
+    <section className="panel printable" data-list="lanes">
+      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} />
+      <div className="list-head">
+        <h2 className="section-title">{t('page.lanes.title')}</h2>
+        <PrintButton t={t} onPrint={print} />
+      </div>
+      {lanes.data.length === 0 ? (
+        <p className="quiet">{t('lanes.none')}</p>
+      ) : (
+        <table className="list">
+          <thead>
+            <tr>
+              <th>{t('lanes.lane')}</th>
+              <th>{t('lanes.direction')}</th>
+              <th>{t('lanes.computers')}</th>
+              <th>{t('lanes.reader')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lanes.data.map((lane) => (
+              <tr key={lane.id}>
+                <td>{lane.name}</td>
+                <td>{t(directionKey(lane))}</td>
+                <td>
+                  {(lane.devices ?? []).length === 0 ? (
+                    <span className="quiet">{t('lane.noComputer')}</span>
+                  ) : (
+                    <ul className="device-list">
+                      {lane.devices.map((d) => (
+                        <li key={d.id} data-device={d.id}>
+                          <span className="device-name">{d.name}</span>{' '}
+                          <span className="quiet">
+                            {d.revoked_at
+                              ? t('device.off', { time: garageTime(d.revoked_at, garage.timezone, language, now) })
+                              : deviceWords(t, d, garage, language, now).text}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
+                <td>{lane.reader ? t('lanes.readerYes') : t('lanes.readerNo')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './fonts.css';
 import './styles.css';
 import { createTheme } from './theme.js';
+import { createClient } from './api.js';
 import App from './App.jsx';
 
 const storage = (() => {
@@ -20,8 +21,10 @@ const theme = createTheme({
   root: document.documentElement,
 });
 
+const client = createClient();
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App theme={theme} storage={storage} />
+    <App theme={theme} storage={storage} client={client} />
   </StrictMode>,
 );

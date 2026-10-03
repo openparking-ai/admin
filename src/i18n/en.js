@@ -14,7 +14,7 @@ export default {
 
   'page.home.title': 'Home',
   'page.home.purpose':
-    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: garage pass, monthly, transient and registered transient.',
+    'See at a glance whether each lane is working, and how many cars are inside right now.',
   'page.home.words': 'home, start, overview, summary, main, today',
 
   'page.garages.title': 'Garages',
@@ -77,4 +77,72 @@ export default {
   'feature.en.words': 'english, language',
   'feature.es.title': 'Show in Spanish',
   'feature.es.words': 'spanish, español, language',
+
+  'signIn.title': 'Sign in',
+  'signIn.intro': 'Sign in with the email and password for your garages.',
+  'signIn.email': 'Email',
+  'signIn.password': 'Password',
+  'signIn.submit': 'Sign in',
+  'signIn.working': 'Signing in…',
+  'signOut': 'Sign out',
+
+  'problem.refused':
+    'That email and password did not work. After several wrong tries, signing in from here is paused for 30 minutes.',
+  'problem.tooMany': 'There have been too many tries to sign in from here. Please wait a while, then try again.',
+  'problem.busy': 'Signing in is busy right now. Please try again in a moment.',
+  'problem.notSetUp':
+    'Signing in is not set up on your garage system yet. Ask whoever installed it to finish setting it up.',
+  'problem.wrongPlace':
+    'This page was not opened from the usual address of your garage system. Open it from that address and try again.',
+  'problem.incomplete': 'Check that the email and the password are both filled in, then try again.',
+  'problem.ended': 'You were signed out. Please sign in again.',
+  'problem.unreachable': 'Your garage system cannot be reached right now. Check the internet connection and try again.',
+  'problem.unexpected': 'Something went wrong on our side. Please try again in a moment.',
+
+  'loading': 'Loading…',
+  'retry': 'Try again',
+  'yes': 'Yes',
+  'no': 'No',
+
+  'garage.choose': 'Choose a garage',
+  'garage.change': 'Change garage',
+  'garage.none': 'There are no garages on this account yet.',
+  'garage.live': 'Open',
+  'garage.notLive': 'Not open yet',
+
+  'home.lanes': 'Lanes',
+  'home.inside': 'Cars inside',
+
+  'lane.in': 'In',
+  'lane.out': 'Out',
+  'lane.workingNow': 'Working, heard from just now',
+  'lane.workingOne': 'Working, heard from a minute ago',
+  'lane.workingMany': 'Working, heard from {minutes} minutes ago',
+  'lane.quiet': 'Not heard from since {time}',
+  'lane.never': 'Never heard from',
+  'lane.noComputer': 'No lane computer yet',
+  'device.off': 'Disconnected {time}',
+
+  'lanes.none': 'This garage has no lanes yet.',
+  'lanes.lane': 'Lane',
+  'lanes.direction': 'In or out',
+  'lanes.computers': 'Lane computers',
+  'lanes.reader': 'Card reader',
+  'lanes.readerYes': 'Yes',
+  'lanes.readerNo': 'None',
+
+  'inside.countNone': 'No cars inside',
+  'inside.countOne': '1 car inside',
+  'inside.countMany': '{count} cars inside',
+  'inside.unconfirmedOne': '1 more was let in, but the lane could not confirm it drove in.',
+  'inside.unconfirmedMany': '{count} more were let in, but the lane could not confirm they drove in.',
+  'inside.empty': 'No cars are inside right now.',
+  'inside.plate': 'Plate',
+  'inside.ticket': 'Ticket',
+  'inside.cameIn': 'Came in',
+  'inside.lane': 'Lane',
+  'inside.confirmed': 'Confirmed inside',
+
+  'print.button': 'Print',
+  'print.printed': 'Printed {time}',
 };
