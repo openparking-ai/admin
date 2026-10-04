@@ -11,8 +11,14 @@
 // text. No cell is ever a formula: this file writes no <f> element at all.
 // Times are real date-time cells holding the GARAGE'S clock, with a numeric
 // format only, so no month name depends on the reader's Excel language.
+//
+// Every character of a name is kept as stored, controls too: the ones XML
+// cannot hold are written as Excel itself writes them (_x0007_), and Excel
+// reads them back as the character. A text longer than a cell holds (32,767
+// characters) is cut at that limit, and `cut` says so for the screen.
 
 import { strToU8, zipSync } from 'fflate';
+import { excelCell } from './text.js';
 
 export const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -26,10 +32,25 @@ const TIME = 2;
 const TITLE = 3;
 const WRAP = 4;
 
-// Characters XML 1.0 cannot hold at all. Shown as U+FFFD, never dropped unseen.
+// Characters XML 1.0 cannot hold at all.
 const NOT_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
-const escape = (text) =>
-  String(text).replace(NOT_XML, '�').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const xml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+/** For the file's own words (sheet names, formats): shown as U+FFFD, never dropped unseen. */
+const escape = (text) => xml(String(text).replace(NOT_XML, '�'));
+/**
+ * For a cell's text, every character kept: what XML cannot hold, and a carriage
+ * return (XML would read it back as a line break), is written _xHHHH_; a
+ * stored "_x0041_" is written _x005F_x0041_ so it is not read as "A".
+ * (Office Open XML, ECMA-376 Part 1, 22.4.2.4, ST_Xstring.)
+ */
+const hex = (ch) => `_x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}_`;
+const cellText = (text) =>
+  xml(
+    String(text)
+      .replace(/_(?=x[0-9A-Fa-f]{4}_)/g, '_x005F_')
+      .replace(NOT_XML, hex)
+      .replace(/\r/g, hex),
+  );
 
 /** A sheet's name: at most 31 characters, none of the ones Excel refuses. */
 const sheetName = (text) => [...String(text).replace(/[[\]:*?/\\]/g, '')].slice(0, 31).join('') || 'Sheet';
@@ -78,7 +99,7 @@ function sharedStrings() {
       return at.get(s);
     },
     xml() {
-      const items = list.map((s) => `<si><t xml:space="preserve">${escape(s)}</t></si>`).join('');
+      const items = list.map((s) => `<si><t xml:space="preserve">${cellText(s)}</t></si>`).join('');
       return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
         `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${list.length}" uniqueCount="${list.length}">${items}</sst>`
@@ -135,12 +156,18 @@ const contentTypes = (count) =>
 
 const widthOf = (texts) => Math.min(60, Math.max(10, ...texts.map((s) => [...String(s)].length + 2)));
 
-/** The list's sheet and the meanings sheet, as rows of cells. Exported for the checks. */
+/** The list's sheet and the meanings sheet, as rows of cells, and whether any text was cut. Exported for the checks. */
 export function sheets(file, meaningsTitle) {
-  const lines = file.lines.map((line, i) => [{ text: line, style: i === 0 ? TITLE : i === 1 ? BOLD : PLAIN }]);
+  let cut = false;
+  const fit = (text) => {
+    const made = excelCell(text);
+    cut ||= made.cut;
+    return made.text;
+  };
+  const lines = file.lines.map((line, i) => [{ text: fit(line), style: i === 0 ? TITLE : i === 1 ? BOLD : PLAIN }]);
   const heading = file.columns.map((c) => ({ text: c.name, style: BOLD }));
   const body = file.rows.map((cells) =>
-    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : { text: cell.text })),
+    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : { text: fit(cell.text) })),
   );
   const listRows = [...lines, [], heading, ...body, ...(file.empty ? [[{ text: file.empty }]] : [])];
   const listWidths = file.columns.map((c, i) =>
@@ -151,16 +178,17 @@ export function sheets(file, meaningsTitle) {
     [],
     ...file.columns.map((c) => [{ text: c.name, style: BOLD }, { text: c.about, style: WRAP }]),
   ];
-  return [
+  const all = [
     { name: sheetName(file.title), rows: listRows, widths: listWidths, frozenRows: lines.length + 2 },
     { name: sheetName(meaningsTitle), rows: meaningRows, widths: [widthOf(file.columns.map((c) => c.name)), 70] },
   ];
+  return { sheets: all, cut };
 }
 
-/** The .xlsx file's bytes. */
+/** The .xlsx file's bytes, and whether any text was cut at a cell's limit. */
 export function makeExcel(file, { language, meaningsTitle }) {
   const strings = sharedStrings();
-  const all = sheets(file, meaningsTitle);
+  const { sheets: all, cut } = sheets(file, meaningsTitle);
   const parts = {
     '[Content_Types].xml': contentTypes(all.length),
     '_rels/.rels': ROOT_RELS,
@@ -173,5 +201,5 @@ export function makeExcel(file, { language, meaningsTitle }) {
   });
   parts['xl/sharedStrings.xml'] = strings.xml();
   const files = Object.fromEntries(Object.entries(parts).map(([name, xml]) => [name, strToU8(xml)]));
-  return zipSync(files, { level: 6 });
+  return { bytes: zipSync(files, { level: 6 }), cut };
 }

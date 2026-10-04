@@ -175,6 +175,9 @@ export default {
   'download.reading': 'Getting the latest list…',
   'download.making': 'Making the file…',
   'download.missingLetters': 'The PDF could not show these letters: {letters}. The Excel file has them all.',
+  'download.missingMore': 'and {count} more',
+  'download.hiddenLeftOut': 'Some names held hidden characters that cannot be printed, so they were left out of the PDF; the Excel file holds them whole.',
+  'download.cutAtLimit': 'Some text was longer than an Excel cell can hold (32,767 characters), so the Excel file has it cut at that limit.',
 
   'file.downloaded': 'Downloaded {time}',
   'file.zone': 'Times are {zone}.',

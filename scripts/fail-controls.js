@@ -346,8 +346,8 @@ const CONTROLS = [
     check: 'U3-3 text stays text: a ticket written as a number',
     plant: {
       file: 'src/files/excel.js',
-      anchor: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : { text: cell.text })),',
-      with: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : /^\\d+$/.test(cell.text) ? { number: Number(cell.text) } : { text: cell.text })),',
+      anchor: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : { text: fit(cell.text) })),',
+      with: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : /^\\d+$/.test(cell.text) ? { number: Number(cell.text) } : { text: fit(cell.text) })),',
     },
     run: CHECK_FILES,
     names: ['FAIL 3 text stays text: inside xlsx (en): 3 of 4 come back as text', 'not text: 007'],
@@ -364,7 +364,7 @@ const CONTROLS = [
   },
   {
     check: 'U3-4 a letter the font cannot draw, dropped unseen',
-    plant: { file: 'src/files/pdf.js', anchor: '    for (const ch of String(text)) if (!drawable(ch)) missing.add(ch);', with: '    void text;' },
+    plant: { file: 'src/files/pdf.js', anchor: '    for (const ch of made.missing) missing.add(ch);\n', with: '' },
     run: CHECK_FILES,
     names: ['FAIL 4 a letter the font cannot draw is named, not dropped unseen: []'],
   },
@@ -372,7 +372,7 @@ const CONTROLS = [
     check: 'U3-5 the page break broken',
     plant: {
       file: 'src/files/pdf.js',
-      anchor: '      if (room < Math.min(tallest, 1) || (room < tallest && tallest * cellLead <= BOTTOM - MARGIN - 200)) {\n        newPage();\n        continue;\n      }\n      const take = Math.min(room, tallest);',
+      anchor: '      if (!fresh && (room < Math.min(tallest, 1) || (room < tallest && tallest * cellLead <= BOTTOM - MARGIN - 200))) {\n        newPage({ headings: true });\n        fresh = true;\n        continue;\n      }\n      const take = Math.max(1, Math.min(room, tallest));',
       with: '      const take = tallest;',
     },
     run: CHECK_FILES,
@@ -382,7 +382,7 @@ const CONTROLS = [
     check: 'U3-10 the file name not cleaned',
     plant: { file: 'src/files/model.js', anchor: "    String(text).replace(REFUSED_IN_NAMES, '')", with: '    String(text)' },
     run: CHECK_FILES,
-    names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - A/B:C*D?"E<F>|G'],
+    names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - 2026-03-10 1141 - A/B:C*D?"E<F>|G'],
   },
   {
     check: 'U3-12 a column left out of "What each column means", Excel',
@@ -396,7 +396,7 @@ const CONTROLS = [
   },
   {
     check: 'U3-12 a column left out of "What each column means", PDF',
-    plant: { file: 'src/files/pdf.js', anchor: '      for (const c of columns) paragraph(', with: '      for (const c of columns.slice(1)) paragraph(' },
+    plant: { file: 'src/files/pdf.js', anchor: '  for (const c of columns) paragraph(', with: '  for (const c of columns.slice(1)) paragraph(' },
     run: CHECK_FILES,
     names: ['FAIL 12 descriptions: inside pdf (en): page 1, under "What each column means", describes 4 of 5 columns'],
   },
@@ -427,6 +427,78 @@ const CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-first-load.js'],
     names: ['the PDF library (jsPDF), loaded with the first page'],
+  },
+  {
+    check: 'U3 fix F2 undone: a control character reaches the PDF maker',
+    plant: [
+      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ' ';", with: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ch;" },
+      { file: 'src/files/text.js', anchor: '    else if (CONTROL.test(ch)) hidden = true;', with: '    else if (CONTROL.test(ch)) out += ch;' },
+    ],
+    run: CHECK_FILES,
+    names: ['FAIL F2 a lane named "Gx<TAB>H2" prints as "Gx H2"; the PDF has "Gx": the text after <TAB> was lost', 'FAIL F2 a plate "TAB<TAB>999" prints as "TAB 999"; the PDF has "TAB"', 'FAIL odd text: plate × PDF'],
+  },
+  {
+    check: "U3 fix F3 undone: every page's top holds the whole name, and a row is tried again",
+    plant: [
+      { file: 'src/files/pdf.js', anchor: "    lines(shortName, 'bold', SIZE.garage);", with: "    lines(fullName, 'bold', SIZE.garage);" },
+      { file: 'src/files/pdf.js', anchor: '      if (!fresh && (room <', with: '      if ((room <' },
+    ],
+    run: CHECK_FILES,
+    names: ['FAIL F3 a garage name of 3,000 characters: the PDF is made within 5 s (not made in 5 s)'],
+  },
+  {
+    check: "U3 fix F3: a later page's name not cut to two lines",
+    plant: { file: 'src/files/pdf.js', anchor: 'const NAME_LINES = 2;', with: 'const NAME_LINES = 3;' },
+    run: CHECK_FILES,
+    names: ["FAIL odd text: garage name × PDF page tops", 'not cut to two lines with "…"'],
+  },
+  {
+    check: 'U3 fix: hidden characters left out of the PDF without a word',
+    plant: { file: 'src/files/pdf.js', anchor: '    hidden ||= made.hidden;', with: '    hidden ||= false;' },
+    run: CHECK_FILES,
+    names: ['FAIL F1/F2 the screen is told: hidden characters left out (false)', 'FAIL odd text: garage name × notice (PDF)'],
+  },
+  {
+    check: 'U3 fix F1: an invisible character named as a letter',
+    plant: { file: 'src/files/text.js', anchor: '    else if (INVISIBLE.test(ch)) hidden = true;', with: '    else if (INVISIBLE.test(ch)) missing.push(ch);' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: lane computer name × notice (PDF)', 'invisible named'],
+  },
+  {
+    check: 'U3 fix: a control character in Excel not kept as stored',
+    plant: { file: 'src/files/excel.js', anchor: '      .replace(NOT_XML, hex)', with: "      .replace(NOT_XML, '\\uFFFD')" },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: ticket × Excel', 'FAIL odd text: garage name × Excel'],
+  },
+  {
+    check: 'U3 fix: a stored "_x0041_" read back by Excel as "A"',
+    plant: { file: 'src/files/excel.js', anchor: "      .replace(/_(?=x[0-9A-Fa-f]{4}_)/g, '_x005F_')\n", with: '' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: plate × Excel'],
+  },
+  {
+    check: 'U3 fix: a text longer than an Excel cell holds, not cut',
+    plant: { file: 'src/files/text.js', anchor: '  if (s.length <= EXCEL_CELL_LIMIT) return', with: '  if (s.length <= Infinity) return' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: lane name × Excel', 'want'],
+  },
+  {
+    check: 'U3 fix: an Excel cell cut without a word',
+    plant: { file: 'src/files/excel.js', anchor: '    cut ||= made.cut;', with: '    cut ||= false;' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: garage name × notice (Excel)', 'cut told false, longest text 40000'],
+  },
+  {
+    check: "U3 fix: the PDF's title keeps invisible characters",
+    plant: { file: 'src/files/pdf.js', anchor: '  const titleName = [...visibleOnly(file.garage)];', with: '  const titleName = [...String(file.garage)];' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: garage name × PDF title'],
+  },
+  {
+    check: 'U3 fix: the garage name before the time in the file name',
+    plant: { file: 'src/files/model.js', anchor: "  return `${[title, stamp, name].filter(Boolean).join(' - ')}.${extension}`;", with: "  return `${[title, name, stamp].filter(Boolean).join(' - ')}.${extension}`;" },
+    run: CHECK_FILES,
+    names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - ABCDEFGH - 2026-03-10 1141.xlsx"', 'FAIL odd text: garage name × file name (pdf)'],
   },
 ];
 
@@ -758,6 +830,57 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: CHECK_DOWNLOADS,
     names: ["FAIL each file's address is let go after the save: 0 of"],
+  },
+  {
+    check: 'U3 fix F1: a lane computer name not kept apart on screen',
+    plant: { file: 'src/LanesPage.jsx', anchor: '                            <bdi>{d.name}</bdi>', with: '                            {d.name}' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL odd text: lane computer name × screen reads in order', 'drawn out of order', 'FAIL odd text: lane computer name × screen:'],
+  },
+  {
+    check: 'U3 fix F1: the letters the notice names not kept apart',
+    plant: { file: 'src/ListActions.jsx', anchor: '                <bdi data-letter>{shownLetter(ch)}</bdi>', with: '                <span data-letter>{shownLetter(ch)}</span>' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL odd text: garage name × notice (screen) words', 'letters kept apart false'],
+  },
+  {
+    check: "U3 fix F1: the notice's sentence laid out as separate boxes",
+    plant: [
+      { file: 'src/ListActions.jsx', anchor: '          <span>\n            {before}', with: '          <>\n            {before}' },
+      { file: 'src/ListActions.jsx', anchor: '            {after}\n          </span>', with: '            {after}\n          </>' },
+    ],
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL odd text: garage name × notice (screen) words', 'drawn out of order'],
+  },
+  {
+    check: 'U3 fix F2 undone, in the browser',
+    plant: [
+      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ' ';", with: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ch;" },
+      { file: 'src/files/text.js', anchor: '    else if (CONTROL.test(ch)) hidden = true;', with: '    else if (CONTROL.test(ch)) out += ch;' },
+    ],
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL F2 a lane named "Gx<TAB>H2": the PDF prints "Gx H2"', 'the text after the odd character was lost', 'FAIL odd text: lane name × PDF'],
+  },
+  {
+    check: 'U3 fix F3 undone, in the browser',
+    plant: [
+      { file: 'src/files/pdf.js', anchor: "    lines(shortName, 'bold', SIZE.garage);", with: "    lines(fullName, 'bold', SIZE.garage);" },
+      { file: 'src/files/pdf.js', anchor: '      if (!fresh && (room <', with: '      if ((room <' },
+    ],
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL F3 a garage name of 3,000 characters: Download PDF gives a file within 5 s of the click (none in 5 s)'],
+  },
+  {
+    check: 'U3 fix: the garage name before the time in the file name, as shown',
+    plant: { file: 'src/files/model.js', anchor: "  return `${[title, stamp, name].filter(Boolean).join(' - ')}.${extension}`;", with: "  return `${[title, name, stamp].filter(Boolean).join(' - ')}.${extension}`;" },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL odd text: garage name × file name (pdf) as shown', 'drawn before the'],
   },
 ];
 

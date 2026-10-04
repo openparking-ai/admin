@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
+import { PrintHead, ProblemNote, Stored, useGarageRead, usePrint } from './parts.jsx';
 import { InsideCounts } from './Home.jsx';
 import { garageTime } from './time.js';
 import FieldName from './FieldName.jsx';
@@ -48,10 +48,16 @@ export default function InsidePage({ t, language, client, garage }) {
           <tbody>
             {stays.map((s) => (
               <tr key={s.id} data-stay={s.id}>
-                <td>{[s.plate, s.plate_region].filter(Boolean).join(' · ') || '–'}</td>
-                <td>{s.ticket_ref || '–'}</td>
+                <td>
+                  <Stored parts={[s.plate, s.plate_region]} />
+                </td>
+                <td>
+                  <Stored parts={[s.ticket_ref]} />
+                </td>
                 <td data-time={s.entry_at}>{garageTime(s.entry_at, garage.timezone, language)}</td>
-                <td>{s.entry_lane}</td>
+                <td>
+                  <bdi>{s.entry_lane}</bdi>
+                </td>
                 <td>{s.entry_confirmation === 'confirmed' ? t('yes') : t('no')}</td>
               </tr>
             ))}

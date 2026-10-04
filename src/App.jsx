@@ -266,7 +266,9 @@ export default function App({ theme, storage, client }) {
             {garage ? (
               <span className="garage-current" data-garage={garage.id}>
                 <Icon name="garage" />
-                <span>{garage.name}</span>
+                <span>
+                  <bdi>{garage.name}</bdi>
+                </span>
               </span>
             ) : null}
             {garage && owner.garages.length > 1 ? (

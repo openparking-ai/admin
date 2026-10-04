@@ -155,7 +155,7 @@ const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;
 export const NAME_LIMIT = 120;
 
 /**
- * `{list title} - {garage name} - {YYYY-MM-DD HHmm in garage time}.{ext}`,
+ * `{list title} - {YYYY-MM-DD HHmm in garage time} - {garage name}.{ext}`,
  * with every character a computer refuses in a file name removed, and the
  * name capped at NAME_LIMIT characters before the extension.
  */
@@ -170,5 +170,8 @@ export function fileName(file, garage, readAt, extension) {
   // The garage's name gives way first, so the list and the time always fit.
   const room = Math.max(0, NAME_LIMIT - title.length - stamp.length - 6);
   const name = clean([...clean(garage.name)].slice(0, room).join(''));
-  return `${[title, name, stamp].filter(Boolean).join(' - ')}.${extension}`;
+  // The garage's name comes last: a name in a right-to-left script placed
+  // before the time would carry the time along with it on screen, drawn ahead
+  // of the name and with its parts reversed (U3 fix round, chat's decision).
+  return `${[title, stamp, name].filter(Boolean).join(' - ')}.${extension}`;
 }

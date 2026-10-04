@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Problem, STALE } from './api.js';
 import { ProblemNote } from './parts.jsx';
+import { invisible, shownLetter } from './files/text.js';
 
 // Each maker is its own file, loaded only when its button is clicked, so the
 // first page stays as light as it was.
@@ -12,6 +13,9 @@ const MAKERS = {
 // How long the saved file's address is held after the save starts. A browser
 // may still be reading it just after the click; then it is let go.
 export const RELEASE_MS = 1000;
+
+// The most letters the notice names; any more are counted.
+export const LETTERS_NAMED = 24;
 
 /** Hand the file to the browser to save, then let go of its address. */
 function save(blob, name) {
@@ -37,11 +41,16 @@ function save(blob, name) {
  * already sent the owner to the sign-in screen. If a sign-out or 401 happens
  * while a file is being made, or the page is left, the file is not saved.
  * While one is being made, none of the three can be pressed.
+ *
+ * Whatever a file left out is said under the buttons, in plain words: the
+ * letters the PDF's font cannot draw (only letters a person can see, each kept
+ * apart so it cannot turn the sentence around it), that hidden characters were
+ * left out of the PDF, or that a text was cut at an Excel cell's limit.
  */
 export default function ListActions({ t, list, language, garage, client, refresh, print }) {
   const [busy, setBusy] = useState(null); // { what, phase: 'reading' | 'making' }
   const [problem, setProblem] = useState(null);
-  const [missing, setMissing] = useState(null);
+  const [left, setLeft] = useState(null); // what the last file left out
   const here = useRef(true);
   const working = useRef(false);
   useEffect(() => {
@@ -55,7 +64,7 @@ export default function ListActions({ t, list, language, garage, client, refresh
     if (working.current) return;
     working.current = true;
     setProblem(null);
-    setMissing(null);
+    setLeft(null);
     setBusy({ what, phase: 'reading' });
     const asked = client.epoch();
     try {
@@ -76,7 +85,8 @@ export default function ListActions({ t, list, language, garage, client, refresh
       // Signed out, or the page left, while it was being made: nothing is saved.
       if (!here.current || client.epoch() !== asked) return;
       save(made.blob, made.name);
-      if (made.missing.length) setMissing(made.missing.join(' '));
+      const letters = made.missing.filter((ch) => !invisible(ch));
+      if (letters.length || made.hidden || made.cut) setLeft({ letters, hidden: made.hidden, cut: made.cut });
     } catch (thrown) {
       if (!here.current || thrown?.kind === STALE || thrown?.kind === 'ended') return;
       setProblem(thrown instanceof Problem ? thrown.kind : 'unexpected');
@@ -111,9 +121,42 @@ export default function ListActions({ t, list, language, garage, client, refresh
         {button('print', 'print.button')}
       </div>
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
-      {missing ? (
-        <p className="problem-note" role="status" data-notice="missing-letters">
-          {t('download.missingLetters', { letters: missing })}
+      {left ? <LeftOut t={t} left={left} /> : null}
+    </div>
+  );
+}
+
+/** What the last file left out, each in one plain sentence. */
+function LeftOut({ t, left }) {
+  const [before, after] = t('download.missingLetters').split('{letters}');
+  const named = left.letters.slice(0, LETTERS_NAMED);
+  const more = left.letters.length - named.length;
+  return (
+    <div role="status">
+      {named.length ? (
+        <p className="problem-note" data-notice="missing-letters">
+          {/* One piece of text, so the note's flex box wraps it as a sentence. */}
+          <span>
+            {before}
+            {named.map((ch, i) => (
+              <Fragment key={i}>
+                {i ? ' ' : null}
+                <bdi data-letter>{shownLetter(ch)}</bdi>
+              </Fragment>
+            ))}
+            {more ? <span data-more={more}>{` ${t('download.missingMore', { count: more })}`}</span> : null}
+            {after}
+          </span>
+        </p>
+      ) : null}
+      {left.hidden ? (
+        <p className="problem-note" data-notice="hidden-characters">
+          {t('download.hiddenLeftOut')}
+        </p>
+      ) : null}
+      {left.cut ? (
+        <p className="problem-note" data-notice="cut-at-limit">
+          {t('download.cutAtLimit')}
         </p>
       ) : null}
     </div>

@@ -19,9 +19,18 @@
 //      headings and "Page X of Y" on every page, every plate once, nothing
 //      off the page; a 60-character garage and lane name come back whole;
 //  10  the file name holds no character a computer refuses;
-//  12  every column's description, in both files, both languages.
+//  12  every column's description, in both files, both languages;
+//  F1-F3  the gate's cases (U3 fix round): a tab, vertical tab, form feed,
+//      DEL, NUL or BEL never cuts off the text after it; the check-10 garage
+//      prints its H and the screen is told hidden characters were left out;
+//      "Exit<TAB>2 West" and "TAB<TAB>999" print whole; garage names of 3,000
+//      and 8,000 characters make a PDF within 5 seconds;
+//  odd text  the class: every text the lists show x every case in
+//      scripts/files/odd-text.js x PDF, Excel, file name, PDF title and what
+//      the maker says it left out, both languages, both lists, 5 s a file.
 //
 //   node scripts/check-files.js           (FILES_PYTHON names the Python with the readers)
+//   node scripts/check-files.js --matrix FILE   ...and write every odd-text cell to FILE (JSON)
 
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,6 +41,9 @@ import { FILES, fileName } from '../src/files/model.js';
 import { TIME_FORMATS, makeExcel } from '../src/files/excel.js';
 import { makePdf } from '../src/files/pdf.js';
 import { PYTHON, count, garageClock as clockIn, plain, readBack, tableOf, zoneSaid as zoneIn } from './files/read-back.js';
+import { makeFile } from './files/make-file.js';
+import { FONT, listOf, oddTextFiles } from './files/odd-text-files.js';
+import { FILE_SECONDS, garageLines, pdfExpect } from './files/odd-text.js';
 import {
   GARAGE,
   LONG_NAME,
@@ -64,7 +76,7 @@ function build(list, format, { language, garage = GARAGE, data, readAt = READ_AT
   const file = FILES[list]({ t, language, garage, data, readAt });
   let bytes;
   let missing = [];
-  if (format === 'xlsx') bytes = makeExcel(file, { language, meaningsTitle: t('file.meanings') });
+  if (format === 'xlsx') ({ bytes } = makeExcel(file, { language, meaningsTitle: t('file.meanings') }));
   else ({ bytes, missing } = makePdf(file, { fonts: FONTS, meaningsTitle: t('file.meanings'), pageWords: (page, pages) => t('file.page', { page, pages }) }));
   const name = fileName(file, garage, readAt, format);
   const path = join(DIR, `${list}-${language}-${Math.random().toString(36).slice(2)}.${format}`);
@@ -201,10 +213,70 @@ try {
   const refused = /[/\\:*?"<>|\p{Cc}\p{Cf}]/u;
   for (const format of ['xlsx', 'pdf']) {
     const { name } = build('lanes', format, { language: 'en', garage: nasty, data: lanesData() });
-    check(!refused.test(name.slice(0, -format.length - 1)) && name === `Lanes and equipment - ABCDEFGH - 2026-03-10 1141.${format}`, `10 the file name (${format}): "${name}" holds none of / \\ : * ? " < > | or a control character`);
+    check(!refused.test(name.slice(0, -format.length - 1)) && name === `Lanes and equipment - 2026-03-10 1141 - ABCDEFGH.${format}`, `10 the file name (${format}): "${name}" holds none of / \\ : * ? " < > | or a control character`);
   }
   const { name: longName } = build('inside', 'pdf', { language: 'es', garage: { ...GARAGE, name: 'Ñ'.repeat(400) }, data: insideData() });
-  check(longName.length <= 125 && longName.endsWith(' - 2026-03-10 1141.pdf') && longName.startsWith('Carros adentro - '), `10 the file name: a 400-letter garage name is cut, the list and the time kept (${longName.length} characters)`);
+  check(longName.length <= 125 && longName.startsWith('Carros adentro - 2026-03-10 1141 - Ñ') && longName.endsWith('Ñ.pdf'), `10 the file name: a 400-letter garage name is cut, the list and the time kept (${longName.length} characters)`);
+
+  // ── F1-F3: the gate's cases, each read back from the PDF ───────────────────
+  const shown = (s) => JSON.stringify(s).slice(1, -1).replace(/\\t/g, '<TAB>');
+  const gateChars = { TAB: '\t', VT: '\v', FF: '\f', DEL: '\x7f', NUL: '\0', BEL: '\x07', LF: '\n', CR: '\r', NBSP: '\u00a0', 'U+2028': '\u2028', ZWJ: '\u200d', 'U+202E': '\u202e', '東': '東', '🚗': '🚗' };
+  // Each case in a file of its own, so no other lane can stand in for it.
+  const gateFile = async (tag, list, language, garage, rows) => {
+    const made = { path: join(DIR, `gate-${tag}.pdf`) };
+    Object.assign(made, await makeFile({ list, format: 'pdf', language, garage, data: listOf(list, rows, READ_AT), readAt: READ_AT, path: made.path }, FILE_SECONDS * 1000));
+    made.text = made.timedOut ? '' : plain(readBack([made.path])[made.path].pages.map((p) => p.text).join('\n'));
+    return made;
+  };
+  for (const [label, ch] of Object.entries(gateChars)) {
+    const made = await gateFile(`char-${[...label].map((c) => c.codePointAt(0)).join('')}`, 'lanes', 'en', GARAGE, [{ name: `Gx${ch}H2`, computer: 'Computadora' }]);
+    const want = plain(pdfExpect(`Gx${ch}H2`, FONT).text);
+    const lost = !made.text.includes(want);
+    check(!lost, `F2 a lane named "Gx<${label}>H2" prints as "${want}"${lost ? `; the PDF has "${made.text.match(/Gx\S*/g)?.join(' ') ?? ''}": the text after <${label}> was lost` : ''}`);
+  }
+  const exit = await gateFile('exit', 'lanes', 'es', GARAGE, [{ name: 'Exit\t2 West', computer: 'Computadora' }]);
+  check(exit.text.includes('Exit 2 West'), `F2 a lane named "${shown('Exit\t2 West')}" prints as "Exit 2 West"${exit.text.includes('Exit 2 West') ? '' : `; the PDF has "${exit.text.match(/Exit\S*/g)?.join(' ')}"`}`);
+  const check10 = { ...GARAGE, name: 'A/B:C*D?"E<F>|G\u0007\u202eH' };
+  const gateRows = Object.values(gateChars).map((ch) => ({ name: `Gx${ch}H2`, computer: 'Computadora' }));
+  const gatePdf = { path: join(DIR, 'gate-lanes.pdf') };
+  Object.assign(gatePdf, await makeFile({ list: 'lanes', format: 'pdf', language: 'en', garage: check10, data: listOf('lanes', gateRows, READ_AT), readAt: READ_AT, path: gatePdf.path }, FILE_SECONDS * 1000));
+  const tabPdf = { path: join(DIR, 'gate-tab.pdf') };
+  Object.assign(tabPdf, await makeFile({ list: 'inside', format: 'pdf', language: 'es', garage: GARAGE, data: listOf('inside', [{ plate: 'TAB\t999', region: null, ticket: null, lane: 'Entrada' }], READ_AT), readAt: READ_AT, path: tabPdf.path }, FILE_SECONDS * 1000));
+  const gateBack = readBack([gatePdf, tabPdf].filter((m) => !m.timedOut).map((m) => m.path));
+  const tabText = tabPdf.timedOut ? '' : plain(gateBack[tabPdf.path].pages.map((p) => p.text).join('\n'));
+  check(tabText.includes('TAB 999'), `F2 a plate "${shown('TAB\t999')}" prints as "TAB 999"${tabText.includes('TAB 999') ? '' : `; the PDF has "${tabText.match(/TAB\S*/g)?.join(' ')}"`}`);
+  const check10Name = gatePdf.timedOut ? '' : plain(garageLines(gateBack[gatePdf.path].pages).whole);
+  check(check10Name === 'A/B:C*D?"E<F>|GH', `F2 the check-10 garage prints as "A/B:C*D?"E<F>|GH", its H kept (prints "${check10Name}")`);
+  const named = (gatePdf.missing ?? []).map((ch) => `U+${ch.codePointAt(0).toString(16).toUpperCase()}`);
+  check(gatePdf.hidden === true && named.join(' ') === 'U+6771 U+1F697', `F1/F2 the screen is told: hidden characters left out (${gatePdf.hidden}); letters named only the visible ones the font lacks: ${named.join(' ') || 'none'}`);
+  for (const n of [3000, 8000]) {
+    const made = await makeFile({ list: 'inside', format: 'pdf', language: 'en', garage: { ...GARAGE, name: 'Ñ'.repeat(n) }, data: insideData(), readAt: READ_AT, path: join(DIR, `gate-${n}.pdf`) }, FILE_SECONDS * 1000);
+    check(!made.timedOut, `F3 a garage name of ${n.toLocaleString('en-US')} characters: the PDF is made within ${FILE_SECONDS} s (${made.timedOut ? `not made in ${FILE_SECONDS} s` : `${made.ms} ms`})`);
+  }
+
+  // ── The class: every text x every case x every output ─────────────────────
+  const cells = [];
+  await oddTextFiles({
+    dir: DIR,
+    readAt: READ_AT,
+    garage: GARAGE,
+    log: (line) => console.log(line),
+    cell: (text, output, id, ok, detail) => cells.push({ text, output, case: id, ok, detail }),
+  });
+  const groups = new Map();
+  for (const c of cells) {
+    const key = `${c.text} × ${c.output}`;
+    const g = groups.get(key) ?? { ok: 0, bad: [] };
+    if (c.ok) g.ok += 1;
+    else g.bad.push(c);
+    groups.set(key, g);
+  }
+  for (const [key, g] of groups) {
+    const cases = [...new Set(g.bad.map((c) => c.case))];
+    check(g.bad.length === 0, `odd text: ${key}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 8).join(', ')}${cases.length > 8 ? ` and ${cases.length - 8} more` : ''}: ${g.bad[0].detail}` : ''}`);
+  }
+  const matrixAt = process.argv.indexOf('--matrix');
+  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(cells, null, 1));
 } catch (error) {
   failures.push(`the check stopped: ${error.message.split('\n')[0]}`);
   console.error(error);

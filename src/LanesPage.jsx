@@ -44,7 +44,9 @@ export default function LanesPage({ t, language, client, garage }) {
           <tbody>
             {lanes.data.map((lane) => (
               <tr key={lane.id}>
-                <td>{lane.name}</td>
+                <td>
+                  <bdi>{lane.name}</bdi>
+                </td>
                 <td>{t(directionKey(lane))}</td>
                 <td>
                   {(lane.devices ?? []).length === 0 ? (
@@ -53,7 +55,9 @@ export default function LanesPage({ t, language, client, garage }) {
                     <ul className="device-list">
                       {lane.devices.map((d) => (
                         <li key={d.id} data-device={d.id}>
-                          <span className="device-name">{d.name}</span>{' '}
+                          <span className="device-name">
+                            <bdi>{d.name}</bdi>
+                          </span>{' '}
                           <span className="quiet">
                             {d.revoked_at
                               ? t('device.off', { time: garageTime(d.revoked_at, garage.timezone, language, now) })

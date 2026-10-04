@@ -10,14 +10,18 @@ import bold from './fonts/DMSans-Bold.ttf?inline';
 const binary = (dataAddress) => atob(dataAddress.slice(dataAddress.indexOf(',') + 1));
 let fonts = null;
 
-/** The PDF file of `list`, built from the read just made: { blob, name, missing }. */
+/**
+ * The PDF file of `list`, built from the read just made:
+ * { blob, name, missing, hidden, cut }: the letters the font could not draw,
+ * and whether hidden characters were left out.
+ */
 export function make(list, { t, language, garage, data, readAt }) {
   fonts ??= { regular: binary(regular), bold: binary(bold) };
   const file = FILES[list]({ t, language, garage, data, readAt });
-  const { bytes, missing } = makePdf(file, {
+  const { bytes, missing, hidden } = makePdf(file, {
     fonts,
     meaningsTitle: t('file.meanings'),
     pageWords: (page, pages) => t('file.page', { page, pages }),
   });
-  return { blob: new Blob([bytes], { type: MIME }), name: fileName(file, garage, readAt, 'pdf'), missing };
+  return { blob: new Blob([bytes], { type: MIME }), name: fileName(file, garage, readAt, 'pdf'), missing, hidden, cut: false };
 }

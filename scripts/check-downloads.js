@@ -28,12 +28,18 @@
 //  10  the file name holds no character a computer refuses;
 //  12  every column's description, in both files;
 //   and: one click makes one file, the button says what it is doing and
-//   cannot be pressed again meanwhile, and each file's address is let go.
+//   cannot be pressed again meanwhile, and each file's address is let go;
+//  F1-F3 and odd text (U3 fix round, scripts/files/odd-text-browser.js): the
+//   gate's cases and the whole class of odd stored text, through the screen,
+//   Print, both files, the file names and the notice, both languages, both
+//   lists, each file within 5 s of the click; nothing in a name turns the
+//   words around it on screen, and the notice names no invisible character.
 //
 //   node scripts/check-downloads.js               (run `npm run build` first)
 //   node scripts/check-downloads.js --keep DIR    ...and keep the files
+//   node scripts/check-downloads.js --matrix FILE ...and write every odd-text cell to FILE (JSON)
 
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +50,7 @@ import { LANE_QUIET_MINUTES } from '../src/settings.js';
 import { A_TEXT, startStub } from '../test/stub-platform.js';
 import { GARAGE, LONG_NAME, TEXT_CASES, insideData, lanesData, manyStays } from '../test/files-fixtures.js';
 import { PYTHON, count, garageClock, plain, readBack, tableOf, zoneSaid } from './files/read-back.js';
+import { oddTextWalk } from './files/odd-text-browser.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const keepAt = process.argv.indexOf('--keep');
@@ -225,6 +232,7 @@ let printed = null;
 let longFiles = null;
 let hugeFile = null;
 let nasty = null;
+const oddCells = [];
 
 try {
   const { context, page } = await open();
@@ -361,6 +369,11 @@ try {
   check(!freshHead.includes(asOf), `printed from the browser's menu just after the read: no "as of" line ("${freshHead}")`);
   check(says.some((x) => oldHead.includes(x)), `printed from the browser's menu a minute after the read: "${says[0]}" (the print head says "${oldHead}")`);
   await third.context.close();
+
+  // ── Odd stored text: the gate's cases, the class, F1 on screen ────────────
+  const oddDir = join(DIR, 'odd');
+  mkdirSync(oddDir);
+  await oddTextWalk({ browser, base, A, dir: oddDir, check, policyBroken, cell: (text, output, id, ok, detail) => oddCells.push({ text, output, case: id, ok, detail }) });
 } catch (error) {
   failures.push(`the walk stopped: ${error.message.split('\n')[0]}`);
   console.error(error);
@@ -436,7 +449,7 @@ try {
       const c = garageClock(t, TZ);
       return `${c.slice(0, 10)} ${c.slice(11, 13)}${c.slice(14, 16)}`;
     };
-    const wantNames = at(m.excel).map((t) => `${w[`page.${m.list}.title`]} - ${GARAGE.name.replace(/[?]/g, '')} - ${stamp(t)}.xlsx`);
+    const wantNames = at(m.excel).map((t) => `${w[`page.${m.list}.title`]} - ${stamp(t)} - ${GARAGE.name.replace(/[?]/g, '')}.xlsx`);
     check(wantNames.includes(m.excel.name), `10 the file name: ${where}: "${m.excel.name}"`);
 
     // 12
@@ -480,12 +493,31 @@ try {
   // 10
   if (nasty) {
     const refused = /[/\\:*?"<>|\p{Cc}\p{Cf}]/u;
-    check(nasty.every((n) => !refused.test(n) && /^Cars inside - ABCDEFGH - \d{4}-\d\d-\d\d \d{4}\.(xlsx|pdf)$/.test(n)), `10 a garage named A/B:C*D?"E<F>|G + a control character + H: ${nasty.map((n) => `"${n}"`).join(' and ')}`);
+    check(nasty.every((n) => !refused.test(n) && /^Cars inside - \d{4}-\d\d-\d\d \d{4} - ABCDEFGH\.(xlsx|pdf)$/.test(n)), `10 a garage named A/B:C*D?"E<F>|G + a control character + H: ${nasty.map((n) => `"${n}"`).join(' and ')}`);
   }
+
+  // The class: one line per text x output, every case in it.
+  const groups = new Map();
+  for (const c of oddCells) {
+    const key = `${c.text} × ${c.output}`;
+    const g = groups.get(key) ?? { ok: 0, bad: [] };
+    if (c.ok) g.ok += 1;
+    else g.bad.push(c);
+    groups.set(key, g);
+  }
+  for (const [key, g] of groups) {
+    const cases = [...new Set(g.bad.map((c) => c.case))];
+    check(g.bad.length === 0, `odd text: ${key}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 8).join(', ')}${cases.length > 8 ? ` and ${cases.length - 8} more` : ''}: ${g.bad[0].detail}` : ''}`);
+  }
+  check(oddCells.length > 0, `odd text: ${oddCells.length} cells judged in the browser`);
+  const matrixAt = process.argv.indexOf('--matrix');
+  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(oddCells, null, 1));
 
   if (KEEP) {
     mkdirSync(KEEP, { recursive: true });
     for (const d of downloads) copyFileSync(d.path, join(KEEP, `${d.tag} - ${d.name.replace(/[/\\]/g, '')}`));
+    mkdirSync(join(KEEP, 'odd'), { recursive: true });
+    for (const f of readdirSync(join(DIR, 'odd'))) copyFileSync(join(DIR, 'odd', f), join(KEEP, 'odd', f));
   }
 } catch (error) {
   failures.push(`reading the files back stopped: ${error.message.split('\n')[0]}`);

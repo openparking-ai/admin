@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { STALE, problemKey } from './api.js';
 import { garageDateTime } from './time.js';
@@ -15,7 +15,9 @@ export function GaragePicker({ t, garages, onChoose }) {
         {garages.map((g) => (
           <li key={g.id}>
             <button type="button" className="garage-choice" data-garage={g.id} onClick={() => onChoose(g.id)}>
-              <span className="garage-choice-name">{g.name}</span>
+              <span className="garage-choice-name">
+                <bdi>{g.name}</bdi>
+              </span>
               <span className="quiet">{g.live ? t('garage.live') : t('garage.notLive')}</span>
             </button>
           </li>
@@ -23,6 +25,22 @@ export function GaragePicker({ t, garages, onChoose }) {
       </ul>
     </section>
   );
+}
+
+/**
+ * Stored text (a plate and its region, a ticket), each part kept apart with
+ * <bdi> so nothing in it can turn the words around it; parts joined by " · ",
+ * and "–" when there is none.
+ */
+export function Stored({ parts }) {
+  const given = parts.filter(Boolean);
+  if (given.length === 0) return '–';
+  return given.map((part, i) => (
+    <Fragment key={i}>
+      {i ? ' · ' : null}
+      <bdi>{part}</bdi>
+    </Fragment>
+  ));
 }
 
 /** Something could not be shown. Words from the dictionaries only. */
@@ -117,7 +135,9 @@ export function PrintHead({ t, garage, language, printedAt, readAt }) {
   const old = readAt && printed - readAt >= AS_OF_MS;
   return (
     <div className="print-head">
-      <p className="print-garage">{garage.name}</p>
+      <p className="print-garage">
+        <bdi>{garage.name}</bdi>
+      </p>
       <p>{t('print.printed', { time: garageDateTime(printed, garage.timezone, language) })}</p>
       {old ? <p data-notice="as-of">{t('print.asOf', { time: garageDateTime(readAt, garage.timezone, language) })}</p> : null}
     </div>
