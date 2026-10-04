@@ -10,6 +10,7 @@
 //
 //   node scripts/fail-controls.js            the controls that need no browser
 //   node scripts/fail-controls.js --browser  the ones that do (each builds its copy)
+//   ... --only TEXT                          only the controls whose name holds TEXT
 //
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
@@ -745,6 +746,13 @@ const BROWSER_CONTROLS = [
     names: ['FAIL while busy, none of the three can be pressed', 'FAIL three clicks while one file was being made'],
   },
   {
+    check: "U3-6 printed from the browser's menu: no word of how old the list is",
+    plant: { file: 'src/parts.jsx', anchor: '  const old = readAt && printed - readAt >= AS_OF_MS;', with: '  const old = false;' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ["FAIL printed from the browser's menu a minute after the read"],
+  },
+  {
     check: "U3 the file's address kept after the save",
     plant: { file: 'src/ListActions.jsx', anchor: '  setTimeout(() => URL.revokeObjectURL(address), RELEASE_MS);\n', with: '' },
     before: BUILD,
@@ -777,7 +785,14 @@ const run = (dir, [cmd, ...args]) => {
   return { status: r.status, out: `${r.stdout}\n${r.stderr}` };
 };
 
-const controls = process.argv.includes('--browser') ? BROWSER_CONTROLS : CONTROLS;
+// --only TEXT runs just the controls whose name holds TEXT (for working on one).
+const onlyAt = process.argv.indexOf('--only');
+const only = onlyAt > 0 ? process.argv[onlyAt + 1] : null;
+const controls = (process.argv.includes('--browser') ? BROWSER_CONTROLS : CONTROLS).filter((c) => !only || c.check.includes(only));
+if (controls.length === 0) {
+  console.error(`no control's name holds "${only}"`);
+  process.exit(1);
+}
 const failures = [];
 for (const c of controls) {
   const dir = scratchCopy();

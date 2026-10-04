@@ -115,7 +115,7 @@ function stateAt(device, language, at) {
   return fill(w['file.working'], { time: shortTime(device.last_seen_at, language, at) });
 }
 
-async function open() {
+async function open({ clock = false } = {}) {
   const context = await browser.newContext({ locale: 'en-US', timezoneId: BROWSER_ZONE, acceptDownloads: true, viewport: { width: 1360, height: 860 } });
   context.on('request', (r) => requests.push(r.url()));
   context.on('console', (m) => {
@@ -150,6 +150,7 @@ async function open() {
   page.on('download', () => {
     saved += 1;
   });
+  if (clock) await page.clock.install();
   await page.goto(base);
   await page.waitForSelector('input[name="email"]');
   return { context, page };
@@ -337,6 +338,29 @@ try {
   const violations = await second.page.evaluate(() => window.__violations);
   policyBroken.push(...violations);
   await second.context.close();
+
+  // ── Printed from the browser's own menu: no read, so the page says how old the list is
+  A.open[HARBOR.id] = insideData().sessions;
+  HARBOR.name = GARAGE.name;
+  const third = await open({ clock: true });
+  await signInAndChoose(third.page);
+  await goTo(third.page, 'inside');
+  const readAt = await third.page.evaluate(() => Date.now());
+  const head = async () => {
+    await third.page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await third.page.emulateMedia({ media: 'print' });
+    const text = await third.page.evaluate(() => document.querySelector('.print-head').innerText);
+    await third.page.emulateMedia({ media: 'screen' });
+    return plain(text);
+  };
+  const asOf = WORDS.en['print.asOf'].split('{time}')[0];
+  const freshHead = await head();
+  await third.page.clock.fastForward(61_000);
+  const oldHead = await head();
+  const says = [readAt - 1000, readAt + 1000].map((t) => plain(fill(WORDS.en['print.asOf'], { time: fullTime(t, 'en') })));
+  check(!freshHead.includes(asOf), `printed from the browser's menu just after the read: no "as of" line ("${freshHead}")`);
+  check(says.some((x) => oldHead.includes(x)), `printed from the browser's menu a minute after the read: "${says[0]}" (the print head says "${oldHead}")`);
+  await third.context.close();
 } catch (error) {
   failures.push(`the walk stopped: ${error.message.split('\n')[0]}`);
   console.error(error);
