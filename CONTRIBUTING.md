@@ -45,6 +45,11 @@ one language and not the other, and technical words in either.
 they are served — fonts included — because a garage's computer may only reach
 its own network.
 
+**A name from outside this project.** No product, module or hostname from the
+maintainer's other, private software appears here — not in code, a comment, a
+document, a test, a fixture, a file's path or a commit message.
+`.github/scripts/check-no-sibling-names.js` enforces it in CI.
+
 **A test that has never been seen to fail.** If you add a control, show it
 failing when the thing it protects is removed. `npm run fail-controls` is the
 worked example.
