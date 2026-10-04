@@ -228,7 +228,7 @@ const CONTROLS = [
     check: "U2c-8 Home's descriptions say only what it shows",
     plant: {
       file: 'src/i18n/en.js',
-      anchor: "  'home.inside.about': 'Cars the sensors saw drive in that have not left yet.',",
+      anchor: "  'home.inside.about': 'Cars the sensors saw come in that are still inside, plus any not confirmed.',",
       with: "  'home.inside.about': 'Monthly and transient cars the sensors saw drive in.',",
     },
     run: ['node', 'scripts/check-home-claims.js'],
@@ -244,6 +244,74 @@ const CONTROLS = [
     },
     run: ['node', '--test', 'test/stub-matches-platform.test.js'],
     names: ['the stand-in differs from the platform at "sign-in"'],
+  },
+  {
+    check: 'U2c-fix F1 "Lane computers" says what the column holds',
+    // The first gate's finding put back: the description names one computer.
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "  'lanes.computers.about': 'Every computer this lane has had: how each is doing, or when access was cancelled.',",
+      with: "  'lanes.computers.about': 'The computer at this lane, and when it was last heard from.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['en lanes.computers.about says nothing of: several computers', 'en lanes.computers.about says nothing of: a cancelled computer'],
+  },
+  {
+    check: 'U2c-fix F2 a cancelled computer is not "no lane computer yet"',
+    // The first gate's finding put back: a lane with only cancelled computers is "yet".
+    plant: { file: 'src/lanes.js', anchor: "  if (cancelled.length === 0) return { state: 'none', text: t('lane.noComputer') };", with: "  return { state: 'none', text: t('lane.noComputer') };" },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['a lane whose only computer had its access cancelled says so, and when', 'it says the lane never had a computer'],
+  },
+  {
+    check: 'U2c-fix every state: Home\'s lanes description silent on a lane with no working computer',
+    plant: {
+      file: 'src/i18n/es.js',
+      anchor: "  'home.lanes.about': 'Cada carril, entrada o salida, y si alguna computadora suya funciona, o por qué no.',",
+      with: "  'home.lanes.about': 'Cada carril, de entrada o salida, y cuándo se comunicó su computadora por última vez.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['es home.lanes.about says nothing of: no working computer'],
+  },
+  {
+    check: 'U2c-fix every state: "no cars inside" beside one let in',
+    plant: { file: 'src/inside.js', anchor: "  else figure = unconfirmed > 0 ? t('inside.countNoneConfirmed') : t('inside.countNone');", with: "  else figure = t('inside.countNone');" },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['it says no cars are inside, beside one let in'],
+  },
+  {
+    check: 'U2c-fix every state: "came in" said of a car that was only let in',
+    plant: {
+      file: 'src/i18n/es.js',
+      anchor: "  'inside.cameIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',",
+      with: "  'inside.cameIn.about': 'Cuándo entró el carro, en la hora del garaje.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['es inside.cameIn.about says the car came in'],
+  },
+  {
+    check: 'U2c-fix O2 a chooser without its description',
+    plant: { file: 'src/App.jsx', anchor: '        <FieldName t={t} name="theme.label" />\n', with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['the top of every page (src/App.jsx:', 'a chooser with no description'],
+  },
+  {
+    check: 'U2c-fix O2 a chooser\'s description missing in one language',
+    plant: { file: 'src/i18n/es.js', anchor: "  'language.label.about': 'El idioma de estas páginas. Si ya entró, se guarda para la próxima vez.',\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: language.label.about (the top of every page): missing'],
+  },
+  {
+    check: 'U2c-fix O2 Quick Find without its description',
+    plant: { file: 'src/QuickFind.jsx', anchor: '          <FieldAbout t={t} name="quickFind.label" />\n', with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['Quick Find (src/QuickFind.jsx:', 'a typing box with no description'],
+  },
+  {
+    check: 'U2c-fix O2 the garage chooser without its description',
+    plant: { file: 'src/parts.jsx', anchor: '        <FieldName t={t} name="garage.choose" />', with: "        {t('garage.choose')}" },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['choosing a garage (src/parts.jsx:', 'the garage chooser with no description'],
   },
 ];
 
@@ -404,6 +472,43 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL descriptions, print (Cars inside) (en)', 'FAIL descriptions, print (Lanes and equipment) (en)'],
+  },
+  {
+    check: 'U2c-fix F2 a cancelled computer is not "no lane computer yet", on screen',
+    plant: { file: 'src/lanes.js', anchor: "  if (cancelled.length === 0) return { state: 'none', text: t('lane.noComputer') };", with: "  return { state: 'none', text: t('lane.noComputer') };" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Home: a lane whose only computer had its access cancelled says', 'FAIL Home in Spanish: the lane whose only computer was cancelled says'],
+  },
+  {
+    check: 'U2c-fix every state: "no cars inside" beside one let in, on screen',
+    plant: { file: 'src/inside.js', anchor: "  else figure = unconfirmed > 0 ? t('inside.countNoneConfirmed') : t('inside.countNone');", with: "  else figure = t('inside.countNone');" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Home: none confirmed but one let in says'],
+  },
+  {
+    check: 'U2c-fix O2 the choosers described, on screen',
+    // The choosers' descriptions hidden.
+    plant: { file: 'src/styles.css', anchor: '.chooser > .field-about {\n  max-width: 28ch;', with: '.chooser > .field-about {\n  display: none;\n  max-width: 28ch;' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Home (es)', '"Language": its description is not shown'],
+  },
+  {
+    check: 'U2c-fix O2 Quick Find described, on screen',
+    // The description moved above the typing line.
+    plant: [
+      { file: 'src/QuickFind.jsx', anchor: '        <p className="find-about">\n          <FieldAbout t={t} name="quickFind.label" />\n        </p>\n', with: '' },
+      {
+        file: 'src/QuickFind.jsx',
+        anchor: '        <div className="find-input-row">',
+        with: '        <p className="find-about">\n          <FieldAbout t={t} name="quickFind.label" />\n        </p>\n        <div className="find-input-row">',
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, Quick Find (en)', 'FAIL descriptions, Quick Find (es)', 'it is not under the typing line, inside the box'],
   },
 ];
 

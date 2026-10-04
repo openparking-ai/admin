@@ -67,6 +67,14 @@ export function owners(now = Date.now()) {
             ],
           },
           { id: 'la100000-0000-4000-8000-000000000003', name: 'Service Lane', direction: 'entry', reader: null, devices: [] },
+          {
+            id: 'la100000-0000-4000-8000-000000000004',
+            name: 'South Exit',
+            direction: 'exit',
+            reader: null,
+            // Its only computer had its access cancelled: 10:30 am in New York on 10 March 2026.
+            devices: [{ id: 'dv100000-0000-4000-8000-000000000005', name: 'Harbor south exit computer', last_seen_at: '2026-03-09T21:00:00Z', revoked_at: '2026-03-10T14:30:00Z' }],
+          },
         ],
         'a2000000-0000-4000-8000-000000000002': [],
       },

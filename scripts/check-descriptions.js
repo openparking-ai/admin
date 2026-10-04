@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 // Every field has a short description, in both languages.
 //
-// A field is anything a person reads or fills: a form field, a figure on
-// Home, a column of a list. On these screens each one is named through
+// A field is anything a person reads, fills or uses: a form field, a figure
+// on Home, a column of a list, a chooser (Language, Look, the garage) and a
+// typing box (Quick Find). On these screens each one is named through
 // <FieldName name="..." /> (src/FieldName.jsx), which draws the name and,
-// under it, `<name>.about`. This check reads every screen under src/ and
-// fails:
-//   - a list column (<th>), a form field (<label>) or a figure on Home (a
-//     section's title) that is NOT named through <FieldName>;
+// under it, `<name>.about`; a typing box whose name is already shown in its
+// own place has <FieldAbout name="..." /> under its typing line instead.
+// This check reads every screen under src/ and fails:
+//   - a list column (<th>), a form field (<label>), a figure on Home (a
+//     section's title) or the garage chooser's title that is NOT named
+//     through <FieldName>;
+//   - a chooser (<Segmented>) that is not inside a <div className="chooser">
+//     whose <FieldName> comes before it;
+//   - a typing box (<input>) that is neither inside a <label> with its
+//     <FieldName>, nor followed within TYPING_LINES lines by its <FieldAbout>;
 //   - a field whose `<name>.about` is missing or empty in either language;
 //   - a description longer than MAX_WORDS words, or the same as the name.
 // Each failure names the language, the field and its page.
@@ -20,6 +27,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DICTIONARIES, LANGUAGES } from '../src/i18n/index.js';
 
 export const MAX_WORDS = 15;
+// How far under a typing box its description may start, in source lines.
+export const TYPING_LINES = 5;
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 
@@ -30,7 +39,13 @@ const PAGE_OF = {
   'LanesPage.jsx': 'page.lanes.title',
   'InsidePage.jsx': 'page.inside.title',
 };
-const pageName = (file) => (PAGE_OF[file] ? DICTIONARIES.en[PAGE_OF[file]] : file);
+// Files drawn on more than one page: where on screen their fields are.
+const PLACE_OF = {
+  'App.jsx': 'the top of every page',
+  'QuickFind.jsx': 'Quick Find',
+  'parts.jsx': 'choosing a garage',
+};
+const pageName = (file) => (PAGE_OF[file] ? DICTIONARIES.en[PAGE_OF[file]] : (PLACE_OF[file] ?? file));
 
 const words = (text) => String(text).trim().split(/\s+/).filter(Boolean);
 
@@ -59,16 +74,37 @@ export function readScreens(files) {
   const unnamed = [];
   for (const { file, source } of files) {
     const page = pageName(file);
-    for (const m of source.matchAll(/<FieldName\b[^>]*\bname="([\w.]+)"/g)) fields.push({ key: m[1], page, file });
+    for (const m of source.matchAll(/<Field(?:Name|About)\b[^>]*\bname="([\w.]+)"/g)) fields.push({ key: m[1], page, file });
+    const labels = blocks(source, '<label[\\s>]', '</label>');
     const kinds = [
       ['a list column', blocks(source, '<th[\\s>]', '</th>')],
-      ['a form field', blocks(source, '<label[\\s>]', '</label>')],
+      ['a form field', labels],
       // A figure on Home: each section's title.
       ...(file === 'Home.jsx' ? [['a figure on Home', blocks(source, '<h2 className="section-title"', '</h2>')]] : []),
+      // The garage chooser: its title.
+      ...(file === 'parts.jsx' ? [['the garage chooser', blocks(source, '<h2 className="section-title"', '</h2>')]] : []),
     ];
     for (const [kind, found] of kinds) {
       for (const b of found) {
         if (!/<FieldName\b/.test(b.text)) unnamed.push(`${page} (src/${file}:${b.line}): ${kind} with no description: ${b.text.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+    const lineAt = (index) => source.slice(0, index).split('\n').length;
+    // A chooser: inside <div className="chooser">, its <FieldName> before it.
+    for (const m of source.matchAll(/<Segmented\b/g)) {
+      const opened = source.lastIndexOf('<div className="chooser"', m.index);
+      const between = opened === -1 ? '' : source.slice(opened, m.index);
+      if (opened === -1 || between.includes('</div>') || !/<FieldName\b/.test(between)) {
+        unnamed.push(`${page} (src/${file}:${lineAt(m.index)}): a chooser with no description: no <FieldName> before it in its <div className="chooser">`);
+      }
+    }
+    // A typing box: in a <label> with its <FieldName>, or its <FieldAbout> just under it.
+    for (const m of source.matchAll(/<input\b/g)) {
+      if (labels.some((b) => source.indexOf(b.text) <= m.index && m.index < source.indexOf(b.text) + b.text.length)) continue;
+      const closed = source.indexOf('/>', m.index);
+      const after = source.slice(closed).split('\n').slice(0, TYPING_LINES + 1).join('\n');
+      if (!/<FieldAbout\b|<FieldName\b/.test(after)) {
+        unnamed.push(`${page} (src/${file}:${lineAt(m.index)}): a typing box with no description: none in the ${TYPING_LINES} lines under it`);
       }
     }
   }
@@ -105,7 +141,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   }
   const pages = [...new Set(fields.map((f) => f.page))];
   console.log(
-    `descriptions — ${fields.length} fields on ${pages.length} pages (${pages.join(', ')}), each described in ` +
-      `${LANGUAGES.join(' and ')} in at most ${MAX_WORDS} words; every list column, form field and Home figure is named with its description.`,
+    `descriptions — ${fields.length} fields in ${pages.length} places (${pages.join(', ')}), each described in ` +
+      `${LANGUAGES.join(' and ')} in at most ${MAX_WORDS} words; every list column, form field, Home figure, chooser and typing box has its description.`,
   );
 }

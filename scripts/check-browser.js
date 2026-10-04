@@ -212,6 +212,71 @@ async function until(fn) {
 }
 
 /**
+ * The two choosers at the top, Language and Look: each shows its name, its
+ * description directly under the name, word for word, and its choices under
+ * that; and no chooser on the page is without them.
+ */
+async function checkChoosers(page, where, language) {
+  const words = language === 'es' ? ES : EN;
+  const found = await page.evaluate(() => {
+    const shown = (e) => {
+      const s = getComputedStyle(e);
+      const r = e.getBoundingClientRect();
+      return Boolean(e) && s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && r.width > 0 && r.height > 0;
+    };
+    return {
+      choosers: ['language', 'theme'].map((c) => {
+        const box = document.querySelector(`[data-chooser="${c}"]`);
+        const name = box?.querySelector(':scope > .field-name');
+        const about = box?.querySelector(':scope > .field-about');
+        const choices = box?.querySelector(':scope > [role="radiogroup"]');
+        if (!name || !about || !choices) return { c, missing: true };
+        const [n, a, k] = [name, about, choices].map((e) => e.getBoundingClientRect());
+        return { c, name: name.textContent.trim(), about: about.textContent.trim(), shown: shown(name) && shown(about), under: a.top >= n.bottom - 1 && k.top >= a.bottom - 1 };
+      }),
+      loose: [...document.querySelectorAll('[role="radiogroup"]')].filter((g) => !g.parentElement?.matches('.chooser')).length,
+    };
+  });
+  const wrong = [];
+  for (const f of found.choosers) {
+    const key = `${f.c}.label`;
+    if (f.missing) {
+      wrong.push(`${f.c}: no name, description or choices in its place`);
+      continue;
+    }
+    if (f.name !== words[key]) wrong.push(`${f.c}: named "${f.name}", not "${words[key]}"`);
+    if (!f.shown) wrong.push(`"${f.name}": its description is not shown`);
+    else if (!f.under) wrong.push(`"${f.name}": its description is not under its name, above its choices`);
+    if (f.about !== words[`${key}.about`]) wrong.push(`"${f.name}": says "${f.about}", not "${words[`${key}.about`]}"`);
+  }
+  if (found.loose) wrong.push(`${found.loose} chooser(s) with no name or description`);
+  check(wrong.length === 0, `descriptions, the choosers, ${where} (${language}): Language and Look each described under its name${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
+}
+
+/** Quick Find, open: its description inside the box, under the typing line, word for word. */
+async function checkQuickFindDescribed(page, language) {
+  const words = language === 'es' ? ES : EN;
+  const found = await page.evaluate(() => {
+    const about = document.querySelector('.find-dialog [data-about="quickFind.label"]');
+    const row = document.querySelector('.find-dialog .find-input-row');
+    const box = document.querySelector('.find-dialog');
+    if (!about || !row || !box) return null;
+    const s = getComputedStyle(about);
+    const [a, r, b] = [about, row, box].map((e) => e.getBoundingClientRect());
+    return {
+      text: about.textContent.trim(),
+      shown: s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && a.width > 0 && a.height > 0,
+      under: a.top >= r.bottom - 1 && a.bottom <= b.bottom && a.left >= b.left && a.right <= b.right,
+    };
+  });
+  const want = words['quickFind.label.about'];
+  const wrong = !found
+    ? ['no description in the box']
+    : [!found.shown && 'it is not shown', found.shown && !found.under && 'it is not under the typing line, inside the box', found.text !== want && `it says "${found.text}", not "${want}"`].filter(Boolean);
+  check(wrong.length === 0, `descriptions, Quick Find (${language}): "${want}" under the typing line${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
+}
+
+/**
  * Every field on screen has its description directly under its name: shown
  * (not hidden, not empty, not behind a pointer), in the language on screen,
  * word for word from the dictionary. `expected` is how many fields the page
@@ -226,7 +291,7 @@ async function checkDescribed(page, where, language, expected) {
       return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && r.width > 0 && r.height > 0;
     };
     return {
-      fields: [...document.querySelectorAll('.field-about')].map((about) => {
+      fields: [...document.querySelectorAll('main .field-about')].map((about) => {
         const name = about.previousElementSibling;
         const n = name?.getBoundingClientRect();
         const a = about.getBoundingClientRect();
@@ -239,7 +304,7 @@ async function checkDescribed(page, where, language, expected) {
         };
       }),
       // textContent, not innerText: a column's name is drawn in capitals, and the check names it as written.
-      bare: [...document.querySelectorAll('th, label')].filter((e) => !e.querySelector('.field-about')).map((e) => e.textContent.trim()),
+      bare: [...document.querySelectorAll('main th, main label')].filter((e) => !e.querySelector('.field-about')).map((e) => e.textContent.trim()),
     };
   });
   const wrong = [];
@@ -267,9 +332,11 @@ try {
   check(fonts.includes('JetBrains Mono'), 'the figures and labels font is loaded from the site itself');
   check((await page.getAttribute('html', 'lang')) === 'en', 'first visit from an English browser is in English');
   await checkDescribed(page, 'sign-in', 'en', 2);
+  await checkChoosers(page, 'sign-in', 'en');
   await page.click('[data-control="language"] [data-value="es"]');
   await showsHeading(page, ES['signIn.title']);
   await checkDescribed(page, 'sign-in', 'es', 2);
+  await checkChoosers(page, 'sign-in', 'es');
   await page.click('[data-control="language"] [data-value="en"]');
   await showsHeading(page, EN['signIn.title']);
   if (SCREENS) {
@@ -293,6 +360,8 @@ try {
   // ── Signing in, picking a garage, Home ──────────────────────────────────
   await signIn(page, A);
   check(await showsText(page, EN['garage.choose']), 'an owner with two garages is asked which one');
+  await checkDescribed(page, 'choosing a garage', 'en', 1);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'choose-a-garage-english.png') });
   check((await page.inputValue('input[name="password"]').catch(() => '')) === '', 'and the password is gone with the form');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   check(await showsText(page, EN['inside.countMany'].replace('{count}', '2')), 'Home: the cars-inside count the platform returned (2)');
@@ -302,6 +371,13 @@ try {
   const quiet = EN['lane.quiet'].replace('{time}', inZone('2026-03-10T19:40:00Z', 'America/New_York', 'en'));
   check(home.includes(quiet), `Home: "${quiet}", in the garage's time`);
   check(home.includes(EN['lane.noComputer']), 'Home: a lane with no lane computer says so');
+  const laneSays = (p, name) =>
+    p.evaluate((n) => [...document.querySelectorAll('.lane-row')].find((r) => r.querySelector('.lane-name')?.textContent === n)?.querySelector('.lane-state')?.textContent ?? null, name);
+  const southEn = EN['lane.cancelledOne'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'en'));
+  const southSaysEn = await laneSays(page, 'South Exit');
+  check(southSaysEn === southEn, `Home: a lane whose only computer had its access cancelled says "${southEn}" (it says "${southSaysEn}")`);
+  check(await laneSays(page, 'Service Lane') === EN['lane.noComputer'], `Home: "${EN['lane.noComputer']}" only for the lane that never had one`);
+  await checkChoosers(page, 'Home', 'en');
   const homeLower = home.toLowerCase();
   check(homeLower.includes(EN['lane.in'].toLowerCase()) && homeLower.includes(EN['lane.out'].toLowerCase()), 'Home: each lane is in or out');
   const kinds = ['garage pass', 'monthly', 'transient'];
@@ -330,6 +406,8 @@ try {
   const cancelled = EN['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'en'));
   check(lanes.includes(cancelled), `${LANES_TITLE}: "${cancelled}", a lane computer whose access was cancelled, in garage time`);
   check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), `${LANES_TITLE}: which lanes have a card reader`);
+  const southCancelled = EN['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'en'));
+  check(lanes.includes('Harbor south exit computer') && lanes.includes(southCancelled), `${LANES_TITLE}: the lane whose only computer was cancelled lists it, "${southCancelled}"`);
   await checkDescribed(page, LANES_TITLE, 'en', 4);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-english.png'), fullPage: true });
   await checkPrint(page, LANES_TITLE, A.garages[0]);
@@ -385,10 +463,30 @@ try {
   await page.click('[data-action="change-garage"]');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
 
+  // ── No car confirmed inside, but one let in: never "no cars" ────────────
+  // The platform's answer for that state, once, from the stand-in's own stay.
+  const letInOnly = A.open[A.garages[0].id].filter((s) => s.entry_confirmation !== 'confirmed');
+  await page.click('.nav-item[href="#/cars-inside"]');
+  await showsText(page, 'HRB4410');
+  await page.route(
+    '**/api/v1/garages/*/sessions/open',
+    (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ inside_count: 0, unconfirmable_count: letInOnly.length, open_count: letInOnly.length, sessions: letInOnly }) }),
+    { times: 1 },
+  );
+  await page.click('.nav-item[href="#/"]');
+  const noneConfirmed = await settles(
+    page,
+    ([figure, more]) => document.querySelector('[data-figure="inside"]')?.textContent === figure && document.querySelector('[data-figure="unconfirmed"]')?.textContent === more,
+    [EN['inside.countNoneConfirmed'], EN['inside.unconfirmedOne']],
+  );
+  check(noneConfirmed, `Home: none confirmed but one let in says "${EN['inside.countNoneConfirmed']}", then "${EN['inside.unconfirmedOne']}" (it says "${await page.textContent('[data-figure="inside"]').catch(() => '')}")`);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-none-confirmed-english.png') });
+
   // ── Quick Find, by keyboard ──────────────────────────────────────────────
   await page.keyboard.press('Control+K');
   check(await page.isVisible('.find-dialog'), 'Ctrl+K opens Quick Find');
   check(await page.evaluate(() => document.activeElement?.classList.contains('find-input')), 'the typing goes straight into it');
+  await checkQuickFindDescribed(page, 'en');
   if (SCREENS) {
     await page.keyboard.type('ra');
     await page.screenshot({ path: join(SCREENS, 'quick-find-open-english.png') });
@@ -429,11 +527,20 @@ try {
   check(homeEs.includes(ES['lane.quiet'].replace('{time}', inZone('2026-03-10T19:40:00Z', 'America/New_York', 'es')).toLowerCase()), 'Home in Spanish: the quiet lane, in garage time');
   check(await until(() => A.language === 'es'), `choosing Español while signed in keeps it on the owner's profile (the stand-in holds "${A.language}")`);
   await checkDescribed(page, 'Home', 'es', 2);
+  await checkChoosers(page, 'Home', 'es');
+  const southEs = ES['lane.cancelledOne'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'));
+  const southSaysEs = await laneSays(page, 'South Exit');
+  check(southSaysEs === southEs, `Home in Spanish: the lane whose only computer was cancelled says "${southEs}" (it says "${southSaysEs}")`);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-spanish.png') });
+  await page.keyboard.press('Control+K');
+  await checkQuickFindDescribed(page, 'es');
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'quick-find-spanish.png') });
+  await page.keyboard.press('Escape');
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
   await checkDescribed(page, ES['page.lanes.title'], 'es', 4);
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'es'))), 'Carriles y equipos: the cancelled computer, in Spanish');
+  check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'))), "Carriles y equipos: the lane whose only computer was cancelled, in Spanish");
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-spanish.png'), fullPage: true });
   await page.click('.nav-item[href="#/cars-inside"]');
   await showsText(page, 'HRB4410');

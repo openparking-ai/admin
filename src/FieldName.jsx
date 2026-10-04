@@ -17,3 +17,16 @@ export default function FieldName({ t, name }) {
     </>
   );
 }
+
+/**
+ * A field's description alone, for a field whose name is already on screen
+ * in its own place: Quick Find's, under its typing line. Checked as a field
+ * by scripts/check-descriptions.js, the same as <FieldName>.
+ */
+export function FieldAbout({ t, name }) {
+  return (
+    <span className="field-about" data-about={name}>
+      {t(`${name}.about`)}
+    </span>
+  );
+}

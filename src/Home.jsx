@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { ProblemNote, useGarageRead, useNow } from './parts.jsx';
 import { directionKey, laneWords } from './lanes.js';
+import { insideWords } from './inside.js';
 import FieldName from './FieldName.jsx';
 
 /**
@@ -62,16 +63,15 @@ export default function Home({ t, language, client, garage }) {
 
 /** The platform's own figures: cars confirmed inside, and the open ones it could not confirm. */
 export function InsideCounts({ t, data }) {
-  const count = Number(data.inside_count) || 0;
-  const unconfirmed = Number(data.unconfirmable_count) || 0;
+  const { figure, more } = insideWords(t, data);
   return (
     <div className="inside-counts">
       <p className="figure" data-figure="inside">
-        {count === 0 ? t('inside.countNone') : count === 1 ? t('inside.countOne') : t('inside.countMany', { count })}
+        {figure}
       </p>
-      {unconfirmed > 0 ? (
+      {more ? (
         <p className="quiet" data-figure="unconfirmed">
-          {unconfirmed === 1 ? t('inside.unconfirmedOne') : t('inside.unconfirmedMany', { count: unconfirmed })}
+          {more}
         </p>
       ) : null}
     </div>

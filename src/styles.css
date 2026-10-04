@@ -220,9 +220,10 @@ ul {
 }
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 16px 28px;
   background: var(--bg-page);
   border-bottom: 1px solid var(--border-1);
@@ -232,8 +233,29 @@ ul {
 }
 .topbar-controls {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-left: auto;
+}
+/* A chooser: its name, its description under it, then its choices. */
+.chooser {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chooser > .field-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.chooser > .field-about {
+  max-width: 28ch;
+  margin-top: 0;
+}
+.chooser > .segmented {
+  align-self: flex-start;
 }
 .content {
   padding: 28px 28px 60px;
@@ -298,7 +320,10 @@ ul {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  width: 360px;
+  /* Narrower before it wraps its words: the choosers beside it carry descriptions now. */
+  flex: 0 1 360px;
+  min-width: 220px;
+  white-space: nowrap;
   padding: 9px 10px 9px 14px;
   border-radius: 999px;
   border: 1px solid var(--border-2);
@@ -365,6 +390,15 @@ ul {
 }
 .find-input::placeholder {
   color: var(--text-secondary);
+}
+/* Quick Find's description, under the typing line. */
+.find-about {
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border-1);
+}
+.find-about .field-about {
+  max-width: none;
+  margin-top: 0;
 }
 .find-results {
   max-height: 52vh;
@@ -582,6 +616,7 @@ ul {
   margin-left: auto;
 }
 .dot {
+  flex-shrink: 0;
   width: 9px;
   height: 9px;
   border-radius: 50%;

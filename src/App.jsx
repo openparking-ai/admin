@@ -10,6 +10,7 @@ import Logo from './Logo.jsx';
 import SignIn from './SignIn.jsx';
 import { GaragePicker, ProblemNote } from './parts.jsx';
 import Home from './Home.jsx';
+import FieldName from './FieldName.jsx';
 import LanesPage from './LanesPage.jsx';
 import InsidePage from './InsidePage.jsx';
 
@@ -164,25 +165,31 @@ export default function App({ theme, storage, client }) {
 
   const controls = (
     <div className="topbar-controls">
-      <Segmented
-        label={t('language.label')}
-        value={language}
-        options={['en', 'es'].map((l) => ({ value: l, text: t(`language.${l}`) }))}
-        onChange={chooseLanguage}
-        name="language"
-      />
-      <Segmented
-        label={t('theme.label')}
-        value={themeChoice}
-        options={THEME_CHOICES.map((c) => ({
-          value: c,
-          text: t(`theme.${c}`),
-          icon: c,
-          hint: c === 'auto' ? t('theme.autoHint') : undefined,
-        }))}
-        onChange={chooseTheme}
-        name="theme"
-      />
+      <div className="chooser" data-chooser="language">
+        <FieldName t={t} name="language.label" />
+        <Segmented
+          label={t('language.label')}
+          value={language}
+          options={['en', 'es'].map((l) => ({ value: l, text: t(`language.${l}`) }))}
+          onChange={chooseLanguage}
+          name="language"
+        />
+      </div>
+      <div className="chooser" data-chooser="theme">
+        <FieldName t={t} name="theme.label" />
+        <Segmented
+          label={t('theme.label')}
+          value={themeChoice}
+          options={THEME_CHOICES.map((c) => ({
+            value: c,
+            text: t(`theme.${c}`),
+            icon: c,
+            hint: c === 'auto' ? t('theme.autoHint') : undefined,
+          }))}
+          onChange={chooseTheme}
+          name="theme"
+        />
+      </div>
     </div>
   );
 

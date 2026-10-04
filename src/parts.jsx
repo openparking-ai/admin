@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { STALE, problemKey } from './api.js';
 import { garageDateTime } from './time.js';
+import FieldName from './FieldName.jsx';
 
 /** Several garages: a plain list to pick from. */
 export function GaragePicker({ t, garages, onChoose }) {
   return (
     <section className="panel">
-      <h2 className="section-title">{t('garage.choose')}</h2>
+      <h2 className="section-title">
+        <FieldName t={t} name="garage.choose" />
+      </h2>
       <ul className="garage-list">
         {garages.map((g) => (
           <li key={g.id}>
