@@ -23,6 +23,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const LEAVE_OUT = new Set(['node_modules', '.git', 'dist', '.screens', 'test-results']);
 
+const CHECK_FILES = ['node', 'scripts/check-files.js'];
+const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
+const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
+
 const CONTROLS = [
   {
     check: '1 no tech language',
@@ -313,6 +317,116 @@ const CONTROLS = [
     run: ['node', 'scripts/check-descriptions.js'],
     names: ['choosing a garage (src/parts.jsx:', 'the garage chooser with no description'],
   },
+  {
+    check: 'U3-1 the file is the list: a row dropped from the Excel file',
+    plant: { file: 'src/files/excel.js', anchor: '  const body = file.rows.map((cells) =>', with: '  const body = file.rows.slice(1).map((cells) =>' },
+    run: CHECK_FILES,
+    names: ['FAIL 1 the file is the list: inside xlsx (en): 3 rows read back of the list\'s 4'],
+  },
+  {
+    check: 'U3-1 the file is the list: a row dropped from the PDF',
+    plant: { file: 'src/files/pdf.js', anchor: '  for (const row of file.rows) {', with: '  for (const row of file.rows.slice(1)) {' },
+    run: CHECK_FILES,
+    names: ['FAIL 1 the file is the list: inside pdf (en): 2 of 3 plates on a page exactly once', 'not once: HRB4410 · FL'],
+  },
+  {
+    check: "U3-2 garage time: the computer's zone used for a time cell",
+    plant: { file: 'src/files/model.js', anchor: "  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n", with: "  const parts = new Intl.DateTimeFormat('en-US', {\n" },
+    run: CHECK_FILES,
+    names: ['FAIL 2 garage time: inside xlsx (en): before and after the clock change, 2026-03-08 15:30:00 and 2026-03-08 16:30:00'],
+  },
+  {
+    check: "U3-2 garage time: the zone sentence names the computer's zone",
+    plant: { file: 'src/files/model.js', anchor: "{ timeZone, timeZoneName: 'longGeneric' }", with: "{ timeZoneName: 'longGeneric' }" },
+    run: CHECK_FILES,
+    names: ['FAIL 2 garage time: inside xlsx (en): the zone sentence "Times are Eastern Time."', 'Times are Japan Standard Time.'],
+  },
+  {
+    check: 'U3-3 text stays text: a ticket written as a number',
+    plant: {
+      file: 'src/files/excel.js',
+      anchor: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : { text: cell.text })),',
+      with: '    cells.map((cell) => (cell.wall ? { number: excelDay(cell.wall), style: TIME } : /^\\d+$/.test(cell.text) ? { number: Number(cell.text) } : { text: cell.text })),',
+    },
+    run: CHECK_FILES,
+    names: ['FAIL 3 text stays text: inside xlsx (en): 3 of 4 come back as text', 'not text: 007'],
+  },
+  {
+    check: 'U3-3 text stays text: "=1+1" written as a formula',
+    plant: {
+      file: 'src/files/excel.js',
+      anchor: '      if (cell.number !== undefined)',
+      with: "      if (String(cell.text).startsWith('=')) return `<c r=\"${ref}\"><f>${escape(cell.text.slice(1))}</f></c>`;\n      if (cell.number !== undefined)",
+    },
+    run: CHECK_FILES,
+    names: ['FAIL 3 text stays text: inside xlsx (en)', 'formulas in the workbook: 1'],
+  },
+  {
+    check: 'U3-4 a letter the font cannot draw, dropped unseen',
+    plant: { file: 'src/files/pdf.js', anchor: '    for (const ch of String(text)) if (!drawable(ch)) missing.add(ch);', with: '    void text;' },
+    run: CHECK_FILES,
+    names: ['FAIL 4 a letter the font cannot draw is named, not dropped unseen: []'],
+  },
+  {
+    check: 'U3-5 the page break broken',
+    plant: {
+      file: 'src/files/pdf.js',
+      anchor: '      if (room < Math.min(tallest, 1) || (room < tallest && tallest * cellLead <= BOTTOM - MARGIN - 200)) {\n        newPage();\n        continue;\n      }\n      const take = Math.min(room, tallest);',
+      with: '      const take = tallest;',
+    },
+    run: CHECK_FILES,
+    names: ['FAIL 5 a long list (en): 250 stays run to 1 pages', 'FAIL 5 a long list (en):', 'text off the page: '],
+  },
+  {
+    check: 'U3-10 the file name not cleaned',
+    plant: { file: 'src/files/model.js', anchor: "    String(text).replace(REFUSED_IN_NAMES, '')", with: '    String(text)' },
+    run: CHECK_FILES,
+    names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - A/B:C*D?"E<F>|G'],
+  },
+  {
+    check: 'U3-12 a column left out of "What each column means", Excel',
+    plant: {
+      file: 'src/files/excel.js',
+      anchor: '    ...file.columns.map((c) => [{ text: c.name, style: BOLD }, { text: c.about, style: WRAP }]),',
+      with: '    ...file.columns.slice(1).map((c) => [{ text: c.name, style: BOLD }, { text: c.about, style: WRAP }]),',
+    },
+    run: CHECK_FILES,
+    names: ['FAIL 12 descriptions: inside xlsx (en): sheet "What each column means" describes 4 of 5 columns', 'FAIL 12 descriptions: lanes xlsx (es)'],
+  },
+  {
+    check: 'U3-12 a column left out of "What each column means", PDF',
+    plant: { file: 'src/files/pdf.js', anchor: '      for (const c of columns) paragraph(', with: '      for (const c of columns.slice(1)) paragraph(' },
+    run: CHECK_FILES,
+    names: ['FAIL 12 descriptions: inside pdf (en): page 1, under "What each column means", describes 4 of 5 columns'],
+  },
+  {
+    check: "U3-12 a file column's description missing in one language",
+    plant: { file: 'src/i18n/es.js', anchor: "  'file.state.about': 'Funcionando, sin comunicarse últimamente, nunca comunicada, o con su acceso cancelado.',\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: file.state.about (the files of Lanes and equipment): missing'],
+  },
+  {
+    check: 'U3 no technical words on the new buttons',
+    plant: { file: 'src/i18n/en.js', anchor: "  'download.making': 'Making the file…',", with: "  'download.making': 'Making the file from the API…'," },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['en: download.making: "api"'],
+  },
+  {
+    check: 'U3 the page stays home: an address in the Excel maker',
+    plant: { file: 'src/files/excel.js', anchor: 'Target="xl/workbook.xml"/>', with: 'Target="https://example.net/workbook.xml"/>' },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['src/files/excel.js:', 'an absolute address https://example.net/workbook.xml'],
+  },
+  {
+    check: 'U3-9 a maker loaded with the first page',
+    plant: [
+      { file: 'src/ListActions.jsx', anchor: "import { ProblemNote } from './parts.jsx';", with: "import { ProblemNote } from './parts.jsx';\nimport * as eagerPdf from './files/pdfFile.js';" },
+      { file: 'src/ListActions.jsx', anchor: "  pdf: () => import('./files/pdfFile.js'),", with: '  pdf: async () => eagerPdf,' },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-first-load.js'],
+    names: ['the PDF library (jsPDF), loaded with the first page'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -552,6 +666,90 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL "Garages": nothing on it yet', 'FAIL "Getting paid": nothing on it yet'],
+  },
+  {
+    check: 'U3-2 garage time in a downloaded file, in the browser',
+    plant: { file: 'src/files/model.js', anchor: "  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n", with: "  const parts = new Intl.DateTimeFormat('en-US', {\n" },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 2 garage time: inside (en, day): the two stays either side of the clock change at 2026-03-08 15:30:00'],
+  },
+  {
+    check: 'U3-6 fresh read: the file built from the list the page loaded',
+    plant: {
+      file: 'src/parts.jsx',
+      anchor: '    const data = await read(garageId);\n    const readAt = new Date();\n    flushSync(() => setState({ data, problem: null, readAt }));\n    return { data, readAt };\n  }, [read, garageId]);',
+      with: '    return { data: state.data, readAt: new Date() };\n  }, [state.data]);',
+    },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 6 fresh read: the file and the screen hold the list as it was at the click (NEW0001)'],
+  },
+  {
+    check: 'U3-6 fresh read: Print without reading the list again',
+    plant: {
+      file: 'src/ListActions.jsx',
+      anchor: '    const asked = client.epoch();\n    try {\n',
+      with: "    const asked = client.epoch();\n    if (what === 'print') {\n      print();\n      working.current = false;\n      setBusy(null);\n      return;\n    }\n    try {\n",
+    },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 6 fresh read: Print read the list again first: the printed page holds NEW0002'],
+  },
+  {
+    check: 'U3-7 a failed read without its sentence',
+    plant: { file: 'src/ListActions.jsx', anchor: '      {problem ? <ProblemNote t={t} kind={problem} /> : null}', with: '      {null}' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 7 a read that fails (serverError)', 'FAIL 7 a read that fails (gateway)'],
+  },
+  {
+    check: 'U3-7 the 401 ignored: a file saved after the session ended',
+    plant: [
+      {
+        file: 'src/ListActions.jsx',
+        anchor: '      const { data, readAt } = await refresh();',
+        with: "      const { data, readAt } = await refresh().catch((p) => (p.kind === 'ended' ? { data: window.__kept, readAt: new Date() } : Promise.reject(p)));",
+      },
+      { file: 'src/ListActions.jsx', anchor: "      if (!here.current || client.epoch() !== asked) return;\n      if (what === 'print') {", with: "      if (what === 'print') {" },
+      { file: 'src/ListActions.jsx', anchor: '      // Signed out, or the page left, while it was being made: nothing is saved.\n      if (!here.current || client.epoch() !== asked) return;\n', with: '' },
+      { file: 'src/ListActions.jsx', anchor: '      here.current = false;\n', with: '' },
+      { file: 'src/parts.jsx', anchor: '  return { ...state, retry, refresh };', with: '  window.__kept = state.data ?? window.__kept;\n  return { ...state, retry, refresh };' },
+    ],
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 7 the read answers 401: no file saved (1 saved)'],
+  },
+  {
+    check: 'U3-8 an inline script, with the downloads',
+    plant: { file: 'index.html', anchor: '    <title></title>\n', with: '    <title></title>\n    <script>window.planted = 1;</script>\n' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 8 the page policy was never broken (', 'policy violation: '],
+  },
+  {
+    check: 'U3-8 the page policy loosened',
+    plant: { file: 'index.html', anchor: "script-src 'self';", with: "script-src 'self' 'unsafe-eval';" },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL 8 the page policy is exactly as it was, in index.html and in the built page'],
+  },
+  {
+    check: 'U3 one click, one file: pressed again while busy',
+    plant: [
+      { file: 'src/ListActions.jsx', anchor: '    if (working.current) return;\n', with: '' },
+      { file: 'src/ListActions.jsx', anchor: '        disabled={busy !== null}\n', with: '' },
+    ],
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL while busy, none of the three can be pressed', 'FAIL three clicks while one file was being made'],
+  },
+  {
+    check: "U3 the file's address kept after the save",
+    plant: { file: 'src/ListActions.jsx', anchor: '  setTimeout(() => URL.revokeObjectURL(address), RELEASE_MS);\n', with: '' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ["FAIL each file's address is let go after the save: 0 of"],
   },
 ];
 

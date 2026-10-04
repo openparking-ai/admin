@@ -141,9 +141,12 @@ const plain = (text) => text.replace(/[\s\u202f\u00a0]+/g, ' ');
  * browser's. The minute may turn while it prints: either side of it will do.
  */
 async function checkPrint(page, list, garage) {
-  await page.emulateMedia({ media: 'print' });
   const from = new Date();
-  await page.click('[data-action="print"]').catch(() => {});
+  // Print reads the list again, then prints: clicked on screen (in the print
+  // view the button is not shown), then the print view is read once it has.
+  await page.click('[data-action="print"]');
+  check(await settles(page, () => !document.querySelector('.list-actions[aria-busy="true"]')), `print (${list}): the Print button read the list and printed`);
+  await page.emulateMedia({ media: 'print' });
   const printed = await page.evaluate(() => ({
     frame: [...document.querySelectorAll('.sidebar, .topbar')].some((e) => getComputedStyle(e).display !== 'none'),
     head: getComputedStyle(document.querySelector('.print-head')).display !== 'none',

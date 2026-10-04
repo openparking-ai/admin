@@ -24,6 +24,9 @@
     "check-no-source-maps": "node scripts/check-no-source-maps.js",
     "check-home-claims": "node scripts/check-home-claims.js",
     "check-descriptions": "node scripts/check-descriptions.js",
+    "check-files": "node scripts/check-files.js",
+    "check-downloads": "node scripts/check-downloads.js",
+    "check-first-load": "node scripts/check-first-load.js",
     "fail-controls": "node scripts/fail-controls.js",
     "fail-controls-browser": "node scripts/fail-controls.js --browser",
     "check-no-real-data": "node .github/scripts/check-no-real-data.js",
@@ -38,6 +41,8 @@
     "vite": "^6.4.3"
   },
   "dependencies": {
+    "fflate": "0.8.3",
+    "jspdf": "4.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   }

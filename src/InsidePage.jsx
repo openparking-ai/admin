@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { PrintButton, PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
+import { PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
 import { InsideCounts } from './Home.jsx';
 import { garageTime } from './time.js';
 import FieldName from './FieldName.jsx';
+import ListActions from './ListActions.jsx';
 
 /** The open stays, oldest first, as the platform returns them. Read only. */
 export default function InsidePage({ t, language, client, garage }) {
@@ -15,10 +16,10 @@ export default function InsidePage({ t, language, client, garage }) {
 
   return (
     <section className="panel printable" data-list="inside">
-      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} />
+      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={inside.readAt} />
       <div className="list-head">
         <h2 className="section-title">{t('page.inside.title')}</h2>
-        <PrintButton t={t} onPrint={print} />
+        <ListActions t={t} list="inside" language={language} client={client} garage={garage} refresh={inside.refresh} print={print} />
       </div>
       <InsideCounts t={t} data={inside.data} />
       {stays.length === 0 ? (

@@ -165,4 +165,23 @@ export default {
 
   'print.button': 'Imprimir',
   'print.printed': 'Impreso el {time}',
+  'print.asOf': 'Esta lista es del {time}.',
+
+  'download.excel': 'Descargar Excel',
+  'download.pdf': 'Descargar PDF',
+  'download.reading': 'Obteniendo la lista más reciente…',
+  'download.making': 'Preparando el archivo…',
+  'download.missingLetters': 'El PDF no pudo mostrar estas letras: {letters}. El archivo de Excel las tiene todas.',
+
+  'file.downloaded': 'Descargado el {time}',
+  'file.zone': 'Las horas están en {zone}.',
+  'file.meanings': 'Qué significa cada columna',
+  'file.page': 'Página {page} de {pages}',
+  'file.computer': 'Computadora del carril',
+  'file.computer.about': 'Una computadora de este carril, o una nota de que el carril no tiene ninguna.',
+  'file.state': 'Cómo está',
+  'file.state.about': 'Funcionando, sin comunicarse últimamente, nunca comunicada, o con su acceso cancelado.',
+  'file.lastHeard': 'Última comunicación',
+  'file.lastHeard.about': 'Cuándo se comunicó esta computadora por última vez, en la hora del garaje.',
+  'file.working': 'Funcionando, se comunicó por última vez: {time}',
 };

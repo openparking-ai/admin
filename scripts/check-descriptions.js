@@ -7,7 +7,8 @@
 // <FieldName name="..." /> (src/FieldName.jsx), which draws the name and,
 // under it, `<name>.about`; a typing box whose name is already shown in its
 // own place has <FieldAbout name="..." /> under its typing line instead.
-// This check reads every screen under src/ and fails:
+// Every column of a downloaded file (COLUMNS in src/files/model.js) is a field
+// too. This check reads every screen under src/ and fails:
 //   - a list column (<th>), a form field (<label>), a figure on Home (a
 //     section's title) or the garage chooser's title that is NOT named
 //     through <FieldName>;
@@ -25,6 +26,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DICTIONARIES, LANGUAGES } from '../src/i18n/index.js';
+import { COLUMNS } from '../src/files/model.js';
 
 export const MAX_WORDS = 15;
 // How far under a typing box its description may start, in source lines.
@@ -132,6 +134,11 @@ export function checkDescriptions(fields, dictionaries) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const files = screens(join(ROOT, 'src')).map((p) => ({ file: basename(p), source: readFileSync(p, 'utf8') }));
   const { fields, unnamed } = readScreens(files);
+  // The columns of the downloaded files (src/files/model.js), each described
+  // in the files under "What each column means".
+  for (const [list, columns] of Object.entries(COLUMNS)) {
+    for (const { key } of columns) fields.push({ key, page: `the files of ${DICTIONARIES.en[`page.${list}.title`]}`, file: 'files/model.js' });
+  }
   const problems = [...unnamed, ...checkDescriptions(fields, DICTIONARIES)];
   if (fields.length === 0) problems.push('no field found on any screen; the check is not seeing the screens');
   if (problems.length) {

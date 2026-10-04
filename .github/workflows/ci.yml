@@ -70,6 +70,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The readers the downloaded files are read back with (pinned, by hash)
+        run: pip install --require-hashes -r scripts/files/readers.txt
 
       - name: Every check below, shown failing first
         # Each control plants one break in a scratch copy of the repository
@@ -95,6 +100,8 @@ jobs:
         run: npm run check-home-claims
       - name: Every field has a short description, in both languages
         run: npm run check-descriptions
+      - name: The downloaded files hold the list, read back by readers we did not write
+        run: npm run check-files
       - name: No dependency with a known high or critical problem
         run: npm audit --audit-level=high
 
@@ -113,11 +120,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The readers the downloaded files are read back with (pinned, by hash)
+        run: pip install --require-hashes -r scripts/files/readers.txt
 
       - name: The browser checks, shown failing first
-        # Five copies, each with one break, must each fail naming it: an
-        # outside font link, a raw code let through, the clear skipped on
-        # sign-out, an inline script, and the browser's time zone used.
+        # Copies, each with one break, must each fail naming it: an outside
+        # font link, a raw code let through, the clear skipped on sign-out, an
+        # inline script, the browser's time zone used, and the rest listed in
+        # scripts/fail-controls.js -- the downloads' among them.
         run: npm run fail-controls-browser
 
       - run: npm run build
@@ -130,6 +143,12 @@ jobs:
 
       - name: The built site in a browser, signed in; no request leaves it; the page policy holds
         run: npm run check-browser
+
+      - name: Neither file maker is in the first page
+        run: npm run check-first-load
+
+      - name: Download Excel, Download PDF and Print, in a browser; every file read back
+        run: npm run check-downloads
 
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,

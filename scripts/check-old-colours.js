@@ -89,6 +89,13 @@ if (old.size !== 25 || old.has(null)) {
   process.exit(1);
 }
 
+// The built PDF maker (src/files/pdfFile.js, a chunk of its own) carries
+// jsPDF's defaults for the paper it draws: a white page. That white is the
+// PDF's, never a colour on screen, so in that one chunk white alone is let
+// be; every other value of the first look is still refused there.
+const PDF_MAKER = /^dist\/assets\/pdfFile-[\w-]+\.js$/;
+const PAPER = canonical('#ffffff');
+
 const files = [...filesUnder(join(ROOT, 'src')), join(ROOT, 'index.html'), ...filesUnder(join(ROOT, 'dist'))];
 const found = [];
 const values = new Set();
@@ -100,6 +107,7 @@ for (const file of files) {
       for (const [literal] of line.matchAll(pattern)) {
         const was = old.get(canonical(literal));
         if (!was) continue;
+        if (PDF_MAKER.test(relative(ROOT, file).split('\\').join('/')) && canonical(literal) === PAPER) continue;
         values.add(was);
         found.push(`${relative(ROOT, file)}:${i + 1}: ${literal} is ${was} from the first look`);
       }

@@ -138,6 +138,7 @@ export async function startStub({ port = 0 } = {}) {
   const sessions = new Map(); // token -> { owner, ended }
   const issued = [];
   let failNext = null;
+  let slowNext = 0;
   let failSignIn = null;
   let allowedOrigin = null;
   const wrongTries = new Map(); // address|email -> { count, pausedUntil }
@@ -217,6 +218,12 @@ export async function startStub({ port = 0 } = {}) {
     const url = new URL(req.url, 'http://stub');
     const path = url.pathname;
 
+    // A delay asked for by a check, on the next read that is not sign-in.
+    if (slowNext && !path.startsWith('/api/v1/auth/')) {
+      const ms = slowNext;
+      slowNext = 0;
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
     // A failure asked for by a check, on the next read that is not sign-in.
     if (failNext && !path.startsWith('/api/v1/auth/sign-in')) {
       const kind = failNext;
@@ -288,6 +295,10 @@ export async function startStub({ port = 0 } = {}) {
     issued,
     failNext: (kind) => {
       failNext = kind;
+    },
+    /** The next read that is not an auth route answers `ms` later. */
+    slowNext: (ms) => {
+      slowNext = ms;
     },
     /** The next sign-in answers as a platform set up to give it would: tooMany, busy, notSetUp or wrongPlace. */
     failSignIn: (kind) => {
