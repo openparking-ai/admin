@@ -40,8 +40,11 @@ export default {
   'page.paid.words': 'cobros, cobrar, pagos, depósito, depósitos, dinero, banco, stripe, cuenta',
 
   'page.inside.title': 'Carros adentro',
-  'page.inside.purpose': 'Los carros que están estacionados en su garaje ahora mismo.',
+  'page.inside.purpose':
+    'Cada carro que sus carriles dejaron pasar y que todavía no ha salido, incluso los no confirmados adentro.',
   'page.inside.words': 'carros, carro, adentro, estacionados, qué tan lleno, quién está, ahora',
+
+  'page.notYet': 'Todavía no se muestra nada en esta página.',
 
   'theme.label': 'Apariencia',
   'theme.label.about': 'Cómo se ven estas páginas: claras de día, oscuras de noche o como su computadora.',
@@ -152,9 +155,9 @@ export default {
   'inside.plate': 'Placa',
   'inside.plate.about': 'La placa y el estado del carro, si el carril los registró.',
   'inside.ticket': 'Boleto',
-  'inside.ticket.about': 'El número de boleto, si el cliente sacó un boleto.',
-  'inside.cameIn': 'Entró',
-  'inside.cameIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',
+  'inside.ticket.about': 'El número de boleto, si se sacó un boleto en el carril.',
+  'inside.letIn': 'Recibió paso',
+  'inside.letIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',
   'inside.lane': 'Carril de entrada',
   'inside.lane.about': 'El carril que dejó pasar el carro.',
   'inside.confirmed': 'Confirmado adentro',

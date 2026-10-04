@@ -44,8 +44,10 @@ export default {
   'page.paid.words': 'getting paid, paid, payout, payouts, money, bank, deposit, stripe, account',
 
   'page.inside.title': 'Cars inside',
-  'page.inside.purpose': 'The cars parked in your garage right now.',
+  'page.inside.purpose': 'Every car your lanes let in that has not left yet, including any not confirmed inside.',
   'page.inside.words': 'cars inside, cars, car, inside, parked, how full, who is parked, now',
+
+  'page.notYet': 'Nothing is shown on this page yet.',
 
   'theme.label': 'Look',
   'theme.label.about': 'How these pages look: light for day, dark for night, or like your computer.',
@@ -156,9 +158,9 @@ export default {
   'inside.plate': 'Plate',
   'inside.plate.about': "The car's license plate and state, if the lane recorded one.",
   'inside.ticket': 'Ticket',
-  'inside.ticket.about': 'The ticket number, if the driver took a ticket.',
-  'inside.cameIn': 'Came in',
-  'inside.cameIn.about': "When the lane let the car in, in the garage's own time.",
+  'inside.ticket.about': 'The ticket number, if a ticket was taken at the lane.',
+  'inside.letIn': 'Let in',
+  'inside.letIn.about': "When the lane let the car in, in the garage's own time.",
   'inside.lane': 'Lane',
   'inside.lane.about': 'The lane that let the car in.',
   'inside.confirmed': 'Confirmed inside',

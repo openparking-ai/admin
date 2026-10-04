@@ -91,7 +91,7 @@ const SPEAKS_OF = [
 // columns are shown for both, so they may not say it came in. (No \b around
 // "entró": in JavaScript \b is ASCII only, and never matches after the ó.)
 const NOT_FOR_UNCONFIRMED = [
-  ['inside.cameIn.about', /came in/i, /entró/i],
+  ['inside.letIn.about', /came in/i, /entró/i],
   ['inside.lane.about', /came in/i, /entró/i],
 ];
 

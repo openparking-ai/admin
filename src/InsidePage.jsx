@@ -34,7 +34,7 @@ export default function InsidePage({ t, language, client, garage }) {
                 <FieldName t={t} name="inside.ticket" />
               </th>
               <th>
-                <FieldName t={t} name="inside.cameIn" />
+                <FieldName t={t} name="inside.letIn" />
               </th>
               <th>
                 <FieldName t={t} name="inside.lane" />

@@ -218,6 +218,12 @@ export default function App({ theme, storage, client }) {
     content = <GaragePicker t={t} garages={owner.garages} onChoose={(garageId) => dispatch({ type: 'choose', garageId })} />;
   } else if (Body) {
     content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} />;
+  } else {
+    content = (
+      <p className="quiet" data-notice="not-yet">
+        {t('page.notYet')}
+      </p>
+    );
   }
 
   return (

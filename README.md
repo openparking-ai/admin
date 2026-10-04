@@ -65,7 +65,11 @@ The build publishes no source maps.
   a lane whose computers all had their access cancelled says so, and when; "No
   cars confirmed inside", never "No cars inside", when some were let in that the
   lane could not confirm (`src/lanes.js`, `src/inside.js`,
-  `test/words-in-every-state.test.js`). A lane computer counts as not heard
+  `test/words-in-every-state.test.js`). Cars inside lists every car a lane let
+  in that has not left, some of them not confirmed, so no line there or in its
+  Quick Find entry says every car listed is parked or came in: its time column is
+  "Let in" (`npm run check-browser` reads every line with a car not confirmed on
+  it). A lane computer counts as not heard
   from after `LANE_QUIET_MINUTES` (`src/settings.js`, 5). Both lists print from
   the browser's own print, without the frame.
 - **Every field says what it is.** Anything a person reads, fills or uses has one
@@ -78,7 +82,8 @@ The build publishes no source maps.
   for every later screen.
 
 - **Pages**: Home, Garages, Lanes and equipment, Card readers, Rates, Taxes and fees,
-  Getting paid, Cars inside. `src/pages.js`.
+  Getting paid, Cars inside. `src/pages.js`. A page with nothing on it yet says
+  so under its line.
 - **Two languages**, English and Spanish. Every word on the screen is in
   `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. **English unless the
   owner chose Spanish**: the browser's own language decides nothing. Signed in,

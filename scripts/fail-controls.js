@@ -204,7 +204,7 @@ const CONTROLS = [
   },
   {
     check: 'U2c-7 every field described: one description removed',
-    plant: { file: 'src/i18n/es.js', anchor: "  'inside.ticket.about': 'El número de boleto, si el cliente sacó un boleto.',\n", with: '' },
+    plant: { file: 'src/i18n/es.js', anchor: "  'inside.ticket.about': 'El número de boleto, si se sacó un boleto en el carril.',\n", with: '' },
     run: ['node', 'scripts/check-descriptions.js'],
     names: ['es: inside.ticket.about (Cars inside): missing'],
   },
@@ -283,11 +283,11 @@ const CONTROLS = [
     check: 'U2c-fix every state: "came in" said of a car that was only let in',
     plant: {
       file: 'src/i18n/es.js',
-      anchor: "  'inside.cameIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',",
-      with: "  'inside.cameIn.about': 'Cuándo entró el carro, en la hora del garaje.',",
+      anchor: "  'inside.letIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',",
+      with: "  'inside.letIn.about': 'Cuándo entró el carro, en la hora del garaje.',",
     },
     run: ['node', '--test', 'test/words-in-every-state.test.js'],
-    names: ['es inside.cameIn.about says the car came in'],
+    names: ['es inside.letIn.about says the car came in'],
   },
   {
     check: 'U2c-fix O2 a chooser without its description',
@@ -509,6 +509,49 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL descriptions, Quick Find (en)', 'FAIL descriptions, Quick Find (es)', 'it is not under the typing line, inside the box'],
+  },
+  {
+    check: 'U2c-fix2 Cars inside: no line says every car listed is parked',
+    // The second gate's finding put back: the line under the title.
+    plant: [
+      {
+        file: 'src/i18n/en.js',
+        anchor: "  'page.inside.purpose': 'Every car your lanes let in that has not left yet, including any not confirmed inside.',",
+        with: "  'page.inside.purpose': 'The cars parked in your garage right now.',",
+      },
+      {
+        file: 'src/i18n/es.js',
+        anchor: "    'Cada carro que sus carriles dejaron pasar y que todavía no ha salido, incluso los no confirmados adentro.',",
+        with: "    'Los carros que están estacionados en su garaje ahora mismo.',",
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL Cars inside, with a car not confirmed (en)',
+      '"The cars parked in your garage right now."',
+      'FAIL Cars inside, with a car not confirmed (es)',
+      '"Los carros que están estacionados en su garaje ahora mismo."',
+    ],
+  },
+  {
+    check: 'U2c-fix2 Cars inside: no column says every car listed came in',
+    // The second gate's finding put back: the time column named "Came in".
+    plant: [
+      { file: 'src/i18n/en.js', anchor: "  'inside.letIn': 'Let in',", with: "  'inside.letIn': 'Came in'," },
+      { file: 'src/i18n/es.js', anchor: "  'inside.letIn': 'Recibió paso',", with: "  'inside.letIn': 'Entró'," },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    // The column names are drawn in capitals; the check reports what is on screen.
+    names: ['FAIL Cars inside, with a car not confirmed (en)', '"CAME IN"', 'FAIL Cars inside, with a car not confirmed (es)', '"ENTRÓ"'],
+  },
+  {
+    check: 'U2c-fix2 a page with nothing on it yet says so',
+    plant: { file: 'src/App.jsx', anchor: "        {t('page.notYet')}", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL "Garages": nothing on it yet', 'FAIL "Getting paid": nothing on it yet'],
   },
 ];
 

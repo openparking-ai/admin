@@ -253,6 +253,49 @@ async function checkChoosers(page, where, language) {
   check(wrong.length === 0, `descriptions, the choosers, ${where} (${language}): Language and Look each described under its name${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
 }
 
+// A line that says every car on Cars inside is parked, or came in. The list
+// holds every car a lane let in that has not left, some of them not
+// confirmed inside, so no line may say that of all of them. A line that
+// itself says some are not confirmed is not such a claim. (No \b after an
+// accented letter: in JavaScript \b is ASCII only.)
+const EVERY_CAR_CLAIM = {
+  en: /\bparked\b|\bcame in\b|\bcome in\b|\bdrove in\b|\bentered\b/i,
+  es: /estacionad|\bentr(?:ó|aron)(?!\p{L})/iu,
+};
+const SAYS_NOT_ALL_CONFIRMED = {
+  en: /not confirmed|could not confirm|could not check/i,
+  es: /no confirmad|no pudo confirmar|no pudo comprobar/i,
+};
+
+/**
+ * Cars inside, with a car on it the lane let in but could not confirm: every
+ * line on the page, and its entry in Quick Find, read as an owner reads
+ * them. Fails any line that says every car listed is parked or came in.
+ */
+async function checkNoEveryCarClaim(page, language) {
+  const words = language === 'es' ? ES : EN;
+  const where = `Cars inside, with a car not confirmed (${language})`;
+  await page.waitForSelector('.content [data-list="inside"] tbody tr');
+  const notConfirmed = await page.$$eval('.content [data-list="inside"] tbody tr', (rows, no) => rows.filter((r) => r.lastElementChild?.textContent === no).length, words.no);
+  const onPage = (await page.innerText('.content')).split('\n');
+  await page.keyboard.press('Control+K');
+  await page.waitForSelector('.find-dialog');
+  await page.keyboard.type(words['page.inside.title']);
+  const entry = await settles(page, () => !!document.querySelector('.find-option[data-id="inside"]'));
+  const inFind = entry ? (await page.innerText('.find-option[data-id="inside"]')).split('\n') : [];
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.find-dialog', { state: 'detached' });
+  const lines = [...onPage, ...inFind].map((l) => l.trim()).filter(Boolean);
+  const claims = lines.filter((l) => EVERY_CAR_CLAIM[language].test(l) && !SAYS_NOT_ALL_CONFIRMED[language].test(l));
+  const wrong = [
+    notConfirmed === 0 && 'no car on it is marked not confirmed, so the check saw nothing',
+    !entry && 'its Quick Find entry was not found',
+    !lines.includes(words['page.inside.title']) && 'the page title was not read',
+    ...claims.map((l) => `"${l}"`),
+  ].filter(Boolean);
+  check(wrong.length === 0, `${where}: no line, on the page or in Quick Find, says every car listed is parked or came in (${lines.length} lines read)${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
+}
+
 /** Quick Find, open: its description inside the box, under the typing line, word for word. */
 async function checkQuickFindDescribed(page, language) {
   const words = language === 'es' ? ES : EN;
@@ -398,6 +441,7 @@ try {
   await checkDescribed(page, 'Cars inside', 'en', 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-english.png'), fullPage: true });
   await checkPrint(page, 'Cars inside', A.garages[0]);
+  await checkNoEveryCarClaim(page, 'en');
 
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
@@ -419,6 +463,11 @@ try {
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     const purpose = await page.textContent('.page-purpose');
     check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
+    if (!['home', 'lanes', 'inside'].includes(p.id)) {
+      // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
+      const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
+      check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
+    }
   }
 
   // ── Day / night / auto ───────────────────────────────────────────────────
@@ -545,6 +594,7 @@ try {
   await page.click('.nav-item[href="#/cars-inside"]');
   await showsText(page, 'HRB4410');
   await checkDescribed(page, ES['page.inside.title'], 'es', 5);
+  await checkNoEveryCarClaim(page, 'es');
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-spanish.png'), fullPage: true });
   await page.click('.nav-item[href="#/"]');
   await page.reload();
