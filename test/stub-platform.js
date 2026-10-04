@@ -5,9 +5,10 @@
 // statuses, the same refusals word for word, the same shapes and the same
 // cookie. test/stub-matches-platform.test.js holds it to that, against
 // test/platform-shapes.json, recorded from the real platform:
-//   POST /api/v1/auth/sign-in    { email, password } -> sets the session cookie
+//   POST /api/v1/auth/sign-in    { email, password } -> sets the session cookie; { email, tenant_id, session_ends_at, language }
 //   POST /api/v1/auth/sign-out   ends the session: 204, no body
-//   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at }
+//   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }
+//   PUT  /api/v1/auth/language   { language } -> the signed-in owner's own language, 'en' or 'es'; { language }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
 //   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader }] }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
@@ -19,7 +20,9 @@
 // with no code. Lanes of a garage not the owner's are 404; its cars inside are
 // an empty list, as the platform answers. The cookie is HttpOnly, Secure,
 // SameSite=Strict, Path=/api, with no Domain, and a POST carried by it must
-// come with the admin page's own Origin.
+// come with the admin page's own Origin. Each owner's language is kept on the
+// owner, English until changed; anything but {"language": "en" | "es"} sent
+// as JSON is 400 `language_refused`.
 //
 // Every name, address and plate here is invented.
 
@@ -36,6 +39,7 @@ export function owners(now = Date.now()) {
       email: 'owner-a@example.com',
       password: 'harbor-street-test-password',
       tenant_id: 'aaaaaaaa-0000-4000-8000-000000000001',
+      language: 'en',
       garages: [
         { id: 'a1000000-0000-4000-8000-000000000001', name: 'Harbor Street Garage', timezone: 'America/New_York', currency: 'USD', live: true },
         { id: 'a2000000-0000-4000-8000-000000000002', name: 'Riverside Deck', timezone: 'America/Chicago', currency: 'USD', live: false },
@@ -63,6 +67,14 @@ export function owners(now = Date.now()) {
             ],
           },
           { id: 'la100000-0000-4000-8000-000000000003', name: 'Service Lane', direction: 'entry', reader: null, devices: [] },
+          {
+            id: 'la100000-0000-4000-8000-000000000004',
+            name: 'South Exit',
+            direction: 'exit',
+            reader: null,
+            // Its only computer had its access cancelled: 10:30 am in New York on 10 March 2026.
+            devices: [{ id: 'dv100000-0000-4000-8000-000000000005', name: 'Harbor south exit computer', last_seen_at: '2026-03-09T21:00:00Z', revoked_at: '2026-03-10T14:30:00Z' }],
+          },
         ],
         'a2000000-0000-4000-8000-000000000002': [],
       },
@@ -80,6 +92,7 @@ export function owners(now = Date.now()) {
       email: 'owner-b@example.com',
       password: 'elm-court-test-password',
       tenant_id: 'bbbbbbbb-0000-4000-8000-000000000002',
+      language: 'en',
       garages: [{ id: 'b1000000-0000-4000-8000-000000000001', name: 'Elm Court Garage', timezone: 'America/Los_Angeles', currency: 'USD', live: true }],
       lanes: {
         'b1000000-0000-4000-8000-000000000001': [
@@ -102,6 +115,10 @@ const REFUSED = { error: 'Sign-in refused. Check the email and password.', code:
 const UNREADABLE = { error: 'The sign-in request could not be read. Send JSON: {"email", "password"}.', code: 'sign_in_unreadable' };
 const ORIGIN_REFUSED = { error: 'This request did not come from the admin site.', code: 'origin_refused' };
 const GARAGE_NOT_FOUND = { error: 'garage not found' };
+const LANGUAGE_REFUSED = { error: 'The language must be "en" or "es", sent as JSON: {"language"}.', code: 'language_refused' };
+const LANGUAGES = ['en', 'es'];
+// The platform reads no language body longer than this.
+const LANGUAGE_BODY_LIMIT = 256;
 /** The sign-in answers a check can ask for, which only a platform set up for them gives. */
 const SIGN_IN_ANSWERS = {
   tooMany: [429, { error: 'Too many sign-in attempts from here. Try again later.', code: 'sign_in_rate_limited' }],
@@ -141,11 +158,12 @@ export async function startStub({ port = 0 } = {}) {
     return m ? m[1] : null;
   };
 
-  const readBody = (req) =>
+  const readBody = (req, limit = Infinity) =>
     new Promise((resolve) => {
       let text = '';
       req.on('data', (c) => (text += c));
       req.on('end', () => {
+        if (Buffer.byteLength(text) > limit) return resolve(null);
         try {
           resolve(JSON.parse(text));
         } catch {
@@ -190,7 +208,7 @@ export async function startStub({ port = 0 } = {}) {
     const token = randomBytes(32).toString('base64url');
     issued.push(token);
     sessions.set(token, { owner: who, ended: false });
-    return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() }, {
+    return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language }, {
       'Set-Cookie': `${COOKIE}=${token}; ${COOKIE_ATTRIBUTES}; Max-Age=${SESSION_SECONDS}; Secure`,
     });
   }
@@ -234,7 +252,16 @@ export async function startStub({ port = 0 } = {}) {
       return send(res, 204, undefined, clearCookie);
     }
     if (path === '/api/v1/auth/me' && req.method === 'GET') {
-      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() });
+      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language });
+    }
+    if (path === '/api/v1/auth/language' && req.method === 'PUT') {
+      // The owner is the session's; nothing else in the body is read.
+      if (!/^application\/json\b/.test(req.headers['content-type'] ?? '')) return send(res, 400, LANGUAGE_REFUSED);
+      const body = await readBody(req, LANGUAGE_BODY_LIMIT);
+      const language = body && typeof body === 'object' && !Array.isArray(body) ? body.language : undefined;
+      if (typeof language !== 'string' || !LANGUAGES.includes(language)) return send(res, 400, LANGUAGE_REFUSED);
+      who.language = language;
+      return send(res, 200, { language });
     }
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
 

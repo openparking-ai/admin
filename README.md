@@ -58,17 +58,41 @@ The build publishes no source maps.
 - **One place talks to the platform**, `src/api.js`. A body that is not JSON, a
   dropped connection or a code it does not know each become words from the
   dictionaries; no code, status number or error text reaches a screen.
-- **Home, Lanes and devices, Cars inside** show the chosen garage's lanes (in or
+- **Home, Lanes and equipment, Cars inside** show the chosen garage's lanes (in or
   out, and when each lane computer was last heard from) and the cars inside, with
-  every time in the garage's own time zone. A lane computer counts as not heard
+  every time in the garage's own time zone. Every line is true in every state the
+  platform can return: "No lane computer yet" only for a lane that never had one;
+  a lane whose computers all had their access cancelled says so, and when; "No
+  cars confirmed inside", never "No cars inside", when some were let in that the
+  lane could not confirm (`src/lanes.js`, `src/inside.js`,
+  `test/words-in-every-state.test.js`). Cars inside lists every car a lane let
+  in that has not left, some of them not confirmed, so no line there or in its
+  Quick Find entry says every car listed is parked or came in: its time column is
+  "Let in" (`npm run check-browser` reads every line with a car not confirmed on
+  it). A lane computer counts as not heard
   from after `LANE_QUIET_MINUTES` (`src/settings.js`, 5). Both lists print from
   the browser's own print, without the frame.
+- **Every field says what it is.** Anything a person reads, fills or uses has one
+  short sentence under its name (at most 15 words, both languages), always
+  visible: each form field, each figure on Home, each column of a list (printed
+  with it), the Language and Look choosers, the garage chooser, and Quick Find
+  (inside its box, under the typing line). Each description is true in every
+  state its field can show. Fields are named through `src/FieldName.jsx`;
+  `npm run check-descriptions` fails a field without one, and that is the rule
+  for every later screen.
 
-- **Pages**: Home, Garages, Lanes and devices, Card readers, Rates, Taxes and fees,
-  Getting paid, Cars inside. `src/pages.js`.
+- **Pages**: Home, Garages, Lanes and equipment, Card readers, Rates, Taxes and fees,
+  Getting paid, Cars inside. `src/pages.js`. A page with nothing on it yet says
+  so under its line.
 - **Two languages**, English and Spanish. Every word on the screen is in
-  `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. The first visit follows
-  the browser's language; a choice is kept for the next visit.
+  `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. **English unless the
+  owner chose Spanish**: the browser's own language decides nothing. Signed in,
+  the owner's profile on the platform holds the choice (`PUT /api/v1/auth/language`),
+  so it follows them to any computer, shown from the first frame; a choice made on
+  the sign-in screen is kept on the profile of whoever signs in. This computer
+  keeps a copy, so the next sign-in screen speaks it. If keeping it on the profile
+  fails, the screens still change for this visit and one sentence says it was not
+  kept. `src/App.jsx`, `src/i18n/index.js`.
 - **Day, night or auto.** Auto follows the computer's own setting and changes the
   moment it does. `src/theme.js`.
 - **Quick Find** — Cmd/Ctrl+K anywhere, or the search pill. Finds pages and
@@ -93,11 +117,12 @@ name it.
 | The two languages match | `npm run check-languages-match` |
 | Text against background is at least 4.5 : 1, day and night | `npm run check-contrast` |
 | No colour from the first look (all 25 of `d4c9301`), source and built | `npm run check-old-colours` |
-| Quick Find finds every page in both languages; day/night/auto; language | `npm test` |
+| Quick Find finds every page in both languages; day/night/auto; language; what Home and the lists say is true in every state | `npm test` |
 | The page never touches the session; it asks only its own origin, by relative address | `npm run check-page-stays-home` |
 | Home says only what it shows (no breakdown the platform does not return) | `npm run check-home-claims` |
+| Every field has a short description in both languages, at most 15 words | `npm run check-descriptions` |
 | No source maps in the built site | `npm run build && npm run check-no-source-maps` |
-| The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
+| The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 
 ## Licence
 

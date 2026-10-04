@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { PrintButton, PrintHead, ProblemNote, useGarageRead, useNow, usePrint } from './parts.jsx';
 import { deviceWords, directionKey } from './lanes.js';
 import { garageTime } from './time.js';
+import FieldName from './FieldName.jsx';
 
 /** Every lane of the garage, its lane computers and whether it has a card reader. Read only. */
 export default function LanesPage({ t, language, client, garage }) {
@@ -25,10 +26,18 @@ export default function LanesPage({ t, language, client, garage }) {
         <table className="list">
           <thead>
             <tr>
-              <th>{t('lanes.lane')}</th>
-              <th>{t('lanes.direction')}</th>
-              <th>{t('lanes.computers')}</th>
-              <th>{t('lanes.reader')}</th>
+              <th>
+                <FieldName t={t} name="lanes.lane" />
+              </th>
+              <th>
+                <FieldName t={t} name="lanes.direction" />
+              </th>
+              <th>
+                <FieldName t={t} name="lanes.computers" />
+              </th>
+              <th>
+                <FieldName t={t} name="lanes.reader" />
+              </th>
             </tr>
           </thead>
           <tbody>

@@ -5,21 +5,25 @@ export const DICTIONARIES = { en, es };
 export const LANGUAGES = ['en', 'es'];
 export const LANGUAGE_KEY = 'openparking-admin.language';
 
-/** First visit: Spanish if the browser asks for Spanish first, otherwise English. */
-export function firstLanguage(browserLanguages) {
-  const preferred = String(browserLanguages?.[0] ?? '').toLowerCase();
-  return preferred === 'es' || preferred.startsWith('es-') ? 'es' : 'en';
-}
+/** English, unless someone chose otherwise. The browser's own language decides nothing. */
+export const DEFAULT_LANGUAGE = 'en';
 
-/** The stored choice if there is a valid one, else the first-visit language. */
-export function readLanguage(storage, browserLanguages) {
+/** `language` if it is one these screens have words for, else null. */
+export const knownLanguage = (language) => (LANGUAGES.includes(language) ? language : null);
+
+/**
+ * The language last used on this computer, else English. Signed in, the
+ * owner's profile decides instead (src/App.jsx); this is what the sign-in
+ * screen speaks, when nobody is known yet.
+ */
+export function readLanguage(storage) {
   let stored = null;
   try {
     stored = storage?.getItem(LANGUAGE_KEY);
   } catch {
-    // Storage can be switched off; then every visit is a first visit.
+    // Storage can be switched off; then every visit starts in English.
   }
-  return LANGUAGES.includes(stored) ? stored : firstLanguage(browserLanguages);
+  return knownLanguage(stored) ?? DEFAULT_LANGUAGE;
 }
 
 export function saveLanguage(storage, language) {

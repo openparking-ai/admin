@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildIndex, search } from './search.js';
 import Icon from './Icon.jsx';
+import { FieldAbout } from './FieldName.jsx';
 
 const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
 
@@ -150,6 +151,9 @@ function Finder({ language, t, actions, onClose }) {
             onKeyDown={onKeyDown}
           />
         </div>
+        <p className="find-about">
+          <FieldAbout t={t} name="quickFind.label" />
+        </p>
         {ordered.length ? (
           <ul ref={listRef} id={listId} role="listbox" aria-label={t('quickFind.label')} className="find-results">
             {group(t('quickFind.groupPages'), pages, 0)}

@@ -164,6 +164,155 @@ const CONTROLS = [
     run: ['node', '--test', 'test/dev-proxy.test.js'],
     names: ['signing in: the platform stopped behind the development proxy'],
   },
+  {
+    check: 'U2c-1 English by default',
+    // The browser's language decides again, as firstLanguage did.
+    plant: [
+      { file: 'src/i18n/index.js', anchor: 'export function readLanguage(storage) {', with: 'export function readLanguage(storage, browserLanguages) {' },
+      {
+        file: 'src/i18n/index.js',
+        anchor: '  return knownLanguage(stored) ?? DEFAULT_LANGUAGE;',
+        with: "  return knownLanguage(stored) ?? (String(browserLanguages?.[0] ?? '').toLowerCase().startsWith('es') ? 'es' : DEFAULT_LANGUAGE);",
+      },
+    ],
+    run: ['node', '--test', 'test/language.test.js'],
+    names: ['nothing saved: English, whatever the browser asks for'],
+  },
+  {
+    check: 'U2c-1 the language is kept with a PUT of its own',
+    plant: { file: 'src/api.js', anchor: "request('/auth/language', { method: 'PUT', body: { language } })", with: "request('/auth/language', { method: 'POST', body: { language } })" },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['the language is kept with one PUT of {"language"}'],
+  },
+  {
+    check: 'U2c-6 no technical words: "device"',
+    plant: { file: 'src/i18n/en.js', anchor: "'Your entry and exit lanes, and the equipment at each one.'", with: "'Your entry and exit lanes, and the device at each one.'" },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['en: page.lanes.purpose: "device"'],
+  },
+  {
+    check: 'U2c-6 no technical words: "dispositivos"',
+    plant: { file: 'src/i18n/es.js', anchor: "'Carriles y equipos'", with: "'Carriles y dispositivos'" },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['es: page.lanes.title: "dispositivos"'],
+  },
+  {
+    check: 'U2c-6 no technical words: "goes live"',
+    plant: { file: 'src/i18n/en.js', anchor: 'and the day it opens.', with: 'and when it goes live.' },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['en: page.garages.purpose: "goes live"'],
+  },
+  {
+    check: 'U2c-7 every field described: one description removed',
+    plant: { file: 'src/i18n/es.js', anchor: "  'inside.ticket.about': 'El número de boleto, si se sacó un boleto en el carril.',\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: inside.ticket.about (Cars inside): missing'],
+  },
+  {
+    check: 'U2c-7 every field described: a column named without one',
+    plant: { file: 'src/InsidePage.jsx', anchor: '                <FieldName t={t} name="inside.ticket" />', with: "                {t('inside.ticket')}" },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['Cars inside (src/InsidePage.jsx:', 'a list column with no description'],
+  },
+  {
+    check: 'U2c-7 every field described: a description over 15 words',
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "  'signIn.password.about': 'The password that goes with that email.',",
+      with: "  'signIn.password.about': 'The password that goes with that email address, the one your garages were set up with long ago.',",
+    },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['en: signIn.password.about (Sign in): 18 words, more than 15'],
+  },
+  {
+    check: "U2c-8 Home's descriptions say only what it shows",
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "  'home.inside.about': 'Cars the sensors saw come in that are still inside, plus any not confirmed.',",
+      with: "  'home.inside.about': 'Monthly and transient cars the sensors saw drive in.',",
+    },
+    run: ['node', 'scripts/check-home-claims.js'],
+    names: ['en: home.inside.about: "monthly"', 'en: home.inside.about: "transient"'],
+  },
+  {
+    check: 'U2c-9 the stand-in answers the language as the platform does',
+    // The stand-in's sign-in answer without the language.
+    plant: {
+      file: 'test/stub-platform.js',
+      anchor: 'session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language }, {',
+      with: 'session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString() }, {',
+    },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "sign-in"'],
+  },
+  {
+    check: 'U2c-fix F1 "Lane computers" says what the column holds',
+    // The first gate's finding put back: the description names one computer.
+    plant: {
+      file: 'src/i18n/en.js',
+      anchor: "  'lanes.computers.about': 'Every computer this lane has had: how each is doing, or when access was cancelled.',",
+      with: "  'lanes.computers.about': 'The computer at this lane, and when it was last heard from.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['en lanes.computers.about says nothing of: several computers', 'en lanes.computers.about says nothing of: a cancelled computer'],
+  },
+  {
+    check: 'U2c-fix F2 a cancelled computer is not "no lane computer yet"',
+    // The first gate's finding put back: a lane with only cancelled computers is "yet".
+    plant: { file: 'src/lanes.js', anchor: "  if (cancelled.length === 0) return { state: 'none', text: t('lane.noComputer') };", with: "  return { state: 'none', text: t('lane.noComputer') };" },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['a lane whose only computer had its access cancelled says so, and when', 'it says the lane never had a computer'],
+  },
+  {
+    check: 'U2c-fix every state: Home\'s lanes description silent on a lane with no working computer',
+    plant: {
+      file: 'src/i18n/es.js',
+      anchor: "  'home.lanes.about': 'Cada carril, entrada o salida, y si alguna computadora suya funciona, o por qué no.',",
+      with: "  'home.lanes.about': 'Cada carril, de entrada o salida, y cuándo se comunicó su computadora por última vez.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['es home.lanes.about says nothing of: no working computer'],
+  },
+  {
+    check: 'U2c-fix every state: "no cars inside" beside one let in',
+    plant: { file: 'src/inside.js', anchor: "  else figure = unconfirmed > 0 ? t('inside.countNoneConfirmed') : t('inside.countNone');", with: "  else figure = t('inside.countNone');" },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['it says no cars are inside, beside one let in'],
+  },
+  {
+    check: 'U2c-fix every state: "came in" said of a car that was only let in',
+    plant: {
+      file: 'src/i18n/es.js',
+      anchor: "  'inside.letIn.about': 'Cuándo el carril dejó pasar el carro, en la hora del garaje.',",
+      with: "  'inside.letIn.about': 'Cuándo entró el carro, en la hora del garaje.',",
+    },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['es inside.letIn.about says the car came in'],
+  },
+  {
+    check: 'U2c-fix O2 a chooser without its description',
+    plant: { file: 'src/App.jsx', anchor: '        <FieldName t={t} name="theme.label" />\n', with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['the top of every page (src/App.jsx:', 'a chooser with no description'],
+  },
+  {
+    check: 'U2c-fix O2 a chooser\'s description missing in one language',
+    plant: { file: 'src/i18n/es.js', anchor: "  'language.label.about': 'El idioma de estas páginas. Si ya entró, se guarda para la próxima vez.',\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: language.label.about (the top of every page): missing'],
+  },
+  {
+    check: 'U2c-fix O2 Quick Find without its description',
+    plant: { file: 'src/QuickFind.jsx', anchor: '          <FieldAbout t={t} name="quickFind.label" />\n', with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['Quick Find (src/QuickFind.jsx:', 'a typing box with no description'],
+  },
+  {
+    check: 'U2c-fix O2 the garage chooser without its description',
+    plant: { file: 'src/parts.jsx', anchor: '        <FieldName t={t} name="garage.choose" />', with: "        {t('garage.choose')}" },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['choosing a garage (src/parts.jsx:', 'the garage chooser with no description'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -242,8 +391,8 @@ const BROWSER_CONTROLS = [
     names: [
       'FAIL print (Cars inside): the time it was printed is garage time',
       'FAIL print (Cars inside): the time it was printed is not browser time',
-      'FAIL print (Lanes and devices): the time it was printed is garage time',
-      'FAIL print (Lanes and devices): the time it was printed is not browser time',
+      'FAIL print (Lanes and equipment): the time it was printed is garage time',
+      'FAIL print (Lanes and equipment): the time it was printed is not browser time',
     ],
   },
   {
@@ -263,6 +412,146 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL sign-in, too many tries from here (en)', 'FAIL sign-in, too many tries from here (es)'],
+  },
+  {
+    check: 'U2c-1 English by default, in the browser',
+    // firstLanguage put back: the browser's language decides the first visit.
+    plant: [
+      { file: 'src/i18n/index.js', anchor: 'export function readLanguage(storage) {', with: 'export function readLanguage(storage, browserLanguages) {' },
+      {
+        file: 'src/i18n/index.js',
+        anchor: '  return knownLanguage(stored) ?? DEFAULT_LANGUAGE;',
+        with: "  return knownLanguage(stored) ?? (String(browserLanguages?.[0] ?? '').toLowerCase().startsWith('es') ? 'es' : DEFAULT_LANGUAGE);",
+      },
+      { file: 'src/App.jsx', anchor: 'useState(() => readLanguage(storage));', with: 'useState(() => readLanguage(storage, navigator.languages));' },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL English by default: a first visit from a browser set to Spanish is in English'],
+  },
+  {
+    check: 'U2c-2 kept on the profile',
+    // Saved only to browser storage.
+    plant: {
+      file: 'src/App.jsx',
+      anchor: '      if (signedInNow.current) keepOnProfile(next);\n      else pickedOnSignIn.current = next;',
+      with: '      if (!signedInNow.current) pickedOnSignIn.current = next;',
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL kept on the profile: signed in on a different browser, the owner sees Spanish', 'FAIL kept on the profile: Español chosen while signed in is saved to the profile'],
+  },
+  {
+    check: 'U2c-3 chosen at sign-in is kept',
+    // The save of the language picked on the sign-in screen, dropped.
+    plant: { file: 'src/App.jsx', anchor: '      if (picked && picked !== profile) keepOnProfile(picked);\n', with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL chosen at sign-in: and is saved to the profile, which said English'],
+  },
+  {
+    check: 'U2c-5 a failed save says so',
+    // The sentence never shown.
+    plant: { file: 'src/App.jsx', anchor: '          {languageNotKept ? (', with: '          {false && languageNotKept ? (' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL a failed save, the platform stopped', 'FAIL a failed save, a gateway answering for it', 'FAIL a failed save, a 500'],
+  },
+  {
+    check: 'U2c-7 every field described, on screen',
+    // A column of Cars inside named without its description.
+    plant: { file: 'src/InsidePage.jsx', anchor: '                <FieldName t={t} name="inside.ticket" />', with: "                {t('inside.ticket')}" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, Cars inside (en)', '"Ticket": no description under it'],
+  },
+  {
+    check: 'U2c-7 every field described, on the print view',
+    // Descriptions hidden when printed.
+    plant: { file: 'src/styles.css', anchor: '  .print-head {\n    display: block;', with: '  .field-about {\n    display: none;\n  }\n  .print-head {\n    display: block;' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, print (Cars inside) (en)', 'FAIL descriptions, print (Lanes and equipment) (en)'],
+  },
+  {
+    check: 'U2c-fix F2 a cancelled computer is not "no lane computer yet", on screen',
+    plant: { file: 'src/lanes.js', anchor: "  if (cancelled.length === 0) return { state: 'none', text: t('lane.noComputer') };", with: "  return { state: 'none', text: t('lane.noComputer') };" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Home: a lane whose only computer had its access cancelled says', 'FAIL Home in Spanish: the lane whose only computer was cancelled says'],
+  },
+  {
+    check: 'U2c-fix every state: "no cars inside" beside one let in, on screen',
+    plant: { file: 'src/inside.js', anchor: "  else figure = unconfirmed > 0 ? t('inside.countNoneConfirmed') : t('inside.countNone');", with: "  else figure = t('inside.countNone');" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Home: none confirmed but one let in says'],
+  },
+  {
+    check: 'U2c-fix O2 the choosers described, on screen',
+    // The choosers' descriptions hidden.
+    plant: { file: 'src/styles.css', anchor: '.chooser > .field-about {\n  max-width: 28ch;', with: '.chooser > .field-about {\n  display: none;\n  max-width: 28ch;' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Home (es)', '"Language": its description is not shown'],
+  },
+  {
+    check: 'U2c-fix O2 Quick Find described, on screen',
+    // The description moved above the typing line.
+    plant: [
+      { file: 'src/QuickFind.jsx', anchor: '        <p className="find-about">\n          <FieldAbout t={t} name="quickFind.label" />\n        </p>\n', with: '' },
+      {
+        file: 'src/QuickFind.jsx',
+        anchor: '        <div className="find-input-row">',
+        with: '        <p className="find-about">\n          <FieldAbout t={t} name="quickFind.label" />\n        </p>\n        <div className="find-input-row">',
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL descriptions, Quick Find (en)', 'FAIL descriptions, Quick Find (es)', 'it is not under the typing line, inside the box'],
+  },
+  {
+    check: 'U2c-fix2 Cars inside: no line says every car listed is parked',
+    // The second gate's finding put back: the line under the title.
+    plant: [
+      {
+        file: 'src/i18n/en.js',
+        anchor: "  'page.inside.purpose': 'Every car your lanes let in that has not left yet, including any not confirmed inside.',",
+        with: "  'page.inside.purpose': 'The cars parked in your garage right now.',",
+      },
+      {
+        file: 'src/i18n/es.js',
+        anchor: "    'Cada carro que sus carriles dejaron pasar y que todavía no ha salido, incluso los no confirmados adentro.',",
+        with: "    'Los carros que están estacionados en su garaje ahora mismo.',",
+      },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: [
+      'FAIL Cars inside, with a car not confirmed (en)',
+      '"The cars parked in your garage right now."',
+      'FAIL Cars inside, with a car not confirmed (es)',
+      '"Los carros que están estacionados en su garaje ahora mismo."',
+    ],
+  },
+  {
+    check: 'U2c-fix2 Cars inside: no column says every car listed came in',
+    // The second gate's finding put back: the time column named "Came in".
+    plant: [
+      { file: 'src/i18n/en.js', anchor: "  'inside.letIn': 'Let in',", with: "  'inside.letIn': 'Came in'," },
+      { file: 'src/i18n/es.js', anchor: "  'inside.letIn': 'Recibió paso',", with: "  'inside.letIn': 'Entró'," },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    // The column names are drawn in capitals; the check reports what is on screen.
+    names: ['FAIL Cars inside, with a car not confirmed (en)', '"CAME IN"', 'FAIL Cars inside, with a car not confirmed (es)', '"ENTRÓ"'],
+  },
+  {
+    check: 'U2c-fix2 a page with nothing on it yet says so',
+    plant: { file: 'src/App.jsx', anchor: "        {t('page.notYet')}", with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL "Garages": nothing on it yet', 'FAIL "Getting paid": nothing on it yet'],
   },
 ];
 

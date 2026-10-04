@@ -27,9 +27,15 @@ export const BANNED = [
   'sesion', 'sesiones', 'sincronizar', 'sincronizacion', 'servidor', 'servidores',
   'esquema', 'booleano', 'nulo', 'indefinido', 'inquilino', 'inquilinos',
   'parametro', 'parametros', 'credencial', 'credenciales',
+  // U2c: a garage owner says "equipment" or "computer", and "the day it opens".
+  'device', 'devices', 'dispositivo', 'dispositivos',
 ];
 
-export const BANNED_PHRASES = ['base de datos', 'status code', 'error code', 'codigo de estado', 'codigo de error'];
+export const BANNED_PHRASES = [
+  'base de datos', 'status code', 'error code', 'codigo de estado', 'codigo de error',
+  // U2c
+  'go live', 'goes live', 'going live',
+];
 
 const STATUS_NUMBER = /^[1-5]\d\d$/;
 

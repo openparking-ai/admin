@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { ProblemNote, useGarageRead, useNow } from './parts.jsx';
 import { directionKey, laneWords } from './lanes.js';
+import { insideWords } from './inside.js';
+import FieldName from './FieldName.jsx';
 
 /**
  * At a glance: each lane and whether it is working, and how many cars are
@@ -15,7 +17,9 @@ export default function Home({ t, language, client, garage }) {
   return (
     <div className="home-grid">
       <section className="panel" data-section="lanes">
-        <h2 className="section-title">{t('home.lanes')}</h2>
+        <h2 className="section-title">
+          <FieldName t={t} name="home.lanes" />
+        </h2>
         {lanes.problem ? (
           <ProblemNote t={t} kind={lanes.problem} onRetry={lanes.retry} />
         ) : !lanes.data ? (
@@ -42,7 +46,9 @@ export default function Home({ t, language, client, garage }) {
       </section>
 
       <section className="panel" data-section="inside">
-        <h2 className="section-title">{t('home.inside')}</h2>
+        <h2 className="section-title">
+          <FieldName t={t} name="home.inside" />
+        </h2>
         {inside.problem ? (
           <ProblemNote t={t} kind={inside.problem} onRetry={inside.retry} />
         ) : !inside.data ? (
@@ -57,16 +63,15 @@ export default function Home({ t, language, client, garage }) {
 
 /** The platform's own figures: cars confirmed inside, and the open ones it could not confirm. */
 export function InsideCounts({ t, data }) {
-  const count = Number(data.inside_count) || 0;
-  const unconfirmed = Number(data.unconfirmable_count) || 0;
+  const { figure, more } = insideWords(t, data);
   return (
     <div className="inside-counts">
       <p className="figure" data-figure="inside">
-        {count === 0 ? t('inside.countNone') : count === 1 ? t('inside.countOne') : t('inside.countMany', { count })}
+        {figure}
       </p>
-      {unconfirmed > 0 ? (
+      {more ? (
         <p className="quiet" data-figure="unconfirmed">
-          {unconfirmed === 1 ? t('inside.unconfirmedOne') : t('inside.unconfirmedMany', { count: unconfirmed })}
+          {more}
         </p>
       ) : null}
     </div>

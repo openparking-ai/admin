@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { PrintButton, PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
 import { InsideCounts } from './Home.jsx';
 import { garageTime } from './time.js';
+import FieldName from './FieldName.jsx';
 
 /** The open stays, oldest first, as the platform returns them. Read only. */
 export default function InsidePage({ t, language, client, garage }) {
@@ -26,11 +27,21 @@ export default function InsidePage({ t, language, client, garage }) {
         <table className="list">
           <thead>
             <tr>
-              <th>{t('inside.plate')}</th>
-              <th>{t('inside.ticket')}</th>
-              <th>{t('inside.cameIn')}</th>
-              <th>{t('inside.lane')}</th>
-              <th>{t('inside.confirmed')}</th>
+              <th>
+                <FieldName t={t} name="inside.plate" />
+              </th>
+              <th>
+                <FieldName t={t} name="inside.ticket" />
+              </th>
+              <th>
+                <FieldName t={t} name="inside.letIn" />
+              </th>
+              <th>
+                <FieldName t={t} name="inside.lane" />
+              </th>
+              <th>
+                <FieldName t={t} name="inside.confirmed" />
+              </th>
             </tr>
           </thead>
           <tbody>
