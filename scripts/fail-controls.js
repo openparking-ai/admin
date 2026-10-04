@@ -444,7 +444,7 @@ const CONTROLS = [
       { file: 'src/files/pdf.js', anchor: '      if (!fresh && (room <', with: '      if ((room <' },
     ],
     run: CHECK_FILES,
-    names: ['FAIL F3 a garage name of 3,000 characters: the PDF is made within 5 s (not made in 5 s)'],
+    names: ['FAIL F3 a garage name of 3,000 characters: the PDF is made within 5 s (not made', 'FAIL odd text: garage name × PDF'],
   },
   {
     check: "U3 fix F3: a later page's name not cut to two lines",

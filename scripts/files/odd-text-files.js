@@ -120,7 +120,7 @@ export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOu
 
   // Time: a file not made within the limit fails every case it carries.
   for (const [format, made] of [['PDF', pdf], ['Excel', xlsx]]) {
-    for (const x of texts) for (const id of ids) cell(x.text, format, id, !made.timedOut && made.ms <= FILE_SECONDS * 1000, made.timedOut ? `not made within ${FILE_SECONDS} s (${where})` : `${made.ms} ms`);
+    for (const x of texts) for (const id of ids) cell(x.text, format, id, !made.timedOut && made.ms <= FILE_SECONDS * 1000, made.timedOut ? `not made${made.error ? `: ${made.error}` : ` within ${FILE_SECONDS} s`} (${where})` : `${made.ms} ms`);
   }
 
   // What the maker says it left out must be exactly what was left out.
@@ -234,7 +234,7 @@ export async function oddTextFiles({ dir, readAt, garage, cell, log }) {
         const xlsx = { path: join(dir, `odd-${tag}.xlsx`) };
         Object.assign(pdf, await makeFile({ list, format: 'pdf', language, garage: g, data, readAt, path: pdf.path }, FILE_SECONDS * 1000));
         Object.assign(xlsx, await makeFile({ list, format: 'xlsx', language, garage: g, data, readAt, path: xlsx.path }, FILE_SECONDS * 1000));
-        log?.(`  made ${tag}: PDF ${pdf.timedOut ? `NOT MADE in ${FILE_SECONDS} s` : `${pdf.ms} ms`}, Excel ${xlsx.timedOut ? `NOT MADE in ${FILE_SECONDS} s` : `${xlsx.ms} ms`}`);
+        log?.(`  made ${tag}: PDF ${pdf.timedOut ? `NOT MADE (${pdf.error ?? `${FILE_SECONDS} s`})` : `${pdf.ms} ms`}, Excel ${xlsx.timedOut ? `NOT MADE (${xlsx.error ?? `${FILE_SECONDS} s`})` : `${xlsx.ms} ms`}`);
         jobs.push({ list, language, f, pdf, xlsx });
       }
     }

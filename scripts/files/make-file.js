@@ -2,7 +2,8 @@
 // it after a time limit: a file that is never made is a red result, not a hang.
 //
 //   const made = await makeFile({ list, format, language, garage, data, readAt, path }, ms)
-//   -> { ms, name, missing, hidden, cut } or { timedOut: true, ms }
+//   -> { ms, name, missing, hidden, cut }, or { timedOut: true, ms, error? } when no file
+//   came: stopped at the limit, or the maker failed (`error` says how)
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,7 +32,7 @@ if (!isMainThread) {
 }
 
 export function makeFile(job, limitMs) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const started = performance.now();
     const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { ...job, readAt: new Date(job.readAt).toISOString() } });
     const timer = setTimeout(() => {
@@ -45,7 +46,7 @@ export function makeFile(job, limitMs) {
     });
     worker.once('error', (error) => {
       clearTimeout(timer);
-      reject(error);
+      resolve({ timedOut: true, ms: Math.round(performance.now() - started), error: error.message.split('\n')[0] });
     });
   });
 }

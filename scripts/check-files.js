@@ -251,7 +251,7 @@ try {
   check(gatePdf.hidden === true && named.join(' ') === 'U+6771 U+1F697', `F1/F2 the screen is told: hidden characters left out (${gatePdf.hidden}); letters named only the visible ones the font lacks: ${named.join(' ') || 'none'}`);
   for (const n of [3000, 8000]) {
     const made = await makeFile({ list: 'inside', format: 'pdf', language: 'en', garage: { ...GARAGE, name: 'Ñ'.repeat(n) }, data: insideData(), readAt: READ_AT, path: join(DIR, `gate-${n}.pdf`) }, FILE_SECONDS * 1000);
-    check(!made.timedOut, `F3 a garage name of ${n.toLocaleString('en-US')} characters: the PDF is made within ${FILE_SECONDS} s (${made.timedOut ? `not made in ${FILE_SECONDS} s` : `${made.ms} ms`})`);
+    check(!made.timedOut, `F3 a garage name of ${n.toLocaleString('en-US')} characters: the PDF is made within ${FILE_SECONDS} s (${made.timedOut ? `not made${made.error ? `: ${made.error}` : ` in ${FILE_SECONDS} s`}` : `${made.ms} ms`})`);
   }
 
   // ── The class: every text x every case x every output ─────────────────────
