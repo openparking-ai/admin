@@ -130,6 +130,8 @@ jobs:
         run: npm run check-browser
 
       - name: No name from outside this project, in the working tree and the built site
-        # Plants its own control in the tree and requires it caught, in the
+        # Tracked and untracked files and the built site, contents and paths,
+        # and every commit message. Plants its own controls -- a word in a
+        # file, a word in a file's name -- and requires each caught, in the
         # same run, before the real scan is read.
         run: node .github/scripts/check-no-sibling-names.js --worktree
