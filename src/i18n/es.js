@@ -15,7 +15,7 @@ export default {
 
   'page.garages.title': 'Garajes',
   'page.garages.purpose':
-    'Cada uno de sus garajes: el nombre, la zona horaria, la moneda en que cobra, si acepta visitantes y cuándo empieza a funcionar.',
+    'Cada uno de sus garajes: el nombre, la zona horaria, la moneda en que cobra, si acepta visitantes y el día que abre.',
   'page.garages.words': 'garaje, garajes, parqueo, estacionamiento, parking, zona horaria, moneda, abrir, empezar',
 
   'page.lanes.title': 'Carriles y equipos',
@@ -52,6 +52,7 @@ export default {
   'language.label': 'Idioma',
   'language.en': 'English',
   'language.es': 'Español',
+  'language.notKept': 'El idioma cambió en esta visita, pero no se pudo guardar para la próxima vez.',
 
   'quickFind.pill': 'Búsqueda rápida',
   'quickFind.label': 'Búsqueda rápida',
@@ -77,7 +78,9 @@ export default {
   'signIn.title': 'Entrar',
   'signIn.intro': 'Entre con el correo y la contraseña de sus garajes.',
   'signIn.email': 'Correo electrónico',
+  'signIn.email.about': 'El correo electrónico con el que se registraron sus garajes.',
   'signIn.password': 'Contraseña',
+  'signIn.password.about': 'La contraseña de ese correo electrónico.',
   'signIn.submit': 'Entrar',
   'signIn.working': 'Entrando…',
   'signOut': 'Salir',
@@ -107,7 +110,9 @@ export default {
   'garage.notLive': 'Todavía no abre',
 
   'home.lanes': 'Carriles',
+  'home.lanes.about': 'Cada carril, de entrada o salida, y cuándo se comunicó su computadora por última vez.',
   'home.inside': 'Carros adentro',
+  'home.inside.about': 'Carros que los sensores vieron entrar y que todavía no han salido.',
 
   'lane.in': 'Entrada',
   'lane.out': 'Salida',
@@ -117,13 +122,17 @@ export default {
   'lane.quiet': 'Sin comunicarse desde: {time}',
   'lane.never': 'Nunca se ha comunicado',
   'lane.noComputer': 'Todavía sin computadora de carril',
-  'device.off': 'Desconectada: {time}',
+  'device.off': 'Acceso cancelado: {time}',
 
   'lanes.none': 'Este garaje todavía no tiene carriles.',
   'lanes.lane': 'Carril',
+  'lanes.lane.about': 'El nombre del carril, como se registró para su garaje.',
   'lanes.direction': 'Entrada o salida',
+  'lanes.direction.about': 'Si los carros usan este carril para entrar o para salir.',
   'lanes.computers': 'Computadoras del carril',
+  'lanes.computers.about': 'La computadora de este carril y cuándo se comunicó por última vez.',
   'lanes.reader': 'Lector de tarjetas',
+  'lanes.reader.about': 'Si este carril tiene un lector de tarjetas instalado ahora mismo.',
   'lanes.readerYes': 'Sí',
   'lanes.readerNo': 'Ninguno',
 
@@ -134,10 +143,15 @@ export default {
   'inside.unconfirmedMany': '{count} más recibieron paso, pero el carril no pudo confirmar que entraron.',
   'inside.empty': 'No hay carros adentro ahora mismo.',
   'inside.plate': 'Placa',
+  'inside.plate.about': 'La placa y el estado del carro, si el carril los registró.',
   'inside.ticket': 'Boleto',
+  'inside.ticket.about': 'El número de boleto, si el cliente sacó un boleto.',
   'inside.cameIn': 'Entró',
+  'inside.cameIn.about': 'Cuándo entró el carro, en la hora del garaje.',
   'inside.lane': 'Carril de entrada',
+  'inside.lane.about': 'El carril por donde entró el carro.',
   'inside.confirmed': 'Confirmado adentro',
+  'inside.confirmed.about': 'Sí, si los sensores después de la barrera vieron entrar el carro.',
 
   'print.button': 'Imprimir',
   'print.printed': 'Impreso el {time}',

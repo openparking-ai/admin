@@ -11,7 +11,11 @@
 // languages, day/night/auto, Quick Find, every failure the screens can meet,
 // sign-out, a 401 from a read, the next owner signing in, every other
 // answer sign-in can give, in both languages, and the platform stopped
-// behind the development proxy. The page policy
+// behind the development proxy. Then the language: English on a first
+// visit whatever the browser asks for, kept on the owner's profile across
+// browsers, a choice made on the sign-in screen kept, and a save that fails
+// said in one plain sentence. Every field's description is checked visible
+// under its name, on screen and on the print view. The page policy
 // in index.html is enforced throughout.
 //
 // Then it requires that every request went to the site's own origin and
@@ -161,6 +165,7 @@ async function checkPrint(page, list, garage) {
     `print (${list}): the time it was printed is not browser time, ${browserTimes.join(' or ')} (Tokyo)`,
   );
   check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
+  await checkDescribed(page, `print (${list})`, 'en', list === 'Cars inside' ? 5 : 4);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
 }
@@ -195,6 +200,59 @@ const onlyTheTwoKeys = ({ local, session }) =>
   session.length === 0 && local.every((k) => k === THEME_KEY || k === LANGUAGE_KEY);
 
 const aTextIn = (text) => A_TEXT.filter((s) => text.includes(s));
+const LANES_TITLE = EN['page.lanes.title'];
+
+/** Wait, in this process, for the stand-in to hold what a check expects: up to five seconds. */
+async function until(fn) {
+  for (let i = 0; i < 50; i += 1) {
+    if (fn()) return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
+
+/**
+ * Every field on screen has its description directly under its name: shown
+ * (not hidden, not empty, not behind a pointer), in the language on screen,
+ * word for word from the dictionary. `expected` is how many fields the page
+ * has; every list column and form field on it must be one of them.
+ */
+async function checkDescribed(page, where, language, expected) {
+  const words = language === 'es' ? ES : EN;
+  const found = await page.evaluate(() => {
+    const shown = (e) => {
+      const s = getComputedStyle(e);
+      const r = e.getBoundingClientRect();
+      return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && r.width > 0 && r.height > 0;
+    };
+    return {
+      fields: [...document.querySelectorAll('.field-about')].map((about) => {
+        const name = about.previousElementSibling;
+        const n = name?.getBoundingClientRect();
+        const a = about.getBoundingClientRect();
+        return {
+          key: about.dataset.about,
+          text: about.textContent.trim(),
+          name: name?.classList.contains('field-name') ? name.textContent.trim() : null,
+          shown: shown(about) && Boolean(name) && shown(name),
+          under: Boolean(n) && a.top >= n.bottom - 1 && a.left < n.right && n.left < a.right,
+        };
+      }),
+      // textContent, not innerText: a column's name is drawn in capitals, and the check names it as written.
+      bare: [...document.querySelectorAll('th, label')].filter((e) => !e.querySelector('.field-about')).map((e) => e.textContent.trim()),
+    };
+  });
+  const wrong = [];
+  for (const f of found.fields) {
+    const want = words[`${f.key}.about`];
+    if (!f.shown) wrong.push(`"${f.name ?? f.key}": its description is not shown`);
+    else if (!f.under) wrong.push(`"${f.name}": its description is not under its name`);
+    if (f.text !== want) wrong.push(`"${f.name ?? f.key}": says "${f.text}", not "${want}"`);
+  }
+  for (const b of found.bare) wrong.push(`"${b}": no description under it`);
+  if (found.fields.length !== expected) wrong.push(`${found.fields.length} described fields, not ${expected}`);
+  check(wrong.length === 0, `descriptions, ${where} (${language}): every field described under its name${wrong.length ? `; ${wrong.join('; ')}` : ` (${found.fields.length})`}`);
+}
 
 try {
   // ── Signed out: the sign-in screen ───────────────────────────────────────
@@ -208,6 +266,12 @@ try {
   check(fonts.includes('DM Serif Display'), 'the title font is loaded from the site itself');
   check(fonts.includes('JetBrains Mono'), 'the figures and labels font is loaded from the site itself');
   check((await page.getAttribute('html', 'lang')) === 'en', 'first visit from an English browser is in English');
+  await checkDescribed(page, 'sign-in', 'en', 2);
+  await page.click('[data-control="language"] [data-value="es"]');
+  await showsHeading(page, ES['signIn.title']);
+  await checkDescribed(page, 'sign-in', 'es', 2);
+  await page.click('[data-control="language"] [data-value="en"]');
+  await showsHeading(page, EN['signIn.title']);
   if (SCREENS) {
     mkdirSync(SCREENS, { recursive: true });
     await page.screenshot({ path: join(SCREENS, 'sign-in-english.png') });
@@ -242,6 +306,7 @@ try {
   check(homeLower.includes(EN['lane.in'].toLowerCase()) && homeLower.includes(EN['lane.out'].toLowerCase()), 'Home: each lane is in or out');
   const kinds = ['garage pass', 'monthly', 'transient'];
   check(kinds.every((k) => !home.toLowerCase().includes(k)), 'Home: no breakdown by kind of customer, since the platform returns none');
+  await checkDescribed(page, 'Home', 'en', 2);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-english-day.png') });
 
   // ── Garage time, not browser time ───────────────────────────────────────
@@ -254,15 +319,20 @@ try {
   check(inside.includes(garageDay) || inside.includes(garageClock), `Cars inside: came in at ${garageDay}, garage time`);
   check(!inside.includes(tokyoClock), `garage time, not browser time: ${tokyoClock} (Tokyo) is not shown`);
   check(inside.includes('HT-0042') && inside.includes('HRB7731'), 'Cars inside: every open stay is listed');
+  await checkDescribed(page, 'Cars inside', 'en', 5);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-english.png'), fullPage: true });
   await checkPrint(page, 'Cars inside', A.garages[0]);
 
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
   const lanes = await bodyText(page);
-  check(lanes.includes(quiet), 'Lanes and devices: the quiet lane computer, in garage time');
-  check(lanes.includes(EN['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'en'))), 'Lanes and devices: a disconnected computer, in garage time');
-  check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), 'Lanes and devices: which lanes have a card reader');
-  await checkPrint(page, 'Lanes and devices', A.garages[0]);
+  check(lanes.includes(quiet), `${LANES_TITLE}: the quiet lane computer, in garage time`);
+  const cancelled = EN['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'en'));
+  check(lanes.includes(cancelled), `${LANES_TITLE}: "${cancelled}", a lane computer whose access was cancelled, in garage time`);
+  check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), `${LANES_TITLE}: which lanes have a card reader`);
+  await checkDescribed(page, LANES_TITLE, 'en', 4);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-english.png'), fullPage: true });
+  await checkPrint(page, LANES_TITLE, A.garages[0]);
 
   // ── Every page from the navigation, English ─────────────────────────────
   for (const p of PAGES) {
@@ -357,6 +427,19 @@ try {
   const homeEs = (await bodyText(page)).toLowerCase();
   check(['pase de garaje', 'mensual', 'visitante'].every((k) => !homeEs.includes(k)), 'Home in Spanish: no breakdown by kind of customer');
   check(homeEs.includes(ES['lane.quiet'].replace('{time}', inZone('2026-03-10T19:40:00Z', 'America/New_York', 'es')).toLowerCase()), 'Home in Spanish: the quiet lane, in garage time');
+  check(await until(() => A.language === 'es'), `choosing Español while signed in keeps it on the owner's profile (the stand-in holds "${A.language}")`);
+  await checkDescribed(page, 'Home', 'es', 2);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-spanish.png') });
+  await page.click('.nav-item[href="#/lanes"]');
+  await showsText(page, 'Harbor exit computer');
+  await checkDescribed(page, ES['page.lanes.title'], 'es', 4);
+  check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'es'))), 'Carriles y equipos: the cancelled computer, in Spanish');
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-spanish.png'), fullPage: true });
+  await page.click('.nav-item[href="#/cars-inside"]');
+  await showsText(page, 'HRB4410');
+  await checkDescribed(page, ES['page.inside.title'], 'es', 5);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-spanish.png'), fullPage: true });
+  await page.click('.nav-item[href="#/"]');
   await page.reload();
   await page.waitForSelector('.page-title');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
@@ -371,7 +454,12 @@ try {
   check(await selects(page, 'taxes'), '"impuestos" picks Impuestos y cargos');
   await page.keyboard.press('Enter');
   check(await showsHeading(page, ES['page.taxes.title']), 'and Enter goes there');
+  // A Quick Find that found nothing stays open over the page; close it, so one
+  // failure above does not stop the walk before the checks below are run.
+  if (await page.isVisible('.find-dialog')) await page.keyboard.press('Escape');
   await page.click('[data-control="language"] [data-value="en"]');
+  // The save of English lands before a failure is asked of the stand-in, or the save would meet it.
+  check(await until(() => A.language === 'en'), 'and English chosen again is kept on the profile');
 
   // ── Nothing raw reaches the screen ──────────────────────────────────────
   // Each failure is met by a read: the Cars inside page asks again on arrival.
@@ -444,13 +532,100 @@ try {
   check(!(await page.isVisible('[data-action="change-garage"]')), 'an owner with one garage goes straight in');
   await context.close();
 
-  // ── First visit follows the browser ──────────────────────────────────────
+  // ── English by default: the browser's own language decides nothing ──────
   const spanish = await open({ locale: 'es-US' });
-  check(await showsHeading(spanish.page, ES['signIn.title']), 'first visit from a Spanish browser is in Spanish');
+  check(await showsHeading(spanish.page, EN['signIn.title']), 'English by default: a first visit from a browser set to Spanish is in English');
+  check((await spanish.page.getAttribute('html', 'lang')) === 'en', 'English by default: and tells the browser so');
   await spanish.context.close();
   const french = await open({ locale: 'fr-FR' });
-  check(await showsHeading(french.page, EN['signIn.title']), 'first visit from any other browser is in English');
+  check(await showsHeading(french.page, EN['signIn.title']), 'English by default: a first visit from any other browser is in English');
   await french.context.close();
+
+  // ── Kept on the profile: Spanish follows the owner to another browser ──
+  // Signed-in words that differ between the languages: none may be drawn,
+  // not for one frame, before the Spanish ones.
+  const englishSignedIn = [EN['garage.choose'], EN.signOut, ...PAGES.map((p) => EN[`page.${p.id}.title`])].filter(
+    (w) => !Object.values(ES).includes(w),
+  );
+  A.language = 'en';
+  const first = await open();
+  await signIn(first.page, A);
+  await first.page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
+  await first.page.click('[data-control="language"] [data-value="es"]');
+  await showsHeading(first.page, ES['page.home.title']);
+  check(await until(() => A.language === 'es'), `kept on the profile: Español chosen while signed in is saved to the profile (the stand-in holds "${A.language}")`);
+  await first.page.click('[data-action="sign-out"]');
+  await showsHeading(first.page, ES['signIn.title']);
+  await first.context.close();
+  const second = await open();
+  check(await showsHeading(second.page, EN['signIn.title']), 'kept on the profile: a different, fresh browser opens in English before anyone signs in');
+  await second.page.evaluate(() => {
+    window.__seen.length = 0;
+  });
+  await signIn(second.page, A);
+  check(await showsText(second.page, ES['garage.choose']), 'kept on the profile: signed in on a different browser, the owner sees Spanish');
+  check((await second.page.getAttribute('html', 'lang')) === 'es', 'kept on the profile: and the page says it is Spanish');
+  const seenOnSecond = await second.page.evaluate(() => window.__seen.join('\n'));
+  const englishFrames = englishSignedIn.filter((w) => seenOnSecond.includes(w));
+  check(englishFrames.length === 0, `kept on the profile: no English frame before the Spanish one${englishFrames.length ? ` (drawn: ${englishFrames.join(', ')})` : ''}`);
+  check((await second.page.evaluate((k) => localStorage.getItem(k), LANGUAGE_KEY)) === 'es', "kept on the profile: this computer's copy now says Spanish too");
+  await second.page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
+  await second.page.click('[data-action="sign-out"]');
+  check(await showsHeading(second.page, ES['signIn.title']), 'kept on the profile: so the next sign-in screen on this computer is in Spanish');
+  await second.context.close();
+  A.language = 'en';
+
+  // ── Chosen at sign-in is kept ───────────────────────────────────────────
+  B.language = 'en';
+  const atSignIn = await open();
+  await atSignIn.page.click('[data-control="language"] [data-value="es"]');
+  await showsHeading(atSignIn.page, ES['signIn.title']);
+  await signIn(atSignIn.page, B);
+  check(await showsHeading(atSignIn.page, ES['page.home.title']), 'chosen at sign-in: Español picked on the sign-in screen stays on after signing in');
+  check(await until(() => B.language === 'es'), `chosen at sign-in: and is saved to the profile, which said English (the stand-in holds "${B.language}")`);
+  await atSignIn.context.close();
+  // Not picked on the sign-in screen: the profile's language is taken, and this computer's copy follows it.
+  const adopted = await open();
+  await signIn(adopted.page, B);
+  check(await showsHeading(adopted.page, ES['page.home.title']), "chosen at sign-in: nothing picked there, the profile's language is shown");
+  check((await adopted.page.evaluate((k) => localStorage.getItem(k), LANGUAGE_KEY)) === 'es', "chosen at sign-in: and this computer's copy is set to match");
+  await adopted.context.close();
+  B.language = 'en';
+
+  // ── A save that fails says so, in plain words ──────────────────────────
+  A.language = 'en';
+  const failing = await open();
+  await signIn(failing.page, A);
+  await failing.page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
+  await showsText(failing.page, 'North Exit');
+  const saveFailures = [
+    ['the platform stopped', 'es', () => failing.page.route('**/api/v1/auth/language', (r) => r.abort('connectionrefused'), { times: 1 })],
+    ['a gateway answering for it', 'en', () => stub.failNext('gateway')],
+    ['a 500', 'es', () => stub.failNext('serverError')],
+  ];
+  for (const [what, next, fail] of saveFailures) {
+    const words = next === 'es' ? ES : EN;
+    await fail();
+    await failing.page.click(`[data-control="language"] [data-value="${next}"]`);
+    const said = await showsText(failing.page, words['language.notKept']);
+    const raw = rawIn(await bodyText(failing.page));
+    check(
+      said && raw.length === 0 && (await showsHeading(failing.page, words['page.home.title'])),
+      `a failed save, ${what}: the screen changed language and says "${words['language.notKept']}"${raw.length ? `; RAW on screen: ${raw.join(', ')}` : ''}`,
+    );
+    check(A.language === 'en', `a failed save, ${what}: the profile was not changed (the stand-in holds "${A.language}")`);
+  }
+  await failing.page.click('[data-control="language"] [data-value="en"]');
+  check(await settles(failing.page, () => !document.querySelector('[data-notice="language-not-kept"]')), 'a save that works takes the sentence away');
+  check(await until(() => A.language === 'en'), 'and that save reached the profile');
+  stub.failNext('ended');
+  await failing.page.click('[data-control="language"] [data-value="es"]');
+  check(await showsText(failing.page, ES['problem.ended']), 'a 401 during the save: the signed-out screen, in plain words');
+  const afterEnded = await bodyText(failing.page);
+  check(rawIn(afterEnded).length === 0 && aTextIn(afterEnded).length === 0, `a 401 during the save: nothing raw and nothing of the owner left ${[...rawIn(afterEnded), ...aTextIn(afterEnded)].join(', ')}`);
+  check(onlyTheTwoKeys(await storageKeys(failing.page)), 'a 401 during the save: browser storage holds only the two keys');
+  await failing.context.close();
+  A.language = 'en';
   const dark = await open({ colorScheme: 'dark' });
   check(await showsLook(dark.page, 'night'), 'first visit on a dark computer is night');
   await dark.context.close();

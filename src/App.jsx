@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { PAGES, hashFor, pageForHash } from './pages.js';
-import { readLanguage, saveLanguage, translate } from './i18n/index.js';
+import { knownLanguage, readLanguage, saveLanguage, translate } from './i18n/index.js';
 import { THEME_CHOICES } from './theme.js';
 import { EMPTY_OWNER, ownerReducer } from './owner.js';
 import { STALE } from './api.js';
@@ -27,18 +27,80 @@ function useHashPage() {
 
 export default function App({ theme, storage, client }) {
   const page = useHashPage();
-  const [language, setLanguage] = useState(() => readLanguage(storage, navigator.languages));
+  // Signed out: the language last used on this computer, else English.
+  // Signed in: the owner's profile (signedInAs below).
+  const [language, setLanguage] = useState(() => readLanguage(storage));
+  const [languageNotKept, setLanguageNotKept] = useState(false);
   const [themeChoice, setThemeChoice] = useState(theme.choice);
   const [owner, dispatch] = useReducer(ownerReducer, EMPTY_OWNER);
+  const signedInNow = useRef(false);
+  // The language picked on the sign-in screen, if one was: kept on the
+  // profile of whoever signs in from it.
+  const pickedOnSignIn = useRef(null);
+  // Saves to the profile go one after another, so the last choice is the one kept.
+  const saving = useRef(Promise.resolve());
 
   const t = useCallback((key, values) => translate(language, key, values), [language]);
 
-  const chooseLanguage = useCallback(
+  /** This visit and this computer: the screens, and the copy the next sign-in screen reads. */
+  const show = useCallback(
     (next) => {
-      saveLanguage(storage, next);
       setLanguage(next);
+      saveLanguage(storage, next);
     },
     [storage],
+  );
+
+  /**
+   * Keep `next` on the owner's profile. If that fails the screens still speak
+   * it for this visit, and one sentence says it was not kept for next time. A
+   * 401 is not this sentence's: the client has already sent the owner to the
+   * sign-in screen.
+   */
+  const keepOnProfile = useCallback(
+    (next) => {
+      saving.current = saving.current.then(() =>
+        client.setLanguage(next).then(
+          () => setLanguageNotKept(false),
+          (problem) => {
+            if (problem?.kind === STALE || problem?.kind === 'ended') return;
+            setLanguageNotKept(true);
+          },
+        ),
+      );
+    },
+    [client],
+  );
+
+  const chooseLanguage = useCallback(
+    (next) => {
+      if (!knownLanguage(next)) return;
+      show(next);
+      if (signedInNow.current) keepOnProfile(next);
+      else pickedOnSignIn.current = next;
+    },
+    [show, keepOnProfile],
+  );
+
+  /**
+   * Someone is signed in. The profile's language is shown from the first
+   * frame -- unless the owner picked one on the sign-in screen just now: then
+   * that one is shown, and kept on the profile. Either way this computer's
+   * copy is set to match, so the next sign-in screen already speaks it.
+   */
+  const signedInAs = useCallback(
+    (who, { fromSignInScreen }) => {
+      const profile = knownLanguage(who?.language);
+      const picked = fromSignInScreen ? pickedOnSignIn.current : null;
+      pickedOnSignIn.current = null;
+      setLanguageNotKept(false);
+      const next = picked ?? profile;
+      if (next) show(next);
+      signedInNow.current = true;
+      dispatch({ type: 'signedIn', who });
+      if (picked && picked !== profile) keepOnProfile(picked);
+    },
+    [show, keepOnProfile],
   );
   const chooseTheme = useCallback(
     (next) => {
@@ -49,18 +111,25 @@ export default function App({ theme, storage, client }) {
   );
 
   // Any 401, from any request, lets go of everything held about this owner.
-  useEffect(() => client.listen((notice) => dispatch({ type: 'drop', notice })), [client]);
+  useEffect(
+    () =>
+      client.listen((notice) => {
+        signedInNow.current = false;
+        dispatch({ type: 'drop', notice });
+      }),
+    [client],
+  );
 
   useEffect(() => {
     let live = true;
     client.me().then(
-      (who) => live && who && dispatch({ type: 'signedIn', who }),
+      (who) => live && who && signedInAs(who, { fromSignInScreen: false }),
       (problem) => live && problem.kind !== STALE && dispatch({ type: 'drop', notice: problem.kind }),
     );
     return () => {
       live = false;
     };
-  }, [client]);
+  }, [client, signedInAs]);
 
   const loadGarages = useCallback(() => {
     client.garages().then(
@@ -125,7 +194,7 @@ export default function App({ theme, storage, client }) {
         client={client}
         notice={owner.notice}
         controls={controls}
-        onSignedIn={(who) => dispatch({ type: 'signedIn', who })}
+        onSignedIn={(who) => signedInAs(who, { fromSignInScreen: true })}
       />
     );
   }
@@ -202,6 +271,11 @@ export default function App({ theme, storage, client }) {
         <main className="content" id="content">
           <h1 className="page-title">{t(`page.${page.id}.title`)}</h1>
           <p className="page-purpose">{t(`page.${page.id}.purpose`)}</p>
+          {languageNotKept ? (
+            <p className="problem-note" role="status" data-notice="language-not-kept">
+              {t('language.notKept')}
+            </p>
+          ) : null}
           {content}
         </main>
       </div>

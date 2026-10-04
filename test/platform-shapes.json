@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 9cad9e1 (npm run demo, an admin made with create-admin, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-03",
+  "recorded_from": "openparking-ai/platform 7703ad4 (u2c/profile-language: npm run demo, an admin made with create-admin, one car opened by the entry lane, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-04",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -14,6 +14,14 @@
       "status": 401,
       "body": {
         "error": "operator token required"
+      }
+    },
+    {
+      "what": "language, before signing in",
+      "status": 401,
+      "body": {
+        "error": "Sign in first.",
+        "code": "sign_in_required"
       }
     },
     {
@@ -49,6 +57,11 @@
         ],
         "keys": {
           "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "language": {
             "types": [
               "string"
             ]
@@ -89,12 +102,104 @@
               "string"
             ]
           },
+          "language": {
+            "types": [
+              "string"
+            ]
+          },
           "session_ends_at": {
             "types": [
               "string"
             ]
           },
           "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "language, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "language, with no page address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "language, one the screens have no words for",
+      "status": 400,
+      "body": {
+        "error": "The language must be \"en\" or \"es\", sent as JSON: {\"language\"}.",
+        "code": "language_refused"
+      }
+    },
+    {
+      "what": "language, Spanish",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "language": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "who is signed in, after choosing Spanish",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "language": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "language, back to English",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "language": {
             "types": [
               "string"
             ]
@@ -422,6 +527,24 @@
           "SameSite=Strict"
         ]
       }
+    },
+    {
+      "what": "language, with the cookie from before the sign-out",
+      "status": 401,
+      "body": {
+        "error": "The session has ended. Sign in again.",
+        "code": "session_ended"
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": true,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age=0",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
     }
   ],
   "sign_in_answers": {
@@ -447,5 +570,5 @@
       }
     }
   },
-  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 9cad9e1 src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 7703ad4 src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
 }

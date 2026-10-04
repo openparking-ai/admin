@@ -176,3 +176,42 @@ test('every answer the real sign-in route gives has its own plain sentence, in b
     assert.equal(new Set(sentences).size, 7, `${language}: each answer has its own sentence`);
   }
 });
+
+test('the language is kept with one PUT of {"language"}: relative, same-origin, nothing in the address', async () => {
+  const { fn, asked } = fakeFetch(json(200, { language: 'es' }));
+  const client = createClient({ fetch: fn });
+  assert.deepEqual(await client.setLanguage('es'), { language: 'es' });
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].url, '/api/v1/auth/language');
+  assert.equal(asked[0].init.method, 'PUT');
+  assert.equal(asked[0].init.credentials, 'same-origin');
+  assert.equal(asked[0].init.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(asked[0].init.body), { language: 'es' });
+});
+
+test('a language save that fails: a kind with words, nothing raw; a 401 sends the owner to sign in', async () => {
+  const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8'));
+  const refusals = recorded.answers.filter((a) => a.what.startsWith('language') && a.status >= 400);
+  assert.ok(refusals.length >= 4, 'the recording holds the language refusals');
+  const cases = [
+    ...refusals.filter((a) => a.status !== 401).map((a) => [a.what, json(a.status, a.body), a.status === 403 ? 'wrongPlace' : 'unexpected']),
+    ['the platform stopped', new TypeError('Failed to fetch'), 'unreachable'],
+    ['a gateway answering for it', { status: 502, body: '<html>502 Bad Gateway</html>' }, 'unreachable'],
+    ['a 500', json(500, { error: 'internal error' }), 'unexpected'],
+  ];
+  for (const [what, answer, kind] of cases) {
+    const problem = await problemOf(createClient({ fetch: fakeFetch(answer).fn }).setLanguage('es'));
+    assert.equal(problem.kind, kind, what);
+    for (const language of ['en', 'es']) assert.doesNotMatch(translate(language, problemKey(problem)), RAW, what);
+  }
+  for (const a of refusals.filter((r) => r.status === 401)) {
+    let answer = json(200, { email: 'a@example.com', language: 'en' });
+    const client = createClient({ fetch: fakeFetch(() => answer).fn });
+    const heard = [];
+    client.listen((k) => heard.push(k));
+    await client.me();
+    answer = json(a.status, a.body);
+    assert.equal((await problemOf(client.setLanguage('es'))).kind, 'ended', a.what);
+    assert.deepEqual(heard, ['ended'], `${a.what}: the screens were told`);
+  }
+});

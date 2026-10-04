@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { ProblemNote, useGarageRead, useNow } from './parts.jsx';
 import { directionKey, laneWords } from './lanes.js';
+import FieldName from './FieldName.jsx';
 
 /**
  * At a glance: each lane and whether it is working, and how many cars are
@@ -15,7 +16,9 @@ export default function Home({ t, language, client, garage }) {
   return (
     <div className="home-grid">
       <section className="panel" data-section="lanes">
-        <h2 className="section-title">{t('home.lanes')}</h2>
+        <h2 className="section-title">
+          <FieldName t={t} name="home.lanes" />
+        </h2>
         {lanes.problem ? (
           <ProblemNote t={t} kind={lanes.problem} onRetry={lanes.retry} />
         ) : !lanes.data ? (
@@ -42,7 +45,9 @@ export default function Home({ t, language, client, garage }) {
       </section>
 
       <section className="panel" data-section="inside">
-        <h2 className="section-title">{t('home.inside')}</h2>
+        <h2 className="section-title">
+          <FieldName t={t} name="home.inside" />
+        </h2>
         {inside.problem ? (
           <ProblemNote t={t} kind={inside.problem} onRetry={inside.retry} />
         ) : !inside.data ? (

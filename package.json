@@ -23,6 +23,7 @@
     "check-page-stays-home": "node scripts/check-page-stays-home.js",
     "check-no-source-maps": "node scripts/check-no-source-maps.js",
     "check-home-claims": "node scripts/check-home-claims.js",
+    "check-descriptions": "node scripts/check-descriptions.js",
     "fail-controls": "node scripts/fail-controls.js",
     "fail-controls-browser": "node scripts/fail-controls.js --browser",
     "check-no-real-data": "node .github/scripts/check-no-real-data.js",

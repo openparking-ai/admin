@@ -161,6 +161,8 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
+    /** Keep `language` on the signed-in owner's profile, so every computer they sign in on speaks it. */
+    setLanguage: async (language) => object(await request('/auth/language', { method: 'PUT', body: { language } })),
     garages: async () => list(await request('/garages'), 'garages'),
     lanes: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/lanes`), 'lanes'),
     carsInside: async (garageId) => {

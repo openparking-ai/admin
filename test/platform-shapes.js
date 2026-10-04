@@ -72,7 +72,9 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   async function call(what, method, path, body, headers = {}) {
     const res = await fetch(`${base}/api/v1${path.replace('{garage}', garage)}`, {
       method,
-      headers: { origin, ...(cookie && { cookie }), ...(body !== undefined && { 'content-type': 'application/json' }), ...headers },
+      headers: Object.fromEntries(
+        Object.entries({ origin, ...(cookie && { cookie }), ...(body !== undefined && { 'content-type': 'application/json' }), ...headers }).filter(([, v]) => v !== undefined),
+      ),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const setCookie = res.headers.get('set-cookie');
@@ -90,11 +92,18 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   }
   await call('who is signed in, before signing in', 'GET', '/auth/me');
   await call('a read, before signing in', 'GET', '/garages');
+  await call('language, before signing in', 'PUT', '/auth/language', { language: 'es' });
   await call('sign-in, a wrong password', 'POST', '/auth/sign-in', { email: owner.email, password: 'wrong-on-purpose' });
   await call('sign-in, from a page at another address', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, { origin: elsewhere });
   await call('sign-in, the password left empty', 'POST', '/auth/sign-in', { email: owner.email, password: '' });
   await call('sign-in', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password });
   await call('who is signed in', 'GET', '/auth/me');
+  await call('language, from a page at another address', 'PUT', '/auth/language', { language: 'es' }, { origin: elsewhere });
+  await call('language, with no page address', 'PUT', '/auth/language', { language: 'es' }, { origin: undefined });
+  await call('language, one the screens have no words for', 'PUT', '/auth/language', { language: 'fr' });
+  await call('language, Spanish', 'PUT', '/auth/language', { language: 'es' });
+  await call('who is signed in, after choosing Spanish', 'GET', '/auth/me');
+  await call('language, back to English', 'PUT', '/auth/language', { language: 'en' });
   garage = (await call('garages', 'GET', '/garages')).garages[0].id;
   await call('lanes', 'GET', '/garages/{garage}/lanes');
   await call('cars inside', 'GET', '/garages/{garage}/sessions/open');
@@ -107,6 +116,8 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   await call('who is signed in, with the cookie from before the sign-out', 'GET', '/auth/me');
   cookie = kept;
   await call('a read, with the cookie from before the sign-out', 'GET', '/garages');
+  cookie = kept;
+  await call('language, with the cookie from before the sign-out', 'PUT', '/auth/language', { language: 'es' });
   return out;
 }
 

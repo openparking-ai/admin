@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { problemKey } from './api.js';
 import Logo from './Logo.jsx';
+import FieldName from './FieldName.jsx';
 
 /**
  * Email and password. The password lives in this form only while it is being
@@ -60,7 +61,7 @@ export default function SignIn({ t, client, notice, controls, onSignedIn }) {
         ) : null}
         <form className="signin-form" method="post" onSubmit={submit} noValidate>
           <label className="field">
-            <span>{t('signIn.email')}</span>
+            <FieldName t={t} name="signIn.email" />
             <input
               type="email"
               name="email"
@@ -71,7 +72,7 @@ export default function SignIn({ t, client, notice, controls, onSignedIn }) {
             />
           </label>
           <label className="field">
-            <span>{t('signIn.password')}</span>
+            <FieldName t={t} name="signIn.password" />
             <input
               ref={passwordRef}
               type="password"

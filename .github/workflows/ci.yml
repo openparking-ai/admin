@@ -93,6 +93,8 @@ jobs:
         run: npm run check-page-stays-home
       - name: Home says only what it shows
         run: npm run check-home-claims
+      - name: Every field has a short description, in both languages
+        run: npm run check-descriptions
       - name: No dependency with a known high or critical problem
         run: npm audit --audit-level=high
 

@@ -19,12 +19,12 @@ export default {
 
   'page.garages.title': 'Garages',
   'page.garages.purpose':
-    'Each of your garages: its name, its time zone, its currency, whether it takes transient parkers, and when it goes live.',
-  'page.garages.words': 'garage, garages, parking, lot, location, time zone, currency, go live, open',
+    'Each of your garages: its name, its time zone, its currency, whether it takes transient parkers, and the day it opens.',
+  'page.garages.words': 'garage, garages, parking, lot, location, time zone, currency, opening day, open',
 
-  'page.lanes.title': 'Lanes and devices',
+  'page.lanes.title': 'Lanes and equipment',
   'page.lanes.purpose': 'Your entry and exit lanes, and the equipment at each one.',
-  'page.lanes.words': 'lane, lanes, entry, exit, gate, barrier, device, devices, equipment, camera',
+  'page.lanes.words': 'lane, lanes, entry, exit, gate, barrier, equipment, computer, camera',
 
   'page.readers.title': 'Card readers',
   'page.readers.purpose': 'The card readers in your garages, and which lane each one is on.',
@@ -56,6 +56,7 @@ export default {
   'language.label': 'Language',
   'language.en': 'English',
   'language.es': 'Español',
+  'language.notKept': 'Your language was changed for this visit, but it could not be kept for next time.',
 
   'quickFind.pill': 'Quick Find',
   'quickFind.label': 'Quick Find',
@@ -81,7 +82,9 @@ export default {
   'signIn.title': 'Sign in',
   'signIn.intro': 'Sign in with the email and password for your garages.',
   'signIn.email': 'Email',
+  'signIn.email.about': 'The email address your garages were set up with.',
   'signIn.password': 'Password',
+  'signIn.password.about': 'The password that goes with that email.',
   'signIn.submit': 'Sign in',
   'signIn.working': 'Signing in…',
   'signOut': 'Sign out',
@@ -111,7 +114,9 @@ export default {
   'garage.notLive': 'Not open yet',
 
   'home.lanes': 'Lanes',
+  'home.lanes.about': 'Each lane, in or out, and when its lane computer was last heard from.',
   'home.inside': 'Cars inside',
+  'home.inside.about': 'Cars the sensors saw drive in that have not left yet.',
 
   'lane.in': 'In',
   'lane.out': 'Out',
@@ -121,13 +126,17 @@ export default {
   'lane.quiet': 'Not heard from since {time}',
   'lane.never': 'Never heard from',
   'lane.noComputer': 'No lane computer yet',
-  'device.off': 'Disconnected {time}',
+  'device.off': 'Access cancelled {time}',
 
   'lanes.none': 'This garage has no lanes yet.',
   'lanes.lane': 'Lane',
+  'lanes.lane.about': "The lane's name, as it was set up for your garage.",
   'lanes.direction': 'In or out',
+  'lanes.direction.about': 'Whether cars use this lane to come in or to leave.',
   'lanes.computers': 'Lane computers',
+  'lanes.computers.about': 'The computer at this lane, and when it was last heard from.',
   'lanes.reader': 'Card reader',
+  'lanes.reader.about': 'Whether a card reader is set up on this lane right now.',
   'lanes.readerYes': 'Yes',
   'lanes.readerNo': 'None',
 
@@ -138,10 +147,15 @@ export default {
   'inside.unconfirmedMany': '{count} more were let in, but the lane could not confirm they drove in.',
   'inside.empty': 'No cars are inside right now.',
   'inside.plate': 'Plate',
+  'inside.plate.about': "The car's license plate and state, if the lane recorded one.",
   'inside.ticket': 'Ticket',
+  'inside.ticket.about': 'The ticket number, if the driver took a ticket.',
   'inside.cameIn': 'Came in',
+  'inside.cameIn.about': "When the car came in, in the garage's own time.",
   'inside.lane': 'Lane',
+  'inside.lane.about': 'The lane the car came in through.',
   'inside.confirmed': 'Confirmed inside',
+  'inside.confirmed.about': 'Yes if the sensors past the gate saw the car drive in.',
 
   'print.button': 'Print',
   'print.printed': 'Printed {time}',

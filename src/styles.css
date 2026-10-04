@@ -466,7 +466,7 @@ ul {
   flex-direction: column;
   gap: 6px;
 }
-.field > span {
+.field > .field-name {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
@@ -642,6 +642,8 @@ ul {
   text-align: left;
   padding: 8px 10px 8px 0;
   border-bottom: 1px solid var(--border-2);
+  /* Names in one line across the top, whatever the length of the description under each. */
+  vertical-align: top;
 }
 .list td {
   padding: 10px 10px 10px 0;
@@ -653,6 +655,22 @@ ul {
 }
 .print-head {
   display: none;
+}
+/* A field's description: directly under its name, always shown, printed. */
+.field-name,
+.field-about {
+  display: block;
+}
+.field-about {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  max-width: 34ch;
 }
 
 /* ── Printing a list: the browser's own print, plain dark text, no frame ── */
