@@ -122,8 +122,14 @@ The build publishes no source maps.
   nowhere: not in browser storage, the address, a log line or a file; it goes
   when the panel closes. Until the lanes themselves act on a closing, the page
   says so.
-- **Change log**: who changed what, before and after, when, in the garage's time;
-  refused attempts marked as refused. Printed and downloaded like the lists.
+- **Change log**: who changed what, before and after, when, in the garage's time.
+  Below it and apart, the **refused attempts**, with how many there are: who
+  tried what, why it was refused (true in whichever account's log it is read),
+  how many times and when last -- so no number of them can push a change out
+  of sight. Every value in words (a time zone as people say it, every choice of
+  a setting), never as the code the platform keeps. Each list prints and
+  downloads like the others. A panel's own button says what it does: "No, keep
+  it" beside a "Yes", "Cancel" on a form, "Done" once a code is shown.
 - **Two languages**, English and Spanish. Every word on the screen is in
   `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. **English unless the
   owner chose Spanish**: the browser's own language decides nothing. Signed in,

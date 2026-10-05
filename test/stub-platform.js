@@ -14,7 +14,9 @@
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
 // U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
 //   GET    /api/v1/garages/:id/setup        { setup: { garage_id, open, takes_any_driver, steps: [{ key, done, facts }] } }
-//   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } newest first, 50 a page
+//   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } the changes made, newest first, 50 a page
+//   GET    /api/v1/garages/:id/refused-attempts[/:lineId]  { refused: [line], next, count: { lines, attempts } } apart
+//   A request that changes nothing writes no line (the same before and after).
 //   PATCH  /api/v1/garages/:id              { transient_available: true | false } -> { garage }
 //   POST   /api/v1/garages/:id/lanes        { name, direction } -> 201 { lane }
 //   PATCH  /api/v1/lanes/:id                { name } -> { lane }
@@ -277,8 +279,10 @@ export async function startStub({ port = 0 } = {}) {
     return log.get(who.tenant_id);
   };
   let lineN = 0;
+  const same = (x, y) => x !== null && y !== null && JSON.stringify(x) === JSON.stringify(y);
   const line = (who, { garageId = null, action, subject, before = null, after = null, outcome = 'done', refusal = null }) =>
-    linesOf(who).push({
+    // Asked again, answered with what was there: the platform writes no line.
+    same(before, after) ? 0 : linesOf(who).push({
       id: `c${String((lineN += 1)).padStart(7, '0')}-0000-4000-8000-000000000000`,
       garage_id: garageId,
       at: new Date(Date.now() + lineN).toISOString(),
@@ -309,8 +313,9 @@ export async function startStub({ port = 0 } = {}) {
     }
     return null;
   };
+  // A "not found" with no code is named by what was not found, as the platform's src/changes.js names it.
   const refuse = (res, who, status, body, at) => {
-    line(who, { ...at, outcome: 'refused', refusal: body.code ?? { 400: 'bad_request', 404: 'not_found' }[status] ?? 'conflict' });
+    line(who, { ...at, outcome: 'refused', refusal: body.code ?? (status === 404 ? at.missing ?? 'not_found' : { 400: 'bad_request' }[status]) ?? 'conflict' });
     return answer(res, status, body);
   };
   const subjectOfLane = (lane, name = lane.name) => ({ kind: 'lane', id: lane.id, name });
@@ -360,7 +365,7 @@ export async function startStub({ port = 0 } = {}) {
   }
 
   async function setupRoutes(req, res, path, who) {
-    let m = /^\/api\/v1\/garages\/([^/]+)\/(setup|changes)(?:\/([^/]+))?$/.exec(path);
+    let m = /^\/api\/v1\/garages\/([^/]+)\/(setup|changes|refused-attempts)(?:\/([^/]+))?$/.exec(path);
     if (m && req.method === 'GET') {
       const garage = who.garages.find((g) => g.id === m[1]);
       if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
@@ -368,19 +373,22 @@ export async function startStub({ port = 0 } = {}) {
         if (m[3]) return answer(res, 404, { error: 'not found' });
         return answer(res, 200, { setup: checklist(who, garage) });
       }
-      const all = linesOf(who).filter((l) => l.garage_id === garage.id || l.garage_id === null).slice().reverse();
+      const outcome = m[2] === 'changes' ? 'done' : 'refused';
+      const mine = linesOf(who).filter((l) => (l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);
+      const all = mine.slice().reverse();
       const after = m[3] ?? null;
       const from = after === null ? 0 : all.findIndex((l) => l.id === after) + 1;
       if (after !== null && from === 0) return answer(res, 404, { error: 'change not found' });
       const page = all.slice(from, from + LINES_PAGE);
-      const more = all.length > from + LINES_PAGE;
-      return answer(res, 200, { changes: page, next: more ? page[page.length - 1].id : null });
+      const next = all.length > from + LINES_PAGE ? page[page.length - 1].id : null;
+      if (outcome === 'done') return answer(res, 200, { changes: page, next });
+      return answer(res, 200, { refused: page, next, count: { lines: mine.length, attempts: mine.reduce((n, l) => n + (l.attempts ?? 1), 0) } });
     }
     m = /^\/api\/v1\/garages\/([^/]+)$/.exec(path);
     if (m && req.method === 'PATCH') {
       const garage = who.garages.find((g) => g.id === m[1]);
       const body = (await readBody(req)) ?? {};
-      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'garage.update', subject: { kind: 'unknown', id: null, name: null } });
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'garage.update', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
       const at = { garageId: garage.id, action: 'garage.update', subject: { kind: 'garage', id: garage.id, name: garage.name } };
       if (!('transient_available' in body)) return refuse(res, who, 400, { error: 'default_action or transient_available is required' }, at);
       if (body.transient_available !== true && body.transient_available !== false) return refuse(res, who, 400, DRIVERS_REFUSED(body.transient_available), at);
@@ -402,7 +410,7 @@ export async function startStub({ port = 0 } = {}) {
     if (m && req.method === 'POST') {
       const garage = who.garages.find((g) => g.id === m[1]);
       const body = (await readBody(req)) ?? {};
-      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'lane.add', subject: { kind: 'unknown', id: null, name: null } });
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'lane.add', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
       if (!body.name || !['entry', 'exit'].includes(body.direction)) return refuse(res, who, 400, ADD_LANE_REFUSED, { garageId: garage.id, action: 'lane.add', subject: { kind: 'garage', id: garage.id, name: garage.name } });
       const lane = { id: `la9${String(Date.now()).slice(-5)}-${String(Math.floor(Math.random() * 1e4)).padStart(4, '0')}-4000-8000-${String((lineN += 1)).padStart(12, '0')}`, name: body.name, direction: body.direction, reader: null, devices: [], closed: null, reopened: null };
       (who.lanes[garage.id] ??= []).push(lane);
@@ -414,7 +422,7 @@ export async function startStub({ port = 0 } = {}) {
       const found = laneOf(who, m[1]);
       const body = (await readBody(req)) ?? {};
       const action = { PATCH: 'lane.rename', DELETE: 'lane.remove' }[req.method] ?? { '/close': 'lane.close', '/reopen': 'lane.reopen', '/devices': 'computer.connect' }[m[2]];
-      if (!found) return refuse(res, who, 404, m[2] === '/devices' ? LANE_NOT_FOUND : LANE_NOT_FOUND_NAMED, { action, subject: { kind: 'unknown', id: null, name: null } });
+      if (!found) return refuse(res, who, 404, m[2] === '/devices' ? LANE_NOT_FOUND : LANE_NOT_FOUND_NAMED, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'lane_not_found' });
       const { garageId, lane, lanes } = found;
       const at = { garageId, action, subject: subjectOfLane(lane) };
       if (req.method === 'PATCH') {
@@ -475,11 +483,11 @@ export async function startStub({ port = 0 } = {}) {
     m = /^\/api\/v1\/devices\/([^/]+)\/revoke$/.exec(path);
     if (m && req.method === 'POST') {
       const found = deviceOf(who, m[1]);
-      if (!found) return refuse(res, who, 404, DEVICE_NOT_FOUND, { action: 'computer.cancel', subject: { kind: 'unknown', id: null, name: null } });
+      if (!found) return refuse(res, who, 404, DEVICE_NOT_FOUND, { action: 'computer.cancel', subject: { kind: 'unknown', id: null, name: null }, missing: 'computer_not_found' });
       const { garageId, lane, device } = found;
       const was = device.revoked_at;
       device.revoked_at ??= new Date().toISOString();
-      line(who, { garageId, action: was ? 'computer.cancel_again' : 'computer.cancel', subject: { kind: 'computer', id: device.id, name: device.name }, before: { access: was ? 'cancelled' : 'connected', lane: lane.name }, after: { access: 'cancelled', lane: lane.name } });
+      line(who, { garageId, action: 'computer.cancel', subject: { kind: 'computer', id: device.id, name: device.name }, before: { access: was ? 'cancelled' : 'connected', lane: lane.name }, after: { access: 'cancelled', lane: lane.name } });
       return answer(res, 200, { device: { id: device.id, lane_id: lane.id, name: device.name, created_at: new Date().toISOString(), revoked_at: device.revoked_at } });
     }
     return undefined;

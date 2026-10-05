@@ -64,6 +64,7 @@ import {
   insideData,
   lanesData,
   changesData,
+  refusedData,
   asRead,
   manyStays,
 } from '../test/files-fixtures.js';
@@ -115,7 +116,7 @@ try {
   const made = [];
   for (const language of ['en', 'es']) {
     const t = words(language);
-    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()], ['changes', changesData()]]) {
+    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()], ['changes', changesData()], ['refused', refusedData()]]) {
       for (const format of ['xlsx', 'pdf']) made.push({ language, list, format, data, t, ...build(list, format, { language, data }) });
     }
   }
@@ -141,17 +142,19 @@ try {
         }),
       );
       // Counted from the list the platform gave, never from the file's own rows.
-      const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
+      const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, refused: () => m.data.refused.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
       check(heading !== -1 && rows.length === listCount && wrong.length === 0, `1 the file is the list: ${where}: ${rows.length} rows read back of the list's ${listCount}, every cell equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
       if (m.list === 'inside') {
         const independent = insideRows(m.data);
         const bad = independent.filter(([plate, time, lane], i) => rows[i]?.[0]?.value !== plate[1] || rows[i]?.[2]?.value !== time[1] || rows[i]?.[3]?.value !== lane[1]);
         check(bad.length === 0, `1 the file is the list: ${where}: plate, let-in time and lane worked out from the list itself, ${independent.length - bad.length} of ${independent.length}`);
       }
-      if (m.list === 'changes') {
+      if (m.list === 'refused') {
         const n = (1250).toLocaleString(m.language === 'es' ? 'es-US' : 'en-US');
-        const said = m.t('changes.attempts', { count: n, time: '' }).split(n)[0];
-        check(rows.some((r) => String(r?.[5]?.value ?? '').includes(`${said}${n}`)), `${where}: a refused attempt counted 1,250 times says so ("${said}${n} …")`);
+        check(rows.some((r) => r?.[4]?.value === n), `${where}: a refused attempt counted 1,250 times says so in its Times cell ("${n}")`);
+        const counted = m.data.count.attempts.toLocaleString(m.language === 'es' ? 'es-US' : 'en-US');
+        const said = m.t('refused.countMany', { attempts: counted });
+        check(sheet.rows.slice(0, heading).some((r) => r?.[0]?.value === said), `${where}: the count above the list, "${said}"`);
       }
       // 2
       const lines = sheet.rows.slice(0, heading).map((r) => r?.[0]?.value).filter(Boolean);
@@ -168,12 +171,12 @@ try {
       const texts = cells.filter((c) => c.kind === 'text').map((c) => c.value);
       // The change log keeps no stored text in a cell of its own -- every name
       // sits inside a sentence -- so for it this is the formula count alone.
-      const cases = { inside: [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at], lanes: [TEXT_CASES.at], changes: [] }[m.list];
+      const cases = { inside: [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at], lanes: [TEXT_CASES.at], changes: [], refused: [] }[m.list];
       const lost = cases.filter((v) => !texts.includes(v));
       check(lost.length === 0 && got.formulas === 0, `3 text stays text: ${where}: ${cases.length - lost.length} of ${cases.length} come back as text, exactly (${cases.join(', ')}); formulas in the workbook: ${got.formulas}${lost.length ? `; not text: ${lost.join(', ')}` : ''}`);
       // 4
       check(sheet.rows[0]?.[0]?.value === GARAGE.name, `4 every character: ${where}: the garage name comes back exactly ("${sheet.rows[0]?.[0]?.value}")`);
-      check(sheet.name === m.t(`page.${m.list}.title`) && names.every((n, i) => sheet.rows[heading]?.[i]?.value === n), `4 the file's language: ${where}: sheet "${sheet.name}", headings ${names.join(' · ')}`);
+      check(sheet.name === m.t(m.list === 'refused' ? 'refused.title' : `page.${m.list}.title`) && names.every((n, i) => sheet.rows[heading]?.[i]?.value === n), `4 the file's language: ${where}: sheet "${sheet.name}", headings ${names.join(' · ')}`);
       // 12
       const meant = m.file.columns.filter((c) => meanings?.rows.some((r) => r?.[0]?.value === c.name && r?.[1]?.value === c.about));
       check(meanings?.name === m.t('file.meanings') && meant.length === m.file.columns.length, `12 descriptions: ${where}: sheet "${meanings?.name}" describes ${meant.length} of ${m.file.columns.length} columns`);
@@ -185,13 +188,13 @@ try {
       const items =
         m.list === 'inside'
           ? m.data.sessions.map((s) => [s.plate, s.plate_region].filter(Boolean).join(' · ') || null).filter(Boolean)
-          : m.list === 'changes'
-            ? m.data.changes.map((l) => l.subject.name).filter((n) => n !== GARAGE.name && n !== TEXT_CASES.at)
+          : m.list === 'changes' || m.list === 'refused'
+            ? m.data[m.list].map((l) => l.subject.name).filter((n) => n && n !== GARAGE.name && n !== TEXT_CASES.at)
             : m.data.flatMap((l) => (l.devices ?? []).map((d) => d.name));
       // A change line names its lane or computer, and again in what changed:
       // there, every line's is on a page at least once.
-      const notOnce = items.filter((p) => (m.list === 'changes' ? count(all, p) < 1 : count(all, p) !== 1 && !items.some((o) => o !== p && o.includes(p))));
-      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${{ inside: 'plates', lanes: 'lane computers', changes: 'lanes and computers changed' }[m.list]} on a page ${m.list === 'changes' ? 'at least' : 'exactly'} once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
+      const notOnce = items.filter((p) => (m.list === 'changes' || m.list === 'refused' ? count(all, p) < 1 : count(all, p) !== 1 && !items.some((o) => o !== p && o.includes(p))));
+      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${{ inside: 'plates', lanes: 'lane computers', changes: 'lanes and computers changed', refused: 'lanes tried' }[m.list]} on a page ${m.list === 'changes' || m.list === 'refused' ? 'at least' : 'exactly'} once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
       // 2 + 4
       check(all.includes(plain(zone)), `2 garage time: ${where}: the zone sentence "${zone}"`);
       check(all.includes(GARAGE.name) && m.missing.length === 0, `4 every character: ${where}: "${GARAGE.name}" comes back exactly; letters the font could not draw: ${m.missing.length}`);

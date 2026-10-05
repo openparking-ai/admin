@@ -224,8 +224,17 @@ function AddLane({ t, client, garage, onAdded }) {
   );
 }
 
+/**
+ * What the button that closes a panel says: on a question asked with "Yes",
+ * "No, keep it"; on a form, "Cancel"; once a lane computer's code is shown,
+ * "Done". Never "Done" beside a "Yes" that was not pressed.
+ */
+const CLOSE_WORDS = { remove: 'lanes.panelKeep', cancel: 'lanes.panelKeep', reopen: 'lanes.panelKeep', rename: 'lanes.panelCancel', close: 'lanes.panelCancel', connect: 'lanes.panelCancel' };
+
 function LanePanel({ t, client, panel, lanes, onDone, onClose }) {
   const Body = { rename: Rename, remove: Remove, connect: Connect, cancel: Cancel, close: Close, reopen: Reopen }[panel.kind];
+  // A connect panel showing its code has nothing left to cancel.
+  const [shown, setShown] = useState(false);
   return (
     <section className="panel no-print lane-panel" data-panel={panel.kind} aria-live="polite">
       <div className="lane-panel-head">
@@ -233,10 +242,10 @@ function LanePanel({ t, client, panel, lanes, onDone, onClose }) {
           {t(`lanes.panel.${panel.kind}`)} <bdi>{panel.device ? panel.device.name : panel.lane.name}</bdi>
         </h2>
         <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
-          {t('lanes.panelClose')}
+          {t(shown ? 'lanes.panelDone' : CLOSE_WORDS[panel.kind])}
         </button>
       </div>
-      <Body t={t} client={client} lane={panel.lane} device={panel.device} lanes={lanes} onDone={onDone} onClose={onClose} />
+      <Body t={t} client={client} lane={panel.lane} device={panel.device} lanes={lanes} onDone={onDone} onClose={onClose} onShown={() => setShown(true)} />
     </section>
   );
 }
@@ -332,7 +341,7 @@ function Cancel({ t, client, device, onDone, onClose }) {
  * storage, the address, a log line or a file -- and goes when the panel
  * closes or the page changes.
  */
-function Connect({ t, client, lane, onDone }) {
+function Connect({ t, client, lane, onDone, onShown }) {
   const [name, setName] = useState('');
   const [code, setCode] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -383,6 +392,7 @@ function Connect({ t, client, lane, onDone }) {
         try {
           const made = await client.connectComputer(lane.id, name.trim());
           setCode(made.code);
+          onShown();
           onDone();
         } catch (p) {
           fail(p);

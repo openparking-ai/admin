@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform ff7f0f7 (u4/setup: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform 36e090b (u4/setup, the U4 fix round: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -568,6 +568,89 @@
       }
     },
     {
+      "what": "drivers, answered yes again (nothing changes)",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "what": "drivers, taken back to unanswered",
       "status": 400,
       "body": {
@@ -806,6 +889,44 @@
     },
     {
       "what": "a lane, renamed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "direction": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, renamed to the name it has",
       "status": 200,
       "shape": {
         "types": [
@@ -1466,6 +1587,65 @@
       }
     },
     {
+      "what": "refused attempts",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "next",
+          "refused"
+        ],
+        "count": [
+          "attempts",
+          "lines"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name"
+          ],
+          "action": "lane.remove",
+          "outcome": "refused",
+          "refusal": "lane_not_found",
+          "before": null,
+          "after": null
+        }
+      }
+    },
+    {
+      "what": "refused attempts, after a line not in this log",
+      "status": 404,
+      "body": {
+        "error": "change not found"
+      }
+    },
+    {
+      "what": "refused attempts, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
       "what": "sign-out, from a page at another address",
       "status": 403,
       "body": {
@@ -1566,5 +1746,5 @@
       }
     }
   },
-  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform ff7f0f7 src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 36e090b src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
 }

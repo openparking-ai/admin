@@ -564,7 +564,42 @@ const CONTROLS = [
     run: CHECK_FILES,
     names: ['FAIL 1 the file is the list: changes xlsx (en)'],
   },
-
+  {
+    check: 'U4 fix 4: a time zone shown as its code',
+    plant: { file: 'src/changes.js', anchor: "  if (field === 'timezone') return { words: zoneSaid(value, language) ?? t('changes.value.anotherZone') };", with: "  if (field === 'timezone') return { words: value };" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['4 NO RAW VALUES', 'America/New_York'],
+  },
+  {
+    check: "U4 fix 4: a setting's choice shown as its code",
+    plant: { file: 'src/changes.js', anchor: "    return { words: CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };", with: '    return { words: value };' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['4 NO RAW VALUES', 'shown as its code'],
+  },
+  {
+    check: 'U4 fix 5: a refused attempt said as if it was done',
+    plant: { file: 'src/changes.js', anchor: '  const pieces = [{ words: t(actionKey(line.action, refused)) }];', with: '  const pieces = [{ words: t(actionKey(line.action, false)) }];' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['5 EVERY LINE IS TRUE', 'reads like the change was made'],
+  },
+  {
+    check: "U4 fix 5: another account's attempt on this garage said as \"not there\"",
+    plant: { file: 'src/changes.js', anchor: "  const why = line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)", with: "  const why = false && NOT_FOUND.includes(line.refusal)" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['5 EVERY LINE IS TRUE', "in the aimed-at garage's log"],
+  },
+  {
+    check: 'U4 fix 3: a key whose name the line lacks, said as someone else',
+    plant: { file: 'src/changes.js', anchor: "  if (who.kind === 'key') return [{ words: t('changes.who.keyUnnamed') }];\n", with: '' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['3 EVERY LINE NAMES WHO', 'names no key'],
+  },
+  {
+    check: 'U4 fix 6: a sentence that ends twice',
+    plant: { file: 'src/i18n/index.js', anchor: "export const endOnce = (text) => text.replace(/(?<!\\.)\\.\\.(?!\\.)/g, '.');", with: 'export const endOnce = (text) => text;' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['6 NO SENTENCE ENDS TWICE', 'a.m..'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -1006,6 +1041,20 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL ONE SETTING: set to 30 on the platform'],
+  },
+  {
+    check: 'U4 fix 6: "Done" beside a "Yes" that was not pressed',
+    plant: { file: 'src/LanesPage.jsx', anchor: "const CLOSE_WORDS = { remove: 'lanes.panelKeep',", with: "const CLOSE_WORDS = { remove: 'lanes.panelDone'," },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: the button beside'],
+  },
+  {
+    check: 'U4 fix 1: refused attempts read among the changes made',
+    plant: { file: 'test/stub-platform.js', anchor: "(l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);", with: "(l.garage_id === garage.id || l.garage_id === null) && (outcome === 'done' || l.outcome === outcome));" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Change log: no refused attempt among the changes made'],
   },
 ];
 

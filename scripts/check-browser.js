@@ -168,7 +168,8 @@ async function checkPrint(page, list, garage) {
     `print (${list}): the time it was printed is not browser time, ${browserTimes.join(' or ')} (Tokyo)`,
   );
   check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
-  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 6 }[list] ?? 5);
+  // The change log prints both its lists: the changes made (5 columns) and the refused attempts (6).
+  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 11 }[list] ?? 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
 }
@@ -189,6 +190,8 @@ const RAW = [
   [/\b[1-5]\d\d\b/, 'a status number'],
   [/\b[a-z]+_[a-z_]+\b/, 'a code'],
   [/JSON|Unexpected (token|end)|Failed to fetch|TypeError|NetworkError|undefined|null|\[object/i, "the browser's own error words"],
+  // U4 fix 6: a sentence ends once -- never "a.m.." -- in either language. An ellipsis is not one.
+  [/(?<!\.)\.\.(?!\.)/, 'a doubled full stop'],
 ];
 function rawIn(text) {
   return RAW.filter(([re]) => re.test(text)).map(([re, what]) => `${what} ("${text.match(re)[0]}")`);
@@ -588,6 +591,10 @@ try {
   await page.click(`${laneRow('North Entry')} [data-action="remove"]`);
   await page.click('[data-panel="remove"] [data-action="remove-confirm"]');
   check(await showsText(page, EN['problem.laneHasHistory']), `${LANES_TITLE}: a used lane is not removed: "${EN['problem.laneHasHistory']}"`);
+  {
+    const said = (await page.textContent('[data-panel="remove"] [data-action="close-panel"]')).trim();
+    check(said === EN['lanes.panelKeep'], `${LANES_TITLE}: the button beside "${EN['lanes.removeButton']}" says what it does, "${EN['lanes.panelKeep']}", never "Done" (it says "${said}")`);
+  }
   await page.click('[data-action="close-panel"]');
   // Closing: both reasons; the last way in warns, and closes only on purpose.
   for (const [name, reason] of [['West Gate 2', 'full'], ['Service Lane', 'everyone']]) {
@@ -627,6 +634,10 @@ try {
   check(onlyTheTwoKeys(await storageKeys(page)) && !(await page.evaluate((c) => Object.values(localStorage).some((v) => v.includes(c)), code)), `connection code: browser storage holds only the two keys (${JSON.stringify(await storageKeys(page))})`);
   check(addresses.every((u) => !u.includes(code)) && !(await page.evaluate((c) => window.location.href.includes(c), code)), 'connection code: the address never held it');
   const sentBefore = sent.length;
+  {
+    const said = (await page.textContent('[data-panel="connect"] [data-action="close-panel"]')).trim();
+    check(said === EN['lanes.panelDone'], `connection code: once shown, the panel's own button says "${EN['lanes.panelDone']}" (it says "${said}")`);
+  }
   await page.click('[data-action="close-panel"]');
   check(await settles(page, (c) => !document.body.innerHTML.includes(c), code), 'connection code: gone from the page when the panel closes');
   await page.click('.nav-item[href="#/setup"]');
@@ -645,29 +656,37 @@ try {
   await page.click('.nav-item[href="#/change-log"]');
   check(await showsHeading(page, CHANGES_TITLE), 'the Change log is in the navigation');
   await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
+  await settles(page, () => document.querySelectorAll('[data-list="refused"] tbody tr').length > 0);
   const log = await bodyText(page);
-  for (const [what, words] of [
-    ['an added lane', `${EN['changes.action.lane_add']}: West Gate`],
-    ['a closing', EN['changes.action.lane_close']],
-    ['a refused last-lane closing', EN['changes.refusedBecause'].replace('{why}', EN['changes.refusal.last_open_lane'])],
-    ['a refused removal', EN['changes.refusedBecause'].replace('{why}', EN['changes.refusal.lane_has_history'])],
-    ['a connected computer', `${EN['changes.action.computer_connect']}: West Gate computer`],
-    ['who', A.email],
-  ]) check(log.toLowerCase().includes(words.toLowerCase()), `${CHANGES_TITLE}: ${what}, in plain words ("${words}")`);
-  check((await page.$$('[data-list="changes"] tr[data-outcome="refused"]')).length >= 2, `${CHANGES_TITLE}: refused attempts are marked as refused`);
-  check(rawIn(log).length === 0 && !/lane\.close|last_open_lane|lane_has_history/.test(log), `${CHANGES_TITLE}: nothing raw on screen`);
-  await checkDescribed(page, CHANGES_TITLE, 'en', 6);
+  const madeText = await page.textContent('[data-list="changes"]');
+  const refusedText = await page.textContent('[data-list="refused"]');
+  const sentence = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  for (const [what, words, where] of [
+    ['an added lane', `${EN['changes.action.lane_add']}: West Gate`, madeText],
+    ['a closing', EN['changes.action.lane_close'], madeText],
+    ['a connected computer', `${EN['changes.action.computer_connect']}: West Gate computer`, madeText],
+    ['who', A.email, madeText],
+    ['a refused last-lane closing, as tried', EN['changes.tried.lane_close'], refusedText],
+    ['a refused last-lane closing, why', sentence(EN['changes.refusal.last_open_lane']), refusedText],
+    ['a refused removal, as tried', EN['changes.tried.lane_remove'], refusedText],
+    ['a refused removal, why', sentence(EN['changes.refusal.lane_has_history']), refusedText],
+  ]) check(where.includes(words), `${CHANGES_TITLE}: ${what}, in plain words ("${words}")`);
+  check((await page.$$('[data-list="changes"] tr[data-outcome="refused"]')).length === 0, `${CHANGES_TITLE}: no refused attempt among the changes made`);
+  check((await page.$$('[data-list="refused"] tr[data-outcome="refused"]')).length >= 2, `${CHANGES_TITLE}: refused attempts listed apart, under "${EN['refused.title']}"`);
+  check(!refusedText.includes(EN['changes.action.lane_close']), `${CHANGES_TITLE}: a refused attempt never says it was done ("${EN['changes.action.lane_close']}")`);
+  check(rawIn(log).length === 0 && !/lane\.close|last_open_lane|lane_has_history/.test(log), `${CHANGES_TITLE}: nothing raw on screen${rawIn(log).length ? `: ${rawIn(log).join(', ')}` : ''}`);
+  await checkDescribed(page, CHANGES_TITLE, 'en', 11);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'change-log-english.png'), fullPage: true });
   await checkPrint(page, CHANGES_TITLE, HARBOR);
 
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await page.click('[data-control="language"] [data-value="es"]');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 6], ['#/lanes', 'page.lanes.title', 8]]) {
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 11], ['#/lanes', 'page.lanes.title', 8]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);
     const text = await bodyText(page);
-    check(rawIn(text).length === 0, `en español, ${ES[key]}: nothing raw on screen`);
+    check(rawIn(text).length === 0, `en español, ${ES[key]}: nothing raw on screen${rawIn(text).length ? `: ${rawIn(text).join(', ')}` : ''}`);
     await checkDescribed(page, ES[key], 'es', expect);
     if (SCREENS) await page.screenshot({ path: join(SCREENS, `${hash.slice(2)}-spanish.png`), fullPage: true });
   }

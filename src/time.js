@@ -49,3 +49,17 @@ export function heardFrom(lastSeen, now, quietMinutes) {
   const minutes = Math.max(0, Math.floor((now - new Date(lastSeen)) / 60000));
   return minutes < quietMinutes ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };
 }
+
+/**
+ * A time zone as people say it: "Eastern Time", "hora del este" -- never
+ * "America/New_York". Null when the browser has no name for it.
+ */
+export function zoneSaid(timeZone, language, at = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat(language === 'es' ? 'es-US' : 'en-US', { timeZone, timeZoneName: 'longGeneric' }).formatToParts(new Date(at));
+    const said = parts.find((p) => p.type === 'timeZoneName')?.value;
+    return said && said !== timeZone ? said : null;
+  } catch {
+    return null;
+  }
+}

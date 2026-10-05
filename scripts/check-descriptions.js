@@ -142,7 +142,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   // The Setup page names each step through one <FieldName> with the step's key.
   for (const step of Object.keys(WHERE)) fields.push({ key: `setup.step.${step}`, page: DICTIONARIES.en['page.setup.title'], file: 'SetupPage.jsx' });
   for (const [list, columns] of Object.entries(COLUMNS)) {
-    for (const { key } of columns) fields.push({ key, page: `the files of ${DICTIONARIES.en[`page.${list}.title`]}`, file: 'files/model.js' });
+    const title = DICTIONARIES.en[list === 'refused' ? 'refused.title' : `page.${list}.title`];
+    for (const { key } of columns) fields.push({ key, page: `the files of ${title}`, file: 'files/model.js' });
   }
   const problems = [...unnamed, ...checkDescriptions(fields, DICTIONARIES)];
   if (fields.length === 0) problems.push('no field found on any screen; the check is not seeing the screens');

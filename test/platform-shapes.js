@@ -81,6 +81,14 @@ const STRUCTURE = {
       newest: { keys: Object.keys(line).sort(), who: Object.keys(line.who).sort(), subject: Object.keys(line.subject).sort(), action: line.action, outcome: line.outcome, before: line.before, after: line.after },
     };
   },
+  refused: (data) => {
+    const [line] = data.refused;
+    return {
+      keys: Object.keys(data).sort(),
+      count: Object.keys(data.count).sort(),
+      newest: { keys: Object.keys(line).sort(), who: Object.keys(line.who).sort(), subject: Object.keys(line.subject).sort(), action: line.action, outcome: line.outcome, refusal: line.refusal, before: line.before, after: line.after },
+    };
+  },
 };
 
 /**
@@ -162,6 +170,7 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
 async function setupCalls(call, _keep, garage) {
   const g = (path) => path.replace('{garage}', garage);
   await call('drivers, answered yes', 'PATCH', g('/garages/{garage}'), { transient_available: true });
+  await call('drivers, answered yes again (nothing changes)', 'PATCH', g('/garages/{garage}'), { transient_available: true });
   await call('drivers, taken back to unanswered', 'PATCH', g('/garages/{garage}'), { transient_available: null });
   await call('setup', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'setup' });
   await call('setup, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/setup`);
@@ -169,6 +178,7 @@ async function setupCalls(call, _keep, garage) {
   const lane = (await call('a lane, added', 'POST', '/garages/{garage}/lanes', { name: 'Recorded Entry', direction: 'entry' })).lane;
   await call('a lane, added with no direction', 'POST', '/garages/{garage}/lanes', { name: 'No Direction' });
   await call('a lane, renamed', 'PATCH', `/lanes/${lane.id}`, { name: 'Recorded Entry 2' });
+  await call('a lane, renamed to the name it has', 'PATCH', `/lanes/${lane.id}`, { name: 'Recorded Entry 2' });
   await call('a lane, renamed to nothing', 'PATCH', `/lanes/${lane.id}`, { name: '   ' });
   await call('a lane not theirs, renamed', 'PATCH', `/lanes/${NOT_THEIRS}`, { name: 'Mine' });
   await call('a lane, closed: full', 'POST', `/lanes/${lane.id}/close`, { reason: 'full', message: 'Garage full.' });
@@ -196,6 +206,9 @@ async function setupCalls(call, _keep, garage) {
   await call('changes', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
   await call('changes, after a line not in this log', 'GET', `/garages/{garage}/changes/${NOT_THEIRS}`);
   await call('changes, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/changes`);
+  await call('refused attempts', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
+  await call('refused attempts, after a line not in this log', 'GET', `/garages/{garage}/refused-attempts/${NOT_THEIRS}`);
+  await call('refused attempts, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/refused-attempts`);
 }
 
 /** One sign-in, for the answers only a platform set up to give them can give. */

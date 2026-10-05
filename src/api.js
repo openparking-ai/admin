@@ -216,6 +216,18 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       if (!Array.isArray(data.changes)) throw new Problem('unexpected');
       return { changes: data.changes, next: typeof data.next === 'string' ? data.next : null };
     },
+    /**
+     * One page of the refused attempts, newest first, read apart from the
+     * changes so they can never push a change out of sight; with how many
+     * there are in all. `after` as for the changes.
+     */
+    refused: async (garageId, after = null) => {
+      const page = after ? `/${encodeURIComponent(after)}` : '';
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/refused-attempts${page}`));
+      const count = object(data.count);
+      if (!Array.isArray(data.refused) || !Number.isInteger(count.attempts) || !Number.isInteger(count.lines)) throw new Problem('unexpected');
+      return { refused: data.refused, next: typeof data.next === 'string' ? data.next : null, count: { lines: count.lines, attempts: count.attempts } };
+    },
     /** Whether the garage takes drivers without a pass: true or false, never back to unanswered. */
     setDrivers: async (garageId, takesAny) =>
       object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { transient_available: takesAny === true } })),

@@ -17,7 +17,7 @@
 
 import { insideWords } from '../inside.js';
 import { directionKey, openText } from '../lanes.js';
-import { changeText, outcomeWords, piecesText, whatPieces, whoPieces } from '../changes.js';
+import { changeText, piecesText, timesWords, whatPieces, whoPieces, whyWords } from '../changes.js';
 import { garageDateTime, garageTime, heardFrom } from '../time.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
@@ -49,10 +49,17 @@ export const COLUMNS = {
   changes: [
     { key: 'changes.when', width: 0.15 },
     { key: 'changes.who', width: 0.17 },
-    { key: 'changes.what', width: 0.18 },
-    { key: 'changes.before', width: 0.18 },
-    { key: 'changes.after', width: 0.18 },
-    { key: 'changes.outcome', width: 0.14 },
+    { key: 'changes.what', width: 0.2 },
+    { key: 'changes.before', width: 0.22 },
+    { key: 'changes.after', width: 0.22 },
+  ],
+  refused: [
+    { key: 'refused.when', width: 0.15 },
+    { key: 'refused.who', width: 0.18 },
+    { key: 'refused.what', width: 0.22 },
+    { key: 'refused.why', width: 0.2 },
+    { key: 'refused.times', width: 0.08 },
+    { key: 'refused.last', width: 0.17 },
   ],
 };
 
@@ -82,12 +89,15 @@ const time = (value, garage, language) => ({
   wall: wallClock(value, garage.timezone),
 });
 
+/** A list's title: its page's, or for the refused attempts, their own section's. */
+const titleOf = (t, list) => (list === 'refused' ? t('refused.title') : t(`page.${list}.title`));
+
 function head(t, list, garage, language, readAt) {
   return {
-    title: t(`page.${list}.title`),
+    title: titleOf(t, list),
     lines: [
       garage.name,
-      t(`page.${list}.title`),
+      titleOf(t, list),
       t('file.downloaded', { time: garageDateTime(readAt, garage.timezone, language) }),
       t('file.zone', { zone: zoneName(garage.timezone, language, readAt) }),
     ],
@@ -171,7 +181,6 @@ export function changesFile({ t, language, garage, data, readAt }) {
       { text: piecesText(whatPieces(t, line)) },
       { text: before },
       { text: after },
-      { text: outcomeWords(t, line, garage, language) },
     ];
   });
   return {
@@ -185,7 +194,33 @@ export function changesFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile };
+/** The refused attempts: one row per line, newest first, as many as the screen shows; their count above. */
+export function refusedFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'refused', garage, language, readAt);
+  const attempts = data.count?.attempts ?? 0;
+  if (data.refused.length) {
+    lines.push(attempts === 1 ? t('refused.countOne') : t('refused.countMany', { attempts: attempts.toLocaleString(locale(language)) }));
+  }
+  const rows = data.refused.map((line) => [
+    time(line.at, garage, language),
+    { text: piecesText(whoPieces(t, line)) || NOTHING },
+    { text: piecesText(whatPieces(t, line)) },
+    { text: whyWords(t, line) },
+    { text: timesWords(line, language) },
+    time(line.last_at ?? line.at, garage, language),
+  ]);
+  return {
+    list: 'refused',
+    title,
+    garage: garage.name,
+    lines,
+    columns: columnsOf(t, 'refused'),
+    rows,
+    empty: rows.length === 0 ? t('refused.none') : null,
+  };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;
