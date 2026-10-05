@@ -15,6 +15,9 @@ const PATHS = {
   night: ['M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z'],
   auto: ['M3 5h18v11H3z', 'M8 20h8', 'M12 16v4'],
   arrow: ['M5 12h14', 'M13 6l6 6-6 6'],
+  check: ['M4 6h11', 'M4 12h11', 'M4 18h11', 'M18 5l1.5 1.5L22 4', 'M18 11l1.5 1.5L22 10'],
+  log: ['M6 3h9l4 4v14H6z', 'M14 3v5h5', 'M9 12h7', 'M9 16h7'],
+  copy: ['M8 8h12v12H8z', 'M4 16V4h12'],
 };
 
 export default function Icon({ name }) {

@@ -168,7 +168,8 @@ async function checkPrint(page, list, garage) {
     `print (${list}): the time it was printed is not browser time, ${browserTimes.join(' or ')} (Tokyo)`,
   );
   check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
-  await checkDescribed(page, `print (${list})`, 'en', list === 'Cars inside' ? 5 : 4);
+  // The change log prints both its lists: the changes made (5 columns) and the refused attempts (6).
+  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 11 }[list] ?? 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
 }
@@ -189,6 +190,8 @@ const RAW = [
   [/\b[1-5]\d\d\b/, 'a status number'],
   [/\b[a-z]+_[a-z_]+\b/, 'a code'],
   [/JSON|Unexpected (token|end)|Failed to fetch|TypeError|NetworkError|undefined|null|\[object/i, "the browser's own error words"],
+  // U4 fix 6: a sentence ends once -- never "a.m.." -- in either language. An ellipsis is not one.
+  [/(?<!\.)\.\.(?!\.)/, 'a doubled full stop'],
 ];
 function rawIn(text) {
   return RAW.filter(([re]) => re.test(text)).map(([re, what]) => `${what} ("${text.match(re)[0]}")`);
@@ -337,7 +340,8 @@ async function checkDescribed(page, where, language, expected) {
       return s.display !== 'none' && s.visibility !== 'hidden' && Number(s.opacity) > 0 && r.width > 0 && r.height > 0;
     };
     return {
-      fields: [...document.querySelectorAll('main .field-about')].map((about) => {
+      // Printing, the setup controls are left out on purpose (.no-print): only what prints is read.
+      fields: [...document.querySelectorAll('main .field-about')].filter((about) => !(window.matchMedia('print').matches && about.closest('.no-print'))).map((about) => {
         const name = about.previousElementSibling;
         const n = name?.getBoundingClientRect();
         const a = about.getBoundingClientRect();
@@ -350,7 +354,10 @@ async function checkDescribed(page, where, language, expected) {
         };
       }),
       // textContent, not innerText: a column's name is drawn in capitals, and the check names it as written.
-      bare: [...document.querySelectorAll('main th, main label')].filter((e) => !e.querySelector('.field-about')).map((e) => e.textContent.trim()),
+      bare: [...document.querySelectorAll('main th, main label')]
+        .filter((e) => !(window.matchMedia('print').matches && e.closest('.no-print')))
+        .filter((e) => !e.querySelector('.field-about'))
+        .map((e) => e.textContent.trim()),
     };
   });
   const wrong = [];
@@ -455,7 +462,7 @@ try {
   check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), `${LANES_TITLE}: which lanes have a card reader`);
   const southCancelled = EN['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'en'));
   check(lanes.includes('Harbor south exit computer') && lanes.includes(southCancelled), `${LANES_TITLE}: the lane whose only computer was cancelled lists it, "${southCancelled}"`);
-  await checkDescribed(page, LANES_TITLE, 'en', 4);
+  await checkDescribed(page, LANES_TITLE, 'en', 8);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-english.png'), fullPage: true });
   await checkPrint(page, LANES_TITLE, A.garages[0]);
 
@@ -466,12 +473,225 @@ try {
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     const purpose = await page.textContent('.page-purpose');
     check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
-    if (!['home', 'lanes', 'inside'].includes(p.id)) {
+    if (!['home', 'setup', 'lanes', 'inside', 'changes'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
     }
   }
+
+  // ── U4: Setup, from the platform's one read ─────────────────────────────
+  const SETUP_TITLE = EN['page.setup.title'];
+  const HARBOR = A.garages[0];
+  const platformSetup = (p, garageId) =>
+    p.evaluate(async (id) => (await (await fetch(`/api/v1/garages/${id}/setup`, { credentials: 'same-origin' })).json()).setup, garageId);
+  const shownSteps = (p) =>
+    p.evaluate(() => [...document.querySelectorAll('[data-step]')].map((li) => ({ key: li.dataset.step, done: li.dataset.done === 'yes', state: li.querySelector('[data-state]')?.dataset.state })));
+  const stepsAgree = async (p, label) => {
+    await settles(p, () => document.querySelectorAll('[data-step]').length > 0);
+    const truth = await platformSetup(p, HARBOR.id);
+    const shown = await shownSteps(p);
+    const wrong = truth.steps.filter((st, i) => shown[i]?.key !== st.key || shown[i]?.done !== st.done || shown[i]?.state !== (st.done ? 'done' : 'not-yet'));
+    check(shown.length === truth.steps.length && wrong.length === 0, `Setup: the page shows each step done as the platform says (${label}): ${shown.length} steps${wrong.length ? `; differs at ${wrong.map((w) => w.key).join(', ')}` : ''}`);
+  };
+  await page.click('.nav-item[href="#/setup"]');
+  check(await showsHeading(page, SETUP_TITLE), 'Setup is in the navigation, first after Home');
+  check((await page.evaluate(() => [...document.querySelectorAll('.nav-item')].map((a) => a.getAttribute('href')).slice(0, 2).join(' '))) === '#/ #/setup', 'Setup: second in the navigation, after Home');
+  await stepsAgree(page, 'as worked out');
+  const setupText = await bodyText(page);
+  check(setupText.includes(EN['setup.isOpen']), `Setup: an open garage says so at the top: "${EN['setup.isOpen']}"`);
+  check(setupText.includes(EN['setup.notFromHere']) && setupText.includes(EN['setup.goTo'].replace('{page}', LANES_TITLE)), 'Setup: where each step is done, or that it cannot be set from here yet');
+  check(setupText.includes('Service Lane') && setupText.includes(EN['setup.fact.noComputer']), 'Setup: the facts in plain words, naming the lane with no computer');
+  check(rawIn(setupText).length === 0, `Setup: nothing raw on screen${rawIn(setupText).length ? `: ${rawIn(setupText).join(', ')}` : ''}`);
+  await checkDescribed(page, SETUP_TITLE, 'en', 10);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'setup-english.png'), fullPage: true });
+  // A platform whose answer contradicts its own facts: the page follows the answer.
+  stub.flipSetup(true);
+  await page.click('.nav-item[href="#/lanes"]');
+  await page.click('.nav-item[href="#/setup"]');
+  await stepsAgree(page, 'every done reversed by the platform');
+  stub.flipSetup(false);
+  await page.click('.nav-item[href="#/lanes"]');
+  await page.click('.nav-item[href="#/setup"]');
+  await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
+
+  // The drivers answer: changed and saved; never offered back to unanswered.
+  check((await page.$$('[data-chooser="drivers"] [role="radio"]')).length === 2, 'Setup: the drivers question offers yes, any driver, and no, pass holders only -- and no "unanswered"');
+  check((await page.$('[data-notice="drivers-once"]')) === null, 'Setup: an answered question does not say "once you answer" again');
+  await page.click('[data-chooser="drivers"] [data-value="false"]');
+  await page.click('[data-question="drivers"] button[type="submit"]');
+  check(await settles(page, () => !document.querySelector('[data-step="getting_paid"]') && document.querySelector('[data-step="drivers"]')), 'Setup: answered "no, pass holders only": saved, and getting paid and card readers are no longer steps');
+  await page.click('[data-chooser="drivers"] [data-value="true"]');
+  await page.click('[data-question="drivers"] button[type="submit"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-step="getting_paid"]'))), 'Setup: changed back to "yes, any driver", and getting paid is a step again');
+  await page.click('[data-action="change-garage"]');
+  await page.click(`.garage-choice[data-garage="${A.garages[1].id}"]`);
+  await page.click('.nav-item[href="#/setup"]');
+  check(await settles(page, (t) => document.querySelector('[data-notice="drivers-once"]')?.textContent === t, EN['setup.drivers.once']), `Setup, a garage not answered yet: "${EN['setup.drivers.once']}" before the first save`);
+  await page.click('[data-action="change-garage"]');
+  await page.click(`.garage-choice[data-garage="${HARBOR.id}"]`);
+
+  // ── U4 fix: one quiet setting, the platform's ──────────────────────────
+  // A lane computer heard from 10 minutes ago: not heard from lately at the
+  // platform's 5, working at 30. Home, Lanes and the checklist move together.
+  const entryComputer = A.lanes[HARBOR.id][0].devices[0];
+  const heardBefore = entryComputer.last_seen_at;
+  entryComputer.last_seen_at = new Date(Date.now() - 10 * 60_000).toISOString();
+  const quietNow = async (minutes) => {
+    stub.setQuietMinutes(minutes);
+    await page.click('.nav-item[href="#/"]');
+    await settles(page, () => document.querySelectorAll('.lane-row').length > 0);
+    const home = await page.evaluate(() => [...document.querySelectorAll('.lane-row')].find((r) => r.querySelector('.lane-name')?.textContent === 'North Entry')?.dataset.state ?? null);
+    await page.click('.nav-item[href="#/lanes"]');
+    await showsText(page, 'Harbor entry computer');
+    const lanesSays = await page.evaluate(() => document.querySelector('[data-device]')?.textContent ?? '');
+    await page.click('.nav-item[href="#/setup"]');
+    await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
+    const setupSays = await page.evaluate(() => document.querySelector('[data-step="lane_computers"]')?.textContent ?? '');
+    return { home, lanesSays, setupSays };
+  };
+  const at5 = await quietNow(5);
+  const at30 = await quietNow(30);
+  const working10 = EN['lane.workingMany'].replace('{minutes}', '10');
+  check(at5.home === 'quiet' && at5.lanesSays.includes('Not heard from since') && at5.setupSays.includes(EN['setup.fact.quiet'].replace('{minutes}', '5')),
+    `ONE SETTING: at the platform's 5 minutes, North Entry is not heard from lately on Home (${at5.home}), Lanes and the checklist`);
+  check(at30.home === 'working' && at30.lanesSays.includes(working10) && !at30.setupSays.includes('North Entry') && at30.setupSays.includes('30'),
+    `ONE SETTING: set to 30 on the platform, Home (${at30.home}), Lanes ("${working10}") and the checklist all call it working`);
+  stub.setQuietMinutes(5);
+  entryComputer.last_seen_at = heardBefore;
+
+  // ── U4: lane setup ─────────────────────────────────────────────────────
+  const consoleSaid = [];
+  page.on('console', (m) => consoleSaid.push(m.text()));
+  // A browser dialog is dismissed and counted: every confirmation belongs on the page.
+  let dialogs = 0;
+  page.on('dialog', (d) => {
+    dialogs += 1;
+    d.dismiss().catch(() => {});
+  });
+  const sent = [];
+  page.on('request', (r) => sent.push(`${r.url()} ${r.postData() ?? ''} ${JSON.stringify(r.headers())}`));
+  const addresses = [];
+  page.on('framenavigated', (f) => addresses.push(f.url()));
+  await page.click('.nav-item[href="#/lanes"]');
+  await showsText(page, 'Harbor exit computer');
+  await checkDescribed(page, LANES_TITLE, 'en', 8);
+  check((await bodyText(page)).includes(EN['lanes.closingNotYet']), `${LANES_TITLE}: says closing is recorded but the lane does not act on it yet`);
+  const laneRow = (name) => `[data-list="lanes"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
+  // Add, rename.
+  await page.fill('[data-form="add-lane"] input[type="text"]', 'West Gate');
+  await page.click('[data-form="add-lane"] [data-chooser="direction"] [data-value="entry"]');
+  await page.click('[data-form="add-lane"] button[type="submit"]');
+  check(await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].some((tr) => tr.cells[0].textContent === 'West Gate')), `${LANES_TITLE}: a lane added, in place`);
+  await page.click(`${laneRow('West Gate')} [data-action="rename"]`);
+  await page.fill('[data-panel="rename"] input[type="text"]', 'West Gate 2');
+  await page.click('[data-panel="rename"] button[type="submit"]');
+  check(await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].some((tr) => tr.cells[0].textContent === 'West Gate 2')), `${LANES_TITLE}: renamed, in place`);
+  // A lane with history is kept, with the plain reason.
+  await page.click(`${laneRow('North Entry')} [data-action="remove"]`);
+  await page.click('[data-panel="remove"] [data-action="remove-confirm"]');
+  check(await showsText(page, EN['problem.laneHasHistory']), `${LANES_TITLE}: a used lane is not removed: "${EN['problem.laneHasHistory']}"`);
+  {
+    const said = (await page.textContent('[data-panel="remove"] [data-action="close-panel"]')).trim();
+    check(said === EN['lanes.panelKeep'], `${LANES_TITLE}: the button beside "${EN['lanes.removeButton']}" says what it does, "${EN['lanes.panelKeep']}", never "Done" (it says "${said}")`);
+  }
+  await page.click('[data-action="close-panel"]');
+  // Closing: both reasons; the last way in warns, and closes only on purpose.
+  for (const [name, reason] of [['West Gate 2', 'full'], ['Service Lane', 'everyone']]) {
+    await page.click(`${laneRow(name)} [data-action="close"]`);
+    await page.click(`[data-panel="close"] [data-chooser="reason"] [data-value="${reason}"]`);
+    const sample = await page.evaluate(() => document.querySelector('[data-panel="close"] select option:nth-child(2)')?.value ?? document.querySelector('[data-panel="close"] select optgroup option')?.value);
+    await page.selectOption('[data-panel="close"] select', { index: 1 });
+    await page.click('[data-panel="close"] button[type="submit"]');
+    check(await settles(page, (n) => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === n)?.querySelector('[data-open]')?.dataset.open === 'closed', name), `${LANES_TITLE}: "${name}" closed (${reason}), with a sample message ("${sample}")`);
+  }
+  const closedLine = await page.evaluate(() => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === 'Service Lane')?.cells[4].textContent ?? '');
+  check(closedLine.includes(EN['lanes.closedEveryone']) && closedLine.includes(A.email), `${LANES_TITLE}: a closed lane says why, its message and who closed it ("${closedLine}")`);
+  await page.click(`${laneRow('North Entry')} [data-action="close"]`);
+  await page.fill('[data-panel="close"] textarea', 'Closed tonight.');
+  await page.click('[data-panel="close"] button[type="submit"]');
+  check(await settles(page, (t) => document.querySelector('[data-notice="last-open-lane"] p')?.textContent === t, EN['lanes.lastIn']), `${LANES_TITLE}: the last open way in warns: "${EN['lanes.lastIn']}"`);
+  check(await page.evaluate(() => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === 'North Entry')?.querySelector('[data-open]')?.dataset.open === 'open'), `${LANES_TITLE}: ...and it is still open until the second press`);
+  await page.click('[data-action="close-anyway"]');
+  check(await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === 'North Entry')?.querySelector('[data-open]')?.dataset.open === 'closed'), `${LANES_TITLE}: closed on the second, deliberate press`);
+  for (const name of ['North Entry', 'Service Lane', 'West Gate 2']) {
+    await page.click(`${laneRow(name)} [data-action="reopen"]`);
+    await page.click('[data-panel="reopen"] [data-action="reopen-confirm"]');
+    check(await settles(page, (n) => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === n)?.querySelector('[data-open]')?.dataset.open === 'open', name), `${LANES_TITLE}: "${name}" reopened`);
+  }
+  check(dialogs === 0 && (await page.evaluate(() => document.querySelectorAll('dialog').length)) === 0, `${LANES_TITLE}: every confirmation was on the page, none in a browser dialog (${dialogs} dialogs)`);
+
+  // The connection code: shown once, kept nowhere.
+  await page.click(`${laneRow('West Gate 2')} [data-action="connect"]`);
+  await page.fill('[data-panel="connect"] input[type="text"]', 'West Gate computer');
+  const issuedBefore = stub.issued.length;
+  await page.click('[data-panel="connect"] button[type="submit"]');
+  check(await settles(page, () => Boolean(document.querySelector('.connection-code'))), `${LANES_TITLE}: a lane computer connected, its connection code shown`);
+  const code = stub.issued[issuedBefore];
+  const shownCode = await page.textContent('.connection-code');
+  check(Boolean(code) && shownCode === code, 'connection code: the code the platform gave, shown once');
+  check((await page.textContent('[data-notice="code-once"]')) === EN['lanes.codeOnce'] && Boolean(await page.$('[data-action="copy-code"]')), 'connection code: with a copy button and the plain warning that it will not be shown again');
+  check(onlyTheTwoKeys(await storageKeys(page)) && !(await page.evaluate((c) => Object.values(localStorage).some((v) => v.includes(c)), code)), `connection code: browser storage holds only the two keys (${JSON.stringify(await storageKeys(page))})`);
+  check(addresses.every((u) => !u.includes(code)) && !(await page.evaluate((c) => window.location.href.includes(c), code)), 'connection code: the address never held it');
+  const sentBefore = sent.length;
+  {
+    const said = (await page.textContent('[data-panel="connect"] [data-action="close-panel"]')).trim();
+    check(said === EN['lanes.panelDone'], `connection code: once shown, the panel's own button says "${EN['lanes.panelDone']}" (it says "${said}")`);
+  }
+  await page.click('[data-action="close-panel"]');
+  check(await settles(page, (c) => !document.body.innerHTML.includes(c), code), 'connection code: gone from the page when the panel closes');
+  await page.click('.nav-item[href="#/setup"]');
+  await page.click('.nav-item[href="#/lanes"]');
+  await showsText(page, 'West Gate computer');
+  check(sent.slice(sentBefore).every((r) => !r.includes(code)), `connection code: no later request carries it (${sent.length - sentBefore} requests)`);
+  check(consoleSaid.every((m) => !m.includes(code)), 'connection code: never in a log line');
+  // Cancel its access, on the page.
+  await page.click(`${laneRow('West Gate 2')} [data-action="cancel-computer"]`);
+  await page.click('[data-panel="cancel"] [data-action="cancel-confirm"]');
+  check(await settles(page, () => /Access cancelled/.test([...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === 'West Gate 2')?.cells[2].textContent ?? '')), `${LANES_TITLE}: a lane computer's access cancelled, in place`);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-setup-english.png'), fullPage: true });
+
+  // ── U4: the change log ─────────────────────────────────────────────────
+  const CHANGES_TITLE = EN['page.changes.title'];
+  await page.click('.nav-item[href="#/change-log"]');
+  check(await showsHeading(page, CHANGES_TITLE), 'the Change log is in the navigation');
+  await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
+  await settles(page, () => document.querySelectorAll('[data-list="refused"] tbody tr').length > 0);
+  const log = await bodyText(page);
+  const madeText = await page.textContent('[data-list="changes"]');
+  const refusedText = await page.textContent('[data-list="refused"]');
+  const sentence = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  for (const [what, words, where] of [
+    ['an added lane', `${EN['changes.action.lane_add']}: West Gate`, madeText],
+    ['a closing', EN['changes.action.lane_close'], madeText],
+    ['a connected computer', `${EN['changes.action.computer_connect']}: West Gate computer`, madeText],
+    ['who', A.email, madeText],
+    ['a refused last-lane closing, as tried', EN['changes.tried.lane_close'], refusedText],
+    ['a refused last-lane closing, why', sentence(EN['changes.refusal.last_open_lane']), refusedText],
+    ['a refused removal, as tried', EN['changes.tried.lane_remove'], refusedText],
+    ['a refused removal, why', sentence(EN['changes.refusal.lane_has_history']), refusedText],
+  ]) check(where.includes(words), `${CHANGES_TITLE}: ${what}, in plain words ("${words}")`);
+  check((await page.$$('[data-list="changes"] tr[data-outcome="refused"]')).length === 0, `${CHANGES_TITLE}: no refused attempt among the changes made`);
+  check((await page.$$('[data-list="refused"] tr[data-outcome="refused"]')).length >= 2, `${CHANGES_TITLE}: refused attempts listed apart, under "${EN['refused.title']}"`);
+  check(!refusedText.includes(EN['changes.action.lane_close']), `${CHANGES_TITLE}: a refused attempt never says it was done ("${EN['changes.action.lane_close']}")`);
+  check(rawIn(log).length === 0 && !/lane\.close|last_open_lane|lane_has_history/.test(log), `${CHANGES_TITLE}: nothing raw on screen${rawIn(log).length ? `: ${rawIn(log).join(', ')}` : ''}`);
+  await checkDescribed(page, CHANGES_TITLE, 'en', 11);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'change-log-english.png'), fullPage: true });
+  await checkPrint(page, CHANGES_TITLE, HARBOR);
+
+  // ── U4, in Spanish ─────────────────────────────────────────────────────
+  await page.click('[data-control="language"] [data-value="es"]');
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 11], ['#/lanes', 'page.lanes.title', 8]]) {
+    await page.click(`.nav-item[href="${hash}"]`);
+    check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
+    await page.waitForTimeout(300);
+    const text = await bodyText(page);
+    check(rawIn(text).length === 0, `en español, ${ES[key]}: nothing raw on screen${rawIn(text).length ? `: ${rawIn(text).join(', ')}` : ''}`);
+    await checkDescribed(page, ES[key], 'es', expect);
+    if (SCREENS) await page.screenshot({ path: join(SCREENS, `${hash.slice(2)}-spanish.png`), fullPage: true });
+  }
+  check((await bodyText(page)).includes(ES['lanes.closingNotYet']), 'en español: closing is recorded, and the lane does not act on it yet');
+  await page.click('[data-control="language"] [data-value="en"]');
 
   // ── Day / night / auto ───────────────────────────────────────────────────
   await page.click('.nav-item[href="#/"]');
@@ -590,7 +810,7 @@ try {
   await page.keyboard.press('Escape');
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
-  await checkDescribed(page, ES['page.lanes.title'], 'es', 4);
+  await checkDescribed(page, ES['page.lanes.title'], 'es', 8);
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'es'))), 'Carriles y equipos: the cancelled computer, in Spanish');
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'))), "Carriles y equipos: the lane whose only computer was cancelled, in Spanish");
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-spanish.png'), fullPage: true });

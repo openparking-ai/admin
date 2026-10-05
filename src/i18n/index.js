@@ -39,5 +39,12 @@ export function translate(language, key, values) {
   const text = DICTIONARIES[language]?.[key];
   if (text === undefined) throw new Error(`no words for "${key}" in ${language}`);
   if (!values) return text;
-  return text.replace(/\{(\w+)\}/g, (whole, name) => (name in values ? String(values[name]) : whole));
+  return endOnce(text.replace(/\{(\w+)\}/g, (whole, name) => (name in values ? String(values[name]) : whole)));
 }
+
+/**
+ * One full stop where a filled-in value already ended in one: a sentence
+ * ending in a Spanish time ("6:41 a.m.") is "6:41 a.m.", never "a.m..".
+ * An ellipsis is left as it is.
+ */
+export const endOnce = (text) => text.replace(/(?<!\.)\.\.(?!\.)/g, '.');

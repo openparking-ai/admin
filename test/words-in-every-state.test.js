@@ -10,6 +10,7 @@ import { DICTIONARIES, translate } from '../src/i18n/index.js';
 import { laneWords } from '../src/lanes.js';
 import { insideWords } from '../src/inside.js';
 import { garageTime } from '../src/time.js';
+import { PLATFORM_QUIET_MINUTES } from './files-fixtures.js';
 
 const garage = { timezone: 'America/New_York' };
 const NOW = new Date('2026-03-10T20:00:00Z'); // 4:00 PM in New York
@@ -21,7 +22,8 @@ for (const language of ['en', 'es']) {
   const t = (key, values) => translate(language, key, values);
   const words = DICTIONARIES[language];
   const at = (iso) => garageTime(iso, garage.timezone, language, NOW);
-  const lane = (devices) => laneWords(t, { devices }, garage, language, NOW);
+  // The platform's setting, as its lanes read gives it (PLATFORM_QUIET_MINUTES).
+  const lane = (devices) => laneWords(t, { devices }, garage, language, NOW, PLATFORM_QUIET_MINUTES);
 
   test(`${language}: "no lane computer yet" only for a lane that never had one`, () => {
     assert.deepEqual(lane([]), { state: 'none', text: words['lane.noComputer'] });

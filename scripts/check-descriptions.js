@@ -27,6 +27,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DICTIONARIES, LANGUAGES } from '../src/i18n/index.js';
 import { COLUMNS } from '../src/files/model.js';
+import { WHERE } from '../src/setup.js';
 
 export const MAX_WORDS = 15;
 // How far under a typing box its description may start, in source lines.
@@ -40,6 +41,8 @@ const PAGE_OF = {
   'Home.jsx': 'page.home.title',
   'LanesPage.jsx': 'page.lanes.title',
   'InsidePage.jsx': 'page.inside.title',
+  'SetupPage.jsx': 'page.setup.title',
+  'ChangesPage.jsx': 'page.changes.title',
 };
 // Files drawn on more than one page: where on screen their fields are.
 const PLACE_OF = {
@@ -136,8 +139,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { fields, unnamed } = readScreens(files);
   // The columns of the downloaded files (src/files/model.js), each described
   // in the files under "What each column means".
+  // The Setup page names each step through one <FieldName> with the step's key.
+  for (const step of Object.keys(WHERE)) fields.push({ key: `setup.step.${step}`, page: DICTIONARIES.en['page.setup.title'], file: 'SetupPage.jsx' });
   for (const [list, columns] of Object.entries(COLUMNS)) {
-    for (const { key } of columns) fields.push({ key, page: `the files of ${DICTIONARIES.en[`page.${list}.title`]}`, file: 'files/model.js' });
+    const title = DICTIONARIES.en[list === 'refused' ? 'refused.title' : `page.${list}.title`];
+    for (const { key } of columns) fields.push({ key, page: `the files of ${title}`, file: 'files/model.js' });
   }
   const problems = [...unnamed, ...checkDescriptions(fields, DICTIONARIES)];
   if (fields.length === 0) problems.push('no field found on any screen; the check is not seeing the screens');

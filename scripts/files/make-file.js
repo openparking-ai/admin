@@ -5,6 +5,7 @@
 //   -> { ms, name, missing, hidden, cut }, or { timedOut: true, ms, error? } when no file
 //   came: stopped at the limit, or the maker failed (`error` says how)
 
+import { asRead } from '../../test/files-fixtures.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +23,7 @@ if (!isMainThread) {
   const { list, format, language, garage, data, readAt, path } = workerData;
   const t = (key, values) => translate(language, key, values);
   const started = performance.now();
-  const file = FILES[list]({ t, language, garage, data, readAt: new Date(readAt) });
+  const file = FILES[list]({ t, language, garage, data: asRead(list, data), readAt: new Date(readAt) });
   let made;
   if (format === 'xlsx') made = { missing: [], hidden: false, ...makeExcel(file, { language, meaningsTitle: t('file.meanings') }) };
   else made = { cut: false, ...makePdf(file, { fonts, meaningsTitle: t('file.meanings'), pageWords: (page, pages) => t('file.page', { page, pages }) }) };

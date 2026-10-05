@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 7703ad4 (u2c/profile-language: npm run demo, an admin made with create-admin, one car opened by the entry lane, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-04",
+  "recorded_from": "openparking-ai/platform 283b80b (u4/setup, the U4 fix rounds: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -272,6 +272,11 @@
                 "object"
               ],
               "keys": {
+                "closed": {
+                  "types": [
+                    "null"
+                  ]
+                },
                 "devices": {
                   "types": [
                     "array"
@@ -343,9 +348,19 @@
                       ]
                     }
                   }
+                },
+                "reopened": {
+                  "types": [
+                    "null"
+                  ]
                 }
               }
             }
+          },
+          "quiet_minutes": {
+            "types": [
+              "number"
+            ]
           }
         }
       }
@@ -470,6 +485,1167 @@
       }
     },
     {
+      "what": "drivers, answered yes",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "drivers, answered yes again (nothing changes)",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "drivers, taken back to unanswered",
+      "status": 400,
+      "body": {
+        "error": "transient_available is true or false, not null; unstated is the absence of the field, never a value"
+      }
+    },
+    {
+      "what": "setup",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "setup"
+        ],
+        "setup_keys": [
+          "garage_id",
+          "open",
+          "steps",
+          "takes_any_driver"
+        ],
+        "steps": [
+          {
+            "key": "garage_details",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "currency",
+              "name",
+              "timezone"
+            ]
+          },
+          {
+            "key": "drivers",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "transient_available"
+            ]
+          },
+          {
+            "key": "lanes",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "closed_lanes",
+              "entry_lanes",
+              "exit_lanes"
+            ]
+          },
+          {
+            "key": "lane_computers",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "lanes",
+              "not_working",
+              "quiet_minutes",
+              "working"
+            ]
+          },
+          {
+            "key": "rates",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "earliest",
+              "in_force",
+              "stored"
+            ]
+          },
+          {
+            "key": "taxes",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "earliest",
+              "in_force",
+              "rules_in_force",
+              "stated"
+            ]
+          },
+          {
+            "key": "getting_paid",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "account",
+              "can_be_set_up_here",
+              "card_payments",
+              "charges_enabled",
+              "details_submitted",
+              "read_at"
+            ]
+          },
+          {
+            "key": "card_readers",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "exit_lanes",
+              "with_reader",
+              "without_reader"
+            ]
+          },
+          {
+            "key": "open",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "not_done",
+              "open",
+              "opened_at",
+              "required_missing"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "what": "setup, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "a lane, added",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "closed_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "closed_by": {
+                "types": [
+                  "null"
+                ]
+              },
+              "closed_message": {
+                "types": [
+                  "null"
+                ]
+              },
+              "closed_reason": {
+                "types": [
+                  "null"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "direction": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "reopened_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "reopened_by": {
+                "types": [
+                  "null"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, added with no direction",
+      "status": 400,
+      "body": {
+        "error": "name and direction ('entry' or 'exit') are required"
+      }
+    },
+    {
+      "what": "a lane, renamed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "direction": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, renamed to the name it has",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "direction": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, renamed to nothing",
+      "status": 400,
+      "body": {
+        "error": "name must be text of 1 to 80 characters, with no control or invisible formatting characters",
+        "code": "lane_name_refused"
+      }
+    },
+    {
+      "what": "a lane not theirs, renamed",
+      "status": 404,
+      "body": {
+        "error": "lane not found",
+        "code": "lane_not_found"
+      }
+    },
+    {
+      "what": "a lane, closed: full",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "closed": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "message": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, closed again: everyone",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "closed": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "message": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, closed with no message",
+      "status": 400,
+      "body": {
+        "error": "message must be text of 1 to 160 characters, with no control or invisible formatting characters",
+        "code": "lane_message_refused"
+      }
+    },
+    {
+      "what": "a lane, closed for no known reason",
+      "status": 400,
+      "body": {
+        "error": "reason must be one of full, everyone: full lets pass and monthly holders in; everyone closes it to all",
+        "code": "lane_reason_refused"
+      }
+    },
+    {
+      "what": "the last open way in, closed",
+      "status": 409,
+      "body": {
+        "error": "this is the last open way in of the garage: closing it leaves no way in open. Send override: true to close it anyway.",
+        "code": "last_open_lane",
+        "details": {
+          "direction": "entry"
+        }
+      }
+    },
+    {
+      "what": "the last open way in, closed on purpose",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "closed": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "message": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, reopened",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "closed": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "reopened_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, reopened while open",
+      "status": 409,
+      "body": {
+        "error": "this lane is already open",
+        "code": "lane_already_open"
+      }
+    },
+    {
+      "what": "a lane computer, connected",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "device": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          },
+          "token": {
+            "types": [
+              "string"
+            ]
+          },
+          "token_note": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane computer, with no name",
+      "status": 400,
+      "body": {
+        "error": "name is required"
+      }
+    },
+    {
+      "what": "a lane computer not theirs, connected",
+      "status": 404,
+      "body": {
+        "error": "lane not found"
+      }
+    },
+    {
+      "what": "a lane computer, its access cancelled",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "device": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "revoked_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane computer not theirs, cancelled",
+      "status": 404,
+      "body": {
+        "error": "device not found"
+      }
+    },
+    {
+      "what": "a lane that had a computer, removed",
+      "status": 409,
+      "body": {
+        "error": "this lane cannot be removed: it has 1 computers on record, and removing it would lose that history. Rename it or close it instead.",
+        "code": "lane_has_history",
+        "details": {
+          "stays": 0,
+          "computers": 1,
+          "card_readers": 0,
+          "events": 0
+        }
+      }
+    },
+    {
+      "what": "a lane never used, removed",
+      "status": 204,
+      "shape": "empty"
+    },
+    {
+      "what": "a lane not theirs, removed",
+      "status": 404,
+      "body": {
+        "error": "lane not found",
+        "code": "lane_not_found"
+      }
+    },
+    {
+      "what": "lanes, after lane setup",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lanes": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "closed": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "by": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "name": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "message": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "reason": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "devices": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "last_seen_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "name": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "revoked_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "direction": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "reader": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "bound_at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "label": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "reader_id": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "reopened": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "by": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "name": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quiet_minutes": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "a lane, renamed back",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "direction": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name"
+          ],
+          "action": "lane.rename",
+          "outcome": "done",
+          "before": {
+            "name": "Recorded Entry 2"
+          },
+          "after": {
+            "name": "Recorded Entry"
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a line not in this log",
+      "status": 404,
+      "body": {
+        "error": "change not found"
+      }
+    },
+    {
+      "what": "changes, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "refused attempts",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "next",
+          "refused"
+        ],
+        "count": [
+          "attempts",
+          "lines"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name"
+          ],
+          "action": "lane.remove",
+          "outcome": "refused",
+          "refusal": "lane_not_found",
+          "before": null,
+          "after": null
+        }
+      }
+    },
+    {
+      "what": "refused attempts, after a line not in this log",
+      "status": 404,
+      "body": {
+        "error": "change not found"
+      }
+    },
+    {
+      "what": "refused attempts, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
       "what": "sign-out, from a page at another address",
       "status": 403,
       "body": {
@@ -570,5 +1746,5 @@
       }
     }
   },
-  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 7703ad4 src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 283b80b src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
 }

@@ -104,9 +104,32 @@ The build publishes no source maps.
   `npm run check-descriptions` fails a field without one, and that is the rule
   for every later screen.
 
-- **Pages**: Home, Garages, Lanes and equipment, Card readers, Rates, Taxes and fees,
-  Getting paid, Cars inside. `src/pages.js`. A page with nothing on it yet says
-  so under its line.
+- **Pages**: Home, Setup, Garages, Lanes and equipment, Card readers, Rates, Taxes
+  and fees, Getting paid, Cars inside, Change log. `src/pages.js`. A page with
+  nothing on it yet says so under its line.
+- **Setup** is the garage's checklist, as the platform works it out
+  (`GET /garages/:id/setup`): each step's name and what it is, done or not yet,
+  its facts in plain words and where it is done -- or "This can't be set from
+  here yet." Nothing here decides a step (`src/setup.js` only words it). The
+  question "Does this garage take drivers without a pass?" is answered there;
+  once answered it can be changed, never taken back to unanswered.
+- **Lanes and equipment** also sets lanes up: add, rename, remove (a used lane is
+  kept, with the reason), connect a lane computer or cancel its access, close
+  (full, or closed to everyone, with a message picked from English and Spanish
+  samples or typed) and reopen. The last open lane of a direction warns and
+  closes only on a second press. Every confirmation is on the page. A new lane
+  computer's connection code is shown once, with a copy button, and kept
+  nowhere: not in browser storage, the address, a log line or a file; it goes
+  when the panel closes. Until the lanes themselves act on a closing, the page
+  says so.
+- **Change log**: who changed what, before and after, when, in the garage's time.
+  Below it and apart, the **refused attempts**, with how many there are: who
+  tried what, why it was refused (true in whichever account's log it is read),
+  how many times and when last -- so no number of them can push a change out
+  of sight. Every value in words (a time zone as people say it, every choice of
+  a setting), never as the code the platform keeps. Each list prints and
+  downloads like the others. A panel's own button says what it does: "No, keep
+  it" beside a "Yes", "Cancel" on a form, "Done" once a code is shown.
 - **Two languages**, English and Spanish. Every word on the screen is in
   `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. **English unless the
   owner chose Spanish**: the browser's own language decides nothing. Signed in,

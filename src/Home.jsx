@@ -24,12 +24,12 @@ export default function Home({ t, language, client, garage }) {
           <ProblemNote t={t} kind={lanes.problem} onRetry={lanes.retry} />
         ) : !lanes.data ? (
           <p className="quiet">{t('loading')}</p>
-        ) : lanes.data.length === 0 ? (
+        ) : lanes.data.lanes.length === 0 ? (
           <p className="quiet">{t('lanes.none')}</p>
         ) : (
           <ul className="lane-list">
-            {lanes.data.map((lane) => {
-              const words = laneWords(t, lane, garage, language, now);
+            {lanes.data.lanes.map((lane) => {
+              const words = laneWords(t, lane, garage, language, now, lanes.data.quietMinutes);
               return (
                 <li key={lane.id} className="lane-row" data-state={words.state}>
                   <span className="lane-name">

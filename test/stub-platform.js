@@ -10,8 +10,23 @@
 //   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }
 //   PUT  /api/v1/auth/language   { language } -> the signed-in owner's own language, 'en' or 'es'; { language }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
-//   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader }] }
+//   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader, closed, reopened }], quiet_minutes }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
+// U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
+//   GET    /api/v1/garages/:id/setup        { setup: { garage_id, open, takes_any_driver, steps: [{ key, done, facts }] } }
+//   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } the changes made, newest first, 50 a page
+//   GET    /api/v1/garages/:id/refused-attempts[/:lineId]  { refused: [line], next, count: { lines, attempts } } apart
+//   A request that changes nothing writes no line (the same before and after).
+//   PATCH  /api/v1/garages/:id              { transient_available: true | false } -> { garage }
+//   POST   /api/v1/garages/:id/lanes        { name, direction } -> 201 { lane }
+//   PATCH  /api/v1/lanes/:id                { name } -> { lane }
+//   DELETE /api/v1/lanes/:id                204; a lane ever used is 409 lane_has_history
+//   POST   /api/v1/lanes/:id/close          { reason, message, override? } -> { lane }; the last open
+//                                           lane of a direction is 409 last_open_lane without override
+//   POST   /api/v1/lanes/:id/reopen         -> { lane }; an open one is 409 lane_already_open
+//   POST   /api/v1/lanes/:id/devices        { name } -> 201 { device, token, token_note }
+//   POST   /api/v1/devices/:id/revoke       -> { device }
+// Every change and every refused change is a line in the owner's change log.
 // Sign-in answers as the platform's src/signIn.js does: not set up (no admin
 // page named), a page at another address, a body it cannot read, too many
 // tries from here, busy, refused (a wrong password, an unknown email, or ten
@@ -104,6 +119,15 @@ export function owners(now = Date.now()) {
   };
 }
 
+/** What the stand-in keeps beside each garage for its checklist: the platform's own reads, in short. */
+function setupData() {
+  return {
+    'a1000000-0000-4000-8000-000000000001': { transient_available: true, opened_at: '2026-01-02T15:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2025-12-01T05:00:00.000Z' }, taxes: { stated: 1, in_force: 1, earliest: '2025-12-01T05:00:00.000Z', rules_in_force: 2 }, account: { account: true, charges_enabled: true, card_payments: 'active', details_submitted: true, read_at: '2026-01-02T14:00:00Z' } },
+    'a2000000-0000-4000-8000-000000000002': { transient_available: null, opened_at: null, rates: { stored: 0, in_force: 0, earliest: null }, taxes: { stated: 0, in_force: 0, earliest: null, rules_in_force: null }, account: null },
+    'b1000000-0000-4000-8000-000000000001': { transient_available: false, opened_at: '2026-02-01T18:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2026-01-01T08:00:00.000Z' }, taxes: { stated: 1, in_force: 1, earliest: '2026-01-01T08:00:00.000Z', rules_in_force: 0 }, account: null },
+  };
+}
+
 /** Every piece of text of owner A's that a screen could show. */
 export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com'];
 
@@ -133,8 +157,38 @@ const SESSION_SECONDS = 12 * 60 * 60;
 const MAX_WRONG = 10;
 const PAUSE = 30 * MINUTE;
 
+// The platform's own sentences for the U4 refusals (src/lanes.js, src/app.js).
+const LANE_NOT_FOUND_NAMED = { error: 'lane not found', code: 'lane_not_found' };
+const LANE_NOT_FOUND = { error: 'lane not found' };
+const DEVICE_NOT_FOUND = { error: 'device not found' };
+const LANE_NAME_REFUSED = { error: 'name must be text of 1 to 80 characters, with no control or invisible formatting characters', code: 'lane_name_refused' };
+const LANE_MESSAGE_REFUSED = { error: 'message must be text of 1 to 160 characters, with no control or invisible formatting characters', code: 'lane_message_refused' };
+const LANE_REASON_REFUSED = { error: 'reason must be one of full, everyone: full lets pass and monthly holders in; everyone closes it to all', code: 'lane_reason_refused' };
+const LANE_ALREADY_OPEN = { error: 'this lane is already open', code: 'lane_already_open' };
+const ADD_LANE_REFUSED = { error: "name and direction ('entry' or 'exit') are required" };
+const COMPUTER_NAME_REQUIRED = { error: 'name is required' };
+const DRIVERS_REFUSED = (v) => ({ error: `transient_available is true or false, not ${JSON.stringify(v)}; unstated is the absence of the field, never a value` });
+const lastOpen = (direction) => {
+  const way = direction === 'entry' ? 'way in' : 'way out';
+  return { error: `this is the last open ${way} of the garage: closing it leaves no ${way} open. Send override: true to close it anyway.`, code: 'last_open_lane', details: { direction } };
+};
+const CONTROL = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+const LINES_PAGE = 50;
+
 export async function startStub({ port = 0 } = {}) {
   const data = owners();
+  const setups = setupData();
+  const log = new Map(); // tenant -> lines, oldest first
+  const used = new Set(); // lanes with a stay or an event: never removable
+  let quiet = 5; // the platform's LANE_QUIET_MINUTES, which its lanes and setup reads return
+  let flipped = false; // a checklist whose `done` says the opposite of its facts, for the checks
+  for (const o of Object.values(data)) {
+    for (const lanes of Object.values(o.lanes)) for (const l of lanes) Object.assign(l, { closed: l.closed ?? null, reopened: l.reopened ?? null });
+  }
+  // The stand-in's stays are on these lanes, as the platform's would be.
+  for (const o of Object.values(data)) for (const stays of Object.values(o.open)) for (const st of stays) {
+    for (const lanes of Object.values(o.lanes)) for (const l of lanes) if (l.name === st.entry_lane) used.add(l.id);
+  }
   const sessions = new Map(); // token -> { owner, ended }
   const issued = [];
   let failNext = null;
@@ -214,6 +268,231 @@ export async function startStub({ port = 0 } = {}) {
     });
   }
 
+  // ── U4 ────────────────────────────────────────────────────────────────────
+  // An answer from a U4 route: sent, and said so, so the routes after it do not answer too.
+  const answer = (...args) => {
+    send(...args);
+    return true;
+  };
+  const linesOf = (who) => {
+    if (!log.has(who.tenant_id)) log.set(who.tenant_id, []);
+    return log.get(who.tenant_id);
+  };
+  let lineN = 0;
+  const same = (x, y) => x !== null && y !== null && JSON.stringify(x) === JSON.stringify(y);
+  const line = (who, { garageId = null, action, subject, before = null, after = null, outcome = 'done', refusal = null }) =>
+    // Asked again, answered with what was there: the platform writes no line.
+    same(before, after) ? 0 : linesOf(who).push({
+      id: `c${String((lineN += 1)).padStart(7, '0')}-0000-4000-8000-000000000000`,
+      garage_id: garageId,
+      at: new Date(Date.now() + lineN).toISOString(),
+      outcome,
+      who: { kind: 'owner', name: who.email },
+      action,
+      subject,
+      before,
+      after,
+      refusal,
+      // The platform counts a repeated refusal on its line (0027); each line here is one attempt.
+      attempts: 1,
+      last_at: outcome === 'refused' ? new Date(Date.now() + lineN).toISOString() : null,
+    });
+  const laneOf = (who, laneId) => {
+    for (const [garageId, lanes] of Object.entries(who.lanes)) {
+      const lane = lanes.find((l) => l.id === laneId);
+      if (lane) return { garageId, lane, lanes };
+    }
+    return null;
+  };
+  const deviceOf = (who, deviceId) => {
+    for (const [garageId, lanes] of Object.entries(who.lanes)) {
+      for (const lane of lanes) {
+        const device = (lane.devices ?? []).find((d) => d.id === deviceId);
+        if (device) return { garageId, lane, device };
+      }
+    }
+    return null;
+  };
+  // A "not found" with no code is named by what was not found, as the platform's src/changes.js names it.
+  const refuse = (res, who, status, body, at) => {
+    line(who, { ...at, outcome: 'refused', refusal: body.code ?? (status === 404 ? at.missing ?? 'not_found' : { 400: 'bad_request' }[status]) ?? 'conflict' });
+    return answer(res, status, body);
+  };
+  const subjectOfLane = (lane, name = lane.name) => ({ kind: 'lane', id: lane.id, name });
+  const stateOf = (lane) => (lane.closed ? { state: 'closed', reason: lane.closed.reason, message: lane.closed.message } : { state: 'open' });
+  const nameOk = (raw, max) => typeof raw === 'string' && raw.trim() !== '' && raw.trim().length <= max && !CONTROL.test(raw.trim());
+
+  function checklist(who, garage) {
+    const extra = setups[garage.id] ?? setupData()['a2000000-0000-4000-8000-000000000002'];
+    const lanes = who.lanes[garage.id] ?? [];
+    const now = Date.now();
+    const laneLine = (l) => ({ lane_id: l.id, name: l.name, direction: l.direction });
+    const computer = (l) => {
+      const devices = l.devices ?? [];
+      const live = devices.filter((d) => !d.revoked_at);
+      if (devices.length === 0) return { state: 'none', last_heard_at: null };
+      if (live.length === 0) return { state: 'cancelled', last_heard_at: null };
+      const heard = live.map((d) => d.last_seen_at).filter(Boolean).map((x) => Date.parse(x));
+      if (heard.length === 0) return { state: 'never_heard', last_heard_at: null };
+      const latest = Math.max(...heard);
+      return { state: now - latest < quiet * 60_000 ? 'working' : 'quiet', last_heard_at: new Date(latest).toISOString() };
+    };
+    const entry = lanes.filter((l) => l.direction === 'entry');
+    const exit = lanes.filter((l) => l.direction === 'exit');
+    const computers = lanes.map((l) => ({ ...laneLine(l), ...computer(l) }));
+    const steps = [
+      { key: 'garage_details', done: true, facts: { name: garage.name, timezone: garage.timezone, currency: garage.currency } },
+      { key: 'drivers', done: extra.transient_available !== null, facts: { transient_available: extra.transient_available } },
+      { key: 'lanes', done: entry.length > 0 && exit.length > 0, facts: { entry_lanes: entry.length, exit_lanes: exit.length, closed_lanes: lanes.filter((l) => l.closed).map(laneLine) } },
+      { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: quiet, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
+      { key: 'rates', done: extra.rates.in_force > 0, facts: extra.rates },
+      { key: 'taxes', done: extra.taxes.in_force > 0, facts: extra.taxes },
+    ];
+    if (extra.transient_available === true) {
+      const a = extra.account;
+      steps.push({ key: 'getting_paid', done: Boolean(a?.account && a.charges_enabled === true && a.card_payments === 'active'), facts: { can_be_set_up_here: false, account: Boolean(a?.account), charges_enabled: a?.charges_enabled ?? null, card_payments: a?.card_payments ?? null, details_submitted: a?.details_submitted ?? null, read_at: a?.read_at ?? null } });
+      const without = exit.filter((l) => !l.reader);
+      steps.push({ key: 'card_readers', done: exit.length > 0 && without.length === 0, facts: { exit_lanes: exit.length, with_reader: exit.length - without.length, without_reader: without.map(laneLine) } });
+    }
+    const gate = { rates: steps[4].done, drivers: steps[1].done, taxes: steps[5].done };
+    const notDone = steps.filter((st) => !st.done).map((st) => st.key);
+    const open = extra.opened_at !== null;
+    steps.push({ key: 'open', done: open, facts: { open, opened_at: extra.opened_at, required_missing: Object.keys(gate).filter((k) => !gate[k]), not_done: notDone } });
+    // Asked for by a check: every step's `done` the opposite of what its facts
+    // would suggest, so a page that worked a step out for itself shows it.
+    if (flipped) for (const st of steps) st.done = !st.done;
+    return { garage_id: garage.id, open, takes_any_driver: extra.transient_available, steps };
+  }
+
+  async function setupRoutes(req, res, path, who) {
+    let m = /^\/api\/v1\/garages\/([^/]+)\/(setup|changes|refused-attempts)(?:\/([^/]+))?$/.exec(path);
+    if (m && req.method === 'GET') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      if (m[2] === 'setup') {
+        if (m[3]) return answer(res, 404, { error: 'not found' });
+        return answer(res, 200, { setup: checklist(who, garage) });
+      }
+      const outcome = m[2] === 'changes' ? 'done' : 'refused';
+      const mine = linesOf(who).filter((l) => (l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);
+      const all = mine.slice().reverse();
+      const after = m[3] ?? null;
+      const from = after === null ? 0 : all.findIndex((l) => l.id === after) + 1;
+      if (after !== null && from === 0) return answer(res, 404, { error: 'change not found' });
+      const page = all.slice(from, from + LINES_PAGE);
+      const next = all.length > from + LINES_PAGE ? page[page.length - 1].id : null;
+      if (outcome === 'done') return answer(res, 200, { changes: page, next });
+      return answer(res, 200, { refused: page, next, count: { lines: mine.length, attempts: mine.reduce((n, l) => n + (l.attempts ?? 1), 0) } });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)$/.exec(path);
+    if (m && req.method === 'PATCH') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      const body = (await readBody(req)) ?? {};
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'garage.update', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
+      const at = { garageId: garage.id, action: 'garage.update', subject: { kind: 'garage', id: garage.id, name: garage.name } };
+      if (!('transient_available' in body)) return refuse(res, who, 400, { error: 'default_action or transient_available is required' }, at);
+      if (body.transient_available !== true && body.transient_available !== false) return refuse(res, who, 400, DRIVERS_REFUSED(body.transient_available), at);
+      const extra = setups[garage.id];
+      const was = extra.transient_available;
+      extra.transient_available = body.transient_available;
+      line(who, { ...at, before: { transient_available: was }, after: { transient_available: body.transient_available } });
+      // The platform answers with the garage's whole row.
+      return answer(res, 200, {
+        garage: {
+          id: garage.id, tenant_id: who.tenant_id, name: garage.name, timezone: garage.timezone, currency: garage.currency,
+          created_at: '2025-11-20T15:00:00.000Z', default_action: 'allow', space_class: 'standard',
+          transient_available: body.transient_available, activated_at: extra.opened_at ?? '2026-01-02T15:00:00.000Z',
+          garage_pass_link: null, monthly_billing_link: null, validations_link: null,
+        },
+      });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)\/lanes$/.exec(path);
+    if (m && req.method === 'POST') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      const body = (await readBody(req)) ?? {};
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'lane.add', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
+      if (!body.name || !['entry', 'exit'].includes(body.direction)) return refuse(res, who, 400, ADD_LANE_REFUSED, { garageId: garage.id, action: 'lane.add', subject: { kind: 'garage', id: garage.id, name: garage.name } });
+      const lane = { id: `la9${String(Date.now()).slice(-5)}-${String(Math.floor(Math.random() * 1e4)).padStart(4, '0')}-4000-8000-${String((lineN += 1)).padStart(12, '0')}`, name: body.name, direction: body.direction, reader: null, devices: [], closed: null, reopened: null };
+      (who.lanes[garage.id] ??= []).push(lane);
+      line(who, { garageId: garage.id, action: 'lane.add', subject: subjectOfLane(lane), after: { name: lane.name, direction: lane.direction } });
+      return answer(res, 201, { lane: { id: lane.id, tenant_id: who.tenant_id, garage_id: garage.id, name: lane.name, direction: lane.direction, created_at: new Date().toISOString(), closed_reason: null, closed_message: null, closed_by: null, closed_at: null, reopened_by: null, reopened_at: null } });
+    }
+    m = /^\/api\/v1\/lanes\/([^/]+)(\/close|\/reopen|\/devices)?$/.exec(path);
+    if (m && ['PATCH', 'DELETE', 'POST'].includes(req.method) && (req.method === 'POST') === Boolean(m[2])) {
+      const found = laneOf(who, m[1]);
+      const body = (await readBody(req)) ?? {};
+      const action = { PATCH: 'lane.rename', DELETE: 'lane.remove' }[req.method] ?? { '/close': 'lane.close', '/reopen': 'lane.reopen', '/devices': 'computer.connect' }[m[2]];
+      if (!found) return refuse(res, who, 404, m[2] === '/devices' ? LANE_NOT_FOUND : LANE_NOT_FOUND_NAMED, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'lane_not_found' });
+      const { garageId, lane, lanes } = found;
+      const at = { garageId, action, subject: subjectOfLane(lane) };
+      if (req.method === 'PATCH') {
+        const extra = Object.keys(body).filter((k) => k !== 'name');
+        if (extra.length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(extra[0])}; the body is {name}` }, at);
+        if (!nameOk(body.name, 80)) return refuse(res, who, 400, LANE_NAME_REFUSED, at);
+        const was = lane.name;
+        lane.name = body.name.trim();
+        line(who, { ...at, subject: subjectOfLane(lane), before: { name: was }, after: { name: lane.name } });
+        return answer(res, 200, { lane: { id: lane.id, garage_id: garageId, name: lane.name, direction: lane.direction } });
+      }
+      if (req.method === 'DELETE') {
+        const had = { stays: used.has(lane.id) ? 1 : 0, computers: (lane.devices ?? []).length, card_readers: lane.reader ? 1 : 0, events: 0 };
+        const kept = Object.entries(had).filter(([, n]) => n > 0);
+        if (kept.length) {
+          return refuse(res, who, 409, {
+            error: `this lane cannot be removed: it has ${kept.map(([what, n]) => `${n} ${what.replace('_', ' ')}`).join(', ')} on record, and removing it would lose that history. Rename it or close it instead.`,
+            code: 'lane_has_history',
+            details: had,
+          }, at);
+        }
+        lanes.splice(lanes.indexOf(lane), 1);
+        line(who, { ...at, before: { name: lane.name, direction: lane.direction } });
+        return answer(res, 204);
+      }
+      if (m[2] === '/devices') {
+        if (!body.name) return refuse(res, who, 400, COMPUTER_NAME_REQUIRED, at);
+        const device = { id: `dv9${String(Date.now()).slice(-5)}-0000-4000-8000-${String((lineN += 1)).padStart(12, '0')}`, name: body.name, last_seen_at: null, revoked_at: null };
+        (lane.devices ??= []).push(device);
+        const token = `opl_${randomBytes(32).toString('base64url')}`;
+        issued.push(token);
+        line(who, { ...at, action: 'computer.connect', subject: { kind: 'computer', id: device.id, name: device.name }, after: { name: device.name, lane: lane.name } });
+        return answer(res, 201, { device: { id: device.id, lane_id: lane.id, name: device.name, created_at: new Date().toISOString() }, token, token_note: 'shown once; it is not recoverable' });
+      }
+      if (m[2] === '/reopen') {
+        if (Object.keys(body).length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(Object.keys(body)[0])}; the body is {}` }, at);
+        if (!lane.closed) return refuse(res, who, 409, LANE_ALREADY_OPEN, at);
+        const was = stateOf(lane);
+        lane.closed = null;
+        lane.reopened = { by: { kind: 'owner', name: who.email }, at: new Date().toISOString() };
+        line(who, { ...at, before: was, after: { state: 'open' } });
+        return answer(res, 200, { lane: { id: lane.id, closed: null, reopened_at: lane.reopened.at } });
+      }
+      // close
+      const extra = Object.keys(body).filter((k) => !['reason', 'message', 'override'].includes(k));
+      if (extra.length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(extra[0])}; the body is {reason, message, override}` }, at);
+      if (!['full', 'everyone'].includes(body.reason)) return refuse(res, who, 400, LANE_REASON_REFUSED, at);
+      if (!nameOk(body.message, 160)) return refuse(res, who, 400, LANE_MESSAGE_REFUSED, at);
+      if (body.override !== undefined && body.override !== true) return refuse(res, who, 400, { error: 'override, when sent, is true', code: 'lane_override_refused' }, at);
+      const others = lanes.filter((l) => l !== lane && l.direction === lane.direction && !l.closed);
+      if (!lane.closed && others.length === 0 && body.override !== true) return refuse(res, who, 409, lastOpen(lane.direction), at);
+      const was = stateOf(lane);
+      const message = body.message.trim();
+      lane.closed = { reason: body.reason, message, by: { kind: 'owner', name: who.email }, at: new Date().toISOString() };
+      line(who, { ...at, action: was.state === 'open' ? 'lane.close' : 'lane.close_again', before: was, after: { state: 'closed', reason: body.reason, message, ...(body.override === true ? { last_open_overridden: true } : {}) } });
+      return answer(res, 200, { lane: { id: lane.id, closed: { reason: lane.closed.reason, message, at: lane.closed.at } } });
+    }
+    m = /^\/api\/v1\/devices\/([^/]+)\/revoke$/.exec(path);
+    if (m && req.method === 'POST') {
+      const found = deviceOf(who, m[1]);
+      if (!found) return refuse(res, who, 404, DEVICE_NOT_FOUND, { action: 'computer.cancel', subject: { kind: 'unknown', id: null, name: null }, missing: 'computer_not_found' });
+      const { garageId, lane, device } = found;
+      const was = device.revoked_at;
+      device.revoked_at ??= new Date().toISOString();
+      line(who, { garageId, action: 'computer.cancel', subject: { kind: 'computer', id: device.id, name: device.name }, before: { access: was ? 'cancelled' : 'connected', lane: lane.name }, after: { access: 'cancelled', lane: lane.name } });
+      return answer(res, 200, { device: { id: device.id, lane_id: lane.id, name: device.name, created_at: new Date().toISOString(), revoked_at: device.revoked_at } });
+    }
+    return undefined;
+  }
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://stub');
     const path = url.pathname;
@@ -267,10 +546,15 @@ export async function startStub({ port = 0 } = {}) {
       const body = await readBody(req, LANGUAGE_BODY_LIMIT);
       const language = body && typeof body === 'object' && !Array.isArray(body) ? body.language : undefined;
       if (typeof language !== 'string' || !LANGUAGES.includes(language)) return send(res, 400, LANGUAGE_REFUSED);
+      const was = who.language;
       who.language = language;
+      line(who, { action: 'language.change', subject: { kind: 'language', id: null, name: null }, before: { language: was }, after: { language } });
       return send(res, 200, { language });
     }
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
+
+    const u4 = await setupRoutes(req, res, path, who);
+    if (u4 !== undefined) return u4;
 
     const m = /^\/api\/v1\/garages\/([^/]+)(\/lanes|\/sessions\/open)?$/.exec(path);
     if (m && req.method === 'GET') {
@@ -283,7 +567,7 @@ export async function startStub({ port = 0 } = {}) {
       }
       if (!garage) return send(res, 404, GARAGE_NOT_FOUND);
       if (!m[2]) return send(res, 200, { garage });
-      return send(res, 200, { lanes: who.lanes[garage.id] ?? [] });
+      return send(res, 200, { lanes: who.lanes[garage.id] ?? [], quiet_minutes: quiet });
     }
     return send(res, 404, { error: 'not found' });
   });
@@ -305,6 +589,21 @@ export async function startStub({ port = 0 } = {}) {
       if (!SIGN_IN_ANSWERS[kind]) throw new Error(`no such sign-in answer: ${kind}`);
       failSignIn = kind;
     },
+    /** A lane ever used (a stay or an event): never removable, as on the platform. */
+    markUsed: (laneId) => used.add(laneId),
+    /** The platform's quiet setting, as its lanes and setup reads return it; and a way to change it, as a deployment would. */
+    quietMinutes: () => quiet,
+    setQuietMinutes: (minutes) => {
+      quiet = minutes;
+    },
+    /** Every step of every checklist answered with `done` reversed (true), or as worked out (false). */
+    flipSetup: (on) => {
+      flipped = Boolean(on);
+    },
+    /** Put `lines` (oldest first) as the owner's change log, for the file checks. */
+    setChanges: (owner, lines) => log.set(owner.tenant_id, lines.slice()),
+    /** The change log the stand-in kept, per owner, oldest first. */
+    changes: (owner) => linesOf(owner).slice(),
     endSessions: () => {
       for (const s of sessions.values()) s.ended = true;
     },

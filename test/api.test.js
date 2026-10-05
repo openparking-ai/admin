@@ -80,7 +80,7 @@ test('a gateway answering for a platform it cannot reach: the platform cannot be
 });
 
 test('requests are relative, same-origin, carry the cookie and never put anything in the address', async () => {
-  const { fn, asked } = fakeFetch(json(200, { garages: [], lanes: [], sessions: [], email: 'a@example.com' }));
+  const { fn, asked } = fakeFetch(json(200, { garages: [], lanes: [], quiet_minutes: 5, sessions: [], email: 'a@example.com' }));
   const client = createClient({ fetch: fn });
   await client.signIn('a@example.com', 'the-password');
   await client.garages();
@@ -93,6 +93,14 @@ test('requests are relative, same-origin, carry the cookie and never put anythin
   }
   assert.equal(asked[2].url, '/api/v1/garages/g%2F1%3Fx/lanes');
   assert.deepEqual(JSON.parse(asked[0].init.body), { email: 'a@example.com', password: 'the-password' });
+});
+
+test("the lanes come with the platform's quiet setting, and an answer without one is not taken", async () => {
+  const read = (body) => createClient({ fetch: fakeFetch(json(200, body)).fn }).lanes('g1');
+  assert.deepEqual(await read({ lanes: [], quiet_minutes: 30 }), { lanes: [], quietMinutes: 30 });
+  for (const quiet of [undefined, 0, '5', 2.5, null]) {
+    assert.equal((await problemOf(read({ lanes: [], quiet_minutes: quiet }))).kind, 'unexpected', JSON.stringify(quiet));
+  }
 });
 
 test('every 401 tells the screens; a signed-in owner turned away is told the session ended', async () => {

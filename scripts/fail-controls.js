@@ -13,6 +13,11 @@
 //   A control may set `env` for its run: the LibreOffice one needs soffice (CI).
 //   ... --only TEXT                          only the controls whose name holds TEXT
 //
+// The download check's odd-text walk (thousands of cells, most of its minutes)
+// runs only in the controls marked `oddText: true`: the ones whose break is in
+// how text is shown or written. The others run it with --without-odd-text. A
+// control that expects an odd-text line but is not marked refuses to run.
+//
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
 
@@ -541,6 +546,66 @@ const CONTROLS = [
     run: CHECK_FILES,
     names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - ABCDEFGH - 2026-03-10 1141.xlsx"', 'FAIL odd text: garage name × file name (pdf)'],
   },
+  {
+    check: 'U4 no technical words: "device" in a new entry',
+    plant: { file: 'src/i18n/en.js', anchor: "  \"lanes.connect\": \"Connect a lane computer\",", with: "  \"lanes.connect\": \"Connect a lane device\"," },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['en: lanes.connect: "device"'],
+  },
+  {
+    check: "U4 a setup step's description missing in one language",
+    plant: { file: 'src/i18n/es.js', anchor: "  \"setup.step.rates.about\": \"Lo que se cobra a los conductores, vigente desde hoy.\",\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: setup.step.rates.about (Setup): missing'],
+  },
+  {
+    check: 'U4 the change log file is the list: a line dropped',
+    plant: { file: 'src/files/model.js', anchor: '  const rows = data.changes.map((line) => {', with: '  const rows = data.changes.slice(1).map((line) => {' },
+    run: CHECK_FILES,
+    names: ['FAIL 1 the file is the list: changes xlsx (en)'],
+  },
+  {
+    check: 'U4 fix 4: a time zone shown as its code',
+    plant: { file: 'src/changes.js', anchor: "  if (field === 'timezone') return { words: zoneSaid(value, language) ?? t('changes.value.anotherZone') };", with: "  if (field === 'timezone') return { words: value };" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['4 NO RAW VALUES', 'America/New_York'],
+  },
+  {
+    check: "U4 fix 4: a setting's choice shown as its code",
+    plant: { file: 'src/changes.js', anchor: "    return { words: CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };", with: '    return { words: value };' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['4 NO RAW VALUES', 'shown as its code'],
+  },
+  {
+    check: 'U4 fix 5: a refused attempt said as if it was done',
+    plant: { file: 'src/changes.js', anchor: '  const pieces = [{ words: t(actionKey(line.action, refused)) }];', with: '  const pieces = [{ words: t(actionKey(line.action, false)) }];' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['5 EVERY LINE IS TRUE', 'reads like the change was made'],
+  },
+  {
+    check: "U4 fix 5: another account's attempt on this garage said as \"not there\"",
+    plant: { file: 'src/changes.js', anchor: "  const why = line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)", with: "  const why = false && NOT_FOUND.includes(line.refusal)" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['5 EVERY LINE IS TRUE', "in the aimed-at garage's log"],
+  },
+  {
+    check: 'U4 fix 3: a key whose name the line lacks, said as someone else',
+    plant: { file: 'src/changes.js', anchor: "  if (who.kind === 'key') return [{ words: t('changes.who.keyUnnamed') }];\n", with: '' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['3 EVERY LINE NAMES WHO', 'names no key'],
+  },
+  {
+    check: "U4 fix2: this account's cancelled key said as a working one",
+    plant: { file: 'src/changes.js', anchor: '  if (noLonger && who.name) return named(t(noLonger), who.name);\n', with: '' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ["no longer worked is said as what it was"],
+  },
+  {
+    check: 'U4 fix 6: a sentence that ends twice',
+    plant: { file: 'src/i18n/index.js', anchor: "export const endOnce = (text) => text.replace(/(?<!\\.)\\.\\.(?!\\.)/g, '.');", with: 'export const endOnce = (text) => text;' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['6 NO SENTENCE ENDS TWICE', 'a.m..'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -562,8 +627,8 @@ const BROWSER_CONTROLS = [
     plant: [
       {
         file: 'src/api.js',
-        anchor: "named === code)?.[2] ?? 'unexpected');",
-        with: "named === code)?.[2] ?? code ?? 'unexpected');",
+        anchor: "BY_STATUS[res.status] : undefined) ?? 'unexpected');",
+        with: "BY_STATUS[res.status] : undefined) ?? code ?? 'unexpected');",
       },
       {
         file: 'src/parts.jsx',
@@ -874,6 +939,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F1: a lane computer name not kept apart on screen',
+    oddText: true,
     plant: { file: 'src/LanesPage.jsx', anchor: '                            <bdi>{d.name}</bdi>', with: '                            {d.name}' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -881,6 +947,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F1: the letters the notice names not kept apart',
+    oddText: true,
     plant: { file: 'src/ListActions.jsx', anchor: '                <bdi data-letter>{shownLetter(ch)}</bdi>', with: '                <span data-letter>{shownLetter(ch)}</span>' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -888,6 +955,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: "U3 fix F1: the notice's sentence laid out as separate boxes",
+    oddText: true,
     plant: [
       { file: 'src/ListActions.jsx', anchor: '          <span>\n            {before}', with: '          <>\n            {before}' },
       { file: 'src/ListActions.jsx', anchor: '            {after}\n          </span>', with: '            {after}\n          </>' },
@@ -898,6 +966,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F2 undone, in the browser',
+    oddText: true,
     plant: [
       { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch)) out += ' ';", with: '    if (SPACE_LIKE.test(ch)) out += ch;' },
       { file: 'src/files/text.js', anchor: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) hidden = true;', with: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) out += ch;' },
@@ -909,6 +978,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix 2: the hidden-characters sentence never shown, in the browser',
+    oddText: true,
     plant: { file: 'src/ListActions.jsx', anchor: '      {left.hidden ? (', with: '      {false ? (' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -916,6 +986,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F3 undone, in the browser',
+    oddText: true,
     plant: [
       { file: 'src/files/pdf.js', anchor: "    lines(shortName, 'bold', SIZE.garage);", with: "    lines(fullName, 'bold', SIZE.garage);" },
       { file: 'src/files/pdf.js', anchor: '      if (!fresh && (room <', with: '      if ((room <' },
@@ -926,10 +997,70 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix: the garage name before the time in the file name, as shown',
+    oddText: true,
     plant: { file: 'src/files/model.js', anchor: "  return `${[title, stamp, name].filter(Boolean).join(' - ')}.${extension}`;", with: "  return `${[title, name, stamp].filter(Boolean).join(' - ')}.${extension}`;" },
     before: BUILD,
     run: CHECK_DOWNLOADS,
     names: ['FAIL odd text: garage name × file name (pdf) as shown', 'drawn before the'],
+  },
+  {
+    check: 'U4-1 a setup step worked out in the admin, not read',
+    plant: { file: 'src/SetupPage.jsx', anchor: "data-done={step.done ? 'yes' : 'no'}", with: "data-done={(step.key === 'lanes' ? step.facts.entry_lanes > 0 && step.facts.exit_lanes > 0 : step.done) ? 'yes' : 'no'}" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Setup: the page shows each step done as the platform says (every done reversed by the platform)', 'differs at lanes'],
+  },
+  {
+    check: 'U4-4 the connection code written to browser storage',
+    plant: { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: "          setCode(made.code);\n          localStorage.setItem('openparking-admin.lastCode', made.code);\n" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL connection code: browser storage holds only the two keys'],
+  },
+  {
+    check: 'U4-4 the connection code left on the page after the panel closes',
+    plant: [
+      { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: '          setCode(made.code);\n          window.__code = made.code;\n' },
+      { file: 'src/LanesPage.jsx', anchor: "          {t('lanes.closingNotYet')}\n", with: "          {t('lanes.closingNotYet')}\n          <span hidden>{window.__code}</span>\n" },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL connection code: gone from the page when the panel closes'],
+  },
+  {
+    check: 'U4-5 the last open lane closed without its warning',
+    plant: { file: 'src/LanesPage.jsx', anchor: "      if (p?.kind === 'lastOpenLane' && !override) setLastOpen(true);", with: "      if (p?.kind === 'lastOpenLane' && !override) send(true);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: the last open way in warns'],
+  },
+  {
+    check: 'U4 a confirmation in a browser dialog',
+    plant: { file: 'src/LanesPage.jsx', anchor: "        onClick={async () => {\n          setProblem(null);\n          try {\n            await client.removeLane(lane.id);", with: "        onClick={async () => {\n          if (!window.confirm(t('lanes.removeAsk'))) return;\n          setProblem(null);\n          try {\n            await client.removeLane(lane.id);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: every confirmation was on the page, none in a browser dialog'],
+  },
+  {
+    check: "U4 fix: the admin keeps its own quiet number",
+    plant: { file: 'src/time.js', anchor: "  return minutes < quietMinutes ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };", with: "  return minutes < 5 ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL ONE SETTING: set to 30 on the platform'],
+  },
+  {
+    check: 'U4 fix 6: "Done" beside a "Yes" that was not pressed',
+    plant: { file: 'src/LanesPage.jsx', anchor: "const CLOSE_WORDS = { remove: 'lanes.panelKeep',", with: "const CLOSE_WORDS = { remove: 'lanes.panelDone'," },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: the button beside'],
+  },
+  {
+    check: 'U4 fix 1: refused attempts read among the changes made',
+    plant: { file: 'test/stub-platform.js', anchor: "(l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);", with: "(l.garage_id === garage.id || l.garage_id === null) && (outcome === 'done' || l.outcome === outcome));" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Change log: no refused attempt among the changes made'],
   },
 ];
 
@@ -965,6 +1096,13 @@ if (controls.length === 0) {
   console.error(`no control's name holds "${only}"`);
   process.exit(1);
 }
+// A control that expects a line only the odd-text walk prints must walk it.
+const walkLine = /^(FAIL )?(odd text|F2 |F3 )/;
+const unwalked = controls.filter((c) => c.run === CHECK_DOWNLOADS && !c.oddText && c.names.some((n) => walkLine.test(n)));
+if (unwalked.length) {
+  for (const c of unwalked) console.error(`control "${c.check}" expects an odd-text line but is not marked oddText: true`);
+  process.exit(1);
+}
 const failures = [];
 for (const c of controls) {
   const dir = scratchCopy();
@@ -974,7 +1112,7 @@ for (const c of controls) {
       const r = run(dir, step);
       if (r.status !== 0) throw new Error(`could not prepare: ${step.join(' ')}\n${r.out}`);
     }
-    const r = run(dir, c.run, c.env);
+    const r = run(dir, c.run === CHECK_DOWNLOADS && !c.oddText ? [...c.run, '--without-odd-text'] : c.run, c.env);
     const missing = c.names.filter((n) => !r.out.includes(n));
     const ok = r.status !== 0 && missing.length === 0;
     const where = [c.plant].flat().map((p) => p.file).join(' + ');
