@@ -573,6 +573,8 @@ export default {
   "setup.fact.alertsNobody": "Todavía no se avisa a nadie sobre:",
   "setup.fact.alertsNotSent": "Las alertas todavía no se envían.",
   "problem.personName": "Un nombre tiene de 1 a 80 caracteres, sin caracteres ocultos, y sin teléfono ni correo dentro.",
+  "problem.personNameNumber": "Un nombre no puede llevar un número de teléfono. Quite los dígitos: un nombre puede tener como máximo 6.",
+  "problem.personNameAt": "Un nombre no puede llevar un correo. Quite la @.",
   "problem.phoneLetters": "Un teléfono no puede tener letras. Escriba solo los dígitos.",
   "problem.phoneShort": "Ese teléfono es demasiado corto. Un número de EE. UU. tiene 10 dígitos; para otro país, empiece con + y el código del país.",
   "problem.phoneLong": "Ese teléfono es demasiado largo: con el código del país, un número tiene como máximo 15 dígitos.",

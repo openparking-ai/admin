@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform fd43b56 (u4b/alerts: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform e84fe65 (u4b/alerts, fix round: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -1829,8 +1829,102 @@
       "what": "a person to tell, a name holding a number",
       "status": 400,
       "body": {
+        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
+        "code": "alert_contact_name_refused",
+        "details": {
+          "reason": "digits"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a number with commas",
+      "status": 400,
+      "body": {
+        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
+        "code": "alert_contact_name_refused",
+        "details": {
+          "reason": "digits"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a number in Arabic-Indic digits",
+      "status": 400,
+      "body": {
+        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
+        "code": "alert_contact_name_refused",
+        "details": {
+          "reason": "digits"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a full-width @",
+      "status": 400,
+      "body": {
         "error": "name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
-        "code": "alert_contact_name_refused"
+        "code": "alert_contact_name_refused",
+        "details": {
+          "reason": "at"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name with a few digits",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     {

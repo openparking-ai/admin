@@ -385,6 +385,10 @@ function Choices({ t, client, garage, alerts, contacts, quietMinutes, onSaved })
         onClick={() => toggle(person, way, alert.key)}
       >
         <span aria-hidden="true" className="tick-box" data-on={on ? 'yes' : 'no'} />
+        {/* On paper a tick is a word: a print leaves backgrounds out by default. */}
+        <span aria-hidden="true" className="print-word" data-print={on ? 'yes' : 'no'}>
+          {on ? t('yes') : t('no')}
+        </span>
       </button>
     );
   };

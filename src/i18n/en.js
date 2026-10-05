@@ -576,6 +576,8 @@ export default {
   "setup.fact.alertsNobody": "Nobody is told yet about:",
   "setup.fact.alertsNotSent": "Alerts are not sent yet.",
   "problem.personName": "A name is 1 to 80 characters, with no hidden characters, and no phone number or email address in it.",
+  "problem.personNameNumber": "A name can't hold a phone number. Take the digits out: a name may hold at most 6.",
+  "problem.personNameAt": "A name can't hold an email address. Take the @ out.",
   "problem.phoneLetters": "A phone number can't hold letters. Type the digits only.",
   "problem.phoneShort": "That phone number is too short. A US number is 10 digits; for another country, start with + and the country code.",
   "problem.phoneLong": "That phone number is too long: with the country code, a number is at most 15 digits.",

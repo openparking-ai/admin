@@ -232,10 +232,18 @@ const emailRefused = (why, reason) => new Refused(400, {
   details: { reason },
 });
 
+/**
+ * A name, as the platform's src/alerts.js and src/digits.js read it: after
+ * compatibility normalisation, no @ of any width, and at most 6 decimal
+ * digits of any script in all, whatever stands between them.
+ */
 function personName(raw) {
-  if (typeof raw !== 'string') throw new Refused(400, PERSON_NAME_REFUSED);
+  const refused = (reason, error = PERSON_NAME_REFUSED.error) => new Refused(400, { error, code: PERSON_NAME_REFUSED.code, details: { reason } });
+  if (typeof raw !== 'string') throw refused('not_text');
   const name = raw.trim();
-  if (name === '' || name.length > 80 || CONTROL.test(name) || name.includes('@') || /\d{7,}/.test(name.replace(/[\s().+-]/g, ''))) throw new Refused(400, PERSON_NAME_REFUSED);
+  if (name === '' || name.length > 80 || CONTROL.test(name)) throw refused('shape');
+  if (name.normalize('NFKC').includes('@')) throw refused('at');
+  if ((name.normalize('NFKC').match(/\p{Nd}/gu) ?? []).length > 6) throw refused('digits', `name holds 7 or more digits, which could be a phone number; ${PERSON_NAME_REFUSED.error}`);
   return name;
 }
 function personPhone(raw) {

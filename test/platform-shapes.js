@@ -237,6 +237,12 @@ async function alertsCalls(call, garage) {
   await call('a person to tell, an address with a space', 'POST', base, { name: 'Space', email: 'two words@example.com' });
   await call('a person to tell, neither a phone nor an address', 'POST', base, { name: 'Nobody to reach' });
   await call('a person to tell, a name holding a number', 'POST', base, { name: 'Call 5550100199', email: 'named.number@example.com' });
+  // U4b fix round: a number however it is written, and an @ of any width.
+  await call('a person to tell, a name holding a number with commas', 'POST', base, { name: 'Maria 555,010,0199', email: 'named.commas@example.com' });
+  await call('a person to tell, a name holding a number in Arabic-Indic digits', 'POST', base, { name: 'Ana ٥٥٥٠١٠٠١٩٨', email: 'named.digits@example.com' });
+  await call('a person to tell, a name holding a full-width @', 'POST', base, { name: 'Mail me＠example', email: 'named.at@example.com' });
+  const few = (await call('a person to tell, a name with a few digits', 'POST', base, { name: 'Bay 12 lead', email: 'bay.lead@example.com' })).contact;
+  await call('a person to tell, a name with a few digits, removed quietly', 'DELETE', `${base}/${few.id}`, undefined, {}, { quiet: true });
   await call('a person to tell, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/alert-contacts`, { name: 'Elsewhere', email: 'elsewhere@example.com' });
   const mailOnly = (await call('a person to tell, email only', 'POST', base, { name: 'Recorded office', email: 'recorded.office@example.com' }, {}, { quiet: true })).contact;
   await call('choices, a text for someone with no phone', 'PUT', `${base}/${mailOnly.id}/choices`, { by_text: ['lane_problem'], by_email: [] });

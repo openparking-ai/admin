@@ -19,7 +19,7 @@ export const PROBLEM_KINDS = [
   // U4: the setup changes' own refusals.
   'laneName', 'laneMessage', 'laneHasHistory', 'lastOpenLane', 'laneAlreadyOpen', 'notFound', 'notKept',
   // U4b: the people to tell, and what each gets.
-  'personName', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
+  'personName', 'personNameNumber', 'personNameAt', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
   'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
 ];
 
@@ -42,7 +42,6 @@ const NAMED = [
   [409, 'lane_already_open', 'laneAlreadyOpen'],
   [404, 'lane_not_found', 'notFound'],
   // U4b, as the platform's src/alerts.js names them.
-  [400, 'alert_contact_name_refused', 'personName'],
   [400, 'alert_contact_unreachable', 'unreachable'],
   [409, 'alert_contacts_full', 'peopleFull'],
   [409, 'alert_text_needs_phone', 'textNeedsPhone'],
@@ -51,11 +50,13 @@ const NAMED = [
 ];
 
 /**
- * A phone number or email address refused, by why: the platform's
+ * A name, phone number or email address refused, by why: the platform's
  * `details.reason`, one of a known few, each with its own words. Any other
  * reason is the plainest sentence for the field.
  */
 const BY_REASON = {
+  // A name holding a phone number or an email address, however it is written.
+  alert_contact_name_refused: { digits: 'personNameNumber', at: 'personNameAt', other: 'personName' },
   alert_contact_phone_refused: { letters: 'phoneLetters', too_short: 'phoneShort', too_long: 'phoneLong', not_us: 'phoneNotUs', other: 'phoneOdd' },
   alert_contact_email_refused: { space: 'emailSpace', no_at: 'emailAt', two_at: 'emailAt', empty_side: 'emailAt', too_long: 'emailLong', other: 'emailOdd' },
 };

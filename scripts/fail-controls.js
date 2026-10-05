@@ -649,6 +649,19 @@ const CONTROLS = [
     run: CHECK_FILES,
     names: ['FAIL 1 the file is the list: alerts xlsx (en)', 'FAIL 1 the file is the list: alerts pdf (en)'],
   },
+  // ── U4b fix round ───────────────────────────────────────────────────────
+  {
+    check: 'U4b fix F2 a PDF column narrowed back: Confirmed',
+    plant: { file: 'src/files/model.js', anchor: "    { key: 'alerts.confirmed', width: 0.109 },", with: "    { key: 'alerts.confirmed', width: 0.09 }," },
+    run: ['node', 'scripts/check-pdf-words.js'],
+    names: ['FAIL en alerts, heading "Confirmed": split inside the word', 'FAIL es alerts, column "Confirmado"', '"confirmar"'],
+  },
+  {
+    check: 'U4b fix F2 a PDF column narrowed: the change log\'s What',
+    plant: { file: 'src/files/model.js', anchor: "    { key: 'changes.what', width: 0.2 },", with: "    { key: 'changes.what', width: 0.1 }," },
+    run: ['node', 'scripts/check-pdf-words.js'],
+    names: ['FAIL en changes, column "What": ', 'split inside the word'],
+  },
   {
     check: "U4b the stand-in's phone refusal not the platform's word for word",
     plant: { file: 'test/stub-platform.js', anchor: "  error: `phone ${why}. A US number is 10 digits", with: "  error: `the phone ${why}. A US number is 10 digits" },
@@ -1064,6 +1077,38 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL Setup: the page shows each step done as the platform says (every done reversed by the platform)', 'differs at lanes'],
+  },
+  // ── U4b fix round: on paper, with the browser's default print ──────────
+  {
+    check: "U4b fix F1 the gate's plant: a tick drawn as a background only",
+    plant: [
+      { file: 'src/styles.css', anchor: "  .no-print,\n  .tick-box,\n", with: '  .no-print,\n' },
+      { file: 'src/styles.css', anchor: '  .print-word {\n    display: inline;\n  }\n', with: '' },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-print.js'],
+    names: ['FAIL en Alerts: printed with backgrounds off', 'not on paper as "Yes', 'FAIL es Alertas: printed with backgrounds off', 'not on paper as "Sí'],
+  },
+  {
+    check: 'U4b fix F1 a list prints without its name: the refused attempts told apart only by their tint',
+    plant: { file: 'src/styles.css', anchor: "  .no-print,\n  .tick-box,\n", with: "  .no-print,\n  .list-head .section-title,\n  .tick-box,\n" },
+    before: BUILD,
+    run: ['node', 'scripts/check-print.js'],
+    names: ['FAIL en Change log: printed with backgrounds off', 'the list "Refused attempts" names itself, above', 'FAIL es Registro de cambios'],
+  },
+  {
+    check: 'U4b fix F3 a name hiding a number refused only by the general rule',
+    plant: { file: 'src/api.js', anchor: "  alert_contact_name_refused: { digits: 'personNameNumber', at: 'personNameAt', other: 'personName' },\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Alerts: a name "Weekend 555,010,0144" is refused', 'FAIL Alerts: a name "Weekend＠lead" is refused'],
+  },
+  {
+    check: 'U4b fix F1 both answers print, the chosen one only shaded',
+    plant: { file: 'src/styles.css', anchor: "  .tick-box,\n  .segment[aria-checked='false'] {\n", with: '  .tick-box {\n' },
+    before: BUILD,
+    run: ['node', 'scripts/check-print.js'],
+    names: ['FAIL en Setup: printed with backgrounds off', 'the answer not chosen'],
   },
   // ── U4b, on screen ──────────────────────────────────────────────────────
   {

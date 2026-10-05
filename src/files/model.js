@@ -28,7 +28,9 @@ const NOTHING = '–';
 /**
  * The columns of each list's file, by dictionary key; each has `<key>.about`
  * (scripts/check-descriptions.js holds them to it). `width` is each column's
- * share of a PDF page.
+ * share of a PDF page: wide enough for the longest of our own words and
+ * headings that can stand in it, in both languages, so a line breaks only at
+ * a space (scripts/check-pdf-words.js reads every one back whole).
  */
 export const COLUMNS = {
   inside: [
@@ -55,20 +57,22 @@ export const COLUMNS = {
     { key: 'changes.after', width: 0.22 },
   ],
   alerts: [
-    { key: 'alerts.person', width: 0.12 },
-    { key: 'alerts.phone', width: 0.19 },
-    { key: 'alerts.email', width: 0.24 },
-    { key: 'alerts.language', width: 0.08 },
-    { key: 'alerts.confirmed', width: 0.09 },
-    { key: 'file.byText', width: 0.14 },
-    { key: 'file.byEmail', width: 0.14 },
+    // Each at the least our longest word needs ("Confirmado", "estacionamiento"),
+    // and the rest to the name, number and address the owner types.
+    { key: 'alerts.person', width: 0.103 },
+    { key: 'alerts.phone', width: 0.179 },
+    { key: 'alerts.email', width: 0.221 },
+    { key: 'alerts.language', width: 0.092 },
+    { key: 'alerts.confirmed', width: 0.109 },
+    { key: 'file.byText', width: 0.148 },
+    { key: 'file.byEmail', width: 0.148 },
   ],
   refused: [
     { key: 'refused.when', width: 0.15 },
-    { key: 'refused.who', width: 0.18 },
-    { key: 'refused.what', width: 0.22 },
+    { key: 'refused.who', width: 0.17 },
+    { key: 'refused.what', width: 0.21 },
     { key: 'refused.why', width: 0.2 },
-    { key: 'refused.times', width: 0.08 },
+    { key: 'refused.times', width: 0.1 },
     { key: 'refused.last', width: 0.17 },
   ],
 };
