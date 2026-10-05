@@ -157,6 +157,27 @@ export function changesData(readAt = READ_AT) {
  * them: the last open way out, one from another account counted 1,250 times,
  * a key's, and a source's many more on one line -- with their count.
  */
+/**
+ * Alerts (U4b), as GET /garages/:id/alerts answers them through the client:
+ * the platform's five alerts in its order, and three people -- one by text
+ * only, one by email only, one both ways -- whose names are stored text a
+ * spreadsheet would take for a number or a formula. Every person, number and
+ * address is invented.
+ */
+export function alertsData() {
+  const keys = ['lane_problem', 'lane_not_answering', 'garage_not_answering', 'card_payments_stopped', 'attendant_link_dropped'];
+  return {
+    alerts: keys.map((key) => ({ key, needs: key === 'lane_not_answering' ? ['quiet_minutes'] : [] })),
+    quietMinutes: PLATFORM_QUIET_MINUTES,
+    maxContacts: 25,
+    contacts: [
+      { id: 'pf100000-0000-4000-8000-000000000001', name: 'Encargado de noche Ñandú', phone: '+15550100001', email: null, language: 'es', confirmed: false, by_text: ['lane_problem', 'garage_not_answering'], by_email: [] },
+      { id: 'pf100000-0000-4000-8000-000000000002', name: TEXT_CASES.formula, phone: null, email: 'oficina@example.com', language: 'en', confirmed: false, by_text: [], by_email: ['card_payments_stopped'] },
+      { id: 'pf100000-0000-4000-8000-000000000003', name: TEXT_CASES.ticket, phone: '+442079460000123', email: 'turno.siete@example.com', language: 'en', confirmed: false, by_text: ['attendant_link_dropped'], by_email: ['lane_problem', 'lane_not_answering'] },
+    ],
+  };
+}
+
 export function refusedData(readAt = READ_AT) {
   const refused = changeLines(readAt).filter((l) => l.outcome === 'refused');
   return { refused, next: null, count: { lines: refused.length, attempts: refused.reduce((n, l) => n + l.attempts, 0) } };

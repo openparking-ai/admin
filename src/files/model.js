@@ -19,6 +19,7 @@ import { insideWords } from '../inside.js';
 import { directionKey, openText } from '../lanes.js';
 import { changeText, piecesText, timesWords, whatPieces, whoPieces, whyWords } from '../changes.js';
 import { garageDateTime, garageTime, heardFrom } from '../time.js';
+import { alertNames, canEmail, canText, languageWords } from '../alerts.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
 const locale = (language) => LOCALES[language] ?? LOCALES.en;
@@ -52,6 +53,15 @@ export const COLUMNS = {
     { key: 'changes.what', width: 0.2 },
     { key: 'changes.before', width: 0.22 },
     { key: 'changes.after', width: 0.22 },
+  ],
+  alerts: [
+    { key: 'alerts.person', width: 0.12 },
+    { key: 'alerts.phone', width: 0.19 },
+    { key: 'alerts.email', width: 0.24 },
+    { key: 'alerts.language', width: 0.08 },
+    { key: 'alerts.confirmed', width: 0.09 },
+    { key: 'file.byText', width: 0.14 },
+    { key: 'file.byEmail', width: 0.14 },
   ],
   refused: [
     { key: 'refused.when', width: 0.15 },
@@ -220,7 +230,35 @@ export function refusedFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile };
+/**
+ * Alerts: that nothing is sent yet, then one row per person -- their phone
+ * number and address as kept, their language, that they have not
+ * confirmed, and the alerts they get each way, in the platform's order.
+ */
+export function alertsFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'alerts', garage, language, readAt);
+  const order = data.alerts.map((a) => a.key);
+  const rows = data.contacts.map((p) => [
+    { text: p.name },
+    { text: canText(p) ? p.phone : t('alerts.none') },
+    { text: canEmail(p) ? p.email : t('alerts.none') },
+    { text: languageWords(t, p.language) },
+    { text: p.confirmed ? t('alerts.isConfirmed') : t('alerts.notConfirmed') },
+    { text: alertNames(t, p.by_text, order, language) ?? NOTHING },
+    { text: alertNames(t, p.by_email, order, language) ?? NOTHING },
+  ]);
+  return {
+    list: 'alerts',
+    title,
+    garage: garage.name,
+    lines: [...lines, t('alerts.notSentYet')],
+    columns: columnsOf(t, 'alerts'),
+    rows,
+    empty: rows.length === 0 ? t('alerts.nobody') : null,
+  };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;

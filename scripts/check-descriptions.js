@@ -43,6 +43,7 @@ const PAGE_OF = {
   'InsidePage.jsx': 'page.inside.title',
   'SetupPage.jsx': 'page.setup.title',
   'ChangesPage.jsx': 'page.changes.title',
+  'AlertsPage.jsx': 'page.alerts.title',
 };
 // Files drawn on more than one page: where on screen their fields are.
 const PLACE_OF = {

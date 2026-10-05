@@ -14,6 +14,7 @@ export const PAGES = [
   { id: 'taxes', path: '/taxes', icon: 'tax' },
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
   { id: 'inside', path: '/cars-inside', icon: 'car' },
+  { id: 'alerts', path: '/alerts', icon: 'bell' },
   { id: 'changes', path: '/change-log', icon: 'log' },
 ];
 

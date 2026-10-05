@@ -26,6 +26,16 @@
 //   POST   /api/v1/lanes/:id/reopen         -> { lane }; an open one is 409 lane_already_open
 //   POST   /api/v1/lanes/:id/devices        { name } -> 201 { device, token, token_note }
 //   POST   /api/v1/devices/:id/revoke       -> { device }
+// U4b, as the platform's src/alerts.js answers:
+//   GET    /api/v1/garages/:id/alerts       { alerts: [{ key, needs }], quiet_minutes, max_contacts, sending, contacts }
+//   POST   /api/v1/garages/:id/alert-contacts           { name, phone?, email?, language? } -> 201 { contact }
+//   PATCH  /api/v1/garages/:id/alert-contacts/:person   { name?, phone?, email?, language? } -> { contact, turned_off }
+//   DELETE /api/v1/garages/:id/alert-contacts/:person   204
+//   PUT    /api/v1/garages/:id/alert-contacts/:person/choices  { by_text, by_email } -> { contact }
+//   A phone is kept as + and 8 to 15 digits (a US 10, or 11 starting with 1,
+//   as +1...); an email trimmed, one @, no space, at most 254. A text needs a
+//   phone and an email an address; taking one away turns its choices off.
+//   At most 25 people a garage. Nothing is sent, and nobody is confirmed.
 // Every change and every refused change is a line in the owner's change log.
 // Sign-in answers as the platform's src/signIn.js does: not set up (no admin
 // page named), a page at another address, a body it cannot read, too many
@@ -93,6 +103,14 @@ export function owners(now = Date.now()) {
         ],
         'a2000000-0000-4000-8000-000000000002': [],
       },
+      // People to tell (U4b). Invented: 555-01xx numbers and example.com addresses.
+      people: {
+        'a1000000-0000-4000-8000-000000000001': [
+          { id: 'pa100000-0000-4000-8000-000000000001', name: 'Night manager', phone: '+15550100001', email: null, language: 'en', confirmed: false, by_text: ['lane_problem', 'lane_not_answering', 'garage_not_answering'], by_email: [] },
+          { id: 'pa100000-0000-4000-8000-000000000002', name: 'Office', phone: null, email: 'office@example.com', language: 'es', confirmed: false, by_text: [], by_email: ['card_payments_stopped', 'garage_not_answering'] },
+        ],
+        'a2000000-0000-4000-8000-000000000002': [],
+      },
       open: {
         'a1000000-0000-4000-8000-000000000001': [
           // 11:05 am in New York on 10 March 2026; 1:05 am on the 11th in Tokyo.
@@ -114,6 +132,7 @@ export function owners(now = Date.now()) {
           { id: 'lb100000-0000-4000-8000-000000000001', name: 'Elm Gate', direction: 'entry', reader: null, devices: [{ id: 'dvb00000-0000-4000-8000-000000000001', name: 'Elm gate computer', last_seen_at: ago(20 * 1000), revoked_at: null }] },
         ],
       },
+      people: { 'b1000000-0000-4000-8000-000000000001': [] },
       open: { 'b1000000-0000-4000-8000-000000000001': [] },
     },
   };
@@ -129,7 +148,7 @@ function setupData() {
 }
 
 /** Every piece of text of owner A's that a screen could show. */
-export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com'];
+export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com', 'Night manager', '+15550100001', 'office@example.com'];
 
 // The platform's own words, as test/platform-shapes.json recorded them.
 const SIGN_IN_REQUIRED = { error: 'Sign in first.', code: 'sign_in_required' };
@@ -174,6 +193,93 @@ const lastOpen = (direction) => {
 };
 const CONTROL = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const LINES_PAGE = 50;
+
+// U4b: the platform's one list of alerts, and its sentences (src/alerts.js).
+const ALERTS = [
+  { key: 'lane_problem', needs: [] },
+  { key: 'lane_not_answering', needs: ['quiet_minutes'] },
+  { key: 'garage_not_answering', needs: [] },
+  { key: 'card_payments_stopped', needs: [] },
+  { key: 'attendant_link_dropped', needs: [] },
+];
+const ALERT_KEYS = ALERTS.map((a) => a.key);
+const MAX_PEOPLE = 25;
+const PERSON_NOT_FOUND = { error: 'alert contact not found', code: 'alert_contact_not_found' };
+const PERSON_NAME_REFUSED = { error: 'name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it', code: 'alert_contact_name_refused' };
+const UNREACHABLE = { error: 'a person needs a phone number, an email address, or both', code: 'alert_contact_unreachable' };
+const PEOPLE_FULL = { error: `a garage has at most ${MAX_PEOPLE} people to tell`, code: 'alert_contacts_full' };
+const TEXT_NEEDS_PHONE = { error: 'this person has no phone number, so they cannot get an alert by text', code: 'alert_text_needs_phone' };
+const EMAIL_NEEDS_EMAIL = { error: 'this person has no email address, so they cannot get an alert by email', code: 'alert_email_needs_email' };
+const PERSON_LANGUAGE_REFUSED = { error: 'language must be one of en, es', code: 'alert_contact_language_refused' };
+const CHOICE_REFUSED = (name, why) => ({ error: `${name} ${why}`, code: 'alert_choice_refused' });
+
+/** A refusal of the platform's src/alerts.js, as it says it: thrown, and answered by the route. */
+class Refused extends Error {
+  constructor(status, body) {
+    super(body.error);
+    this.status = status;
+    this.body = body;
+  }
+}
+const phoneRefused = (why, reason) => new Refused(400, {
+  error: `phone ${why}. A US number is 10 digits, or 11 starting with 1; any other starts with + and holds 8 to 15 digits`,
+  code: 'alert_contact_phone_refused',
+  details: { reason },
+});
+const emailRefused = (why, reason) => new Refused(400, {
+  error: `email ${why}. An email address has one @, no spaces and at most 254 characters`,
+  code: 'alert_contact_email_refused',
+  details: { reason },
+});
+
+function personName(raw) {
+  if (typeof raw !== 'string') throw new Refused(400, PERSON_NAME_REFUSED);
+  const name = raw.trim();
+  if (name === '' || name.length > 80 || CONTROL.test(name) || name.includes('@') || /\d{7,}/.test(name.replace(/[\s().+-]/g, ''))) throw new Refused(400, PERSON_NAME_REFUSED);
+  return name;
+}
+function personPhone(raw) {
+  if (typeof raw !== 'string') throw phoneRefused('must be text', 'not_text');
+  const typed = raw.trim();
+  if (typed === '') throw phoneRefused('is empty', 'empty');
+  if (CONTROL.test(typed)) throw phoneRefused('holds an invisible character', 'invisible');
+  if (/\p{L}/u.test(typed)) throw phoneRefused('holds letters', 'letters');
+  if (!/^\+?[0-9 ().-]+$/.test(typed)) throw phoneRefused('holds a character a phone number does not have', 'character');
+  const digits = typed.replace(/[^0-9]/g, '');
+  if (typed.startsWith('+')) {
+    if (digits.length < 8) throw phoneRefused('is too short', 'too_short');
+    if (digits.length > 15) throw phoneRefused('is too long', 'too_long');
+    return `+${digits}`;
+  }
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length < 10) throw phoneRefused('is too short for a US number, and has no + for another country', 'too_short');
+  throw phoneRefused('is not a US number, and has no + for another country', 'not_us');
+}
+function personEmail(raw) {
+  if (typeof raw !== 'string') throw emailRefused('must be text', 'not_text');
+  const email = raw.trim();
+  if (email === '') throw emailRefused('is empty', 'empty');
+  if (CONTROL.test(email)) throw emailRefused('holds an invisible character', 'invisible');
+  if (/[\p{Z}\s]/u.test(email)) throw emailRefused('holds a space', 'space');
+  if (email.length > 254) throw emailRefused('is too long', 'too_long');
+  const parts = email.split('@');
+  if (parts.length !== 2) throw emailRefused(parts.length < 2 ? 'has no @' : 'has more than one @', parts.length < 2 ? 'no_at' : 'two_at');
+  if (parts[0] === '' || parts[1] === '') throw emailRefused('needs something before and after the @', 'empty_side');
+  return email;
+}
+function choiceList(raw, name) {
+  if (!Array.isArray(raw) || raw.some((k) => typeof k !== 'string')) throw new Refused(400, CHOICE_REFUSED(name, `must be a list of alerts: ${ALERT_KEYS.join(', ')}`));
+  if (raw.some((k) => !ALERT_KEYS.includes(k))) throw new Refused(400, CHOICE_REFUSED(name, `names an alert there is none of; the alerts are ${ALERT_KEYS.join(', ')}`));
+  if (new Set(raw).size !== raw.length) throw new Refused(400, CHOICE_REFUSED(name, 'names an alert twice'));
+  return ALERT_KEYS.filter((k) => raw.includes(k));
+}
+function onlyFields(body, keys) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Refused(400, { error: `the body is JSON: {${keys.join(', ')}}` });
+  const extra = Object.keys(body).find((k) => !keys.includes(k));
+  if (extra !== undefined) throw new Refused(400, { error: `unknown field ${JSON.stringify(extra)}; the body is {${keys.join(', ')}}` });
+}
+const kept = (v) => (v === null ? 'none' : 'given');
 
 export async function startStub({ port = 0 } = {}) {
   const data = owners();
@@ -355,7 +461,11 @@ export async function startStub({ port = 0 } = {}) {
       steps.push({ key: 'card_readers', done: exit.length > 0 && without.length === 0, facts: { exit_lanes: exit.length, with_reader: exit.length - without.length, without_reader: without.map(laneLine) } });
     }
     const gate = { rates: steps[4].done, drivers: steps[1].done, taxes: steps[5].done };
+    // Worked out before the alerts step, which never holds opening back (U4b).
     const notDone = steps.filter((st) => !st.done).map((st) => st.key);
+    const people = who.people?.[garage.id] ?? [];
+    const told = ALERT_KEYS.map((key) => ({ key, by_text: people.filter((p) => p.by_text.includes(key)).length, by_email: people.filter((p) => p.by_email.includes(key)).length }));
+    steps.push({ key: 'alerts', done: told.every((a) => a.by_text + a.by_email > 0), facts: { people: people.length, alerts: told, nobody_told: told.filter((a) => a.by_text + a.by_email === 0).map((a) => a.key) } });
     const open = extra.opened_at !== null;
     steps.push({ key: 'open', done: open, facts: { open, opened_at: extra.opened_at, required_missing: Object.keys(gate).filter((k) => !gate[k]), not_done: notDone } });
     // Asked for by a check: every step's `done` the opposite of what its facts
@@ -480,6 +590,8 @@ export async function startStub({ port = 0 } = {}) {
       line(who, { ...at, action: was.state === 'open' ? 'lane.close' : 'lane.close_again', before: was, after: { state: 'closed', reason: body.reason, message, ...(body.override === true ? { last_open_overridden: true } : {}) } });
       return answer(res, 200, { lane: { id: lane.id, closed: { reason: lane.closed.reason, message, at: lane.closed.at } } });
     }
+    const u4b = await alertRoutes(req, res, path, who);
+    if (u4b !== undefined) return u4b;
     m = /^\/api\/v1\/devices\/([^/]+)\/revoke$/.exec(path);
     if (m && req.method === 'POST') {
       const found = deviceOf(who, m[1]);
@@ -491,6 +603,103 @@ export async function startStub({ port = 0 } = {}) {
       return answer(res, 200, { device: { id: device.id, lane_id: lane.id, name: device.name, created_at: new Date().toISOString(), revoked_at: device.revoked_at } });
     }
     return undefined;
+  }
+
+  // ── U4b: the people to tell ───────────────────────────────────────────────
+  const present = (p) => ({ id: p.id, name: p.name, phone: p.phone, email: p.email, language: p.language, confirmed: p.confirmed, by_text: [...p.by_text], by_email: [...p.by_email] });
+  let personN = 0;
+
+  async function alertRoutes(req, res, path, who) {
+    let m = /^\/api\/v1\/garages\/([^/]+)\/alerts$/.exec(path);
+    if (m && req.method === 'GET') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      return answer(res, 200, { alerts: ALERTS, quiet_minutes: quiet, max_contacts: MAX_PEOPLE, sending: false, contacts: (who.people[garage.id] ?? []).map(present) });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)\/alert-contacts(?:\/([^/]+)(\/choices)?)?$/.exec(path);
+    if (!m) return undefined;
+    const method = req.method;
+    const action = m[3] ? 'alert_contact.choices' : !m[2] ? 'alert_contact.add' : { PATCH: 'alert_contact.change', DELETE: 'alert_contact.remove' }[method];
+    const allowed = m[3] ? method === 'PUT' : m[2] ? ['PATCH', 'DELETE'].includes(method) : method === 'POST';
+    if (!allowed) return undefined;
+    const garage = who.garages.find((g) => g.id === m[1]);
+    const body = method === 'DELETE' ? {} : (await readBody(req)) ?? {};
+    if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
+    const people = (who.people[garage.id] ??= []);
+    const at = { garageId: garage.id, action, subject: { kind: 'garage', id: garage.id, name: garage.name } };
+    try {
+      if (!m[2]) {
+        onlyFields(body, ['name', 'phone', 'email', 'language']);
+        const name = personName(body.name);
+        const phone = body.phone === undefined || body.phone === null ? null : personPhone(body.phone);
+        const email = body.email === undefined || body.email === null ? null : personEmail(body.email);
+        if (body.language !== undefined && !LANGUAGES.includes(body.language)) throw new Refused(400, PERSON_LANGUAGE_REFUSED);
+        const language = body.language ?? 'en';
+        if (phone === null && email === null) throw new Refused(400, UNREACHABLE);
+        if (people.length >= MAX_PEOPLE) throw new Refused(409, { ...PEOPLE_FULL, details: { max: MAX_PEOPLE } });
+        const person = { id: `pa9${String((personN += 1)).padStart(5, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`, name, phone, email, language, confirmed: false, by_text: [], by_email: [] };
+        people.push(person);
+        line(who, { garageId: garage.id, action, subject: { kind: 'alert_contact', id: person.id, name }, after: { name, language, phone: kept(phone), email: kept(email) } });
+        return answer(res, 201, { contact: present(person) });
+      }
+      const person = people.find((p) => p.id === m[2]);
+      // The body is read before the person is looked up, as the platform reads it.
+      const next = {};
+      let byText = [];
+      let byEmail = [];
+      if (method !== 'DELETE' && !m[3]) {
+        onlyFields(body, ['name', 'phone', 'email', 'language']);
+        if (body.name !== undefined) next.name = personName(body.name);
+        if (body.phone !== undefined) next.phone = body.phone === null ? null : personPhone(body.phone);
+        if (body.email !== undefined) next.email = body.email === null ? null : personEmail(body.email);
+        if (body.language !== undefined && !LANGUAGES.includes(body.language)) throw new Refused(400, PERSON_LANGUAGE_REFUSED);
+        if (body.language !== undefined) next.language = body.language;
+      }
+      if (m[3]) {
+        onlyFields(body, ['by_text', 'by_email']);
+        byText = choiceList(body.by_text, 'by_text');
+        byEmail = choiceList(body.by_email, 'by_email');
+      }
+      if (!person) throw new Refused(404, PERSON_NOT_FOUND);
+      const subject = { kind: 'alert_contact', id: person.id, name: person.name };
+      if (method === 'DELETE') {
+        people.splice(people.indexOf(person), 1);
+        line(who, { garageId: garage.id, action, subject, before: { name: person.name, language: person.language, phone: kept(person.phone), email: kept(person.email), by_text: person.by_text, by_email: person.by_email } });
+        return answer(res, 204);
+      }
+      if (m[3]) {
+        if (byText.length && person.phone === null) throw new Refused(409, TEXT_NEEDS_PHONE);
+        if (byEmail.length && person.email === null) throw new Refused(409, EMAIL_NEEDS_EMAIL);
+        const before = {};
+        const after = {};
+        if (person.by_text.join() !== byText.join()) Object.assign(before, { by_text: person.by_text }) && Object.assign(after, { by_text: byText });
+        if (person.by_email.join() !== byEmail.join()) Object.assign(before, { by_email: person.by_email }) && Object.assign(after, { by_email: byEmail });
+        person.by_text = byText;
+        person.by_email = byEmail;
+        line(who, { garageId: garage.id, action, subject, before, after });
+        return answer(res, 200, { contact: present(person) });
+      }
+      const phone = 'phone' in next ? next.phone : person.phone;
+      const email = 'email' in next ? next.email : person.email;
+      if (phone === null && email === null) throw new Refused(400, UNREACHABLE);
+      const name = next.name ?? person.name;
+      const language = next.language ?? person.language;
+      const before = {};
+      const after = {};
+      if (name !== person.name) Object.assign(before, { name: person.name }) && Object.assign(after, { name });
+      if (language !== person.language) Object.assign(before, { language: person.language }) && Object.assign(after, { language });
+      if (phone !== person.phone) Object.assign(before, { phone: kept(person.phone) }) && Object.assign(after, { phone: person.phone !== null && phone !== null ? 'changed' : kept(phone) });
+      if (email !== person.email) Object.assign(before, { email: kept(person.email) }) && Object.assign(after, { email: person.email !== null && email !== null ? 'changed' : kept(email) });
+      const turnedOff = { by_text: phone === null ? person.by_text : [], by_email: email === null ? person.by_email : [] };
+      if (turnedOff.by_text.length) Object.assign(before, { by_text: person.by_text }) && Object.assign(after, { by_text: [] });
+      if (turnedOff.by_email.length) Object.assign(before, { by_email: person.by_email }) && Object.assign(after, { by_email: [] });
+      Object.assign(person, { name, phone, email, language, by_text: phone === null ? [] : person.by_text, by_email: email === null ? [] : person.by_email });
+      line(who, { garageId: garage.id, action, subject: { ...subject, name }, before, after });
+      return answer(res, 200, { contact: present(person), turned_off: turnedOff });
+    } catch (err) {
+      if (!(err instanceof Refused)) throw err;
+      return refuse(res, who, err.status, err.body, at);
+    }
   }
 
   const server = createServer(async (req, res) => {

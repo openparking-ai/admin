@@ -836,6 +836,58 @@ textarea {
 .warning .primary-button {
   margin-top: 10px;
 }
+/* U4b: the people to tell, and who gets which alert. */
+.setup-form input[type='tel'] {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.alert-cell {
+  max-width: 34ch;
+}
+.alert-name,
+.alert-says {
+  display: block;
+}
+.alert-name {
+  font-weight: 600;
+}
+.alert-says {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.tick:disabled {
+  cursor: wait;
+}
+.tick-box {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text-secondary);
+  border-radius: 4px;
+}
+.tick-box[data-on='yes'] {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  box-shadow: inset 0 0 0 3px var(--bg-panel);
+}
+.tick:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
 .connection-code {
   display: block;
   margin-top: 6px;

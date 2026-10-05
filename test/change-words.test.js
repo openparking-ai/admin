@@ -47,6 +47,12 @@ const LINES = [
   ['tax_set.add', null, { effective_from: '2026-01-01T05:00:00Z', taxes: [] }],
   ['key.cancel', { access: 'active' }, { access: 'cancelled' }],
   ['language.change', { language: 'en' }, { language: 'es' }],
+  // U4b: a person to tell, as the platform's src/alerts.js writes the lines -- never their number or address.
+  ['alert_contact.add', null, { name: 'Night manager', language: 'es', phone: 'given', email: 'none' }],
+  ['alert_contact.change', { phone: 'given', email: 'none', by_text: ['lane_problem', 'card_payments_stopped'] }, { phone: 'none', email: 'given', by_text: [] }],
+  ['alert_contact.change', { phone: 'given', email: 'given' }, { phone: 'changed', email: 'changed' }],
+  ['alert_contact.choices', { by_text: [], by_email: ['garage_not_answering'] }, { by_text: ['lane_not_answering'], by_email: [] }],
+  ['alert_contact.remove', { name: 'Night manager', language: 'en', phone: 'given', email: 'given', by_text: ['lane_problem'], by_email: [] }, null],
 ];
 const done = (action, before, after) => ({ outcome: 'done', action, before, after, who: { kind: 'owner', name: 'owner@example.com' }, subject: lane, refusal: null });
 
@@ -83,6 +89,17 @@ test('4 NO RAW VALUES: every field of every change kind, both languages, said in
       const zone = fields.find((f) => f.field === t('changes.field.timezone'));
       if (zone) assert.equal(zone.after.words, language === 'es' ? 'hora oriental' : 'Eastern Time', `${language}: the zone as people say it`);
     }
+  }
+});
+
+test('U4b a person\'s line: which alerts, by name, in either language -- never an alert\'s code; "none" for none', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const [text, email] = changedFields(t, done('alert_contact.choices', { by_text: [], by_email: ['garage_not_answering', 'some_later_alert'] }, { by_text: ['lane_not_answering', 'card_payments_stopped'], by_email: [] }), GARAGE, language);
+    assert.equal(text.after.words, `${t('alerts.alert.lane_not_answering')}, ${t('alerts.alert.card_payments_stopped')}`);
+    assert.equal(text.before.words, t('changes.value.noAlerts'));
+    assert.equal(email.before.words, `${t('alerts.alert.garage_not_answering')}, ${t('alerts.alert.other')}`);
+    for (const f of [text, email]) for (const side of [f.before, f.after]) assert.doesNotMatch(side.words, /[a-z]+_[a-z]+/, `${language}: "${side.words}" holds an alert's code`);
   }
 });
 

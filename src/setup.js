@@ -6,6 +6,7 @@
 // sentences and say where the step is done.
 
 import { garageTime } from './time.js';
+import { alertName } from './alerts.js';
 
 /** Where each step is done: a page of these screens, this page, or not from here yet. */
 export const WHERE = {
@@ -17,6 +18,7 @@ export const WHERE = {
   taxes: { notYet: true },
   getting_paid: { notYet: true },
   card_readers: { notYet: true },
+  alerts: { page: 'alerts' },
   open: { notYet: true },
 };
 
@@ -77,6 +79,17 @@ export function factLines(t, step, garage, language, now = new Date()) {
       if (!f.exit_lanes) return [{ text: t('setup.fact.noWayOut') }];
       const lines = [{ text: t('setup.fact.readers', { with: f.with_reader, lanes: f.exit_lanes }) }];
       if ((f.without_reader ?? []).length) lines.push({ text: t('setup.fact.withoutReader'), names: names(f.without_reader, language) });
+      return lines;
+    }
+    case 'alerts': {
+      const all = f.alerts ?? [];
+      const nobody = f.nobody_told ?? [];
+      const lines = [{ text: t('setup.fact.alertsCovered', { covered: all.length - nobody.length, alerts: all.length }) }];
+      if (nobody.length) {
+        const list = new Intl.ListFormat(language === 'es' ? 'es' : 'en', { style: 'long', type: 'conjunction' });
+        lines.push({ text: t('setup.fact.alertsNobody'), names: list.format(nobody.map((key) => alertName(t, key))) });
+      }
+      lines.push({ text: t('setup.fact.alertsNotSent') });
       return lines;
     }
     case 'open':
