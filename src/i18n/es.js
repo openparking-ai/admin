@@ -492,4 +492,9 @@ export default {
   "refused.times.about": "Cuántas veces se hizo el mismo intento, contadas en esta línea.",
   "refused.last": "Último intento",
   "refused.last.about": "Cuándo fue la última de esas veces, en la hora del estacionamiento.",
+  "changes.who.keyCancelled": "Una llave cancelada llamada {name}",
+  "changes.who.keyExpired": "Una llave vencida llamada {name}",
+  "changes.who.signInEnded": "Una entrada de {name} que ya había terminado",
+  "changes.refusal.key_cancelled": "el acceso de la llave estaba cancelado",
+  "changes.refusal.key_expired": "la llave había vencido",
 };

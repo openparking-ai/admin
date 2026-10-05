@@ -595,6 +595,12 @@ const CONTROLS = [
     names: ['3 EVERY LINE NAMES WHO', 'names no key'],
   },
   {
+    check: "U4 fix2: this account's cancelled key said as a working one",
+    plant: { file: 'src/changes.js', anchor: '  if (noLonger && who.name) return named(t(noLonger), who.name);\n', with: '' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ["no longer worked is said as what it was"],
+  },
+  {
     check: 'U4 fix 6: a sentence that ends twice',
     plant: { file: 'src/i18n/index.js', anchor: "export const endOnce = (text) => text.replace(/(?<!\\.)\\.\\.(?!\\.)/g, '.');", with: 'export const endOnce = (text) => text;' },
     run: ['node', '--test', 'test/change-words.test.js'],

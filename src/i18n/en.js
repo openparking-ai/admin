@@ -495,4 +495,9 @@ export default {
   "refused.times.about": "How many times the same attempt was made, counted on this line.",
   "refused.last": "Last tried",
   "refused.last.about": "When the last of those times was, in the garage's own time.",
+  "changes.who.keyCancelled": "A cancelled key named {name}",
+  "changes.who.keyExpired": "An expired key named {name}",
+  "changes.who.signInEnded": "A sign-in by {name} that had ended",
+  "changes.refusal.key_cancelled": "the key's access had been cancelled",
+  "changes.refusal.key_expired": "the key had expired",
 };

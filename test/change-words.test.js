@@ -137,6 +137,19 @@ test('3 EVERY LINE NAMES WHO: an owner, a key, another account, nobody -- never 
   }
 });
 
+test("3 this account's own key or sign-in that no longer worked is said as what it was", () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const said = (who, refusal) => whoPieces(t, { outcome: 'refused', refusal, who }).map((p) => p.words ?? p.stored).join('');
+    assert.equal(said({ kind: 'key', name: 'Lost key' }, 'key_cancelled'), t('changes.who.keyCancelled').replace('{name}', 'Lost key'));
+    assert.equal(said({ kind: 'key', name: 'Lost key' }, 'key_expired'), t('changes.who.keyExpired').replace('{name}', 'Lost key'));
+    assert.equal(said({ kind: 'owner', name: 'owner@example.com' }, 'session_ended'), t('changes.who.signInEnded').replace('{name}', 'owner@example.com'));
+    assert.equal(whyWords(t, { outcome: 'refused', refusal: 'key_cancelled', who: { kind: 'key', name: 'Lost key' } }).toLowerCase(), t('changes.refusal.key_cancelled').toLowerCase());
+    // A working key refused for another reason is just the key.
+    assert.equal(said({ kind: 'key', name: 'Front desk' }, 'bad_request'), t('changes.who.key').replace('{name}', 'Front desk'));
+  }
+});
+
 test('6 NO SENTENCE ENDS TWICE: every entry filled with a value that already ends in a full stop ends once, in both languages', () => {
   for (const language of ['en', 'es']) {
     for (const [key, text] of Object.entries(DICTIONARIES[language])) {

@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 36e090b (u4/setup, the U4 fix round: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform 283b80b (u4/setup, the U4 fix rounds: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -1746,5 +1746,5 @@
       }
     }
   },
-  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 36e090b src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 283b80b src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
 }

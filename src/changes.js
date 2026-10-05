@@ -26,8 +26,23 @@ export const REFUSALS = [
   'origin_refused', 'session_ended', 'not_signed_in', 'not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found',
   'key_not_found', 'bad_request', 'lane_name_refused', 'lane_message_refused', 'lane_reason_refused', 'lane_override_refused',
   'last_open_lane', 'lane_has_history', 'lane_already_open', 'language_refused', 'rates_retired',
-  'garage_not_activatable', 'connect_not_configured', 'too_many_refused',
+  'garage_not_activatable', 'connect_not_configured', 'too_many_refused', 'key_cancelled', 'key_expired',
 ];
+
+/**
+ * This account's own sign-in or key that no longer worked, used again: said
+ * as what it was ("A cancelled key named …", "A sign-in by … that had ended").
+ */
+const NO_LONGER = {
+  key: { key_cancelled: 'changes.who.keyCancelled', key_expired: 'changes.who.keyExpired' },
+  owner: { session_ended: 'changes.who.signInEnded' },
+};
+
+/** Words with one stored name inside them, as pieces: the name kept apart. */
+const named = (text, name) => {
+  const [before, after] = text.split('{name}');
+  return [{ words: before }, { stored: name }, { words: after ?? '' }];
+};
 
 /** A refusal that says what the request named was not found: from the account it belongs to, it is not the asker's. */
 const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found'];
@@ -67,12 +82,11 @@ const actionKey = (action, refused) => {
 /** Who made the change, as pieces: an owner by email, a key by its name, or someone not named. */
 export function whoPieces(t, line) {
   const who = line.who ?? {};
+  const noLonger = line.outcome === 'refused' ? NO_LONGER[who.kind]?.[line.refusal] : undefined;
+  if (noLonger && who.name) return named(t(noLonger), who.name);
   if (who.kind === 'owner' && who.name) return [{ stored: who.name }];
   if (who.kind === 'owner') return [{ words: t('changes.who.ownerUnnamed') }];
-  if (who.kind === 'key' && who.name) {
-    const [before, after] = t('changes.who.key').split('{name}');
-    return [{ words: before }, { stored: who.name }, { words: after ?? '' }];
-  }
+  if (who.kind === 'key' && who.name) return named(t('changes.who.key'), who.name);
   if (who.kind === 'key') return [{ words: t('changes.who.keyUnnamed') }];
   return [{ words: t(who.kind === 'outside' ? 'changes.who.outside' : 'changes.who.nobody') }];
 }
