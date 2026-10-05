@@ -175,8 +175,11 @@ name it.
 
 ## Licence
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE). Contributions need the CLA — see
-[CONTRIBUTING.md](CONTRIBUTING.md). The fonts keep their own licence, the SIL
+AGPL-3.0-or-later. See [LICENSE](LICENSE).
+
+Open Parking AI does not accept outside contributions. Pull requests, issues and comments are limited to the maintainers.
+
+The fonts keep their own licence, the SIL
 Open Font License 1.1 (`src/fonts/*-OFL.txt`, `src/files/fonts/DMSans-OFL.txt`).
 The file makers use jsPDF and fflate, both MIT.
 
