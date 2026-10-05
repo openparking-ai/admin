@@ -1000,6 +1000,13 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL Lanes and equipment: every confirmation was on the page, none in a browser dialog'],
   },
+  {
+    check: "U4 fix: the admin keeps its own quiet number",
+    plant: { file: 'src/time.js', anchor: "  return minutes < quietMinutes ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };", with: "  return minutes < 5 ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL ONE SETTING: set to 30 on the platform'],
+  },
 ];
 
 function scratchCopy() {

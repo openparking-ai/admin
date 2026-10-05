@@ -53,7 +53,6 @@ import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
-import { LANE_QUIET_MINUTES } from '../src/settings.js';
 import { A_TEXT, startStub } from '../test/stub-platform.js';
 import { GARAGE, LONG_NAME, TEXT_CASES, changesData, insideData, lanesData, manyStays } from '../test/files-fixtures.js';
 import { PYTHON, count, garageClock, plain, readBack, tableOf, zoneSaid } from './files/read-back.js';
@@ -131,7 +130,7 @@ function stateAt(device, language, at) {
   if (device.revoked_at) return fill(w['device.off'], { time: shortTime(device.revoked_at, language, at) });
   if (!device.last_seen_at) return w['lane.never'];
   const minutes = Math.floor((at - Date.parse(device.last_seen_at)) / 60000);
-  if (minutes >= LANE_QUIET_MINUTES) return fill(w['lane.quiet'], { time: shortTime(device.last_seen_at, language, at) });
+  if (minutes >= stub.quietMinutes()) return fill(w['lane.quiet'], { time: shortTime(device.last_seen_at, language, at) });
   return fill(w['file.working'], { time: shortTime(device.last_seen_at, language, at) });
 }
 

@@ -350,6 +350,7 @@ export default {
   "changes.outcome.about": "Hecho, o rechazado y por qué. Un intento rechazado no cambió nada.",
   "changes.done": "Hecho",
   "changes.refusedBecause": "Rechazado: {why}",
+  "changes.attempts": "Se intentó {count} veces, la última {time}.",
   "changes.who.key": "La llave llamada {name}",
   "changes.who.outside": "Alguien de otra cuenta",
   "changes.who.nobody": "Alguien que no había entrado",

@@ -122,10 +122,10 @@ export function insideFile({ t, language, garage, data, readAt }) {
  * How a lane computer was doing at the moment of the read, worded with a time,
  * never "a minute ago": that goes stale on paper.
  */
-export function computerState(t, device, garage, language, readAt) {
+export function computerState(t, device, garage, language, readAt, quietMinutes) {
   const at = (value) => garageTime(value, garage.timezone, language, readAt);
   if (device.revoked_at) return t('device.off', { time: at(device.revoked_at) });
-  const heard = heardFrom(device.last_seen_at, readAt);
+  const heard = heardFrom(device.last_seen_at, readAt, quietMinutes);
   if (heard.state === 'never') return t('lane.never');
   if (heard.state === 'quiet') return t('lane.quiet', { time: at(heard.since) });
   return t('file.working', { time: at(device.last_seen_at) });
@@ -134,7 +134,7 @@ export function computerState(t, device, garage, language, readAt) {
 /** Lanes and equipment: one row per lane computer; a lane with none gets one row saying so. */
 export function lanesFile({ t, language, garage, data, readAt }) {
   const { title, lines } = head(t, 'lanes', garage, language, readAt);
-  const rows = data.flatMap((lane) => {
+  const rows = data.lanes.flatMap((lane) => {
     const start = [{ text: lane.name }, { text: t(directionKey(lane)) }];
     const reader = { text: lane.reader ? t('lanes.readerYes') : t('lanes.readerNo') };
     const open = { text: openText(t, lane, garage, language, readAt) };
@@ -143,7 +143,7 @@ export function lanesFile({ t, language, garage, data, readAt }) {
     return devices.map((d) => [
       ...start,
       { text: d.name },
-      { text: computerState(t, d, garage, language, readAt) },
+      { text: computerState(t, d, garage, language, readAt, data.quietMinutes) },
       d.last_seen_at ? time(d.last_seen_at, garage, language) : { text: NOTHING },
       reader,
       open,
@@ -171,7 +171,7 @@ export function changesFile({ t, language, garage, data, readAt }) {
       { text: piecesText(whatPieces(t, line)) },
       { text: before },
       { text: after },
-      { text: outcomeWords(t, line) },
+      { text: outcomeWords(t, line, garage, language) },
     ];
   });
   return {

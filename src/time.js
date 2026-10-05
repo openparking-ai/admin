@@ -4,7 +4,6 @@
 // Miami time. Every time on these screens goes through `garageTime`, which
 // is given the garage's own zone by the platform.
 
-import { LANE_QUIET_MINUTES } from './settings.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
 
@@ -40,12 +39,13 @@ export function garageDateTime(value, timeZone, language) {
 
 /**
  * How a lane's computer is doing, from when it was last heard from.
- *   { state: 'working', minutes }  heard from within LANE_QUIET_MINUTES
+ *   { state: 'working', minutes }  heard from within `quietMinutes`, the platform's
+ *                                  setting as its lanes read gave it (never a copy here)
  *   { state: 'quiet', since }      not heard from since `since`
  *   { state: 'never' }             never heard from at all
  */
-export function heardFrom(lastSeen, now = new Date()) {
+export function heardFrom(lastSeen, now, quietMinutes) {
   if (!lastSeen) return { state: 'never' };
   const minutes = Math.max(0, Math.floor((now - new Date(lastSeen)) / 60000));
-  return minutes < LANE_QUIET_MINUTES ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };
+  return minutes < quietMinutes ? { state: 'working', minutes } : { state: 'quiet', since: lastSeen };
 }

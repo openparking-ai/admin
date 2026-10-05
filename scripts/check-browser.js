@@ -528,6 +528,35 @@ try {
   await page.click('[data-action="change-garage"]');
   await page.click(`.garage-choice[data-garage="${HARBOR.id}"]`);
 
+  // ── U4 fix: one quiet setting, the platform's ──────────────────────────
+  // A lane computer heard from 10 minutes ago: not heard from lately at the
+  // platform's 5, working at 30. Home, Lanes and the checklist move together.
+  const entryComputer = A.lanes[HARBOR.id][0].devices[0];
+  const heardBefore = entryComputer.last_seen_at;
+  entryComputer.last_seen_at = new Date(Date.now() - 10 * 60_000).toISOString();
+  const quietNow = async (minutes) => {
+    stub.setQuietMinutes(minutes);
+    await page.click('.nav-item[href="#/"]');
+    await settles(page, () => document.querySelectorAll('.lane-row').length > 0);
+    const home = await page.evaluate(() => [...document.querySelectorAll('.lane-row')].find((r) => r.querySelector('.lane-name')?.textContent === 'North Entry')?.dataset.state ?? null);
+    await page.click('.nav-item[href="#/lanes"]');
+    await showsText(page, 'Harbor entry computer');
+    const lanesSays = await page.evaluate(() => document.querySelector('[data-device]')?.textContent ?? '');
+    await page.click('.nav-item[href="#/setup"]');
+    await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
+    const setupSays = await page.evaluate(() => document.querySelector('[data-step="lane_computers"]')?.textContent ?? '');
+    return { home, lanesSays, setupSays };
+  };
+  const at5 = await quietNow(5);
+  const at30 = await quietNow(30);
+  const working10 = EN['lane.workingMany'].replace('{minutes}', '10');
+  check(at5.home === 'quiet' && at5.lanesSays.includes('Not heard from since') && at5.setupSays.includes(EN['setup.fact.quiet'].replace('{minutes}', '5')),
+    `ONE SETTING: at the platform's 5 minutes, North Entry is not heard from lately on Home (${at5.home}), Lanes and the checklist`);
+  check(at30.home === 'working' && at30.lanesSays.includes(working10) && !at30.setupSays.includes('North Entry') && at30.setupSays.includes('30'),
+    `ONE SETTING: set to 30 on the platform, Home (${at30.home}), Lanes ("${working10}") and the checklist all call it working`);
+  stub.setQuietMinutes(5);
+  entryComputer.last_seen_at = heardBefore;
+
   // ── U4: lane setup ─────────────────────────────────────────────────────
   const consoleSaid = [];
   page.on('console', (m) => consoleSaid.push(m.text()));

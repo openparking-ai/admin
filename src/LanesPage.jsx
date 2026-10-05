@@ -33,7 +33,7 @@ export default function LanesPage({ t, language, client, garage }) {
           <h2 className="section-title">{t('page.lanes.title')}</h2>
           <ListActions t={t} list="lanes" language={language} client={client} garage={garage} refresh={lanes.refresh} print={print} />
         </div>
-        {lanes.data.length === 0 ? (
+        {lanes.data.lanes.length === 0 ? (
           <p className="quiet">{t('lanes.none')}</p>
         ) : (
           <table className="list">
@@ -60,7 +60,7 @@ export default function LanesPage({ t, language, client, garage }) {
               </tr>
             </thead>
             <tbody>
-              {lanes.data.map((lane) => (
+              {lanes.data.lanes.map((lane) => (
                 <tr key={lane.id} data-lane={lane.id}>
                   <td>
                     <bdi>{lane.name}</bdi>
@@ -79,7 +79,7 @@ export default function LanesPage({ t, language, client, garage }) {
                             <span className="quiet">
                               {d.revoked_at
                                 ? t('device.off', { time: garageTime(d.revoked_at, garage.timezone, language, now) })
-                                : deviceWords(t, d, garage, language, now).text}
+                                : deviceWords(t, d, garage, language, now, lanes.data.quietMinutes).text}
                             </span>
                             {d.revoked_at ? null : (
                               <>
@@ -135,7 +135,7 @@ export default function LanesPage({ t, language, client, garage }) {
           t={t}
           client={client}
           panel={panel}
-          lanes={lanes.data}
+          lanes={lanes.data.lanes}
           onDone={() => reread()}
           onClose={() => setPanel(null)}
         />

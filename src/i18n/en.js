@@ -353,6 +353,7 @@ export default {
   "changes.outcome.about": "Done, or refused and why. A refused attempt changed nothing.",
   "changes.done": "Done",
   "changes.refusedBecause": "Refused: {why}",
+  "changes.attempts": "Tried {count} times, the last {time}.",
   "changes.who.key": "The key named {name}",
   "changes.who.outside": "Someone from another account",
   "changes.who.nobody": "Someone who was not signed in",

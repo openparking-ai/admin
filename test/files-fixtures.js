@@ -68,6 +68,15 @@ export function manyStays(count) {
 /** A name of 60 characters, in words, so it wraps where a person would break it. */
 export const LONG_NAME = 'Estacionamiento Municipal de la Avenida Libertador Poniente 1';
 
+/** The lanes read's own setting, as the platform answers it with the lanes: the platform's default. */
+export const PLATFORM_QUIET_MINUTES = 5;
+
+/**
+ * A list as the screens hold it after the read: the lanes come with the
+ * platform's `quiet_minutes` (src/api.js `lanes`); the other lists as they are.
+ */
+export const asRead = (list, data) => (list === 'lanes' && Array.isArray(data) ? { lanes: data, quietMinutes: PLATFORM_QUIET_MINUTES } : data);
+
 export function lanesData(readAt = READ_AT) {
   const ago = (ms) => new Date(readAt - ms).toISOString();
   return [
@@ -118,6 +127,8 @@ export function changesData(readAt = READ_AT) {
     refusal: null,
     before: null,
     after: null,
+    attempts: 1,
+    last_at: null,
     who: { kind: 'owner', name: 'duena@example.com' },
     ...fields,
   });
@@ -126,8 +137,9 @@ export function changesData(readAt = READ_AT) {
     changes: [
       line(1, { at: at(5), action: 'lane.close', subject: lane(1, 'Carril de Servicio'), before: { state: 'open' }, after: { state: 'closed', reason: 'everyone', message: 'Cerrado por obras.' } }),
       line(2, { at: at(20), action: 'lane.rename', who: { kind: 'key', name: 'Llave de recepción' }, subject: lane(2, TEXT_CASES.at), before: { name: 'Rampa' }, after: { name: TEXT_CASES.at } }),
-      line(3, { at: at(60), action: 'lane.close', outcome: 'refused', refusal: 'last_open_lane', subject: lane(3, 'Salida Única') }),
-      line(4, { at: at(90), action: 'lane.rename', outcome: 'refused', refusal: 'lane_not_found', who: { kind: 'outside', name: null }, subject: lane(4, 'Entrada Sur') }),
+      line(3, { at: at(60), last_at: at(60), action: 'lane.close', outcome: 'refused', refusal: 'last_open_lane', subject: lane(3, 'Salida Única') }),
+      // The same refused attempt 1,250 times in a minute: one line, counted (the platform's 0027).
+      line(4, { at: at(90), last_at: at(89), attempts: 1250, action: 'lane.rename', outcome: 'refused', refusal: 'lane_not_found', who: { kind: 'outside', name: null }, subject: lane(4, 'Entrada Sur') }),
       line(5, { at: at(120), action: 'computer.connect', subject: { kind: 'computer', id: 'df900000-0000-4000-8000-000000000005', name: 'Computadora Este' }, after: { name: 'Computadora Este', lane: 'Entrada Este' } }),
       line(6, { at: at(24 * 60), action: 'garage.update', subject: { kind: 'garage', id: GARAGE.id, name: GARAGE.name }, before: { transient_available: null }, after: { transient_available: true } }),
       line(7, { at: at(25 * 60), action: 'lane.add', subject: lane(7, 'Entrada Oeste'), after: { name: 'Entrada Oeste', direction: 'entry' } }),

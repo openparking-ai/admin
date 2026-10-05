@@ -191,7 +191,18 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     /** Keep `language` on the signed-in owner's profile, so every computer they sign in on speaks it. */
     setLanguage: async (language) => object(await request('/auth/language', { method: 'PUT', body: { language } })),
     garages: async () => list(await request('/garages'), 'garages'),
-    lanes: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/lanes`), 'lanes'),
+    /**
+     * The garage's lanes, and the platform's one setting for when a lane
+     * computer counts as not heard from (`quiet_minutes`): read with them,
+     * never kept here.
+     */
+    lanes: async (garageId) => {
+      const data = await request(`/garages/${encodeURIComponent(garageId)}/lanes`);
+      const lanes = list(data, 'lanes');
+      const quietMinutes = data.quiet_minutes;
+      if (!Number.isInteger(quietMinutes) || quietMinutes < 1) throw new Problem('unexpected');
+      return { lanes, quietMinutes };
+    },
     /** The garage's setup checklist, as the platform works it out: never worked out here. */
     setup: async (garageId) => {
       const data = object(object(await request(`/garages/${encodeURIComponent(garageId)}/setup`)).setup);

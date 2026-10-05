@@ -99,9 +99,12 @@ export function changedFields(t, line, garage, language) {
 }
 
 /** Done, or refused and why. */
-export function outcomeWords(t, line) {
+export function outcomeWords(t, line, garage, language) {
   if (line.outcome !== 'refused') return t('changes.done');
-  return t('changes.refusedBecause', { why: t(REFUSALS.includes(line.refusal) ? `changes.refusal.${line.refusal}` : 'changes.refusal.other') });
+  const said = t('changes.refusedBecause', { why: t(REFUSALS.includes(line.refusal) ? `changes.refusal.${line.refusal}` : 'changes.refusal.other') });
+  // The same attempt repeated within a minute is one line, counted (the platform's 0027).
+  if (!(line.attempts > 1)) return said;
+  return `${said} ${t('changes.attempts', { count: line.attempts.toLocaleString(language === 'es' ? 'es-US' : 'en-US'), time: garageDateTime(line.last_at ?? line.at, garage.timezone, language) })}`;
 }
 
 export const whenWords = (line, garage, language) => garageDateTime(line.at, garage.timezone, language);

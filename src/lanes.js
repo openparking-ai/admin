@@ -10,8 +10,8 @@ export function laneComputer(lane) {
 }
 
 /** One device's state, in words. */
-export function deviceWords(t, device, garage, language, now) {
-  const heard = heardFrom(device.last_seen_at, now);
+export function deviceWords(t, device, garage, language, now, quietMinutes) {
+  const heard = heardFrom(device.last_seen_at, now, quietMinutes);
   if (heard.state === 'never') return { state: 'never', text: t('lane.never') };
   if (heard.state === 'quiet') {
     return { state: 'quiet', text: t('lane.quiet', { time: garageTime(heard.since, garage.timezone, language, now) }) };
@@ -27,9 +27,9 @@ export function deviceWords(t, device, garage, language, now) {
  * lane whose computers all had their access cancelled says that, and when the
  * last one was.
  */
-export function laneWords(t, lane, garage, language, now) {
+export function laneWords(t, lane, garage, language, now, quietMinutes) {
   const computer = laneComputer(lane);
-  if (computer) return deviceWords(t, computer, garage, language, now);
+  if (computer) return deviceWords(t, computer, garage, language, now, quietMinutes);
   const cancelled = (lane.devices ?? []).filter((d) => d.revoked_at);
   if (cancelled.length === 0) return { state: 'none', text: t('lane.noComputer') };
   const last = cancelled.reduce((latest, d) => (Date.parse(d.revoked_at) > Date.parse(latest.revoked_at) ? d : latest));

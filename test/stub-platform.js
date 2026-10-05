@@ -10,7 +10,7 @@
 //   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }
 //   PUT  /api/v1/auth/language   { language } -> the signed-in owner's own language, 'en' or 'es'; { language }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
-//   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader }] }
+//   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader, closed, reopened }], quiet_minutes }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
 // U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
 //   GET    /api/v1/garages/:id/setup        { setup: { garage_id, open, takes_any_driver, steps: [{ key, done, facts }] } }
@@ -172,13 +172,13 @@ const lastOpen = (direction) => {
 };
 const CONTROL = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const LINES_PAGE = 50;
-const QUIET_MINUTES = 5;
 
 export async function startStub({ port = 0 } = {}) {
   const data = owners();
   const setups = setupData();
   const log = new Map(); // tenant -> lines, oldest first
   const used = new Set(); // lanes with a stay or an event: never removable
+  let quiet = 5; // the platform's LANE_QUIET_MINUTES, which its lanes and setup reads return
   let flipped = false; // a checklist whose `done` says the opposite of its facts, for the checks
   for (const o of Object.values(data)) {
     for (const lanes of Object.values(o.lanes)) for (const l of lanes) Object.assign(l, { closed: l.closed ?? null, reopened: l.reopened ?? null });
@@ -289,6 +289,9 @@ export async function startStub({ port = 0 } = {}) {
       before,
       after,
       refusal,
+      // The platform counts a repeated refusal on its line (0027); each line here is one attempt.
+      attempts: 1,
+      last_at: outcome === 'refused' ? new Date(Date.now() + lineN).toISOString() : null,
     });
   const laneOf = (who, laneId) => {
     for (const [garageId, lanes] of Object.entries(who.lanes)) {
@@ -327,7 +330,7 @@ export async function startStub({ port = 0 } = {}) {
       const heard = live.map((d) => d.last_seen_at).filter(Boolean).map((x) => Date.parse(x));
       if (heard.length === 0) return { state: 'never_heard', last_heard_at: null };
       const latest = Math.max(...heard);
-      return { state: now - latest < QUIET_MINUTES * 60_000 ? 'working' : 'quiet', last_heard_at: new Date(latest).toISOString() };
+      return { state: now - latest < quiet * 60_000 ? 'working' : 'quiet', last_heard_at: new Date(latest).toISOString() };
     };
     const entry = lanes.filter((l) => l.direction === 'entry');
     const exit = lanes.filter((l) => l.direction === 'exit');
@@ -336,7 +339,7 @@ export async function startStub({ port = 0 } = {}) {
       { key: 'garage_details', done: true, facts: { name: garage.name, timezone: garage.timezone, currency: garage.currency } },
       { key: 'drivers', done: extra.transient_available !== null, facts: { transient_available: extra.transient_available } },
       { key: 'lanes', done: entry.length > 0 && exit.length > 0, facts: { entry_lanes: entry.length, exit_lanes: exit.length, closed_lanes: lanes.filter((l) => l.closed).map(laneLine) } },
-      { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: QUIET_MINUTES, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
+      { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: quiet, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
       { key: 'rates', done: extra.rates.in_force > 0, facts: extra.rates },
       { key: 'taxes', done: extra.taxes.in_force > 0, facts: extra.taxes },
     ];
@@ -556,7 +559,7 @@ export async function startStub({ port = 0 } = {}) {
       }
       if (!garage) return send(res, 404, GARAGE_NOT_FOUND);
       if (!m[2]) return send(res, 200, { garage });
-      return send(res, 200, { lanes: who.lanes[garage.id] ?? [] });
+      return send(res, 200, { lanes: who.lanes[garage.id] ?? [], quiet_minutes: quiet });
     }
     return send(res, 404, { error: 'not found' });
   });
@@ -580,6 +583,11 @@ export async function startStub({ port = 0 } = {}) {
     },
     /** A lane ever used (a stay or an event): never removable, as on the platform. */
     markUsed: (laneId) => used.add(laneId),
+    /** The platform's quiet setting, as its lanes and setup reads return it; and a way to change it, as a deployment would. */
+    quietMinutes: () => quiet,
+    setQuietMinutes: (minutes) => {
+      quiet = minutes;
+    },
     /** Every step of every checklist answered with `done` reversed (true), or as worked out (false). */
     flipSetup: (on) => {
       flipped = Boolean(on);

@@ -96,7 +96,7 @@ export default function ChangesPage({ t, language, client, garage }) {
                           ))}
                     </td>
                   ))}
-                  <td>{line.outcome === 'refused' ? <span className="tag tag-refused">{outcomeWords(t, line)}</span> : outcomeWords(t, line)}</td>
+                  <td>{line.outcome === 'refused' ? <span className="tag tag-refused">{outcomeWords(t, line, garage, language)}</span> : outcomeWords(t, line, garage, language)}</td>
                 </tr>
               );
             })}

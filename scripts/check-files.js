@@ -64,6 +64,7 @@ import {
   insideData,
   lanesData,
   changesData,
+  asRead,
   manyStays,
 } from '../test/files-fixtures.js';
 
@@ -86,7 +87,7 @@ const check = (ok, what) => {
 /** Build one file as the browser does, and save it here. */
 function build(list, format, { language, garage = GARAGE, data, readAt = READ_AT }) {
   const t = (key, values) => translate(language, key, values);
-  const file = FILES[list]({ t, language, garage, data, readAt });
+  const file = FILES[list]({ t, language, garage, data: asRead(list, data), readAt });
   let bytes;
   let missing = [];
   if (format === 'xlsx') ({ bytes } = makeExcel(file, { language, meaningsTitle: t('file.meanings') }));
@@ -146,6 +147,11 @@ try {
         const independent = insideRows(m.data);
         const bad = independent.filter(([plate, time, lane], i) => rows[i]?.[0]?.value !== plate[1] || rows[i]?.[2]?.value !== time[1] || rows[i]?.[3]?.value !== lane[1]);
         check(bad.length === 0, `1 the file is the list: ${where}: plate, let-in time and lane worked out from the list itself, ${independent.length - bad.length} of ${independent.length}`);
+      }
+      if (m.list === 'changes') {
+        const n = (1250).toLocaleString(m.language === 'es' ? 'es-US' : 'en-US');
+        const said = m.t('changes.attempts', { count: n, time: '' }).split(n)[0];
+        check(rows.some((r) => String(r?.[5]?.value ?? '').includes(`${said}${n}`)), `${where}: a refused attempt counted 1,250 times says so ("${said}${n} …")`);
       }
       // 2
       const lines = sheet.rows.slice(0, heading).map((r) => r?.[0]?.value).filter(Boolean);
@@ -326,7 +332,7 @@ try {
       const texts = [['garage name', m.c.garage], ...m.rows.flatMap((r) => (m.list === 'lanes' ? [['lane', r.name], ['lane computer', r.computer]] : [['plate', r.plate]]))];
       const wantHidden = texts.some(([, t]) => keptExpect(t).hidden);
       if (m.format === 'xlsx') {
-        const names = FILES[m.list]({ t: words('en'), language: 'en', garage: GARAGE, data: listOf(m.list, m.rows, READ_AT), readAt: READ_AT }).columns.map((c) => c.name);
+        const names = FILES[m.list]({ t: words('en'), language: 'en', garage: GARAGE, data: asRead(m.list, listOf(m.list, m.rows, READ_AT)), readAt: READ_AT }).columns.map((c) => c.name);
         for (const [reader, sheet] of [['openpyxl', read[m.path].sheets[0]], ...Object.entries(others).map(([r, byPath]) => [r, byPath[m.path].sheets[0]])]) {
           const h = sheet.rows.findIndex((r) => names.every((n, i) => r?.[i]?.value === n));
           const row = sheet.rows[h + 1] ?? [];
