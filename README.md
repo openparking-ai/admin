@@ -127,7 +127,11 @@ The build publishes no source maps.
   tried what, why it was refused (true in whichever account's log it is read),
   how many times and when last -- so no number of them can push a change out
   of sight. Every value in words (a time zone as people say it, every choice of
-  a setting), never as the code the platform keeps. Each list prints and
+  a setting), never as the code the platform keeps. A line about a person to
+  tell names them as they are named now, says only what kind of change it was
+  ("Changed to another name", never from what to what), and once they are
+  removed says "A person who was removed": the platform keeps no name or
+  anything else typed about a person in its log. Each list prints and
   downloads like the others. A panel's own button says what it does: "No, keep
   it" beside a "Yes", "Cancel" on a form, "Done" once a code is shown.
 - **Two languages**, English and Spanish. Every word on the screen is in
@@ -174,6 +178,7 @@ name it.
 | Download Excel, Download PDF and Print in a browser, against the stand-in, both languages, day and night, every file read back: the file is the list on screen, garage time, a fresh read for each click, a failed read and a 401 make no file, one click one file, the page policy unchanged and never broken; the same odd stored text through the screen, Print, both files, the file names and the notice, nothing in a name turning the words around it | `npm run build && npm run check-downloads` |
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
+| A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence
 

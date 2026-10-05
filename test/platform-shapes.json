@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform e84fe65 (u4b/alerts, fix round: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform 5c333e7 (u4b/alerts, fix round 2: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -1572,7 +1572,8 @@
           "subject": [
             "id",
             "kind",
-            "name"
+            "name",
+            "removed"
           ],
           "action": "lane.rename",
           "outcome": "done",
@@ -1582,7 +1583,9 @@
           "after": {
             "name": "Recorded Entry"
           }
-        }
+        },
+        "subject_name": "string",
+        "subject_removed": false
       }
     },
     {
@@ -1634,7 +1637,8 @@
           "subject": [
             "id",
             "kind",
-            "name"
+            "name",
+            "removed"
           ],
           "action": "lane.remove",
           "outcome": "refused",
@@ -1827,50 +1831,180 @@
     },
     {
       "what": "a person to tell, a name holding a number",
-      "status": 400,
-      "body": {
-        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
-        "code": "alert_contact_name_refused",
-        "details": {
-          "reason": "digits"
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
         }
       }
     },
     {
-      "what": "a person to tell, a name holding a number with commas",
-      "status": 400,
-      "body": {
-        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
-        "code": "alert_contact_name_refused",
-        "details": {
-          "reason": "digits"
+      "what": "a person to tell, a name holding a number in circled digits",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
         }
       }
     },
     {
-      "what": "a person to tell, a name holding a number in Arabic-Indic digits",
-      "status": 400,
-      "body": {
-        "error": "name holds 7 or more digits, which could be a phone number; name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
-        "code": "alert_contact_name_refused",
-        "details": {
-          "reason": "digits"
+      "what": "a person to tell, a name holding a number in words",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
         }
       }
     },
     {
-      "what": "a person to tell, a name holding a full-width @",
-      "status": 400,
-      "body": {
-        "error": "name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it",
-        "code": "alert_contact_name_refused",
-        "details": {
-          "reason": "at"
-        }
-      }
-    },
-    {
-      "what": "a person to tell, a name with a few digits",
+      "what": "a person to tell, a name holding an @",
       "status": 201,
       "shape": {
         "types": [
@@ -2104,6 +2238,135 @@
       }
     },
     {
+      "what": "a person to tell, renamed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          },
+          "turned_off": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a person was renamed",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "alert_contact.change",
+          "outcome": "done",
+          "before": {},
+          "after": {
+            "name": "changed"
+          }
+        },
+        "subject_name": "string",
+        "subject_removed": false
+      }
+    },
+    {
       "what": "a person to tell, the phone taken away",
       "status": 200,
       "shape": {
@@ -2215,6 +2478,54 @@
       "body": {
         "error": "alert contact not found",
         "code": "alert_contact_not_found"
+      }
+    },
+    {
+      "what": "changes, after a person was removed",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "alert_contact.remove",
+          "outcome": "done",
+          "before": {
+            "email": "given",
+            "phone": "none",
+            "by_text": [],
+            "by_email": [],
+            "language": "en"
+          },
+          "after": null
+        },
+        "subject_name": "null",
+        "subject_removed": true
       }
     },
     {

@@ -729,15 +729,7 @@ try {
   await page.fill(`${addForm} [data-field="email"]`, 'weekend@@example.com');
   await page.click(`${addForm} button[type="submit"]`);
   check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.emailAt']), `Alerts: an address with two @ is refused: "${EN['problem.emailAt']}"`);
-  // U4b fix round: a number hidden in a name, however it is written, and an @ of any width.
-  const nameBox = `${addForm} label:has([data-about="alerts.person"]) input`;
-  await page.fill(`${addForm} [data-field="email"]`, 'weekend.lead@example.com');
-  for (const [name, said] of [['Weekend 555,010,0144', 'problem.personNameNumber'], ['Weekend ٥٥٥٠١٠٠١٤٤', 'problem.personNameNumber'], ['Weekend＠lead', 'problem.personNameAt']]) {
-    await page.fill(nameBox, name);
-    await page.click(`${addForm} button[type="submit"]`);
-    check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN[said]), `Alerts: a name "${name}" is refused: "${EN[said]}"`);
-  }
-  await page.fill(nameBox, 'Weekend lead');
+  // U4b fix round 2: what a name holds is the owner's; it is never written into a log (scripts/check-removed-person.js).
   await page.fill(`${addForm} [data-field="email"]`, '');
   check((await platformAlerts(page, HARBOR.id)).contacts.length === 2, 'Alerts: ...and nobody was added');
   await page.fill(`${addForm} [data-field="phone"]`, '(555) 010-0144');

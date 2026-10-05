@@ -8,6 +8,11 @@
 // the screen keeps it apart on its own and a file writes it as it is. Every
 // other value is said in words from the dictionaries, or by the browser's own
 // names for a time zone or a currency: never as the code the platform keeps.
+//
+// A line about a person to tell holds no name and nothing typed: the platform
+// names the person as they are named now (`subject.name`), or says they were
+// removed (`subject.removed`), and the line says only what kind of change it
+// was -- "the name changed", never from what to what.
 
 import { garageDateTime, zoneSaid } from './time.js';
 import { alertName } from './alerts.js';
@@ -70,6 +75,10 @@ const ALERT_LISTS = new Set(['by_text', 'by_email']);
 /** Fields holding text someone typed: kept as it is, apart. */
 export const STORED = new Set(['name', 'message', 'lane', 'label', 'plan_version', 'place_name']);
 
+/** A line about a person to tell: its fields are all of a known few, the name too. */
+const PERSON = 'alert_contact';
+const PERSON_CHOICES = { name: ['changed'] };
+
 /**
  * Fields whose value is one of a known few: each said in words. A value the
  * platform may add later is said as "another value", never as its code.
@@ -107,19 +116,24 @@ export function whoPieces(t, line) {
 
 /**
  * What was done -- or, for a refused attempt, what was tried: the action's
- * words, and the thing it was aimed at by name when there is one.
+ * words, and the thing it was aimed at by name when there is one. A person to
+ * tell who has been removed is said to be, by no name.
  */
 export function whatPieces(t, line) {
   const refused = line.outcome === 'refused';
   if (refused && line.refusal === 'too_many_refused') return [{ words: t('changes.tried.many') }];
   const pieces = [{ words: t(actionKey(line.action, refused)) }];
-  if (line.subject?.name) pieces.push({ words: ': ' }, { stored: line.subject.name });
+  if (line.subject?.kind === PERSON && line.subject.removed) pieces.push({ words: ': ' }, { words: t('changes.person.removed') });
+  else if (line.subject?.name) pieces.push({ words: ': ' }, { stored: line.subject.name });
   return pieces;
 }
 
 /** One value of a before or after, in words. */
-function valueWords(t, field, value, garage, language) {
+function valueWords(t, field, value, garage, language, kind) {
   if (value === null || value === undefined) return { words: NOTHING };
+  if (kind === PERSON && PERSON_CHOICES[field]) {
+    return { words: PERSON_CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };
+  }
   if (typeof value === 'boolean') {
     if (field === 'transient_available') return { words: t(value ? 'changes.value.anyDriver' : 'changes.value.passOnly') };
     return { words: t(value ? 'yes' : 'no') };
@@ -167,8 +181,8 @@ export function changedFields(t, line, garage, language) {
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])];
   return fields.map((field) => ({
     field: FIELDS.includes(field) ? t(`changes.field.${field}`) : t('changes.field.other'),
-    before: field in before ? valueWords(t, field, before[field], garage, language) : { words: NOTHING },
-    after: field in after ? valueWords(t, field, after[field], garage, language) : { words: NOTHING },
+    before: field in before ? valueWords(t, field, before[field], garage, language, line.subject?.kind) : { words: NOTHING },
+    after: field in after ? valueWords(t, field, after[field], garage, language, line.subject?.kind) : { words: NOTHING },
   }));
 }
 

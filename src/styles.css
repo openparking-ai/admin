@@ -931,6 +931,10 @@ textarea {
     background: none;
     box-shadow: none;
   }
+  /* A row is never split across two sheets: its words read together. */
+  tr {
+    break-inside: avoid;
+  }
   /* A print leaves backgrounds out by default, so on paper no state is a
      background or a colour alone: each is a mark or a word. A list prints
      its own name (the refused attempts are told apart by it), a tick prints

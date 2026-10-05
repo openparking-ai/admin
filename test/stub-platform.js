@@ -205,7 +205,7 @@ const ALERTS = [
 const ALERT_KEYS = ALERTS.map((a) => a.key);
 const MAX_PEOPLE = 25;
 const PERSON_NOT_FOUND = { error: 'alert contact not found', code: 'alert_contact_not_found' };
-const PERSON_NAME_REFUSED = { error: 'name must be text of 1 to 80 characters, with no control or invisible formatting characters, and no phone number or email address in it', code: 'alert_contact_name_refused' };
+const PERSON_NAME_REFUSED = { error: 'name must be text of 1 to 80 characters, with no control or invisible formatting characters', code: 'alert_contact_name_refused' };
 const UNREACHABLE = { error: 'a person needs a phone number, an email address, or both', code: 'alert_contact_unreachable' };
 const PEOPLE_FULL = { error: `a garage has at most ${MAX_PEOPLE} people to tell`, code: 'alert_contacts_full' };
 const TEXT_NEEDS_PHONE = { error: 'this person has no phone number, so they cannot get an alert by text', code: 'alert_text_needs_phone' };
@@ -242,8 +242,6 @@ function personName(raw) {
   if (typeof raw !== 'string') throw refused('not_text');
   const name = raw.trim();
   if (name === '' || name.length > 80 || CONTROL.test(name)) throw refused('shape');
-  if (name.normalize('NFKC').includes('@')) throw refused('at');
-  if ((name.normalize('NFKC').match(/\p{Nd}/gu) ?? []).length > 6) throw refused('digits', `name holds 7 or more digits, which could be a phone number; ${PERSON_NAME_REFUSED.error}`);
   return name;
 }
 function personPhone(raw) {
@@ -497,7 +495,13 @@ export async function startStub({ port = 0 } = {}) {
       const after = m[3] ?? null;
       const from = after === null ? 0 : all.findIndex((l) => l.id === after) + 1;
       if (after !== null && from === 0) return answer(res, 404, { error: 'change not found' });
-      const page = all.slice(from, from + LINES_PAGE);
+      // A person to tell is named as they are now, or as removed with no name (the platform's src/changes.js).
+      const people = Object.values(who.people ?? {}).flat();
+      const page = all.slice(from, from + LINES_PAGE).map((l) => {
+        if (l.subject?.kind !== 'alert_contact') return { ...l, subject: { ...l.subject, removed: false } };
+        const now = people.find((p) => p.id === l.subject.id);
+        return { ...l, subject: { ...l.subject, name: now ? now.name : null, removed: !now } };
+      });
       const next = all.length > from + LINES_PAGE ? page[page.length - 1].id : null;
       if (outcome === 'done') return answer(res, 200, { changes: page, next });
       return answer(res, 200, { refused: page, next, count: { lines: mine.length, attempts: mine.reduce((n, l) => n + (l.attempts ?? 1), 0) } });
@@ -647,7 +651,8 @@ export async function startStub({ port = 0 } = {}) {
         if (people.length >= MAX_PEOPLE) throw new Refused(409, { ...PEOPLE_FULL, details: { max: MAX_PEOPLE } });
         const person = { id: `pa9${String((personN += 1)).padStart(5, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`, name, phone, email, language, confirmed: false, by_text: [], by_email: [] };
         people.push(person);
-        line(who, { garageId: garage.id, action, subject: { kind: 'alert_contact', id: person.id, name }, after: { name, language, phone: kept(phone), email: kept(email) } });
+        // A line about a person holds their id and what kind of change it was, never anything typed.
+        line(who, { garageId: garage.id, action, subject: { kind: 'alert_contact', id: person.id, name: null }, after: { language, phone: kept(phone), email: kept(email) } });
         return answer(res, 201, { contact: present(person) });
       }
       const person = people.find((p) => p.id === m[2]);
@@ -669,10 +674,10 @@ export async function startStub({ port = 0 } = {}) {
         byEmail = choiceList(body.by_email, 'by_email');
       }
       if (!person) throw new Refused(404, PERSON_NOT_FOUND);
-      const subject = { kind: 'alert_contact', id: person.id, name: person.name };
+      const subject = { kind: 'alert_contact', id: person.id, name: null };
       if (method === 'DELETE') {
         people.splice(people.indexOf(person), 1);
-        line(who, { garageId: garage.id, action, subject, before: { name: person.name, language: person.language, phone: kept(person.phone), email: kept(person.email), by_text: person.by_text, by_email: person.by_email } });
+        line(who, { garageId: garage.id, action, subject, before: { language: person.language, phone: kept(person.phone), email: kept(person.email), by_text: person.by_text, by_email: person.by_email } });
         return answer(res, 204);
       }
       if (m[3]) {
@@ -694,7 +699,7 @@ export async function startStub({ port = 0 } = {}) {
       const language = next.language ?? person.language;
       const before = {};
       const after = {};
-      if (name !== person.name) Object.assign(before, { name: person.name }) && Object.assign(after, { name });
+      if (name !== person.name) Object.assign(after, { name: 'changed' });
       if (language !== person.language) Object.assign(before, { language: person.language }) && Object.assign(after, { language });
       if (phone !== person.phone) Object.assign(before, { phone: kept(person.phone) }) && Object.assign(after, { phone: person.phone !== null && phone !== null ? 'changed' : kept(phone) });
       if (email !== person.email) Object.assign(before, { email: kept(person.email) }) && Object.assign(after, { email: person.email !== null && email !== null ? 'changed' : kept(email) });
@@ -702,7 +707,7 @@ export async function startStub({ port = 0 } = {}) {
       if (turnedOff.by_text.length) Object.assign(before, { by_text: person.by_text }) && Object.assign(after, { by_text: [] });
       if (turnedOff.by_email.length) Object.assign(before, { by_email: person.by_email }) && Object.assign(after, { by_email: [] });
       Object.assign(person, { name, phone, email, language, by_text: phone === null ? [] : person.by_text, by_email: email === null ? [] : person.by_email });
-      line(who, { garageId: garage.id, action, subject: { ...subject, name }, before, after });
+      line(who, { garageId: garage.id, action, subject, before, after });
       return answer(res, 200, { contact: present(person), turned_off: turnedOff });
     } catch (err) {
       if (!(err instanceof Refused)) throw err;

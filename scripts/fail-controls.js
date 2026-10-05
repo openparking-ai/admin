@@ -651,6 +651,24 @@ const CONTROLS = [
   },
   // ── U4b fix round ───────────────────────────────────────────────────────
   {
+    check: 'U4b fix 2 check 3: the kind of change blanked -- a person\'s name change says nothing',
+    plant: { file: 'src/changes.js', anchor: "    return { words: PERSON_CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };", with: "    return { words: '' };" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['EVERY LINE ABOUT A PERSON', 'is not said in words'],
+  },
+  {
+    check: 'U4b fix 2 check 3: the kind of change blanked -- a line about a person says no action',
+    plant: { file: 'src/changes.js', anchor: '  const pieces = [{ words: t(actionKey(line.action, refused)) }];', with: "  const pieces = [{ words: line.subject?.kind === PERSON ? '' : t(actionKey(line.action, refused)) }];" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['EVERY LINE ABOUT A PERSON', 'what was done is not said'],
+  },
+  {
+    check: 'U4b fix 2 check 3: a removed person said by the id their line holds',
+    plant: { file: 'src/changes.js', anchor: "pieces.push({ words: ': ' }, { words: t('changes.person.removed') });", with: "pieces.push({ words: ': ' }, { stored: line.subject.id });" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['EVERY LINE ABOUT A PERSON', 'the person'],
+  },
+  {
     check: 'U4b fix F2 a PDF column narrowed back: Confirmed',
     plant: { file: 'src/files/model.js', anchor: "    { key: 'alerts.confirmed', width: 0.109 },", with: "    { key: 'alerts.confirmed', width: 0.09 }," },
     run: ['node', 'scripts/check-pdf-words.js'],
@@ -1097,11 +1115,25 @@ const BROWSER_CONTROLS = [
     names: ['FAIL en Change log: printed with backgrounds off', 'the list "Refused attempts" names itself, above', 'FAIL es Registro de cambios'],
   },
   {
-    check: 'U4b fix F3 a name hiding a number refused only by the general rule',
-    plant: { file: 'src/api.js', anchor: "  alert_contact_name_refused: { digits: 'personNameNumber', at: 'personNameAt', other: 'personName' },\n", with: '' },
+    check: 'U4b fix 2 check 2: a removed person shown by the id their lines hold',
+    plant: { file: 'src/changes.js', anchor: "pieces.push({ words: ': ' }, { words: t('changes.person.removed') });", with: "pieces.push({ words: ': ' }, { stored: line.subject.id });" },
     before: BUILD,
-    run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL Alerts: a name "Weekend 555,010,0144" is refused', 'FAIL Alerts: a name "Weekend＠lead" is refused'],
+    run: ['node', 'scripts/check-removed-person.js'],
+    names: ['FAIL en page: "A person who was removed" for each', 'FAIL en PDF: nothing of the removed person', 'FAIL en Excel: nothing of the removed person', 'FAIL es print: nothing of the removed person'],
+  },
+  {
+    check: 'U4b fix 2 check 2: a removed person shown by the name a line held before',
+    plant: { file: 'test/stub-platform.js', anchor: '        return { ...l, subject: { ...l.subject, name: now ? now.name : null, removed: !now } };', with: "        return { ...l, subject: { ...l.subject, name: now ? now.name : 'Ravi ❺❺❺⓿❶⓿⓿❶❼❼', removed: false } };" },
+    before: BUILD,
+    run: ['node', 'scripts/check-removed-person.js'],
+    names: ['FAIL en page: nothing of the removed person', 'FAIL es Excel: nothing of the removed person', 'FAIL en print: "A person who was removed" for each'],
+  },
+  {
+    check: 'U4b fix 2 check 2: a row of the printed log split across two sheets',
+    plant: { file: 'src/styles.css', anchor: '  tr {\n    break-inside: avoid;\n  }\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-removed-person.js'],
+    names: ['FAIL es print: "Una persona que fue quitada" for each'],
   },
   {
     check: 'U4b fix F1 both answers print, the chosen one only shaded',

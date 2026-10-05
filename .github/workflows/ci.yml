@@ -158,6 +158,9 @@ jobs:
       - name: Every page that prints reads right with the browser's default print (backgrounds off)
         run: npm run check-print
 
+      - name: A person removed is named in no view of the change log -- page, PDF, Excel, print -- in either language
+        run: npm run check-removed-person
+
       - name: Neither file maker is in the first page
         run: npm run check-first-load
 

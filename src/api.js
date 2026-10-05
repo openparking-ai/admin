@@ -19,7 +19,7 @@ export const PROBLEM_KINDS = [
   // U4: the setup changes' own refusals.
   'laneName', 'laneMessage', 'laneHasHistory', 'lastOpenLane', 'laneAlreadyOpen', 'notFound', 'notKept',
   // U4b: the people to tell, and what each gets.
-  'personName', 'personNameNumber', 'personNameAt', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
+  'personName', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
   'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
 ];
 
@@ -55,8 +55,7 @@ const NAMED = [
  * reason is the plainest sentence for the field.
  */
 const BY_REASON = {
-  // A name holding a phone number or an email address, however it is written.
-  alert_contact_name_refused: { digits: 'personNameNumber', at: 'personNameAt', other: 'personName' },
+  alert_contact_name_refused: { other: 'personName' },
   alert_contact_phone_refused: { letters: 'phoneLetters', too_short: 'phoneShort', too_long: 'phoneLong', not_us: 'phoneNotUs', other: 'phoneOdd' },
   alert_contact_email_refused: { space: 'emailSpace', no_at: 'emailAt', two_at: 'emailAt', empty_side: 'emailAt', too_long: 'emailLong', other: 'emailOdd' },
 };
