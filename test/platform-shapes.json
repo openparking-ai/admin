@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform b3b973d (u4b/alerts: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform fd43b56 (u4b/alerts: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
