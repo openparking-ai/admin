@@ -41,6 +41,10 @@
 //   node scripts/check-downloads.js               (run `npm run build` first)
 //   node scripts/check-downloads.js --keep DIR    ...and keep the files
 //   node scripts/check-downloads.js --matrix FILE ...and write every odd-text cell to FILE (JSON)
+//   node scripts/check-downloads.js --without-odd-text
+//        ...everything but the odd-text walk. Only scripts/fail-controls.js passes
+//        it, and only for a control whose break is not in how text is shown or
+//        written; CI's own run of this check never does.
 
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -59,6 +63,7 @@ import { CASES, CASE_COUNTS, UNICODE } from './files/odd-text.js';
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const keepAt = process.argv.indexOf('--keep');
 const KEEP = keepAt > 0 ? process.argv[keepAt + 1] : null;
+const WITHOUT_ODD_TEXT = process.argv.includes('--without-odd-text');
 const BROWSER_ZONE = 'Asia/Tokyo';
 const WORDS = DICTIONARIES;
 // The page policy, as index.html has carried it since U2b. Not to be loosened.
@@ -377,7 +382,8 @@ try {
   // ── Odd stored text: the gate's cases, the class, F1 on screen ────────────
   const oddDir = join(DIR, 'odd');
   mkdirSync(oddDir);
-  await oddTextWalk({ browser, base, A, dir: oddDir, check, policyBroken, cell: (text, output, id, ok, detail) => oddCells.push({ text, output, case: id, ok, detail }) });
+  if (WITHOUT_ODD_TEXT) console.log('  --  odd text: not walked in this run (--without-odd-text)');
+  else await oddTextWalk({ browser, base, A, dir: oddDir, check, policyBroken, cell: (text, output, id, ok, detail) => oddCells.push({ text, output, case: id, ok, detail }) });
 } catch (error) {
   failures.push(`the walk stopped: ${error.message.split('\n')[0]}`);
   console.error(error);
@@ -527,7 +533,7 @@ try {
     const cases = [...new Set(g.bad.map((c) => c.case))];
     check(g.bad.length === 0, `odd text by category: ${group}${CASE_COUNTS[group] ? ` (${CASE_COUNTS[group]} cases, Unicode ${UNICODE})` : ''}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 6).join(', ')}${cases.length > 6 ? ` and ${cases.length - 6} more` : ''}` : ''}`);
   }
-  check(oddCells.length > 0, `odd text: ${oddCells.length} cells judged in the browser`);
+  if (!WITHOUT_ODD_TEXT) check(oddCells.length > 0, `odd text: ${oddCells.length} cells judged in the browser`);
   const matrixAt = process.argv.indexOf('--matrix');
   if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(oddCells.map((c) => ({ ...c, group: groupOf.get(c.case) ?? c.case })), null, 1));
 

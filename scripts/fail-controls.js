@@ -13,6 +13,11 @@
 //   A control may set `env` for its run: the LibreOffice one needs soffice (CI).
 //   ... --only TEXT                          only the controls whose name holds TEXT
 //
+// The download check's odd-text walk (thousands of cells, most of its minutes)
+// runs only in the controls marked `oddText: true`: the ones whose break is in
+// how text is shown or written. The others run it with --without-odd-text. A
+// control that expects an odd-text line but is not marked refuses to run.
+//
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
 
@@ -874,6 +879,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F1: a lane computer name not kept apart on screen',
+    oddText: true,
     plant: { file: 'src/LanesPage.jsx', anchor: '                            <bdi>{d.name}</bdi>', with: '                            {d.name}' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -881,6 +887,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F1: the letters the notice names not kept apart',
+    oddText: true,
     plant: { file: 'src/ListActions.jsx', anchor: '                <bdi data-letter>{shownLetter(ch)}</bdi>', with: '                <span data-letter>{shownLetter(ch)}</span>' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -888,6 +895,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: "U3 fix F1: the notice's sentence laid out as separate boxes",
+    oddText: true,
     plant: [
       { file: 'src/ListActions.jsx', anchor: '          <span>\n            {before}', with: '          <>\n            {before}' },
       { file: 'src/ListActions.jsx', anchor: '            {after}\n          </span>', with: '            {after}\n          </>' },
@@ -898,6 +906,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F2 undone, in the browser',
+    oddText: true,
     plant: [
       { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch)) out += ' ';", with: '    if (SPACE_LIKE.test(ch)) out += ch;' },
       { file: 'src/files/text.js', anchor: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) hidden = true;', with: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) out += ch;' },
@@ -909,6 +918,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix 2: the hidden-characters sentence never shown, in the browser',
+    oddText: true,
     plant: { file: 'src/ListActions.jsx', anchor: '      {left.hidden ? (', with: '      {false ? (' },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -916,6 +926,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix F3 undone, in the browser',
+    oddText: true,
     plant: [
       { file: 'src/files/pdf.js', anchor: "    lines(shortName, 'bold', SIZE.garage);", with: "    lines(fullName, 'bold', SIZE.garage);" },
       { file: 'src/files/pdf.js', anchor: '      if (!fresh && (room <', with: '      if ((room <' },
@@ -926,6 +937,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U3 fix: the garage name before the time in the file name, as shown',
+    oddText: true,
     plant: { file: 'src/files/model.js', anchor: "  return `${[title, stamp, name].filter(Boolean).join(' - ')}.${extension}`;", with: "  return `${[title, name, stamp].filter(Boolean).join(' - ')}.${extension}`;" },
     before: BUILD,
     run: CHECK_DOWNLOADS,
@@ -965,6 +977,13 @@ if (controls.length === 0) {
   console.error(`no control's name holds "${only}"`);
   process.exit(1);
 }
+// A control that expects a line only the odd-text walk prints must walk it.
+const walkLine = /^(FAIL )?(odd text|F2 |F3 )/;
+const unwalked = controls.filter((c) => c.run === CHECK_DOWNLOADS && !c.oddText && c.names.some((n) => walkLine.test(n)));
+if (unwalked.length) {
+  for (const c of unwalked) console.error(`control "${c.check}" expects an odd-text line but is not marked oddText: true`);
+  process.exit(1);
+}
 const failures = [];
 for (const c of controls) {
   const dir = scratchCopy();
@@ -974,7 +993,7 @@ for (const c of controls) {
       const r = run(dir, step);
       if (r.status !== 0) throw new Error(`could not prepare: ${step.join(' ')}\n${r.out}`);
     }
-    const r = run(dir, c.run, c.env);
+    const r = run(dir, c.run === CHECK_DOWNLOADS && !c.oddText ? [...c.run, '--without-odd-text'] : c.run, c.env);
     const missing = c.names.filter((n) => !r.out.includes(n));
     const ok = r.status !== 0 && missing.length === 0;
     const where = [c.plant].flat().map((p) => p.file).join(' + ');
