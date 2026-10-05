@@ -156,6 +156,12 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
         onSignedOut(null);
       }
     },
+    /**
+     * Which sign-in this is: it changes on every sign-in, sign-out and 401. A
+     * screen that started something compares it before and after, and drops
+     * what it made if it changed (src/ListActions.jsx: no file is saved).
+     */
+    epoch: () => epoch,
     /** Be told of every sign-out and every 401. Returns the way to stop. */
     listen(fn) {
       listeners.add(fn);

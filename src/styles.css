@@ -662,6 +662,24 @@ ul {
   align-items: baseline;
   justify-content: space-between;
 }
+.list-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.list-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 16px;
+}
+.list-buttons .link-button:disabled {
+  cursor: progress;
+}
+.list-actions .problem-note {
+  max-width: 48ch;
+}
 .list {
   width: 100%;
   border-collapse: collapse;

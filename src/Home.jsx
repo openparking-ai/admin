@@ -32,7 +32,9 @@ export default function Home({ t, language, client, garage }) {
               const words = laneWords(t, lane, garage, language, now);
               return (
                 <li key={lane.id} className="lane-row" data-state={words.state}>
-                  <span className="lane-name">{lane.name}</span>
+                  <span className="lane-name">
+                    <bdi>{lane.name}</bdi>
+                  </span>
                   <span className="tag">{t(directionKey(lane))}</span>
                   <span className="lane-state">
                     <span className="dot" aria-hidden="true" />

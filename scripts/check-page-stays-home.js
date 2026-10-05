@@ -29,6 +29,20 @@ function files(dir) {
   });
 }
 
+// The names an Excel file's parts are written under (src/files/excel.js). They
+// have the shape of addresses but are only names: nothing is ever asked of
+// them. Exactly these, in that one file; any other address there is refused.
+const XLSX_NAMES = new Set([
+  'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+  'http://schemas.openxmlformats.org/package/2006/relationships',
+  'http://schemas.openxmlformats.org/package/2006/content-types',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+]);
+
 const STORAGE_HOMES = { 'src/theme.js': 'THEME_KEY', 'src/i18n/index.js': 'LANGUAGE_KEY' };
 
 const SESSION_RULES = [
@@ -57,8 +71,10 @@ for (const path of scanned) {
     if (setItem && STORAGE_HOMES[name] === setItem[1]) kept.push(at);
     if (setItem && STORAGE_HOMES[name] !== setItem[1]) session.push(`${at}: a storage write that is not one of the two kept choices (${setItem[1]})`);
     if (/localStorage/.test(line) && name !== 'src/main.jsx') session.push(`${at}: localStorage used outside main.jsx`);
-    const absolute = /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`)]*/i.exec(line);
-    if (absolute && !name.endsWith('.css')) address.push(`${at}: an absolute address ${absolute[0]}`);
+    for (const [absolute] of line.matchAll(/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`)]*/gi)) {
+      if (name.endsWith('.css') || (name === 'src/files/excel.js' && XLSX_NAMES.has(absolute))) continue;
+      address.push(`${at}: an absolute address ${absolute}`);
+    }
     if (/\bfetch\s*\(|XMLHttpRequest|\bWebSocket\b|\bEventSource\b|sendBeacon/.test(line) && name !== 'src/api.js') address.push(`${at}: a request made outside src/api.js`);
     if (name === 'src/api.js' && /[?&][\w-]+=|URLSearchParams|searchParams/.test(line)) address.push(`${at}: a query string built in api.js`);
   });

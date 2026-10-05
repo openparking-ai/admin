@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { PrintButton, PrintHead, ProblemNote, useGarageRead, useNow, usePrint } from './parts.jsx';
+import { PrintHead, ProblemNote, useGarageRead, useNow, usePrint } from './parts.jsx';
 import { deviceWords, directionKey } from './lanes.js';
 import { garageTime } from './time.js';
 import FieldName from './FieldName.jsx';
+import ListActions from './ListActions.jsx';
 
 /** Every lane of the garage, its lane computers and whether it has a card reader. Read only. */
 export default function LanesPage({ t, language, client, garage }) {
@@ -15,10 +16,10 @@ export default function LanesPage({ t, language, client, garage }) {
 
   return (
     <section className="panel printable" data-list="lanes">
-      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} />
+      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={lanes.readAt} />
       <div className="list-head">
         <h2 className="section-title">{t('page.lanes.title')}</h2>
-        <PrintButton t={t} onPrint={print} />
+        <ListActions t={t} list="lanes" language={language} client={client} garage={garage} refresh={lanes.refresh} print={print} />
       </div>
       {lanes.data.length === 0 ? (
         <p className="quiet">{t('lanes.none')}</p>
@@ -43,7 +44,9 @@ export default function LanesPage({ t, language, client, garage }) {
           <tbody>
             {lanes.data.map((lane) => (
               <tr key={lane.id}>
-                <td>{lane.name}</td>
+                <td>
+                  <bdi>{lane.name}</bdi>
+                </td>
                 <td>{t(directionKey(lane))}</td>
                 <td>
                   {(lane.devices ?? []).length === 0 ? (
@@ -52,7 +55,9 @@ export default function LanesPage({ t, language, client, garage }) {
                     <ul className="device-list">
                       {lane.devices.map((d) => (
                         <li key={d.id} data-device={d.id}>
-                          <span className="device-name">{d.name}</span>{' '}
+                          <span className="device-name">
+                            <bdi>{d.name}</bdi>
+                          </span>{' '}
                           <span className="quiet">
                             {d.revoked_at
                               ? t('device.off', { time: garageTime(d.revoked_at, garage.timezone, language, now) })

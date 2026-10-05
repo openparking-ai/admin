@@ -72,6 +72,29 @@ The build publishes no source maps.
   it). A lane computer counts as not heard
   from after `LANE_QUIET_MINUTES` (`src/settings.js`, 5). Both lists print from
   the browser's own print, without the frame.
+- **Download Excel, Download PDF, Print**, beside each list. Each click reads the
+  list from the platform again, shows that answer on screen, and makes the file
+  (or the printed page) from it, stamped with that moment in the garage's time
+  (`src/ListActions.jsx`). The files are made in the browser and ask nothing of
+  anywhere: `src/files/` (one description of the file, `model.js`, drawn by
+  `excel.js` and `pdf.js`), loaded only when a Download is clicked. In both: the
+  garage, the list, when it was downloaded, "Times are {zone}." and what each
+  column means. The Excel file holds the garage's clock in real date-time cells,
+  every name, plate and ticket as text, and no formula; the PDF is Letter size in
+  DM Sans (static Regular and Bold made from the variable font, in
+  `src/files/fonts/` with the licence). Both files carry the same text of a
+  stored name (`src/files/text.js`): tab, line breaks and every other Unicode
+  space become a plain space; controls, format characters, noncharacters and
+  lone surrogates are left out of both (the Mac's Numbers cuts a cell at the
+  first one), and the screen says hidden characters were left out of the file.
+  The PDF prints only characters its font has a real shape for, and names any
+  letter it could not draw. The checks build their odd-text cases from
+  Unicode's own tables (`scripts/files/unicode-cases.py`, Unicode 15.0.0) and
+  read every Excel file back with openpyxl, LibreOffice (in CI) and, on a Mac,
+  Numbers (`SPREADSHEET_READERS`). The file is in the language on screen. A
+  read that fails says so and makes no file; signed out meanwhile, no file is
+  saved. Lanes and equipment's file has one row per lane computer, its state
+  worded with a time ("Working, last heard from 10:41 AM"), never "a minute ago".
 - **Every field says what it is.** Anything a person reads, fills or uses has one
   short sentence under its name (at most 15 words, both languages), always
   visible: each form field, each figure on Home, each column of a list (printed
@@ -122,13 +145,17 @@ name it.
 | Home says only what it shows (no breakdown the platform does not return) | `npm run check-home-claims` |
 | Every field has a short description in both languages, at most 15 words | `npm run check-descriptions` |
 | No source maps in the built site | `npm run build && npm run check-no-source-maps` |
+| The downloaded files hold the list: built from `test/files-fixtures.js` with this computer in another zone, read back with Python openpyxl and pypdf (`scripts/files/readers.txt`, pinned by hash): row for row, garage time across a clock change, text stays text and 0 formulas, every character, long lists and long names, the file name, every column described; odd stored text (every control character, direction marks, zero-width characters, right-to-left and Chinese scripts, emoji, a name of only spaces, names of up to 100,000 characters) through every file, each made within 5 seconds, everything left out said | `npm run check-files` |
+| Neither file maker is in the first page's JavaScript | `npm run build && npm run check-first-load` |
+| Download Excel, Download PDF and Print in a browser, against the stand-in, both languages, day and night, every file read back: the file is the list on screen, garage time, a fresh read for each click, a failed read and a 401 make no file, one click one file, the page policy unchanged and never broken; the same odd stored text through the screen, Print, both files, the file names and the notice, nothing in a name turning the words around it | `npm run build && npm run check-downloads` |
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 
 ## Licence
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE). Contributions need the CLA — see
 [CONTRIBUTING.md](CONTRIBUTING.md). The fonts keep their own licence, the SIL
-Open Font License 1.1 (`src/fonts/*-OFL.txt`).
+Open Font License 1.1 (`src/fonts/*-OFL.txt`, `src/files/fonts/DMSans-OFL.txt`).
+The file makers use jsPDF and fflate, both MIT.
 
 ---
 

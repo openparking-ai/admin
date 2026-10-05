@@ -24,8 +24,19 @@ const policyOnlyWhenBuilt = {
   transformIndexHtml: (html) => html.replace(/\s*<meta\s+http-equiv="Content-Security-Policy"[^>]*\/>/, ''),
 };
 
+// jsPDF can turn a web page or a drawing into a PDF with three optional
+// libraries it loads on its own. These screens never ask it to, so none of the
+// three is built into the site: asked for, each is a module that refuses.
+const LEFT_OUT = ['html2canvas', 'dompurify', 'canvg'];
+const leaveOutPdfExtras = {
+  name: 'leave-out-pdf-extras',
+  enforce: 'pre',
+  resolveId: (id) => (LEFT_OUT.includes(id) ? `\0left-out:${id}` : null),
+  load: (id) => (id.startsWith('\0left-out:') ? `throw new Error(${JSON.stringify(`${id.slice(10)} is left out of this site`)});` : null),
+};
+
 export default defineConfig({
-  plugins: [react(), policyOnlyWhenBuilt],
+  plugins: [react(), policyOnlyWhenBuilt, leaveOutPdfExtras],
   // Relative asset paths, so the built site works from any folder a garage
   // serves it from.
   base: './',

@@ -168,4 +168,26 @@ export default {
 
   'print.button': 'Print',
   'print.printed': 'Printed {time}',
+  'print.asOf': 'This list is as of {time}.',
+
+  'download.excel': 'Download Excel',
+  'download.pdf': 'Download PDF',
+  'download.reading': 'Getting the latest list…',
+  'download.making': 'Making the file…',
+  'download.missingLetters': 'The PDF could not show these letters: {letters}. The Excel file has them all.',
+  'download.missingMore': 'and {count} more',
+  'download.hiddenLeftOut': 'Some names held hidden characters, which were left out of the file.',
+  'download.cutAtLimit': 'Some text was longer than an Excel cell can hold (32,767 characters), so the Excel file has it cut at that limit.',
+
+  'file.downloaded': 'Downloaded {time}',
+  'file.zone': 'Times are {zone}.',
+  'file.meanings': 'What each column means',
+  'file.page': 'Page {page} of {pages}',
+  'file.computer': 'Lane computer',
+  'file.computer.about': 'One computer of this lane, or a note that the lane has none.',
+  'file.state': 'How it is doing',
+  'file.state.about': 'Working, not heard from lately, never heard from, or its access cancelled.',
+  'file.lastHeard': 'Last heard from',
+  'file.lastHeard.about': "When this computer was last heard from, in the garage's own time.",
+  'file.working': 'Working, last heard from {time}',
 };
