@@ -8,13 +8,15 @@ import QuickFind from './QuickFind.jsx';
 import Icon from './Icon.jsx';
 import Logo from './Logo.jsx';
 import SignIn from './SignIn.jsx';
-import { GaragePicker, ProblemNote } from './parts.jsx';
+import { GaragePicker, ProblemNote, Segmented } from './parts.jsx';
 import Home from './Home.jsx';
 import FieldName from './FieldName.jsx';
 import LanesPage from './LanesPage.jsx';
 import InsidePage from './InsidePage.jsx';
+import SetupPage from './SetupPage.jsx';
+import ChangesPage from './ChangesPage.jsx';
 
-const PAGE_BODIES = { home: Home, lanes: LanesPage, inside: InsidePage };
+const PAGE_BODIES = { home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage };
 
 function useHashPage() {
   const [page, setPage] = useState(() => pageForHash(window.location.hash));
@@ -294,28 +296,6 @@ export default function App({ theme, storage, client }) {
           {content}
         </main>
       </div>
-    </div>
-  );
-}
-
-function Segmented({ label, value, options, onChange, name }) {
-  return (
-    <div className="segmented" role="radiogroup" aria-label={label} data-control={name}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={o.value === value}
-          title={o.hint}
-          data-value={o.value}
-          className="segment"
-          onClick={() => onChange(o.value)}
-        >
-          {o.icon ? <Icon name={o.icon} /> : null}
-          <span>{o.text}</span>
-        </button>
-      ))}
     </div>
   );
 }

@@ -55,9 +55,11 @@ import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { LANE_QUIET_MINUTES } from '../src/settings.js';
 import { A_TEXT, startStub } from '../test/stub-platform.js';
-import { GARAGE, LONG_NAME, TEXT_CASES, insideData, lanesData, manyStays } from '../test/files-fixtures.js';
+import { GARAGE, LONG_NAME, TEXT_CASES, changesData, insideData, lanesData, manyStays } from '../test/files-fixtures.js';
 import { PYTHON, count, garageClock, plain, readBack, tableOf, zoneSaid } from './files/read-back.js';
 import { oddTextWalk } from './files/odd-text-browser.js';
+import { PAGES, hashFor } from '../src/pages.js';
+import { COLUMNS } from '../src/files/model.js';
 import { CASES, CASE_COUNTS, UNICODE } from './files/odd-text.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -86,6 +88,8 @@ HARBOR.name = GARAGE.name;
 HARBOR.timezone = GARAGE.timezone;
 A.open[HARBOR.id] = insideData().sessions;
 A.lanes[HARBOR.id] = lanesData(new Date());
+// The change log (U4): the fixture's lines, on this garage, oldest first as the stand-in keeps them.
+stub.setChanges(A, changesData(new Date()).changes.map((l) => ({ ...l, garage_id: l.garage_id === GARAGE.id ? HARBOR.id : l.garage_id })).reverse());
 const TZ = HARBOR.timezone;
 
 const server = await preview({
@@ -182,7 +186,7 @@ async function signInAndChoose(page) {
 }
 
 async function goTo(page, list) {
-  await page.click(`.nav-item[href="#/${list === 'inside' ? 'cars-inside' : 'lanes'}"]`);
+  await page.click(`.nav-item[href="${hashFor(PAGES.find((p) => p.id === list))}"]`);
   await page.waitForSelector(`[data-list="${list}"] [data-action="download-excel"]`);
 }
 
@@ -223,7 +227,16 @@ const screenLanes = (page) =>
       devices: [...tr.cells[2].querySelectorAll('[data-device]')].map((li) => ({ id: li.dataset.device, name: li.querySelector('.device-name').textContent })),
       none: tr.cells[2].querySelector('[data-device]') ? null : tr.cells[2].textContent,
       reader: tr.cells[3].textContent,
+      open: tr.cells[4].textContent,
     })),
+  );
+
+const screenChanges = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('[data-list="changes"] tbody tr')].map((tr) => {
+      const td = [...tr.cells].map((c) => c.textContent);
+      return { time: tr.cells[0].dataset.time, who: td[1], what: td[2], before: td[3], after: td[4], outcome: td[5] };
+    }),
   );
 
 const chunks = () => ({
@@ -257,7 +270,7 @@ try {
     await page.click(`[data-control="language"] [data-value="${language}"]`);
     for (const look of ['day', 'night']) {
       await page.click(`[data-control="theme"] [data-value="${look}"]`);
-      for (const list of ['inside', 'lanes']) {
+      for (const list of ['inside', 'lanes', 'changes']) {
         await goTo(page, list);
         const tag = `${list}-${language}-${look}`;
         const excel = await download(page, 'excel', tag);
@@ -266,7 +279,7 @@ try {
           check(after.excel && !after.pdf, `9 loaded only when asked: Download Excel asked for its maker (${after.excel}), and not the PDF one (${after.pdf})`);
         }
         const pdf = await download(page, 'pdf', tag);
-        const screen = list === 'inside' ? await screenInside(page) : await screenLanes(page);
+        const screen = await { inside: screenInside, lanes: screenLanes, changes: screenChanges }[list](page);
         made.push({ list, language, look, excel, pdf, screen });
       }
     }
@@ -401,7 +414,11 @@ try {
   for (const m of made) {
     const w = WORDS[m.language];
     const where = `${m.list} (${m.language}, ${m.look})`;
-    const names = (m.list === 'inside' ? ['inside.plate', 'inside.ticket', 'inside.letIn', 'inside.lane', 'inside.confirmed'] : ['lanes.lane', 'lanes.direction', 'file.computer', 'file.state', 'file.lastHeard', 'lanes.reader']).map((k) => w[k]);
+    const names = {
+      inside: ['inside.plate', 'inside.ticket', 'inside.letIn', 'inside.lane', 'inside.confirmed'],
+      lanes: ['lanes.lane', 'lanes.direction', 'file.computer', 'file.state', 'file.lastHeard', 'lanes.reader', 'lanes.open'],
+      changes: ['changes.when', 'changes.who', 'changes.what', 'changes.before', 'changes.after', 'changes.outcome'],
+    }[m.list].map((k) => w[k]);
     const book = back[m.excel.path];
     const [sheet, meanings] = book.sheets;
     const { rows, lines, heading } = tableOf(sheet, names);
@@ -411,12 +428,14 @@ try {
     let expected;
     if (m.list === 'inside') {
       expected = m.screen.map((s) => [s.plate, s.ticket, garageClock(s.time, TZ), s.lane, s.confirmed]);
+    } else if (m.list === 'changes') {
+      expected = m.screen.map((s) => [garageClock(s.time, TZ), s.who, s.what, s.before, s.after, s.outcome]);
     } else {
       const devices = Object.fromEntries(A.lanes[HARBOR.id].flatMap((l) => l.devices).map((d) => [d.id, d]));
       expected = m.screen.flatMap((l) =>
         l.none !== null
-          ? [[l.lane, l.direction, l.none, '–', '–', l.reader]]
-          : l.devices.map((d) => [l.lane, l.direction, d.name, [m.excel.from, m.excel.to].map((t) => stateAt(devices[d.id], m.language, t)), devices[d.id].last_seen_at ? garageClock(devices[d.id].last_seen_at, TZ) : '–', l.reader]),
+          ? [[l.lane, l.direction, l.none, '–', '–', l.reader, l.open]]
+          : l.devices.map((d) => [l.lane, l.direction, d.name, [m.excel.from, m.excel.to].map((t) => stateAt(devices[d.id], m.language, t)), devices[d.id].last_seen_at ? garageClock(devices[d.id].last_seen_at, TZ) : '–', l.reader, l.open]),
       );
     }
     const wrong = [];
@@ -430,8 +449,14 @@ try {
     check(heading !== -1 && rows.length === expected.length && wrong.length === 0, `1 the file is the list: ${where} Excel: ${rows.length} rows of the screen's ${expected.length}, ${expected.flat().length - wrong.length} of ${expected.flat().length} cells equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
     const pdf = back[m.pdf.path].pages;
     const pdfText = plain(pdf.map((p) => p.text).join(' '));
-    const items = m.list === 'inside' ? m.screen.map((s) => s.plate).filter((p) => p !== '–') : m.screen.flatMap((l) => l.devices.map((d) => d.name));
+    // The change log names a lane or computer again in what changed: there, each at least once.
+    const items = { inside: () => m.screen.map((s) => s.plate).filter((p) => p !== '–'), lanes: () => m.screen.flatMap((l) => l.devices.map((d) => d.name)), changes: () => [] }[m.list]();
     const notOnce = items.filter((p) => count(pdfText, p) !== 1 && !items.some((o) => o !== p && o.includes(p)));
+    if (m.list === 'changes') {
+      const whats = m.screen.map((s) => s.when ?? s.what);
+      const absent = whats.filter((x) => !pdfText.includes(plain(x)));
+      check(absent.length === 0, `1 the file is the list: ${where} PDF: ${whats.length - absent.length} of ${whats.length} lines' "what" on a page${absent.length ? `; not found: ${absent.join(' | ')}` : ''}`);
+    }
     const offPage = pdf.flatMap((p) => p.off_page);
     check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where} PDF: ${items.length - notOnce.length} of ${items.length} on a page exactly once; off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
 
@@ -446,7 +471,8 @@ try {
 
     // 3
     const texts = rows.flat().filter((c) => c?.kind === 'text').map((c) => c.value);
-    const cases = m.list === 'inside' ? Object.values(TEXT_CASES) : [TEXT_CASES.at];
+    // The change log keeps no stored text in a cell of its own: for it, the formula count alone.
+    const cases = { inside: Object.values(TEXT_CASES), lanes: [TEXT_CASES.at], changes: [] }[m.list];
     const lost = cases.filter((v) => !texts.includes(v));
     check(lost.length === 0 && book.formulas === 0, `3 text stays text: ${where}: ${cases.length - lost.length} of ${cases.length} back as text; formulas: ${book.formulas}`);
 
@@ -464,7 +490,7 @@ try {
 
     // 12
     const described = names.filter((nm, i) => {
-      const key = (m.list === 'inside' ? ['inside.plate', 'inside.ticket', 'inside.letIn', 'inside.lane', 'inside.confirmed'] : ['lanes.lane', 'lanes.direction', 'file.computer', 'file.state', 'file.lastHeard', 'lanes.reader'])[i];
+      const key = COLUMNS[m.list][i].key;
       return meanings?.rows.some((r) => r?.[0]?.value === nm && r?.[1]?.value === w[`${key}.about`]) && plain(pdf[0].text).includes(plain(`${nm}: ${w[`${key}.about`]}`));
     });
     check(described.length === names.length, `12 descriptions: ${where}: ${described.length} of ${names.length} columns described in both files`);

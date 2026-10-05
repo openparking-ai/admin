@@ -16,7 +16,8 @@
 //   empty    the sentence the screen shows when the list has no rows, or null
 
 import { insideWords } from '../inside.js';
-import { directionKey } from '../lanes.js';
+import { directionKey, openText } from '../lanes.js';
+import { changeText, outcomeWords, piecesText, whatPieces, whoPieces } from '../changes.js';
 import { garageDateTime, garageTime, heardFrom } from '../time.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
@@ -37,12 +38,21 @@ export const COLUMNS = {
     { key: 'inside.confirmed', width: 0.16 },
   ],
   lanes: [
-    { key: 'lanes.lane', width: 0.16 },
-    { key: 'lanes.direction', width: 0.1 },
-    { key: 'file.computer', width: 0.18 },
-    { key: 'file.state', width: 0.24 },
-    { key: 'file.lastHeard', width: 0.18 },
-    { key: 'lanes.reader', width: 0.14 },
+    { key: 'lanes.lane', width: 0.14 },
+    { key: 'lanes.direction', width: 0.08 },
+    { key: 'file.computer', width: 0.15 },
+    { key: 'file.state', width: 0.19 },
+    { key: 'file.lastHeard', width: 0.14 },
+    { key: 'lanes.reader', width: 0.1 },
+    { key: 'lanes.open', width: 0.2 },
+  ],
+  changes: [
+    { key: 'changes.when', width: 0.15 },
+    { key: 'changes.who', width: 0.17 },
+    { key: 'changes.what', width: 0.18 },
+    { key: 'changes.before', width: 0.18 },
+    { key: 'changes.after', width: 0.18 },
+    { key: 'changes.outcome', width: 0.14 },
   ],
 };
 
@@ -127,14 +137,16 @@ export function lanesFile({ t, language, garage, data, readAt }) {
   const rows = data.flatMap((lane) => {
     const start = [{ text: lane.name }, { text: t(directionKey(lane)) }];
     const reader = { text: lane.reader ? t('lanes.readerYes') : t('lanes.readerNo') };
+    const open = { text: openText(t, lane, garage, language, readAt) };
     const devices = lane.devices ?? [];
-    if (devices.length === 0) return [[...start, { text: t('lane.noComputer') }, { text: NOTHING }, { text: NOTHING }, reader]];
+    if (devices.length === 0) return [[...start, { text: t('lane.noComputer') }, { text: NOTHING }, { text: NOTHING }, reader, open]];
     return devices.map((d) => [
       ...start,
       { text: d.name },
       { text: computerState(t, d, garage, language, readAt) },
       d.last_seen_at ? time(d.last_seen_at, garage, language) : { text: NOTHING },
       reader,
+      open,
     ]);
   });
   return {
@@ -148,7 +160,32 @@ export function lanesFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile };
+/** The change log: one row per line, newest first, as many as the screen shows. */
+export function changesFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'changes', garage, language, readAt);
+  const rows = data.changes.map((line) => {
+    const { before, after } = changeText(t, line, garage, language);
+    return [
+      time(line.at, garage, language),
+      { text: piecesText(whoPieces(t, line)) || NOTHING },
+      { text: piecesText(whatPieces(t, line)) },
+      { text: before },
+      { text: after },
+      { text: outcomeWords(t, line) },
+    ];
+  });
+  return {
+    list: 'changes',
+    title,
+    garage: garage.name,
+    lines,
+    columns: columnsOf(t, 'changes'),
+    rows,
+    empty: rows.length === 0 ? t('changes.none') : null,
+  };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;

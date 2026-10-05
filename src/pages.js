@@ -6,6 +6,7 @@
 
 export const PAGES = [
   { id: 'home', path: '/', icon: 'home' },
+  { id: 'setup', path: '/setup', icon: 'check' },
   { id: 'garages', path: '/garages', icon: 'garage' },
   { id: 'lanes', path: '/lanes', icon: 'lane' },
   { id: 'readers', path: '/card-readers', icon: 'card' },
@@ -13,6 +14,7 @@ export const PAGES = [
   { id: 'taxes', path: '/taxes', icon: 'tax' },
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
   { id: 'inside', path: '/cars-inside', icon: 'car' },
+  { id: 'changes', path: '/change-log', icon: 'log' },
 ];
 
 export const HOME = PAGES[0];

@@ -63,6 +63,7 @@ import {
   TEXT_CASES,
   insideData,
   lanesData,
+  changesData,
   manyStays,
 } from '../test/files-fixtures.js';
 
@@ -113,7 +114,7 @@ try {
   const made = [];
   for (const language of ['en', 'es']) {
     const t = words(language);
-    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()]]) {
+    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()], ['changes', changesData()]]) {
       for (const format of ['xlsx', 'pdf']) made.push({ language, list, format, data, t, ...build(list, format, { language, data }) });
     }
   }
@@ -138,7 +139,8 @@ try {
           if (!cell || cell.kind !== kind || (text !== null && cell.value !== text)) wrong.push(`row ${i + 1} column ${c + 1}: ${JSON.stringify(cell)}`);
         }),
       );
-      const listCount = m.list === 'inside' ? m.data.sessions.length : m.file.rows.length;
+      // Counted from the list the platform gave, never from the file's own rows.
+      const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
       check(heading !== -1 && rows.length === listCount && wrong.length === 0, `1 the file is the list: ${where}: ${rows.length} rows read back of the list's ${listCount}, every cell equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
       if (m.list === 'inside') {
         const independent = insideRows(m.data);
@@ -158,7 +160,9 @@ try {
       check(sheet.frozen === `A${heading + 2}`, `${where}: the heading row is frozen (${sheet.frozen}, heading on row ${heading + 1})`);
       // 3
       const texts = cells.filter((c) => c.kind === 'text').map((c) => c.value);
-      const cases = m.list === 'inside' ? [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at] : [TEXT_CASES.at];
+      // The change log keeps no stored text in a cell of its own -- every name
+      // sits inside a sentence -- so for it this is the formula count alone.
+      const cases = { inside: [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at], lanes: [TEXT_CASES.at], changes: [] }[m.list];
       const lost = cases.filter((v) => !texts.includes(v));
       check(lost.length === 0 && got.formulas === 0, `3 text stays text: ${where}: ${cases.length - lost.length} of ${cases.length} come back as text, exactly (${cases.join(', ')}); formulas in the workbook: ${got.formulas}${lost.length ? `; not text: ${lost.join(', ')}` : ''}`);
       // 4
@@ -172,9 +176,16 @@ try {
       const all = pages.join(' ');
       const offPage = got.pages.flatMap((p) => p.off_page);
       // 1
-      const items = m.list === 'inside' ? m.data.sessions.map((s) => [s.plate, s.plate_region].filter(Boolean).join(' · ') || null).filter(Boolean) : m.data.flatMap((l) => (l.devices ?? []).map((d) => d.name));
-      const notOnce = items.filter((p) => count(all, p) !== 1 && !items.some((o) => o !== p && o.includes(p)));
-      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${m.list === 'inside' ? 'plates' : 'lane computers'} on a page exactly once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
+      const items =
+        m.list === 'inside'
+          ? m.data.sessions.map((s) => [s.plate, s.plate_region].filter(Boolean).join(' · ') || null).filter(Boolean)
+          : m.list === 'changes'
+            ? m.data.changes.map((l) => l.subject.name).filter((n) => n !== GARAGE.name && n !== TEXT_CASES.at)
+            : m.data.flatMap((l) => (l.devices ?? []).map((d) => d.name));
+      // A change line names its lane or computer, and again in what changed:
+      // there, every line's is on a page at least once.
+      const notOnce = items.filter((p) => (m.list === 'changes' ? count(all, p) < 1 : count(all, p) !== 1 && !items.some((o) => o !== p && o.includes(p))));
+      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${{ inside: 'plates', lanes: 'lane computers', changes: 'lanes and computers changed' }[m.list]} on a page ${m.list === 'changes' ? 'at least' : 'exactly'} once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
       // 2 + 4
       check(all.includes(plain(zone)), `2 garage time: ${where}: the zone sentence "${zone}"`);
       check(all.includes(GARAGE.name) && m.missing.length === 0, `4 every character: ${where}: "${GARAGE.name}" comes back exactly; letters the font could not draw: ${m.missing.length}`);

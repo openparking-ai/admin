@@ -546,6 +546,25 @@ const CONTROLS = [
     run: CHECK_FILES,
     names: ['FAIL 10 the file name (xlsx): "Lanes and equipment - ABCDEFGH - 2026-03-10 1141.xlsx"', 'FAIL odd text: garage name × file name (pdf)'],
   },
+  {
+    check: 'U4 no technical words: "device" in a new entry',
+    plant: { file: 'src/i18n/en.js', anchor: "  \"lanes.connect\": \"Connect a lane computer\",", with: "  \"lanes.connect\": \"Connect a lane device\"," },
+    run: ['node', 'scripts/check-plain-words.js'],
+    names: ['en: lanes.connect: "device"'],
+  },
+  {
+    check: "U4 a setup step's description missing in one language",
+    plant: { file: 'src/i18n/es.js', anchor: "  \"setup.step.rates.about\": \"Lo que se cobra a los conductores, vigente desde hoy.\",\n", with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: setup.step.rates.about (Setup): missing'],
+  },
+  {
+    check: 'U4 the change log file is the list: a line dropped',
+    plant: { file: 'src/files/model.js', anchor: '  const rows = data.changes.map((line) => {', with: '  const rows = data.changes.slice(1).map((line) => {' },
+    run: CHECK_FILES,
+    names: ['FAIL 1 the file is the list: changes xlsx (en)'],
+  },
+
 ];
 
 const BROWSER_CONTROLS = [
@@ -567,8 +586,8 @@ const BROWSER_CONTROLS = [
     plant: [
       {
         file: 'src/api.js',
-        anchor: "named === code)?.[2] ?? 'unexpected');",
-        with: "named === code)?.[2] ?? code ?? 'unexpected');",
+        anchor: "BY_STATUS[res.status] : undefined) ?? 'unexpected');",
+        with: "BY_STATUS[res.status] : undefined) ?? code ?? 'unexpected');",
       },
       {
         file: 'src/parts.jsx',
@@ -942,6 +961,44 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: CHECK_DOWNLOADS,
     names: ['FAIL odd text: garage name × file name (pdf) as shown', 'drawn before the'],
+  },
+  {
+    check: 'U4-1 a setup step worked out in the admin, not read',
+    plant: { file: 'src/SetupPage.jsx', anchor: "data-done={step.done ? 'yes' : 'no'}", with: "data-done={(step.key === 'lanes' ? step.facts.entry_lanes > 0 && step.facts.exit_lanes > 0 : step.done) ? 'yes' : 'no'}" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Setup: the page shows each step done as the platform says (every done reversed by the platform)', 'differs at lanes'],
+  },
+  {
+    check: 'U4-4 the connection code written to browser storage',
+    plant: { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: "          setCode(made.code);\n          localStorage.setItem('openparking-admin.lastCode', made.code);\n" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL connection code: browser storage holds only the two keys'],
+  },
+  {
+    check: 'U4-4 the connection code left on the page after the panel closes',
+    plant: [
+      { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: '          setCode(made.code);\n          window.__code = made.code;\n' },
+      { file: 'src/LanesPage.jsx', anchor: "          {t('lanes.closingNotYet')}\n", with: "          {t('lanes.closingNotYet')}\n          <span hidden>{window.__code}</span>\n" },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL connection code: gone from the page when the panel closes'],
+  },
+  {
+    check: 'U4-5 the last open lane closed without its warning',
+    plant: { file: 'src/LanesPage.jsx', anchor: "      if (p?.kind === 'lastOpenLane' && !override) setLastOpen(true);", with: "      if (p?.kind === 'lastOpenLane' && !override) send(true);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: the last open way in warns'],
+  },
+  {
+    check: 'U4 a confirmation in a browser dialog',
+    plant: { file: 'src/LanesPage.jsx', anchor: "        onClick={async () => {\n          setProblem(null);\n          try {\n            await client.removeLane(lane.id);", with: "        onClick={async () => {\n          if (!window.confirm(t('lanes.removeAsk'))) return;\n          setProblem(null);\n          try {\n            await client.removeLane(lane.id);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lanes and equipment: every confirmation was on the page, none in a browser dialog'],
   },
 ];
 

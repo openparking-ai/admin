@@ -38,3 +38,39 @@ export function laneWords(t, lane, garage, language, now) {
 }
 
 export const directionKey = (lane) => (lane.direction === 'exit' ? 'lane.out' : 'lane.in');
+
+// ── Closing a lane (U4) ─────────────────────────────────────────────────────
+
+/** Why a lane is closed, as the platform takes it: full lets pass and monthly holders in. */
+export const CLOSE_REASONS = ['full', 'everyone'];
+
+/** The sample messages for each reason, by dictionary key: each exists in both languages. */
+export const SAMPLE_KEYS = {
+  full: ['lanes.sample.full1', 'lanes.sample.full2'],
+  everyone: ['lanes.sample.everyone1', 'lanes.sample.everyone2', 'lanes.sample.everyone3'],
+};
+
+/**
+ * A lane's open or closed state, as pieces of one line: the reason, the
+ * owner's message and who closed it and when. `stored` pieces are text kept
+ * as it was typed (the message, an email, a key's name), which the screen
+ * keeps apart on its own; `text` joins them for a file. One function for the
+ * screen and the file, so the two say the same.
+ */
+export function openPieces(t, lane, garage, language, now) {
+  const closed = lane.closed;
+  if (!closed) return [{ words: t('lanes.isOpen') }];
+  const time = garageTime(closed.at, garage.timezone, language, now);
+  const [before, after] = t(closed.by?.kind === 'key' ? 'lanes.closedByKey' : 'lanes.closedBy', { time }).split('{who}');
+  return [
+    { words: t(closed.reason === 'full' ? 'lanes.closedFull' : 'lanes.closedEveryone'), tag: true },
+    { words: ' “' },
+    { stored: closed.message },
+    { words: `” ${before}` },
+    { stored: closed.by?.name ?? '' },
+    { words: after ?? '' },
+  ];
+}
+
+export const openText = (t, lane, garage, language, now) =>
+  openPieces(t, lane, garage, language, now).map((p) => (p.tag ? `${p.words} ` : p.words ?? p.stored)).join('').replace(/\s+/g, ' ').trim();

@@ -14,7 +14,11 @@
 
 const BASE = '/api/v1';
 
-export const PROBLEM_KINDS = ['refused', 'tooMany', 'busy', 'notSetUp', 'wrongPlace', 'incomplete', 'ended', 'unreachable', 'unexpected'];
+export const PROBLEM_KINDS = [
+  'refused', 'tooMany', 'busy', 'notSetUp', 'wrongPlace', 'incomplete', 'ended', 'unreachable', 'unexpected',
+  // U4: the setup changes' own refusals.
+  'laneName', 'laneMessage', 'laneHasHistory', 'lastOpenLane', 'laneAlreadyOpen', 'notFound', 'notKept',
+];
 
 /**
  * The platform's named answers, each with its own words: the status and the
@@ -27,7 +31,21 @@ const NAMED = [
   [409, 'sign_in_not_configured', 'notSetUp'],
   [403, 'origin_refused', 'wrongPlace'],
   [400, 'sign_in_unreadable', 'incomplete'],
+  // U4, as the platform's src/lanes.js names them.
+  [400, 'lane_name_refused', 'laneName'],
+  [400, 'lane_message_refused', 'laneMessage'],
+  [409, 'lane_has_history', 'laneHasHistory'],
+  [409, 'last_open_lane', 'lastOpenLane'],
+  [409, 'lane_already_open', 'laneAlreadyOpen'],
+  [404, 'lane_not_found', 'notFound'],
 ];
+
+/**
+ * A refusal with no code that these screens still meet by status alone: a
+ * lane, computer or garage that is no longer there (404), and a change the
+ * platform would not keep as asked (400).
+ */
+const BY_STATUS = { 404: 'notFound', 400: 'notKept' };
 
 /**
  * What a gateway in front of the platform answers when it cannot reach it:
@@ -111,7 +129,10 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       throw new Problem(kind ?? 'ended');
     }
     if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');
-    if (!res.ok) throw new Problem(NAMED.find(([status, named]) => status === res.status && named === code)?.[2] ?? 'unexpected');
+    if (!res.ok) {
+      const named = NAMED.find(([status, name]) => status === res.status && name === code)?.[2];
+      throw new Problem(named ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
+    }
     if (data === undefined) throw new Problem('unexpected');
     return data;
   }
@@ -171,6 +192,40 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     setLanguage: async (language) => object(await request('/auth/language', { method: 'PUT', body: { language } })),
     garages: async () => list(await request('/garages'), 'garages'),
     lanes: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/lanes`), 'lanes'),
+    /** The garage's setup checklist, as the platform works it out: never worked out here. */
+    setup: async (garageId) => {
+      const data = object(object(await request(`/garages/${encodeURIComponent(garageId)}/setup`)).setup);
+      if (!Array.isArray(data.steps)) throw new Problem('unexpected');
+      return data;
+    },
+    /** One page of the change log, newest first; `after` is the `next` of the page before: a line's id, in the path. */
+    changes: async (garageId, after = null) => {
+      const page = after ? `/${encodeURIComponent(after)}` : '';
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/changes${page}`));
+      if (!Array.isArray(data.changes)) throw new Problem('unexpected');
+      return { changes: data.changes, next: typeof data.next === 'string' ? data.next : null };
+    },
+    /** Whether the garage takes drivers without a pass: true or false, never back to unanswered. */
+    setDrivers: async (garageId, takesAny) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { transient_available: takesAny === true } })),
+    addLane: async (garageId, name, direction) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/lanes`, { method: 'POST', body: { name, direction } })),
+    renameLane: async (laneId, name) => object(await request(`/lanes/${encodeURIComponent(laneId)}`, { method: 'PATCH', body: { name } })),
+    removeLane: async (laneId) => request(`/lanes/${encodeURIComponent(laneId)}`, { method: 'DELETE' }),
+    closeLane: async (laneId, { reason, message, override = false }) =>
+      object(await request(`/lanes/${encodeURIComponent(laneId)}/close`, { method: 'POST', body: { reason, message, ...(override ? { override: true } : {}) } })),
+    reopenLane: async (laneId) => object(await request(`/lanes/${encodeURIComponent(laneId)}/reopen`, { method: 'POST' })),
+    /**
+     * Connect a lane computer. The answer holds its connection code, shown
+     * once by the screen and kept nowhere: not here, not in storage, not in
+     * the address.
+     */
+    connectComputer: async (laneId, name) => {
+      const data = object(await request(`/lanes/${encodeURIComponent(laneId)}/devices`, { method: 'POST', body: { name } }));
+      if (typeof data.token !== 'string' || !data.device) throw new Problem('unexpected');
+      return { device: data.device, code: data.token };
+    },
+    cancelComputer: async (deviceId) => object(await request(`/devices/${encodeURIComponent(deviceId)}/revoke`, { method: 'POST' })),
     carsInside: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/sessions/open`));
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');

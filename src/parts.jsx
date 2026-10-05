@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { STALE, problemKey } from './api.js';
 import { garageDateTime } from './time.js';
 import FieldName from './FieldName.jsx';
+import Icon from './Icon.jsx';
 
 /** Several garages: a plain list to pick from. */
 export function GaragePicker({ t, garages, onChoose }) {
@@ -140,6 +141,32 @@ export function PrintHead({ t, garage, language, printedAt, readAt }) {
       </p>
       <p>{t('print.printed', { time: garageDateTime(printed, garage.timezone, language) })}</p>
       {old ? <p data-notice="as-of">{t('print.asOf', { time: garageDateTime(readAt, garage.timezone, language) })}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * A row of choices, one of them chosen. Always inside a <div className="chooser">
+ * with its <FieldName> first (scripts/check-descriptions.js holds it to that).
+ */
+export function Segmented({ label, value, options, onChange, name }) {
+  return (
+    <div className="segmented" role="radiogroup" aria-label={label} data-control={name}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          title={o.hint}
+          data-value={o.value}
+          className="segment"
+          onClick={() => onChange(o.value)}
+        >
+          {o.icon ? <Icon name={o.icon} /> : null}
+          <span>{o.text}</span>
+        </button>
+      ))}
     </div>
   );
 }
