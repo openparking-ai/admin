@@ -82,7 +82,16 @@ The build publishes no source maps.
   column means. The Excel file holds the garage's clock in real date-time cells,
   every name, plate and ticket as text, and no formula; the PDF is Letter size in
   DM Sans (static Regular and Bold made from the variable font, in
-  `src/files/fonts/` with the licence). The file is in the language on screen. A
+  `src/files/fonts/` with the licence). Both files carry the same text of a
+  stored name (`src/files/text.js`): tab, line breaks and every other Unicode
+  space become a plain space; controls, format characters, noncharacters and
+  lone surrogates are left out of both (the Mac's Numbers cuts a cell at the
+  first one), and the screen says hidden characters were left out of the file.
+  The PDF prints only characters its font has a real shape for, and names any
+  letter it could not draw. The checks build their odd-text cases from
+  Unicode's own tables (`scripts/files/unicode-cases.py`, Unicode 15.0.0) and
+  read every Excel file back with openpyxl, LibreOffice (in CI) and, on a Mac,
+  Numbers (`SPREADSHEET_READERS`). The file is in the language on screen. A
   read that fails says so and makes no file; signed out meanwhile, no file is
   saved. Lanes and equipment's file has one row per lane computer, its state
   worded with a time ("Working, last heard from 10:41 AM"), never "a minute ago".

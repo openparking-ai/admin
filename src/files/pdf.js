@@ -10,10 +10,10 @@
 // means". A row that cannot fit on an empty page is carried on, never retried,
 // so making a file always ends.
 //
-// Only characters the font draws reach the PDF (src/files/text.js). A letter
-// it cannot draw is named in `missing`; a control or other hidden character is
-// left out and `hidden` says so. The screen tells the owner both, and that the
-// Excel file has them.
+// The PDF carries the same text as the Excel file (src/files/text.js, `kept`),
+// and of that only characters the font really draws reach the PDF. A letter
+// it cannot draw is named in `missing`; a hidden character left out is said by
+// `hidden`. The screen tells the owner both.
 
 import { jsPDF } from 'jspdf';
 import { printable, visibleOnly } from './text.js';
@@ -32,6 +32,24 @@ const NAME_LINES = 2; // the garage's name at the top of every page after the fi
 const TITLE_LIMIT = 120; // characters of the garage's name in the file's title
 const INK = 20;
 const RULE = 170;
+
+const SPACE_LIKE = /\p{White_Space}/u;
+
+/**
+ * Whether the font gives a character a real shape, for a font jsPDF has read:
+ * its character map names a glyph other than glyph 0 (the font's "no such
+ * character" box, which jsPDF also reads for the map's end marker, U+FFFF), and
+ * that glyph has an outline, unless the character is a space.
+ */
+export function fontDraws(font) {
+  const codeMap = font.metadata?.cmap?.unicode?.codeMap ?? {};
+  const loca = font.metadata?.loca;
+  return (ch) => {
+    const glyph = codeMap[ch.codePointAt(0)];
+    if (!glyph) return false;
+    return SPACE_LIKE.test(ch) || loca.lengthOf(glyph) > 0;
+  };
+}
 
 /**
  * The PDF file's bytes; the letters the font could not draw; and whether any
@@ -53,11 +71,8 @@ export function makePdf(file, { fonts, meaningsTitle, pageWords }) {
 
   const missing = new Set();
   let hidden = false;
-  const drawable = (() => {
-    doc.setFont('DMSans', 'normal');
-    const codeMap = doc.internal.getFont().metadata?.cmap?.unicode?.codeMap ?? {};
-    return (ch) => codeMap[ch.codePointAt(0)] !== undefined;
-  })();
+  doc.setFont('DMSans', 'normal');
+  const drawable = fontDraws(doc.internal.getFont());
   /** What of `text` the PDF prints; anything left out is noted for the screen. */
   const print = (text) => {
     const made = printable(text, drawable);

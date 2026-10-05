@@ -173,7 +173,7 @@ export default {
   'download.making': 'Preparando el archivo…',
   'download.missingLetters': 'El PDF no pudo mostrar estas letras: {letters}. El archivo de Excel las tiene todas.',
   'download.missingMore': 'y {count} más',
-  'download.hiddenLeftOut': 'Algunos nombres tenían caracteres ocultos que no se pueden imprimir, así que no aparecen en el PDF; el archivo de Excel los tiene completos.',
+  'download.hiddenLeftOut': 'Algunos nombres tenían caracteres ocultos, que se dejaron fuera del archivo.',
   'download.cutAtLimit': 'Algún texto era más largo de lo que cabe en una celda de Excel (32.767 caracteres), así que el archivo de Excel lo tiene cortado en ese límite.',
 
   'file.downloaded': 'Descargado el {time}',

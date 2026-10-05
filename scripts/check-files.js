@@ -28,8 +28,18 @@
 //  odd text  the class: every text the lists show x every case in
 //      scripts/files/odd-text.js x PDF, Excel, file name, PDF title and what
 //      the maker says it left out, both languages, both lists, 5 s a file.
+//      The cases come from Unicode's own tables (scripts/files/unicode-cases.py,
+//      pinned version), and every category gets a line of its own.
+//  R2-F1/F2  the U3 fix re-gate's cases (U3 fix round 2): both files carry the
+//      same text; a control, format character, noncharacter or lone surrogate
+//      is left out of both, never cutting the text after it, and the maker
+//      says so; read back by openpyxl, by each reader in SPREADSHEET_READERS
+//      (LibreOffice, Numbers: scripts/files/spreadsheet-readers.js) and by
+//      pypdf. And "the font can draw it" means a real shape: the PDF maker and
+//      the font file's own tables agree on every code.
 //
 //   node scripts/check-files.js           (FILES_PYTHON names the Python with the readers)
+//   SPREADSHEET_READERS=libreoffice,numbers node scripts/check-files.js   ...and those apps too
 //   node scripts/check-files.js --matrix FILE   ...and write every odd-text cell to FILE (JSON)
 
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -39,11 +49,13 @@ import { fileURLToPath } from 'node:url';
 import { translate } from '../src/i18n/index.js';
 import { FILES, fileName } from '../src/files/model.js';
 import { TIME_FORMATS, makeExcel } from '../src/files/excel.js';
-import { makePdf } from '../src/files/pdf.js';
+import { fontDraws, makePdf } from '../src/files/pdf.js';
+import { jsPDF } from 'jspdf';
 import { PYTHON, count, garageClock as clockIn, plain, readBack, tableOf, zoneSaid as zoneIn } from './files/read-back.js';
 import { makeFile } from './files/make-file.js';
 import { FONT, listOf, oddTextFiles } from './files/odd-text-files.js';
-import { FILE_SECONDS, garageLines, pdfExpect } from './files/odd-text.js';
+import { CASES, CASE_COUNTS, FILE_SECONDS, UNICODE, fontCharacters, garageLines, keptExpect, pdfExpect, unicodeDisagreements } from './files/odd-text.js';
+import { READERS, readSpreadsheets } from './files/spreadsheet-readers.js';
 import {
   GARAGE,
   LONG_NAME,
@@ -254,6 +266,86 @@ try {
     check(!made.timedOut, `F3 a garage name of ${n.toLocaleString('en-US')} characters: the PDF is made within ${FILE_SECONDS} s (${made.timedOut ? `not made${made.error ? `: ${made.error}` : ` in ${FILE_SECONDS} s`}` : `${made.ms} ms`})`);
   }
 
+  // ── R2-F2: "the font can draw it" means a real shape ──────────────────────
+  {
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    doc.addFileToVFS('DMSans-Regular.ttf', FONTS.regular);
+    doc.addFont('DMSans-Regular.ttf', 'DMSans', 'normal');
+    doc.setFont('DMSans', 'normal');
+    const draws = fontDraws(doc.internal.getFont());
+    const codes = [...Array.from({ length: 0x10000 }, (_, c) => c), 0x1d400, 0x1f697, 0xe0041, 0x10fffd];
+    const disagree = codes.filter((c) => draws(String.fromCodePoint(c)) !== FONT.has(c)).map((c) => `U+${c.toString(16).toUpperCase().padStart(4, '0')} (the maker says ${draws(String.fromCodePoint(c)) ? 'drawable' : 'not drawable'})`);
+    check(disagree.length === 0, `R2-F2 the font draws it: the PDF maker and DM Sans' own tables (cmap, loca: not glyph 0, an outline unless a space) agree on ${codes.length - disagree.length} of ${codes.length} codes${disagree.length ? `; disagree on ${disagree.slice(0, 8).join(', ')}` : ` (${FONT.size} drawable)`}`);
+    const bold = fontCharacters(readFileSync(join(ROOT, 'src', 'files', 'fonts', 'DMSans-Bold.ttf')));
+    const differ = [...new Set([...bold, ...FONT])].filter((c) => bold.has(c) !== FONT.has(c));
+    check(differ.length === 0, `R2-F2 the bold font draws exactly what the regular one does (the maker asks the regular one for both): ${differ.length} differ`);
+  }
+
+  // ── R2-F1/F2: the re-gate's cases, read back by every reader ──────────────
+  {
+    const disagree = unicodeDisagreements();
+    check(disagree.length === 0, `R2 the case set's characters mean the same to this node (Unicode ${process.versions.unicode}) as to the tables they come from (Unicode ${UNICODE})${disagree.length ? `; differ: ${disagree.slice(0, 8).join(', ')}` : ''}`);
+    const cases = [
+      { label: 'the check-10 garage (BEL and U+202E before its H)', garage: 'A/B:C*D?"E<F>|G\u0007\u202eH', lanes: [{ name: 'Entrada', computer: 'Computadora' }] },
+      { label: "garage 4's name (U+00AD)", garage: 'Otopark\u00ad Kadıköy Merkez', lanes: [{ name: 'Entrada', computer: 'Computadora' }] },
+      ...[['U+00AD', '\u00ad'], ['U+180E', '\u180e'], ['U+2060', '\u2060'], ['U+2061', '\u2061'], ['U+FFF9', '\ufff9'], ['U+E0041', '\u{e0041}']].map(([label, ch]) => ({ label: `a lane named "Gx<${label}>H2"`, garage: 'Garaje Norte', lanes: [{ name: `Gx${ch}H2`, computer: 'Computadora' }] })),
+      { label: 'a lane named only U+200B', garage: 'Garaje Norte', lanes: [{ name: '\u200b\u200b\u200b', computer: 'Computadora' }] },
+      { label: 'garage 7: U+FFFF in the name, a lane, a lane computer and a plate', garage: 'Garage\uffff Seven', lanes: [{ name: 'Lane\uffffA', computer: 'PC\uffff1' }], inside: [{ plate: 'AB\uffff12', region: null, ticket: null, lane: 'Lane\uffffA' }] },
+    ];
+    const made = [];
+    for (const [i, c] of cases.entries()) {
+      for (const [list, rows] of [['lanes', c.lanes], ['inside', c.inside]]) {
+        if (!rows) continue;
+        for (const format of ['xlsx', 'pdf']) {
+          const m = { c, list, rows, format, path: join(DIR, `regate-${i}-${list}.${format}`) };
+          Object.assign(m, await makeFile({ list, format, language: 'en', garage: { ...GARAGE, name: c.garage }, data: listOf(list, rows, READ_AT), readAt: READ_AT, path: m.path }, FILE_SECONDS * 1000));
+          made.push(m);
+        }
+      }
+    }
+    const ready = made.filter((m) => !m.timedOut).map((m) => m.path);
+    const read = readBack(ready);
+    const others = readSpreadsheets(ready);
+    for (const m of made) {
+      const where = `R2 ${m.c.label}, ${m.list === 'lanes' ? 'Lanes' : 'Cars inside'}, ${m.format === 'xlsx' ? 'Excel' : 'PDF'}`;
+      if (m.timedOut) {
+        check(false, `${where}: not made${m.error ? `: ${m.error}` : ''}`);
+        continue;
+      }
+      const texts = [['garage name', m.c.garage], ...m.rows.flatMap((r) => (m.list === 'lanes' ? [['lane', r.name], ['lane computer', r.computer]] : [['plate', r.plate]]))];
+      const wantHidden = texts.some(([, t]) => keptExpect(t).hidden);
+      if (m.format === 'xlsx') {
+        const names = FILES[m.list]({ t: words('en'), language: 'en', garage: GARAGE, data: listOf(m.list, m.rows, READ_AT), readAt: READ_AT }).columns.map((c) => c.name);
+        for (const [reader, sheet] of [['openpyxl', read[m.path].sheets[0]], ...Object.entries(others).map(([r, byPath]) => [r, byPath[m.path].sheets[0]])]) {
+          const h = sheet.rows.findIndex((r) => names.every((n, i) => r?.[i]?.value === n));
+          const row = sheet.rows[h + 1] ?? [];
+          const got = {
+            'garage name': sheet.rows[0]?.[0]?.value ?? '',
+            lane: row[0]?.value ?? '',
+            'lane computer': row[2]?.value ?? '',
+            plate: row[0]?.value ?? '',
+          };
+          for (const [what, stored] of texts) {
+            const want = keptExpect(stored).text;
+            check(got[what] === want, `${where} (${reader}): the ${what} reads ${JSON.stringify(want)}${got[what] === want ? '' : `; it reads ${JSON.stringify(got[what])}: ${want.startsWith(got[what]) ? 'the text after a removed character was lost' : 'not the text the rule leaves'}`}`);
+          }
+        }
+        check(m.hidden === wantHidden, `${where}: the screen is told hidden characters were left out of the file (${m.hidden}, want ${wantHidden})`);
+      } else {
+        const pages = read[m.path].pages;
+        const all = plain(pages.map((p) => p.text).join('\n'));
+        const name = plain(garageLines(pages).whole);
+        for (const [what, stored] of texts) {
+          const want = plain(pdfExpect(stored, FONT).text);
+          const ok = what === 'garage name' ? name === want : all.includes(want);
+          check(ok, `${where} (pypdf): the ${what} prints ${JSON.stringify(want)}${ok ? '' : `; the PDF has ${JSON.stringify(what === 'garage name' ? name : all.slice(0, 80))}`}`);
+        }
+        check(m.hidden === wantHidden, `${where}: the screen is told hidden characters were left out of the file (${m.hidden}, want ${wantHidden})`);
+      }
+    }
+    console.log(`  (the re-gate's cases read back by openpyxl${READERS.map((r) => `, ${r}`).join('')} and pypdf)`);
+  }
+
   // ── The class: every text x every case x every output ─────────────────────
   const cells = [];
   await oddTextFiles({
@@ -275,8 +367,23 @@ try {
     const cases = [...new Set(g.bad.map((c) => c.case))];
     check(g.bad.length === 0, `odd text: ${key}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 8).join(', ')}${cases.length > 8 ? ` and ${cases.length - 8} more` : ''}: ${g.bad[0].detail}` : ''}`);
   }
+  // Every category of the generated set, on a line of its own.
+  const groupOf = new Map(CASES.map((c) => [c.id, c.group]));
+  const byGroup = new Map();
+  for (const c of cells) {
+    const group = groupOf.get(c.case) ?? c.case;
+    const g = byGroup.get(group) ?? { ok: 0, bad: [] };
+    if (c.ok) g.ok += 1;
+    else g.bad.push(c);
+    byGroup.set(group, g);
+  }
+  for (const [group, g] of byGroup) {
+    const cases = [...new Set(g.bad.map((c) => c.case))];
+    const outputs = [...new Set(g.bad.map((c) => `${c.text} × ${c.output}`))];
+    check(g.bad.length === 0, `odd text by category: ${group}${CASE_COUNTS[group] ? ` (${CASE_COUNTS[group]} cases, Unicode ${UNICODE})` : ''}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 6).join(', ')}${cases.length > 6 ? ` and ${cases.length - 6} more` : ''}, in ${outputs.slice(0, 4).join('; ')}` : ''}`);
+  }
   const matrixAt = process.argv.indexOf('--matrix');
-  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(cells, null, 1));
+  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(cells.map((c) => ({ ...c, group: groupOf.get(c.case) ?? c.case })), null, 1));
 } catch (error) {
   failures.push(`the check stopped: ${error.message.split('\n')[0]}`);
   console.error(error);
@@ -288,4 +395,4 @@ if (failures.length) {
   console.error(`\n${failures.length} failed, ${passed} passed.`);
   process.exit(1);
 }
-console.log(`\nfiles — ${passed} checks passed; read back with ${PYTHON} (openpyxl, pypdf); this computer in ${process.env.TZ}, the garage in ${GARAGE.timezone}.`);
+console.log(`\nfiles — ${passed} checks passed; read back with ${PYTHON} (openpyxl, pypdf)${READERS.map((r) => `, ${r}`).join('')}; the case set from Unicode ${UNICODE} (${CASES.length} cases); this computer in ${process.env.TZ}, the garage in ${GARAGE.timezone}.`);

@@ -11,6 +11,7 @@ import { COLUMNS } from '../../src/files/model.js';
 import { translate } from '../../src/i18n/index.js';
 import { makeFile } from './make-file.js';
 import { readBack, tableOf } from './read-back.js';
+import { readSpreadsheets } from './spreadsheet-readers.js';
 import {
   CASES,
   FILE_SECONDS,
@@ -22,6 +23,7 @@ import {
   fontCharacters,
   garageLines,
   isInvisible,
+  keptExpect,
   longText,
   pdfExpect,
   plain,
@@ -108,10 +110,12 @@ export const nameExpected = (name) =>
  * Judges one made PDF and one made Excel file of `f` against its texts. Calls
  * `cell(text, output, caseId, ok, detail)` for every cell. `told` is what the
  * owner was told the files left out: { letters, more, hidden } after the PDF
- * and { cut } after the Excel file; in node, what the makers report, in the
- * browser, what the notice on screen says (`noticeOutput` names which).
+ * and { cut, excelHidden } after the Excel file; in node, what the makers
+ * report, in the browser, what the notice on screen says (`noticeOutput` names
+ * which). The Excel file is judged as openpyxl reads it, and as each reader in
+ * `others` does ({ [reader]: { [path]: sheets } }, spreadsheet-readers.js).
  */
-export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOutput = 'notice' }) {
+export function judge({ list, language, f, pdf, xlsx, back, others = {}, cell, told, noticeOutput = 'notice' }) {
   const t = (key, values) => translate(language, key, values);
   const texts = [{ text: 'garage name', field: 'garage' }, ...TEXTS[list]];
   const ids = caseIds(f);
@@ -128,7 +132,8 @@ export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOu
   const want = stored.map((s) => pdfExpect(s, FONT));
   const wantLetters = [...new Set(want.flatMap((w) => w.letters))].sort();
   const wantHidden = want.some((w) => w.hidden);
-  const said = told ?? { letters: pdf.missing ?? [], more: 0, hidden: pdf.hidden, cut: xlsx.cut };
+  const said = told ?? { letters: pdf.missing ?? [], more: 0, hidden: pdf.hidden, cut: xlsx.cut, excelHidden: xlsx.hidden };
+  const wantExcelHidden = stored.some((s) => keptExpect(s).hidden);
   if (!pdf.timedOut && said.letters) {
     // Every letter named is one the PDF left out, none is invisible, and with
     // those counted ("and N more") they are all of them.
@@ -142,9 +147,11 @@ export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOu
         cell(x.text, `${noticeOutput} (PDF)`, id, okLetters && okHidden, okLetters && okHidden ? 'what the PDF left out is said' : `${where}: letters named ${JSON.stringify(named)} and ${said.more ?? 0} more, want ${JSON.stringify(wantLetters)}; invisible named ${invisibleNamed.length}; hidden told ${said.hidden}, want ${wantHidden}`);
   }
   if (!xlsx.timedOut && said.cut !== undefined) {
-    const longest = Math.max(...stored.map((s) => s.length));
-    const ok = said.cut === longest > EXCEL_LIMIT;
-    for (const x of texts) for (const id of ids) cell(x.text, `${noticeOutput} (Excel)`, id, ok, ok ? (said.cut ? 'cut at the limit, and said' : 'nothing cut') : `${where}: cut told ${said.cut}, longest text ${longest}`);
+    const longest = Math.max(...stored.map((s) => keptExpect(s).text.length));
+    const okCut = said.cut === longest > EXCEL_LIMIT;
+    const okHidden = said.excelHidden === wantExcelHidden;
+    const ok = okCut && okHidden;
+    for (const x of texts) for (const id of ids) cell(x.text, `${noticeOutput} (Excel)`, id, ok, ok ? `${said.cut ? 'cut at the limit, and said' : 'nothing cut'}; ${wantExcelHidden ? 'hidden characters left out, and said' : 'nothing hidden, nothing said'}` : `${where}: cut told ${said.cut}, longest text ${longest}; hidden told ${said.excelHidden}, want ${wantExcelHidden}`);
   }
 
   // PDF: every text, as the font can print it, in its place.
@@ -159,8 +166,11 @@ export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOu
         CASES.forEach((c, i) => {
           const text = x.field === 'garage' ? token('G', i + 1, c.text) : f.rows[i][x.field];
           const e = plain(pdfExpect(text, FONT).text);
-          const found = all.split(e).length - 1;
-          const ok = x.field === 'garage' ? found >= 1 && plain(whole).includes(e) : found === 1;
+          // A text with no space may be broken anywhere inside a narrow
+          // column, so it is looked for with no white space at all; its
+          // markers keep it from matching anything else.
+          const found = /\s/.test(e) ? all.split(e).length - 1 : squash(all).split(e).length - 1;
+          const ok = x.field === 'garage' ? found >= 1 && (/\s/.test(e) ? plain(whole).includes(e) : squash(whole).includes(e)) : found === 1;
           cell(x.text, 'PDF', c.id, ok && off === 0, ok ? `"${e}"` : `${where}: "${e}" found ${found} times${x.field === 'garage' ? ' (page 1 holds the name whole: ' + plain(whole).includes(e) + ')' : ''}`);
         });
       } else {
@@ -186,22 +196,42 @@ export function judge({ list, language, f, pdf, xlsx, back, cell, told, noticeOu
     for (const id of ids) cell('garage name', 'PDF title', id, titleOk, titleOk ? `${[...title].length} characters` : `${where}: title ${JSON.stringify(title.slice(0, 60))} (${[...title].length}), want ${JSON.stringify(wantTitle.slice(0, 60))} (${[...wantTitle].length})`);
   }
 
-  // Excel: every text as stored, or cut at a cell's limit.
+  // Excel: every text as chat's rule leaves it (keptExpect), or that cut at a
+  // cell's limit; as openpyxl reads it, and as each other reader does.
   if (!xlsx.timedOut) {
-    const sheet = back[xlsx.path].sheets[0];
+    const readers = [['openpyxl', back[xlsx.path]], ...Object.entries(others).map(([reader, byPath]) => [reader, byPath[xlsx.path]])];
     const names = columns.map((c) => t(c.key));
-    const { rows } = tableOf(sheet, names);
-    const fit = (s) => (s.length > EXCEL_LIMIT ? s.slice(0, EXCEL_LIMIT) : s);
-    for (const x of texts) {
-      const pairs =
-        x.field === 'garage'
-          ? [[ids[0], sheet.rows[0]?.[0]?.value, fit(f.garage)]]
-          : f.rows.map((r, i) => [f.kind === 'cases' ? CASES[i].id : f.kind, rows[i]?.[x.column]?.value, fit(cellOf(list, x.column, r))]);
-      if (x.field === 'garage' && f.kind === 'cases') {
-        const ok = pairs[0][1] === pairs[0][2];
-        for (const id of ids) cell(x.text, 'Excel', id, ok, ok ? 'as stored' : `${where}: the garage name differs`);
-      } else {
-        for (const [id, got, wantText] of pairs) cell(x.text, 'Excel', id, got === wantText, got === wantText ? (wantText.length === EXCEL_LIMIT ? 'cut at 32,767, as said' : 'as stored') : `${where}: ${JSON.stringify(String(got).slice(0, 40))} (${String(got ?? '').length}), want ${JSON.stringify(wantText.slice(0, 40))} (${wantText.length})`);
+    const fit = (s) => {
+      const k = keptExpect(s).text;
+      return k.length > EXCEL_LIMIT ? k.slice(0, EXCEL_LIMIT) : k;
+    };
+    for (const [reader, read] of readers) {
+      const output = `Excel (${reader})`;
+      const sheet = read?.sheets?.[0];
+      if (!sheet) {
+        for (const x of texts) for (const id of ids) cell(x.text, output, id, false, `${where}: ${reader} read nothing`);
+        continue;
+      }
+      const { rows } = tableOf(sheet, names);
+      for (const x of texts) {
+        const pairs =
+          x.field === 'garage'
+            ? [[ids[0], sheet.rows[0]?.[0]?.value, fit(f.garage)]]
+            : f.rows.map((r, i) => [f.kind === 'cases' ? CASES[i].id : f.kind, rows[i]?.[x.column]?.value, fit(cellOf(list, x.column, r))]);
+        if (x.field === 'garage' && f.kind === 'cases') {
+          // Each case's own piece of the name, its markers before and after it.
+          const got = String(sheet.rows[0]?.[0]?.value ?? '');
+          CASES.forEach((c, i) => {
+            const want = fit(token('G', i + 1, c.text));
+            const ok = got.includes(want);
+            cell(x.text, output, c.id, ok, ok ? 'as the rule leaves it' : `${where}: ${reader}'s garage name has no ${JSON.stringify(want)}`);
+          });
+        } else {
+          for (const [id, got, wantText] of pairs) {
+            const ok = (got ?? '') === wantText;
+            cell(x.text, output, id, ok, ok ? (wantText.length === EXCEL_LIMIT ? 'cut at 32,767, as said' : 'as the rule leaves it') : `${where}: ${reader} reads ${JSON.stringify(String(got ?? '').slice(0, 40))} (${String(got ?? '').length}), want ${JSON.stringify(wantText.slice(0, 40))} (${wantText.length})`);
+          }
+        }
       }
     }
   }
@@ -241,5 +271,6 @@ export async function oddTextFiles({ dir, readAt, garage, cell, log }) {
   }
   const paths = jobs.flatMap((j) => [j.pdf, j.xlsx].filter((m) => !m.timedOut).map((m) => m.path));
   const back = readBack(paths);
-  for (const j of jobs) judge({ ...j, back, cell });
+  const others = readSpreadsheets(paths);
+  for (const j of jobs) judge({ ...j, back, others, cell });
 }

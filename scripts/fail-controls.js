@@ -10,6 +10,7 @@
 //
 //   node scripts/fail-controls.js            the controls that need no browser
 //   node scripts/fail-controls.js --browser  the ones that do (each builds its copy)
+//   A control may set `env` for its run: the LibreOffice one needs soffice (CI).
 //   ... --only TEXT                          only the controls whose name holds TEXT
 //
 // The estate-name guard's control is not here: it plants its own, in the same
@@ -431,8 +432,9 @@ const CONTROLS = [
   {
     check: 'U3 fix F2 undone: a control character reaches the PDF maker',
     plant: [
-      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ' ';", with: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ch;" },
-      { file: 'src/files/text.js', anchor: '    else if (CONTROL.test(ch)) hidden = true;', with: '    else if (CONTROL.test(ch)) out += ch;' },
+      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch)) out += ' ';", with: '    if (SPACE_LIKE.test(ch)) out += ch;' },
+      { file: 'src/files/text.js', anchor: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) hidden = true;', with: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) out += ch;' },
+      { file: 'src/files/text.js', anchor: '    else if (INVISIBLE.test(ch)) hidden = true;', with: '    else if (INVISIBLE.test(ch)) out += ch;' },
     ],
     run: CHECK_FILES,
     names: ['FAIL F2 a lane named "Gx<TAB>H2" prints as "Gx H2"; the PDF has "Gx": the text after <TAB> was lost', 'FAIL F2 a plate "TAB<TAB>999" prints as "TAB 999"; the PDF has "TAB"', 'FAIL odd text: plate × PDF'],
@@ -465,10 +467,49 @@ const CONTROLS = [
     names: ['FAIL odd text: lane computer name × notice (PDF)', 'invisible named'],
   },
   {
-    check: 'U3 fix: a control character in Excel not kept as stored',
-    plant: { file: 'src/files/excel.js', anchor: '      .replace(NOT_XML, hex)', with: "      .replace(NOT_XML, '\\uFFFD')" },
+    // U3 fix round 2 (chat's call): the Excel file no longer keeps controls;
+    // it carries the same text as the PDF. Skipping the rule there is the break.
+    check: 'U3 fix 2 F1: the Excel file skips the rule both files keep',
+    plant: { file: 'src/files/excel.js', anchor: '    const both = kept(text);', with: '    const both = { text: String(text), hidden: false };' },
     run: CHECK_FILES,
-    names: ['FAIL odd text: ticket × Excel', 'FAIL odd text: garage name × Excel'],
+    names: ['FAIL R2 a lane named "Gx<U+00AD>H2", Lanes, Excel (openpyxl): the lane reads "GxH2"', 'FAIL odd text: ticket × Excel (openpyxl)', 'FAIL odd text by category: Cf format character'],
+  },
+  {
+    // The same break, read by a spreadsheet app: LibreOffice, installed in CI.
+    check: 'U3 fix 2 F1: the Excel file skips the rule both files keep, read by LibreOffice',
+    plant: { file: 'src/files/excel.js', anchor: '    const both = kept(text);', with: '    const both = { text: String(text), hidden: false };' },
+    env: { SPREADSHEET_READERS: 'libreoffice' },
+    run: CHECK_FILES,
+    names: ['FAIL R2 a lane named "Gx<U+00AD>H2", Lanes, Excel (libreoffice): the lane reads "GxH2"', 'FAIL odd text: ticket × Excel (libreoffice)'],
+  },
+  ...[
+    ['control', "  ['control', /\\p{Cc}/u],\n", 'Cc control'],
+    ['format character', "  ['format character', /\\p{Cf}/u],\n", 'Cf format character'],
+    ['noncharacter', "  ['noncharacter', /\\p{Noncharacter_Code_Point}/u],\n", 'noncharacter'],
+    ['lone surrogate', "  ['lone surrogate', /\\p{Cs}/u],\n", 'Cs lone surrogate'],
+  ].map(([kind, anchor, group]) => ({
+    check: `U3 fix 2 F1: the ${kind} category dropped from the rule both files keep`,
+    plant: { file: 'src/files/text.js', anchor, with: '' },
+    run: CHECK_FILES,
+    names: [`FAIL odd text by category: ${group}`],
+  })),
+  {
+    check: 'U3 fix 2 F2: glyph 0 counted as a shape the font draws',
+    plant: { file: 'src/files/pdf.js', anchor: '    if (!glyph) return false;', with: '    if (glyph === undefined) return false;' },
+    run: CHECK_FILES,
+    names: ['FAIL R2-F2 the font draws it', 'disagree on U+FFFF (the maker says drawable)'],
+  },
+  {
+    check: "U3 fix 2 F2: a space's empty outline not counted",
+    plant: { file: 'src/files/pdf.js', anchor: '    return SPACE_LIKE.test(ch) || loca.lengthOf(glyph) > 0;', with: '    return loca.lengthOf(glyph) > 0;' },
+    run: CHECK_FILES,
+    names: ['FAIL R2-F2 the font draws it', 'disagree on U+000D (the maker says not drawable), U+0020'],
+  },
+  {
+    check: 'U3 fix 2: hidden characters left out of the Excel file without a word',
+    plant: { file: 'src/files/excel.js', anchor: '    hidden ||= both.hidden;', with: '    hidden ||= false;' },
+    run: CHECK_FILES,
+    names: ['FAIL odd text: garage name × notice (Excel)', 'hidden told false, want true', 'FAIL R2 the check-10 garage (BEL and U+202E before its H), Lanes, Excel: the screen is told hidden characters were left out of the file (false, want true)'],
   },
   {
     check: 'U3 fix: a stored "_x0041_" read back by Excel as "A"',
@@ -858,12 +899,20 @@ const BROWSER_CONTROLS = [
   {
     check: 'U3 fix F2 undone, in the browser',
     plant: [
-      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ' ';", with: "    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ch;" },
-      { file: 'src/files/text.js', anchor: '    else if (CONTROL.test(ch)) hidden = true;', with: '    else if (CONTROL.test(ch)) out += ch;' },
+      { file: 'src/files/text.js', anchor: "    if (SPACE_LIKE.test(ch)) out += ' ';", with: '    if (SPACE_LIKE.test(ch)) out += ch;' },
+      { file: 'src/files/text.js', anchor: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) hidden = true;', with: '    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) out += ch;' },
+      { file: 'src/files/text.js', anchor: '    else if (INVISIBLE.test(ch)) hidden = true;', with: '    else if (INVISIBLE.test(ch)) out += ch;' },
     ],
     before: BUILD,
     run: CHECK_DOWNLOADS,
     names: ['FAIL F2 a lane named "Gx<TAB>H2": the PDF prints "Gx H2"', 'the text after the odd character was lost', 'FAIL odd text: lane name × PDF'],
+  },
+  {
+    check: 'U3 fix 2: the hidden-characters sentence never shown, in the browser',
+    plant: { file: 'src/ListActions.jsx', anchor: '      {left.hidden ? (', with: '      {false ? (' },
+    before: BUILD,
+    run: CHECK_DOWNLOADS,
+    names: ['FAIL odd text: garage name × notice (screen) (PDF)', 'FAIL odd text: garage name × notice (screen) (Excel)', 'hidden told false, want true'],
   },
   {
     check: 'U3 fix F3 undone, in the browser',
@@ -903,8 +952,8 @@ function plantOne(dir, { file, anchor, with: replacement }) {
   writeFileSync(path, text.replace(anchor, replacement));
 }
 
-const run = (dir, [cmd, ...args]) => {
-  const r = spawnSync(cmd, args, { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+const run = (dir, [cmd, ...args], env = {}) => {
+  const r = spawnSync(cmd, args, { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', ...env } });
   return { status: r.status, out: `${r.stdout}\n${r.stderr}` };
 };
 
@@ -925,7 +974,7 @@ for (const c of controls) {
       const r = run(dir, step);
       if (r.status !== 0) throw new Error(`could not prepare: ${step.join(' ')}\n${r.out}`);
     }
-    const r = run(dir, c.run);
+    const r = run(dir, c.run, c.env);
     const missing = c.names.filter((n) => !r.out.includes(n));
     const ok = r.status !== 0 && missing.length === 0;
     const where = [c.plant].flat().map((p) => p.file).join(' + ');

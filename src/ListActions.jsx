@@ -45,7 +45,8 @@ function save(blob, name) {
  * Whatever a file left out is said under the buttons, in plain words: the
  * letters the PDF's font cannot draw (only letters a person can see, each kept
  * apart so it cannot turn the sentence around it), that hidden characters were
- * left out of the PDF, or that a text was cut at an Excel cell's limit.
+ * left out of the file (either file: src/files/text.js), or that a text was cut
+ * at an Excel cell's limit.
  */
 export default function ListActions({ t, list, language, garage, client, refresh, print }) {
   const [busy, setBusy] = useState(null); // { what, phase: 'reading' | 'making' }

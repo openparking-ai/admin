@@ -2,8 +2,8 @@
 // Odd stored text in a real browser, for scripts/check-downloads.js: the
 // built site, signed in against the stand-in platform, page policy enforced.
 //
-//   - the class (scripts/files/odd-text.js): every text the lists show x every
-//     case, through the screen, Print, Download Excel, Download PDF, the file
+//   - the class (scripts/files/odd-text.js, built from Unicode's own tables):
+//     every text the lists show x every case, through the screen, Print, Download Excel, Download PDF, the file
 //     names and the notice under the buttons, in English and Spanish, both
 //     lists; every file within FILE_SECONDS of the click;
 //   - the gate's set: "Gx<char>H2" lanes, "Exit<TAB>2 West", "TAB<TAB>999",
@@ -237,7 +237,7 @@ export async function oddTextWalk({ browser, base, A, dir, cell, check, policyBr
               window.__printed = 0;
             });
           }
-          files.push({ list, language, f, pdf, xlsx, told: { letters: afterPdf?.letters ?? null, more: afterPdf?.more ?? 0, hidden: afterPdf?.hidden, cut: afterExcel?.cut } });
+          files.push({ list, language, f, pdf, xlsx, told: { letters: afterPdf?.letters ?? null, more: afterPdf?.more ?? 0, hidden: afterPdf?.hidden, cut: afterExcel?.cut, excelHidden: afterExcel?.hidden } });
 
           // The screen, the print view and the notice, for every text and case.
           const texts = list === 'inside' ? [['plate', 0, 'plate'], ['plate region', 0, 'plate'], ['ticket', 1, 'ticket'], ['lane name', 3, 'lane']] : [['lane name', 0, 'name'], ['lane computer name', 2, 'computer']];

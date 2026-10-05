@@ -12,13 +12,15 @@
 // Times are real date-time cells holding the GARAGE'S clock, with a numeric
 // format only, so no month name depends on the reader's Excel language.
 //
-// Every character of a name is kept as stored, controls too: the ones XML
-// cannot hold are written as Excel itself writes them (_x0007_), and Excel
-// reads them back as the character. A text longer than a cell holds (32,767
-// characters) is cut at that limit, and `cut` says so for the screen.
+// Every name carries the same text as the PDF (src/files/text.js, `kept`):
+// controls, format characters, noncharacters and lone surrogates are left out
+// (the Mac's own spreadsheet app cuts a cell at the first one), and `hidden`
+// says so for the screen; space-like characters are a plain space. A text
+// longer than a cell holds (32,767 characters) is then cut at that limit, and
+// `cut` says so for the screen.
 
 import { strToU8, zipSync } from 'fflate';
-import { excelCell } from './text.js';
+import { excelCell, kept } from './text.js';
 
 export const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -38,9 +40,10 @@ const xml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 /** For the file's own words (sheet names, formats): shown as U+FFFD, never dropped unseen. */
 const escape = (text) => xml(String(text).replace(NOT_XML, '�'));
 /**
- * For a cell's text, every character kept: what XML cannot hold, and a carriage
- * return (XML would read it back as a line break), is written _xHHHH_; a
- * stored "_x0041_" is written _x005F_x0041_ so it is not read as "A".
+ * For a cell's text: a stored "_x0041_" is written _x005F_x0041_ so it is not
+ * read as "A". `kept` has already left out everything XML cannot hold and
+ * every carriage return; should one ever reach here, it is written _xHHHH_,
+ * never as a character that would break the file.
  * (Office Open XML, ECMA-376 Part 1, 22.4.2.4, ST_Xstring.)
  */
 const hex = (ch) => `_x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}_`;
@@ -156,11 +159,14 @@ const contentTypes = (count) =>
 
 const widthOf = (texts) => Math.min(60, Math.max(10, ...texts.map((s) => [...String(s)].length + 2)));
 
-/** The list's sheet and the meanings sheet, as rows of cells, and whether any text was cut. Exported for the checks. */
+/** The list's sheet and the meanings sheet, as rows of cells, and whether any text was cut or had hidden characters left out. Exported for the checks. */
 export function sheets(file, meaningsTitle) {
   let cut = false;
+  let hidden = false;
   const fit = (text) => {
-    const made = excelCell(text);
+    const both = kept(text);
+    hidden ||= both.hidden;
+    const made = excelCell(both.text);
     cut ||= made.cut;
     return made.text;
   };
@@ -182,13 +188,13 @@ export function sheets(file, meaningsTitle) {
     { name: sheetName(file.title), rows: listRows, widths: listWidths, frozenRows: lines.length + 2 },
     { name: sheetName(meaningsTitle), rows: meaningRows, widths: [widthOf(file.columns.map((c) => c.name)), 70] },
   ];
-  return { sheets: all, cut };
+  return { sheets: all, cut, hidden };
 }
 
-/** The .xlsx file's bytes, and whether any text was cut at a cell's limit. */
+/** The .xlsx file's bytes; whether any text was cut at a cell's limit; whether hidden characters were left out. */
 export function makeExcel(file, { language, meaningsTitle }) {
   const strings = sharedStrings();
-  const { sheets: all, cut } = sheets(file, meaningsTitle);
+  const { sheets: all, cut, hidden } = sheets(file, meaningsTitle);
   const parts = {
     '[Content_Types].xml': contentTypes(all.length),
     '_rels/.rels': ROOT_RELS,
@@ -201,5 +207,5 @@ export function makeExcel(file, { language, meaningsTitle }) {
   });
   parts['xl/sharedStrings.xml'] = strings.xml();
   const files = Object.fromEntries(Object.entries(parts).map(([name, xml]) => [name, strToU8(xml)]));
-  return { bytes: zipSync(files, { level: 6 }), cut };
+  return { bytes: zipSync(files, { level: 6 }), cut, hidden };
 }

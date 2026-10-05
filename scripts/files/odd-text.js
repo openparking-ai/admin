@@ -10,31 +10,101 @@
 // What each output must hold is worked out HERE, from Unicode's categories and
 // from the font file's own character map (read below), not by the screens' code.
 
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { PYTHON } from './read-back.js';
+
+const HERE = join(fileURLToPath(import.meta.url), '..');
+
 export const FILE_SECONDS = 5;
 
-const hex = (c) => `U+${c.toString(16).toUpperCase().padStart(4, '0')}`;
-const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
-const one = (group, code, label) => ({ id: label ?? hex(code), group, text: String.fromCodePoint(code) });
+// ── The case set, from Unicode's own tables (scripts/files/unicode-cases.py) ─
+// Built by Python's unicodedata at the version pinned there, so no category is
+// left to memory: every Cc, Cf, Zs, Zl, Zp and noncharacter, and samples of
+// lone surrogates, marks, private use and unassigned code points.
+const generated = (() => {
+  const r = spawnSync(PYTHON, [join(HERE, 'unicode-cases.py')], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`the case set could not be built (${PYTHON}):\n${r.stderr}${r.error ? r.error.message : ''}`);
+  return JSON.parse(r.stdout);
+})();
+/** The Unicode version of the tables the cases and their expectations come from. */
+export const UNICODE = generated.version;
+/** How many cases of each kind. */
+export const CASE_COUNTS = generated.counts;
+/** Every case: { id, group, text }. */
+export const CASES = generated.cases;
 
-/** The brief's case set: every C0 and C1 control, DEL, the direction marks, zero-width characters, and the rest. */
-export const CASES = [
-  ...range(0x00, 0x1f).map((c) => one('C0 control', c)),
-  one('DEL', 0x7f),
-  ...range(0x80, 0x9f).map((c) => one('C1 control', c)),
-  ...[0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0x061c].map((c) => one('direction mark', c)),
-  ...[0x200b, 0x200c, 0x200d, 0x2060, 0xfeff].map((c) => one('zero-width', c)),
-  one('NBSP', 0x00a0),
-  one('line separator', 0x2028),
-  one('paragraph separator', 0x2029),
-  { id: 'e + U+0301', group: 'combining mark', text: 'é' },
-  { id: 'U+20DD alone', group: 'combining mark', text: '⃝' },
-  { id: 'Arabic', group: 'Arabic', text: 'مرآب الميناء' },
-  { id: 'Hebrew', group: 'Hebrew', text: 'חניון הנמל' },
-  { id: 'Chinese', group: 'Chinese', text: '港口停车场' },
-  { id: 'emoji', group: 'emoji', text: '🚗👨‍👩‍👧🇺🇸👍🏽' },
-  // Not in the brief's list: the Excel file's own escape, written as text, must come back as text.
-  { id: '"_x0041_" as text', group: 'Excel escape', text: '_x0041_' },
-];
+/** A code point's general category, from those tables (not from this node's). */
+export function categoryOf(cp) {
+  const ranges = generated.ranges;
+  let lo = 0;
+  let hi = ranges.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (cp < ranges[mid][0]) hi = mid - 1;
+    else if (cp > ranges[mid][1]) lo = mid + 1;
+    else return ranges[mid][2];
+  }
+  throw new Error(`no category for U+${cp.toString(16)}`);
+}
+const SPACE_CONTROLS = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x85]);
+const noncharacter = (cp) => (cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe;
+/** Unicode's White_Space: every Zs, Zl and Zp, and tab, line feed, VT, form feed, CR and NEL. */
+export const whiteSpace = (cp) => SPACE_CONTROLS.has(cp) || ['Zs', 'Zl', 'Zp'].includes(categoryOf(cp));
+/** What chat's rule does with a character: 'space', 'kept', or the kind it is left out as. */
+export function ruleFor(cp) {
+  if (whiteSpace(cp)) return 'space';
+  const gc = categoryOf(cp);
+  if (gc === 'Cc') return 'control';
+  if (gc === 'Cf') return 'format character';
+  if (noncharacter(cp)) return 'noncharacter';
+  if (gc === 'Cs') return 'lone surrogate';
+  return 'kept';
+}
+
+/**
+ * The text both files must carry (U3 fix round 2, chat's rule), worked out
+ * from the tables: a space-like character is a plain space; every control,
+ * format character, noncharacter and lone surrogate is left out (`hidden`);
+ * the rest as stored.
+ */
+export function keptExpect(text) {
+  let out = '';
+  let hidden = false;
+  for (const ch of String(text)) {
+    const rule = ruleFor(ch.codePointAt(0));
+    if (rule === 'space') out += ' ';
+    else if (rule === 'kept') out += ch;
+    else hidden = true;
+  }
+  return { text: out, hidden };
+}
+
+/**
+ * Where this node's Unicode and the tables' disagree about a case's
+ * characters, for the rule: a newer Unicode could have filled an "unassigned"
+ * sample, or moved a character between categories. Each disagreement is named.
+ */
+export function unicodeDisagreements() {
+  const node = (ch) => {
+    if (/\p{White_Space}/u.test(ch)) return 'space';
+    if (/\p{Cc}/u.test(ch)) return 'control';
+    if (/\p{Cf}/u.test(ch)) return 'format character';
+    if (/\p{Noncharacter_Code_Point}/u.test(ch)) return 'noncharacter';
+    if (/\p{Cs}/u.test(ch)) return 'lone surrogate';
+    return 'kept';
+  };
+  const out = [];
+  for (const c of CASES) {
+    for (const ch of c.text) {
+      const cp = ch.codePointAt(0);
+      const gc = categoryOf(cp);
+      if (node(ch) !== ruleFor(cp) || !new RegExp(`\\p{gc=${gc}}`, 'u').test(ch)) out.push(`U+${cp.toString(16).toUpperCase()} (${gc} in ${UNICODE})`);
+    }
+  }
+  return [...new Set(out)];
+}
 
 /** A name that is only spaces, and the four lengths. */
 export const SPACES = '   ';
@@ -63,15 +133,24 @@ export const isInvisible = (ch) => INVISIBLE.test(ch);
 /** Anything in a sentence on screen that is not a plain space and cannot be seen. */
 export const invisibleIn = (text) => [...String(text)].filter((ch) => ch !== ' ' && INVISIBLE.test(ch));
 
-/** The characters a TrueType font has a shape for, read from its cmap table (formats 4 and 12). */
+/**
+ * The characters a TrueType font has a real shape for, read from its own
+ * tables: the cmap (formats 4 and 12) names a glyph other than glyph 0, and
+ * that glyph has an outline in glyf (its loca entry is not empty), unless the
+ * character is a space.
+ */
 export function fontCharacters(bytes) {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let cmap = -1;
+  const tables = {};
   for (let i = 0; i < v.getUint16(4); i += 1) {
     const at = 12 + 16 * i;
-    if (String.fromCharCode(v.getUint8(at), v.getUint8(at + 1), v.getUint8(at + 2), v.getUint8(at + 3)) === 'cmap') cmap = v.getUint32(at + 8);
+    tables[String.fromCharCode(v.getUint8(at), v.getUint8(at + 1), v.getUint8(at + 2), v.getUint8(at + 3))] = v.getUint32(at + 8);
   }
-  if (cmap < 0) throw new Error('the font has no cmap table');
+  if (tables.cmap === undefined || tables.loca === undefined || tables.head === undefined) throw new Error('the font has no cmap, loca or head table');
+  const cmap = tables.cmap;
+  const longLoca = v.getInt16(tables.head + 50) === 1;
+  const outlineAt = (g) => (longLoca ? v.getUint32(tables.loca + 4 * g) : 2 * v.getUint16(tables.loca + 2 * g));
+  const shaped = (c, glyph) => glyph !== 0 && (whiteSpace(c) || outlineAt(glyph + 1) > outlineAt(glyph));
   const has = new Set();
   for (let i = 0; i < v.getUint16(cmap + 2); i += 1) {
     const t = cmap + v.getUint32(cmap + 4 + 8 * i + 4);
@@ -88,14 +167,15 @@ export function fontCharacters(bytes) {
         const delta = v.getUint16(deltas + s);
         const offset = v.getUint16(offsets + s);
         for (let c = start; c <= end && c !== 0xffff; c += 1) {
-          const glyph = offset === 0 ? (c + delta) & 0xffff : v.getUint16(offsets + s + offset + 2 * (c - start));
-          if (glyph !== 0) has.add(c);
+          let glyph = offset === 0 ? (c + delta) & 0xffff : v.getUint16(offsets + s + offset + 2 * (c - start));
+          if (offset !== 0 && glyph !== 0) glyph = (glyph + delta) & 0xffff;
+          if (shaped(c, glyph)) has.add(c);
         }
       }
     } else if (format === 12) {
       for (let g = 0; g < v.getUint32(t + 12); g += 1) {
         const at = t + 16 + 12 * g;
-        for (let c = v.getUint32(at); c <= v.getUint32(at + 4); c += 1) has.add(c);
+        for (let c = v.getUint32(at); c <= v.getUint32(at + 4); c += 1) if (shaped(c, v.getUint32(at + 8) + (c - v.getUint32(at)))) has.add(c);
       }
     }
   }
@@ -103,22 +183,20 @@ export function fontCharacters(bytes) {
 }
 
 /**
- * What the PDF must print of `text`, given the font's characters: space-like
- * controls and separators as a space; other controls and invisible characters
- * the font lacks, left out (`hidden`); letters the font lacks, left out and
- * named (`letters`); the rest, as stored.
+ * What the PDF must print of `text`, given the font's characters: the text
+ * both files carry (keptExpect), then of that only what the font draws; an
+ * invisible character it lacks is left out (`hidden`), a letter it lacks is
+ * left out and named (`letters`).
  */
 export function pdfExpect(text, font) {
+  const both = keptExpect(text);
   let out = '';
-  let hidden = false;
+  let hidden = both.hidden;
   const letters = [];
-  for (const ch of String(text)) {
-    const has = font.has(ch.codePointAt(0));
-    const space = /\p{White_Space}/u.test(ch);
-    if (space && (/[\p{Cc}\p{Zl}\p{Zp}]/u.test(ch) || !has)) out += ' ';
-    else if (/\p{Cc}/u.test(ch)) hidden = true;
-    else if (has) out += ch;
-    else if (INVISIBLE.test(ch)) hidden = true;
+  for (const ch of both.text) {
+    const cp = ch.codePointAt(0);
+    if (ch === ' ' || font.has(cp)) out += ch;
+    else if (['Cc', 'Cf', 'Cs', 'Co', 'Cn', 'Zs', 'Zl', 'Zp'].includes(categoryOf(cp)) || /\p{Default_Ignorable_Code_Point}/u.test(ch)) hidden = true;
     else letters.push(ch);
   }
   return { text: out, hidden, letters };

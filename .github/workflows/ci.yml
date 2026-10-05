@@ -75,6 +75,11 @@ jobs:
           python-version: '3.12'
       - name: The readers the downloaded files are read back with (pinned, by hash)
         run: pip install --require-hashes -r scripts/files/readers.txt
+      - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+          soffice --version
 
       - name: Every check below, shown failing first
         # Each control plants one break in a scratch copy of the repository
@@ -101,6 +106,10 @@ jobs:
       - name: Every field has a short description, in both languages
         run: npm run check-descriptions
       - name: The downloaded files hold the list, read back by readers we did not write
+        # openpyxl and pypdf, and LibreOffice reading every Excel file as a
+        # spreadsheet app does. (Numbers, on a Mac: SPREADSHEET_READERS=numbers.)
+        env:
+          SPREADSHEET_READERS: libreoffice
         run: npm run check-files
       - name: No dependency with a known high or critical problem
         run: npm audit --audit-level=high

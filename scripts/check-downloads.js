@@ -34,6 +34,9 @@
 //   Print, both files, the file names and the notice, both languages, both
 //   lists, each file within 5 s of the click; nothing in a name turns the
 //   words around it on screen, and the notice names no invisible character.
+//   U3 fix round 2: the cases come from Unicode's own tables, both files carry
+//   the same text, the notice says when hidden characters were left out of
+//   either file, and every category gets a line of its own.
 //
 //   node scripts/check-downloads.js               (run `npm run build` first)
 //   node scripts/check-downloads.js --keep DIR    ...and keep the files
@@ -51,6 +54,7 @@ import { A_TEXT, startStub } from '../test/stub-platform.js';
 import { GARAGE, LONG_NAME, TEXT_CASES, insideData, lanesData, manyStays } from '../test/files-fixtures.js';
 import { PYTHON, count, garageClock, plain, readBack, tableOf, zoneSaid } from './files/read-back.js';
 import { oddTextWalk } from './files/odd-text-browser.js';
+import { CASES, CASE_COUNTS, UNICODE } from './files/odd-text.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const keepAt = process.argv.indexOf('--keep');
@@ -509,9 +513,23 @@ try {
     const cases = [...new Set(g.bad.map((c) => c.case))];
     check(g.bad.length === 0, `odd text: ${key}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 8).join(', ')}${cases.length > 8 ? ` and ${cases.length - 8} more` : ''}: ${g.bad[0].detail}` : ''}`);
   }
+  // Every category of the generated case set, on a line of its own.
+  const groupOf = new Map(CASES.map((c) => [c.id, c.group]));
+  const byGroup = new Map();
+  for (const c of oddCells) {
+    const group = groupOf.get(c.case) ?? c.case;
+    const g = byGroup.get(group) ?? { ok: 0, bad: [] };
+    if (c.ok) g.ok += 1;
+    else g.bad.push(c);
+    byGroup.set(group, g);
+  }
+  for (const [group, g] of byGroup) {
+    const cases = [...new Set(g.bad.map((c) => c.case))];
+    check(g.bad.length === 0, `odd text by category: ${group}${CASE_COUNTS[group] ? ` (${CASE_COUNTS[group]} cases, Unicode ${UNICODE})` : ''}: ${g.ok} of ${g.ok + g.bad.length} cells${g.bad.length ? `; failing cases ${cases.slice(0, 6).join(', ')}${cases.length > 6 ? ` and ${cases.length - 6} more` : ''}` : ''}`);
+  }
   check(oddCells.length > 0, `odd text: ${oddCells.length} cells judged in the browser`);
   const matrixAt = process.argv.indexOf('--matrix');
-  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(oddCells, null, 1));
+  if (matrixAt > 0) writeFileSync(process.argv[matrixAt + 1], JSON.stringify(oddCells.map((c) => ({ ...c, group: groupOf.get(c.case) ?? c.case })), null, 1));
 
   if (KEEP) {
     mkdirSync(KEEP, { recursive: true });

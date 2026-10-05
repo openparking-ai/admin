@@ -1,40 +1,66 @@
 // Stored text, as each file can hold it.
 //
 // A garage, lane or lane computer name, a plate, a region and a ticket are
-// whatever the platform stored: any character at all, at any length. Each file
-// either holds the text whole, or says what it left out. Nothing after an odd
-// character is ever lost.
+// whatever the platform stored: any character at all, at any length. Both
+// files carry the SAME text (U3 fix round 2): the Mac's own spreadsheet app
+// cuts a cell at the first control or format character it meets, so neither
+// file holds one. Visible text is never changed, nothing after a removed
+// character is lost, and the screen says when something was left out. The
+// stored data is untouched.
 
 // Unicode's own list of characters no one can see on their own: controls,
 // format and direction marks, zero-width characters, spaces, and the rest of
 // the "default ignorable" ones (variation selectors, fillers).
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Z}\p{Default_Ignorable_Code_Point}]/u;
 const SPACE_LIKE = /\p{White_Space}/u;
-const BREAKING = /[\p{Cc}\p{Zl}\p{Zp}]/u;
-const CONTROL = /\p{Cc}/u;
 const MARK = /\p{M}/u;
+
+/**
+ * What neither file holds, by Unicode's own categories: every control, every
+ * format character (soft hyphen, zero-width characters, direction marks…),
+ * every noncharacter, and half of a character pair standing alone.
+ */
+export const LEFT_OUT = [
+  ['control', /\p{Cc}/u],
+  ['format character', /\p{Cf}/u],
+  ['noncharacter', /\p{Noncharacter_Code_Point}/u],
+  ['lone surrogate', /\p{Cs}/u],
+];
+
+/**
+ * The text both files carry: every space-like character (tab, line and
+ * paragraph breaks, form feed, every Unicode space) a plain space; every
+ * character in LEFT_OUT left out, and `hidden` says so; the rest as stored.
+ */
+export function kept(text) {
+  let out = '';
+  let hidden = false;
+  for (const ch of String(text)) {
+    if (SPACE_LIKE.test(ch)) out += ' ';
+    else if (LEFT_OUT.some(([, rule]) => rule.test(ch))) hidden = true;
+    else out += ch;
+  }
+  return { text: out, hidden };
+}
 
 /** True for a character no one can see on its own. */
 export const invisible = (ch) => INVISIBLE.test(ch);
 
 /**
- * What the PDF can print of `text`, given the characters its font draws.
- *   - Tab, line breaks, form feed and the other space-like controls become a
- *     plain space; so does a space the font has no shape for.
- *   - Every other control, and any invisible character the font has no shape
- *     for, is left out: `hidden` says so.
- *   - A letter the font cannot draw is left out and named in `missing`.
- * Only characters the font draws reach the PDF maker, so nothing in a name can
- * cut off the text after it, or turn the words around it.
+ * What the PDF can print of `text`, given the characters its font draws: the
+ * text both files carry (`kept`), then only what the font has a shape for. An
+ * invisible character the font cannot draw is left out and `hidden` says so; a
+ * letter it cannot draw is left out and named in `missing`. Only characters
+ * the font draws reach the PDF maker, so nothing in a name can cut off the text
+ * after it, or turn the words around it.
  */
 export function printable(text, drawable) {
+  const both = kept(text);
   let out = '';
   const missing = [];
-  let hidden = false;
-  for (const ch of String(text)) {
-    if (SPACE_LIKE.test(ch) && (BREAKING.test(ch) || !drawable(ch))) out += ' ';
-    else if (CONTROL.test(ch)) hidden = true;
-    else if (drawable(ch)) out += ch;
+  let hidden = both.hidden;
+  for (const ch of both.text) {
+    if (ch === ' ' || drawable(ch)) out += ch;
     else if (INVISIBLE.test(ch)) hidden = true;
     else missing.push(ch);
   }
