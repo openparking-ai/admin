@@ -103,17 +103,17 @@ jobs:
         run: npm audit --audit-level=high
 
   controls:
-    name: controls (${{ matrix.shard }}/4)
+    name: controls (${{ matrix.shard }}/6)
     # Every check above, shown failing first: each control plants one break
     # in a scratch copy of the repository and requires the check to fail and
-    # name it. The controls are spread over 4 runners by their measured
+    # name it. The controls are spread over 6 runners by their measured
     # minutes (scripts/fail-controls-times.json); `test` below proves the
     # shards add up to one whole run.
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
@@ -121,7 +121,7 @@ jobs:
         with:
           spreadsheet-app: 'true'
       - name: Every check, shown failing first (this shard)
-        run: npm run fail-controls -- --shard ${{ matrix.shard }}/4
+        run: npm run fail-controls -- --shard ${{ matrix.shard }}/6
       - name: This shard's report
         if: always()
         uses: actions/upload-artifact@v4
