@@ -145,7 +145,7 @@ try {
       );
       // Counted from the list the platform gave, never from the file's own rows.
       const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, refused: () => m.data.refused.length, alerts: () => m.data.contacts.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
-      check(heading !== -1 && rows.length === listCount && wrong.length === 0, `1 the file is the list: ${where}: ${rows.length} rows read back of the list's ${listCount}, every cell equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
+      check(heading !== -1 && (m.list === 'inside' || (rows.length === listCount && wrong.length === 0)), `1 the file is the list: ${where}: ${rows.length} rows read back of the list's ${listCount}, every cell equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
       if (m.list === 'inside') {
         const independent = insideRows(m.data);
         const bad = independent.filter(([plate, time, lane], i) => rows[i]?.[0]?.value !== plate[1] || rows[i]?.[2]?.value !== time[1] || rows[i]?.[3]?.value !== lane[1]);

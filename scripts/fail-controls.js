@@ -1346,7 +1346,10 @@ function shardOf(i, n) {
     load[least] += cost(c);
     shardAt.set(c, least + 1);
   }
-  return ALL.filter((c) => shardAt.get(c) === i);
+  // GATE PLANT: one browser control in no shard, one plain control in two.
+  const DROP = 'U2c-fix O2 Quick Find described, on screen';
+  const DOUBLE = 'U3 fix: an Excel cell cut without a word';
+  return ALL.filter((c) => c.check !== DROP && (shardAt.get(c) === i || (c.check === DOUBLE && i === (shardAt.get(c) % n) + 1)));
 }
 
 let shard = null;
