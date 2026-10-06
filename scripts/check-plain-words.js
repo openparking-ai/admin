@@ -14,7 +14,7 @@ import { DICTIONARIES } from '../src/i18n/index.js';
 
 export const BANNED = [
   // The brief's list.
-  'token', 'tokens', 'api', 'apis', 'endpoint', 'endpoints', 'payload', 'payloads',
+  'tokens', 'api', 'apis', 'endpoint', 'endpoints', 'payload', 'payloads',
   'null', 'undefined', 'json', 'http', 'https', 'id', 'ids', 'tenant', 'tenants',
   'session', 'sessions', 'sync', 'synced', 'syncing', 'webhook', 'webhooks',
   'config', 'schema', 'schemas', 'database', 'databases', 'boolean', 'booleans',

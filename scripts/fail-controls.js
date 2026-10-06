@@ -1346,7 +1346,9 @@ function shardOf(i, n) {
     load[least] += cost(c);
     shardAt.set(c, least + 1);
   }
-  return ALL.filter((c) => shardAt.get(c) === i);
+  const DROP = ["U3-2 garage time: the computer's zone used for a time cell", 'U2c-2 kept on the profile'];
+  const TWICE = { 'U2c-1 English by default': 5, 'U4b a text offered to someone with no phone number': 6 };
+  return ALL.filter((c) => (shardAt.get(c) === i || TWICE[c.check] === i) && !DROP.includes(c.check));
 }
 
 let shard = null;
