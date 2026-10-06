@@ -313,7 +313,7 @@ export default {
   "lanes.sample.about": "Mensajes ya escritos en inglés y en español. Puede cambiar las palabras después.",
   "lanes.samplePick": "Elija uno…",
   "lanes.message": "Mensaje para el carril",
-  "lanes.message.about": "Se muestra en la pantalla del carril, en mayúsculas, mientras está cerrado. Máximo 160 caracteres.",
+  "lanes.message.about": "En la pantalla del carril, en mayúsculas, mientras está cerrado. Máximo ciento sesenta caracteres.",
   "lanes.closeButton": "Cerrar el carril",
   "lanes.lastIn": "Es la última entrada abierta. Si la cierra, no queda ninguna entrada al estacionamiento. ¿Cerrarla de todos modos?",
   "lanes.lastOut": "Es la última salida abierta. Si la cierra, no queda ninguna salida del estacionamiento. ¿Cerrarla de todos modos?",

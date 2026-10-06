@@ -316,7 +316,7 @@ export default {
   "lanes.sample.about": "Ready-made messages in English and Spanish. You can change the words after.",
   "lanes.samplePick": "Choose one…",
   "lanes.message": "Message for the lane",
-  "lanes.message.about": "Shown on the lane's screen, in capitals, while it is closed. At most 160 characters.",
+  "lanes.message.about": "Shown on the closed lane's screen in capitals. At most a hundred and sixty characters.",
   "lanes.closeButton": "Close the lane",
   "lanes.lastIn": "This is the last open way in. Closing it leaves no way into the garage. Close it anyway?",
   "lanes.lastOut": "This is the last open way out. Closing it leaves no way out of the garage. Close it anyway?",
