@@ -161,6 +161,7 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   await call('cars inside, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/sessions/open`);
   await setupCalls(call, (g) => (garage = g ?? garage), garage);
   await alertsCalls(call, garage);
+  await boardCalls(call, garage);
   await call('sign-out, from a page at another address', 'POST', '/auth/sign-out', undefined, { origin: elsewhere });
   const kept = cookie;
   await call('sign-out', 'POST', '/auth/sign-out');
@@ -259,6 +260,42 @@ async function alertsCalls(call, garage) {
   await call('a person to tell not theirs, removed', 'DELETE', `${base}/${NOT_THEIRS}`);
   await call('a person to tell, removed quietly', 'DELETE', `${base}/${mailOnly.id}`, undefined, {}, { quiet: true });
   await call('changes, after a person was removed', 'GET', `/garages/${garage}/changes`, undefined, {}, { structure: 'changes' });
+}
+
+/**
+ * U4c: a way out closed full, a closing message the screen cannot show, and
+ * the board -- a message added, changed and removed, and a lane's price
+ * switched on and off -- with every refusal the board can meet.
+ */
+async function boardCalls(call, garage) {
+  const lanes = (await call('lanes, for the board', 'GET', `/garages/${garage}/lanes`, undefined, {}, { quiet: true })).lanes;
+  const entry = lanes.find((l) => l.direction === 'entry');
+  const exit = lanes.find((l) => l.direction === 'exit');
+  const base = `/garages/${garage}/board-messages`;
+  await call('a way out, closed full', 'POST', `/lanes/${exit.id}/close`, { reason: 'full', message: 'Garage is full.' });
+  await call('a lane, closed with a character the screen cannot show', 'POST', `/lanes/${entry.id}/close`, { reason: 'full', message: 'Full — sorry', override: true });
+  await call('board, before any message', 'GET', `/garages/${garage}/board`);
+  await call('board, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/board`);
+  const message = (await call('a board message, added', 'POST', base, { text: 'Event tonight', lanes: [entry.id, exit.id], starts: '2030-01-01T08:00', ends: '2030-01-01T23:30' })).message;
+  const plain = (await call('a board message, added with no times', 'POST', base, { text: 'Use the south door', lanes: [entry.id] })).message;
+  await call('a board message, a character the screen cannot show', 'POST', base, { text: 'Fee € 10', lanes: [entry.id] });
+  await call('a board message, no lane', 'POST', base, { text: 'Hi', lanes: [] });
+  await call('a board message, a lane not theirs', 'POST', base, { text: 'Hi', lanes: [NOT_THEIRS] });
+  await call('a board message, a time that is not one', 'POST', base, { text: 'Hi', lanes: [entry.id], starts: '2030-02-30T08:00' });
+  await call('a board message, an end already past', 'POST', base, { text: 'Hi', lanes: [entry.id], ends: '2001-01-01T08:00' });
+  await call('a board message, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/board-messages`, { text: 'Hi', lanes: [entry.id] });
+  await call('board', 'GET', `/garages/${garage}/board`);
+  await call('a board message, changed', 'PATCH', `${base}/${message.id}`, { text: 'Event tomorrow', ends: null });
+  await call('a board message, changed with nothing', 'PATCH', `${base}/${message.id}`, {});
+  await call('a board message, an end before its start', 'PATCH', `${base}/${message.id}`, { ends: '2029-12-31T08:00' });
+  await call('a board message not theirs, changed', 'PATCH', `${base}/${NOT_THEIRS}`, { text: 'Mine' });
+  await call('a board message, removed', 'DELETE', `${base}/${message.id}`);
+  await call('a board message not theirs, removed', 'DELETE', `${base}/${NOT_THEIRS}`);
+  await call('a board message, removed quietly', 'DELETE', `${base}/${plain.id}`, undefined, {}, { quiet: true });
+  await call('price on a lane screen, on', 'PUT', `/lanes/${entry.id}/board-prices`, { show: true });
+  await call('price on a lane screen, neither on nor off', 'PUT', `/lanes/${entry.id}/board-prices`, { show: 'yes' });
+  await call('price on a lane screen not theirs', 'PUT', `/lanes/${NOT_THEIRS}/board-prices`, { show: true });
+  await call('price on a lane screen, off', 'PUT', `/lanes/${entry.id}/board-prices`, { show: false });
 }
 
 /** One sign-in, for the answers only a platform set up to give them can give. */

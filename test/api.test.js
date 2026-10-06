@@ -80,7 +80,7 @@ test('a gateway answering for a platform it cannot reach: the platform cannot be
 });
 
 test('requests are relative, same-origin, carry the cookie and never put anything in the address', async () => {
-  const { fn, asked } = fakeFetch(json(200, { garages: [], lanes: [], quiet_minutes: 5, sessions: [], email: 'a@example.com' }));
+  const { fn, asked } = fakeFetch(json(200, { garages: [], lanes: [], quiet_minutes: 5, screen: SCREEN, sessions: [], email: 'a@example.com' }));
   const client = createClient({ fetch: fn });
   await client.signIn('a@example.com', 'the-password');
   await client.garages();
@@ -95,11 +95,27 @@ test('requests are relative, same-origin, carry the cookie and never put anythin
   assert.deepEqual(JSON.parse(asked[0].init.body), { email: 'a@example.com', password: 'the-password' });
 });
 
-test("the lanes come with the platform's quiet setting, and an answer without one is not taken", async () => {
+const SCREEN = { characters: " !'+,-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÑÓÚÜ", message_max: 160 };
+
+test("the lanes come with the platform's quiet setting and what the screens can show, and an answer without either is not taken", async () => {
   const read = (body) => createClient({ fetch: fakeFetch(json(200, body)).fn }).lanes('g1');
-  assert.deepEqual(await read({ lanes: [], quiet_minutes: 30 }), { lanes: [], quietMinutes: 30 });
+  assert.deepEqual(await read({ lanes: [], quiet_minutes: 30, screen: SCREEN }), { lanes: [], quietMinutes: 30, screen: { characters: SCREEN.characters, messageMax: 160 } });
   for (const quiet of [undefined, 0, '5', 2.5, null]) {
-    assert.equal((await problemOf(read({ lanes: [], quiet_minutes: quiet }))).kind, 'unexpected', JSON.stringify(quiet));
+    assert.equal((await problemOf(read({ lanes: [], quiet_minutes: quiet, screen: SCREEN }))).kind, 'unexpected', JSON.stringify(quiet));
+  }
+  for (const screen of [undefined, null, {}, { characters: '', message_max: 160 }, { characters: 'AB', message_max: '160' }]) {
+    assert.equal((await problemOf(read({ lanes: [], quiet_minutes: 5, screen }))).kind, 'unexpected', JSON.stringify(screen));
+  }
+});
+
+test('a message refused for a character the screen cannot show is its own problem; other refusals of the board by name', async () => {
+  const client = (status, body) => createClient({ fetch: fakeFetch(json(status, body)).fn });
+  const chars = { error: 'x', code: 'lane_message_refused', details: { characters: ['€'] } };
+  assert.equal((await problemOf(client(400, chars).closeLane('l1', { reason: 'full', message: '€' }))).kind, 'screenCharacters');
+  assert.equal((await problemOf(client(400, { ...chars, code: 'board_text_refused' }).addBoardMessage('g1', {}))).kind, 'screenCharacters');
+  assert.equal((await problemOf(client(400, { error: 'x', code: 'lane_message_refused' }).closeLane('l1', { reason: 'full', message: '' }))).kind, 'laneMessage');
+  for (const [status, code, kind] of [[400, 'lane_reason_refused', 'laneReason'], [400, 'board_lanes_refused', 'boardLanes'], [400, 'board_time_refused', 'boardTime'], [400, 'board_text_refused', 'boardText'], [409, 'board_messages_full', 'boardFull'], [404, 'board_message_not_found', 'notFound']]) {
+    assert.equal((await problemOf(client(status, { error: 'x', code }).addBoardMessage('g1', {}))).kind, kind, code);
   }
 });
 

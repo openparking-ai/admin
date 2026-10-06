@@ -973,3 +973,33 @@ textarea {
     font-weight: 600;
   }
 }
+
+/* U4c: the lanes' screens. A lane picked, a price switched on, and the
+   message shown the way the screen at the lane shows it: capitals, in
+   lines, nothing cut off. */
+.board-prices {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.screen-preview {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+}
+
+.screen-line {
+  white-space: pre;
+}

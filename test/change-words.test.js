@@ -59,6 +59,11 @@ const LINES = [
   ['tax_set.add', null, { effective_from: '2026-01-01T05:00:00Z', taxes: [] }],
   ['key.cancel', { access: 'active' }, { access: 'cancelled' }],
   ['language.change', { language: 'en' }, { language: 'es' }],
+  // U4c: the lanes' screens. A message's line holds its words, its lanes by name and its times in the garage's own time.
+  ['board_message.add', null, { text: 'Event tonight', lanes: ['North gate', 'South gate'], starts: '2030-01-01T08:00', ends: null }],
+  ['board_message.change', { text: 'Event tonight', lanes: ['North gate'], starts: null, ends: null }, { text: 'Event tomorrow', lanes: [], starts: null, ends: '2030-01-02T23:30' }],
+  ['board_message.remove', { text: 'Event tomorrow', lanes: ['North gate'], starts: null, ends: null }, null],
+  ['lane.board_prices', { prices: false }, { prices: true }],
   // U4b: a person to tell, as the platform's src/alerts.js writes the lines (fix round 2) -- their id
   // and what kind of change it was, never their name, number or address.
   ...PERSON_LINES,

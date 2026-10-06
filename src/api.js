@@ -21,6 +21,8 @@ export const PROBLEM_KINDS = [
   // U4b: the people to tell, and what each gets.
   'personName', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
   'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
+  // U4c: what a lane does when it is closed, and what its screen says.
+  'laneReason', 'screenCharacters', 'boardText', 'boardLanes', 'boardTime', 'boardFull',
 ];
 
 /**
@@ -47,7 +49,22 @@ const NAMED = [
   [409, 'alert_text_needs_phone', 'textNeedsPhone'],
   [409, 'alert_email_needs_email', 'emailNeedsEmail'],
   [404, 'alert_contact_not_found', 'notFound'],
+  // U4c, as the platform's src/lanes.js and src/board.js name them.
+  [400, 'lane_reason_refused', 'laneReason'],
+  [400, 'board_text_refused', 'boardText'],
+  [400, 'board_lanes_refused', 'boardLanes'],
+  [400, 'board_time_refused', 'boardTime'],
+  [409, 'board_messages_full', 'boardFull'],
+  [404, 'board_message_not_found', 'notFound'],
 ];
+
+/**
+ * Text for a lane's screen refused for a character the screen cannot show:
+ * the platform lists them in `details.characters`. The screens say which as
+ * the owner types (src/screen.js), so this is the plain sentence for the
+ * rare case it gets this far.
+ */
+const SCREEN_TEXT = ['lane_message_refused', 'board_text_refused'];
 
 /**
  * A name, phone number or email address refused, by why: the platform's
@@ -155,6 +172,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
         const reason = typeof data.details?.reason === 'string' ? data.details.reason : 'other';
         throw new Problem(Object.hasOwn(reasons, reason) ? reasons[reason] : reasons.other);
       }
+      if (res.status === 400 && SCREEN_TEXT.includes(code) && Array.isArray(data.details?.characters) && data.details.characters.length) {
+        throw new Problem('screenCharacters');
+      }
       const named = NAMED.find(([status, name]) => status === res.status && name === code)?.[2];
       throw new Problem(named ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
     }
@@ -168,6 +188,12 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
   const object = (data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Problem('unexpected');
     return data;
+  };
+  /** What a lane's screen can show, as the platform says it: its characters, and the most a message holds. */
+  const screenOf = (data) => {
+    const screen = object(object(data).screen);
+    if (typeof screen.characters !== 'string' || screen.characters === '' || !Number.isInteger(screen.message_max) || screen.message_max < 1) throw new Problem('unexpected');
+    return { characters: screen.characters, messageMax: screen.message_max };
   };
   const list = (data, key) => {
     const value = object(data)[key];
@@ -226,8 +252,25 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       const lanes = list(data, 'lanes');
       const quietMinutes = data.quiet_minutes;
       if (!Number.isInteger(quietMinutes) || quietMinutes < 1) throw new Problem('unexpected');
-      return { lanes, quietMinutes };
+      return { lanes, quietMinutes, screen: screenOf(data) };
     },
+    /**
+     * The garage's board: the messages for the lanes' screens, each lane's
+     * price switch, and what the screens can show. Read, never kept here.
+     */
+    board: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/board`));
+      if (!Array.isArray(data.messages) || !Array.isArray(data.lanes) || !Number.isInteger(data.messages_max)) throw new Problem('unexpected');
+      return { messages: data.messages, lanes: data.lanes, messagesMax: data.messages_max, screen: screenOf(data) };
+    },
+    addBoardMessage: async (garageId, message) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/board-messages`, { method: 'POST', body: message })),
+    /** Only what changed is sent; `starts: null` or `ends: null` takes a time away. */
+    changeBoardMessage: async (garageId, messageId, changes) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/board-messages/${encodeURIComponent(messageId)}`, { method: 'PATCH', body: changes })),
+    removeBoardMessage: async (garageId, messageId) =>
+      request(`/garages/${encodeURIComponent(garageId)}/board-messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' }),
+    setBoardPrices: async (laneId, show) => object(await request(`/lanes/${encodeURIComponent(laneId)}/board-prices`, { method: 'PUT', body: { show: show === true } })),
     /** The garage's setup checklist, as the platform works it out: never worked out here. */
     setup: async (garageId) => {
       const data = object(object(await request(`/garages/${encodeURIComponent(garageId)}/setup`)).setup);

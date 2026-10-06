@@ -14,7 +14,7 @@
 // removed (`subject.removed`), and the line says only what kind of change it
 // was -- "the name changed", never from what to what.
 
-import { garageDateTime, zoneSaid } from './time.js';
+import { garageDateTime, localSaid, zoneSaid } from './time.js';
 import { alertName } from './alerts.js';
 
 /** The actions the platform writes, each with words of its own for a change made and for one tried. */
@@ -26,6 +26,7 @@ export const ACTIONS = [
   'computer.connect', 'computer.cancel',
   'rate_plan.add', 'tax_set.add', 'key.cancel', 'language.change', 'rates.retired',
   'alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices',
+  'board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices',
 ];
 
 /** The refusals the platform names, each with words of its own; any other is "it was not allowed". */
@@ -37,6 +38,8 @@ export const REFUSALS = [
   'alert_contact_not_found', 'alert_contact_name_refused', 'alert_contact_phone_refused', 'alert_contact_email_refused',
   'alert_contact_language_refused', 'alert_contact_unreachable', 'alert_contacts_full', 'alert_text_needs_phone',
   'alert_email_needs_email', 'alert_choice_refused',
+  'board_message_not_found', 'board_text_refused', 'board_lanes_refused', 'board_time_refused', 'board_messages_full',
+  'board_prices_refused', 'board_message_refused',
 ];
 
 /**
@@ -55,7 +58,7 @@ const named = (text, name) => {
 };
 
 /** A refusal that says what the request named was not found: from the account it belongs to, it is not the asker's. */
-const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found', 'alert_contact_not_found'];
+const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found', 'alert_contact_not_found', 'board_message_not_found'];
 
 /** The fields a before or after can hold, each with a name of its own. */
 export const FIELDS = [
@@ -63,6 +66,7 @@ export const FIELDS = [
   'open', 'language', 'plan_version', 'effective_from', 'taxes', 'account', 'charges_enabled', 'card_payments',
   'details_submitted', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
   'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
+  'text', 'lanes', 'starts', 'ends', 'prices',
 ];
 
 /**
@@ -73,7 +77,12 @@ export const FIELDS = [
 const ALERT_LISTS = new Set(['by_text', 'by_email']);
 
 /** Fields holding text someone typed: kept as it is, apart. */
-export const STORED = new Set(['name', 'message', 'lane', 'label', 'plan_version', 'place_name']);
+export const STORED = new Set(['name', 'message', 'lane', 'label', 'plan_version', 'place_name', 'text']);
+
+/** A screen message's lanes, by name as the line keeps them: typed names, kept as they are. */
+const LANE_NAMES = 'lanes';
+/** A screen message's start and end, in the garage's own time as the owner wrote them. */
+const GARAGE_LOCAL = new Set(['starts', 'ends']);
 
 /** A line about a person to tell: its fields are all of a known few, the name too. */
 const PERSON = 'alert_contact';
@@ -148,6 +157,8 @@ function valueWords(t, field, value, garage, language, kind) {
   if (field === 'timezone') return { words: zoneSaid(value, language) ?? t('changes.value.anotherZone') };
   if (field === 'currency') return { words: currencySaid(value, language) ?? t('changes.value.another') };
   if (field === 'effective_from') return { words: garageDateTime(value, garage.timezone, language) };
+  if (GARAGE_LOCAL.has(field)) return { words: localSaid(value, language) ?? t('changes.value.another') };
+  if (field === LANE_NAMES && Array.isArray(value)) return value.length ? { stored: value.join(', ') } : { words: NOTHING };
   if (ALERT_LISTS.has(field) && Array.isArray(value)) {
     if (value.length === 0) return { words: t('changes.value.noAlerts') };
     return { words: value.map((key) => alertName(t, key)).join(', ') };
