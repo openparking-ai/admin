@@ -111,6 +111,8 @@ jobs:
         env:
           SPREADSHEET_READERS: libreoffice
         run: npm run check-files
+      - name: No word of ours split inside the word, in any PDF, either language
+        run: npm run check-pdf-words
       - name: No dependency with a known high or critical problem
         run: npm audit --audit-level=high
 
@@ -152,6 +154,12 @@ jobs:
 
       - name: The built site in a browser, signed in; no request leaves it; the page policy holds
         run: npm run check-browser
+
+      - name: Every page that prints reads right with the browser's default print (backgrounds off)
+        run: npm run check-print
+
+      - name: A person removed is named in no view of the change log -- page, PDF, Excel, print -- in either language
+        run: npm run check-removed-person
 
       - name: Neither file maker is in the first page
         run: npm run check-first-load

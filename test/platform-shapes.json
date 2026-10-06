@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 283b80b (u4/setup, the U4 fix rounds: npm run demo, an admin made with create-admin --password-file, a car and a ticket-only stay opened by the entry lane, a lane computer added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform 5c333e7 (u4b/alerts, fix round 2: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -776,6 +776,19 @@
               "exit_lanes",
               "with_reader",
               "without_reader"
+            ]
+          },
+          {
+            "key": "alerts",
+            "fields": [
+              "done",
+              "facts",
+              "key"
+            ],
+            "facts": [
+              "alerts",
+              "nobody_told",
+              "people"
             ]
           },
           {
@@ -1559,7 +1572,8 @@
           "subject": [
             "id",
             "kind",
-            "name"
+            "name",
+            "removed"
           ],
           "action": "lane.rename",
           "outcome": "done",
@@ -1569,7 +1583,9 @@
           "after": {
             "name": "Recorded Entry"
           }
-        }
+        },
+        "subject_name": "string",
+        "subject_removed": false
       }
     },
     {
@@ -1621,7 +1637,8 @@
           "subject": [
             "id",
             "kind",
-            "name"
+            "name",
+            "removed"
           ],
           "action": "lane.remove",
           "outcome": "refused",
@@ -1643,6 +1660,872 @@
       "status": 404,
       "body": {
         "error": "garage not found"
+      }
+    },
+    {
+      "what": "a person to tell, added",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "alerts",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "alerts",
+          "contacts",
+          "max_contacts",
+          "quiet_minutes",
+          "sending"
+        ],
+        "alerts": [
+          {
+            "key": "lane_problem",
+            "needs": []
+          },
+          {
+            "key": "lane_not_answering",
+            "needs": [
+              "quiet_minutes"
+            ]
+          },
+          {
+            "key": "garage_not_answering",
+            "needs": []
+          },
+          {
+            "key": "card_payments_stopped",
+            "needs": []
+          },
+          {
+            "key": "attendant_link_dropped",
+            "needs": []
+          }
+        ],
+        "quiet_minutes": "number",
+        "max_contacts": 25,
+        "sending": false,
+        "contact": [
+          "by_email",
+          "by_text",
+          "confirmed",
+          "email",
+          "id",
+          "language",
+          "name",
+          "phone"
+        ]
+      }
+    },
+    {
+      "what": "alerts, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "a person to tell, a phone with letters",
+      "status": 400,
+      "body": {
+        "error": "phone holds letters. A US number is 10 digits, or 11 starting with 1; any other starts with + and holds 8 to 15 digits",
+        "code": "alert_contact_phone_refused",
+        "details": {
+          "reason": "letters"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a phone too short",
+      "status": 400,
+      "body": {
+        "error": "phone is too short for a US number, and has no + for another country. A US number is 10 digits, or 11 starting with 1; any other starts with + and holds 8 to 15 digits",
+        "code": "alert_contact_phone_refused",
+        "details": {
+          "reason": "too_short"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, an address with two @",
+      "status": 400,
+      "body": {
+        "error": "email has more than one @. An email address has one @, no spaces and at most 254 characters",
+        "code": "alert_contact_email_refused",
+        "details": {
+          "reason": "two_at"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, an address with a space",
+      "status": 400,
+      "body": {
+        "error": "email holds a space. An email address has one @, no spaces and at most 254 characters",
+        "code": "alert_contact_email_refused",
+        "details": {
+          "reason": "space"
+        }
+      }
+    },
+    {
+      "what": "a person to tell, neither a phone nor an address",
+      "status": 400,
+      "body": {
+        "error": "a person needs a phone number, an email address, or both",
+        "code": "alert_contact_unreachable"
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a number",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a number in circled digits",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding a number in words",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a name holding an @",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "choices, a text for someone with no phone",
+      "status": 409,
+      "body": {
+        "error": "this person has no phone number, so they cannot get an alert by text",
+        "code": "alert_text_needs_phone"
+      }
+    },
+    {
+      "what": "choices, an alert there is none of",
+      "status": 400,
+      "body": {
+        "error": "by_text names an alert there is none of; the alerts are lane_problem, lane_not_answering, garage_not_answering, card_payments_stopped, attendant_link_dropped",
+        "code": "alert_choice_refused"
+      }
+    },
+    {
+      "what": "choices, set",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, changed to what they are",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          },
+          "turned_off": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, renamed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          },
+          "turned_off": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a person was renamed",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "alert_contact.change",
+          "outcome": "done",
+          "before": {},
+          "after": {
+            "name": "changed"
+          }
+        },
+        "subject_name": "string",
+        "subject_removed": false
+      }
+    },
+    {
+      "what": "a person to tell, the phone taken away",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "contact": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ]
+              },
+              "confirmed": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "email": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "language": {
+                "types": [
+                  "string"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "phone": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          },
+          "turned_off": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "by_email": {
+                "types": [
+                  "array"
+                ]
+              },
+              "by_text": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a person to tell, the last way to reach them taken away",
+      "status": 400,
+      "body": {
+        "error": "a person needs a phone number, an email address, or both",
+        "code": "alert_contact_unreachable"
+      }
+    },
+    {
+      "what": "a person to tell not theirs, changed",
+      "status": 404,
+      "body": {
+        "error": "alert contact not found",
+        "code": "alert_contact_not_found"
+      }
+    },
+    {
+      "what": "a person to tell, removed",
+      "status": 204,
+      "shape": "empty"
+    },
+    {
+      "what": "a person to tell not theirs, removed",
+      "status": 404,
+      "body": {
+        "error": "alert contact not found",
+        "code": "alert_contact_not_found"
+      }
+    },
+    {
+      "what": "changes, after a person was removed",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "alert_contact.remove",
+          "outcome": "done",
+          "before": {
+            "email": "given",
+            "phone": "none",
+            "by_text": [],
+            "by_email": [],
+            "language": "en"
+          },
+          "after": null
+        },
+        "subject_name": "null",
+        "subject_removed": true
       }
     },
     {
@@ -1746,5 +2629,5 @@
       }
     }
   },
-  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform 283b80b src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
+  "reader_from_source": "lanes[].reader: null in every recorded answer (binding a reader needs Stripe). Its object shape, {reader_id, label, bound_at}, is from platform b3b973d src/repository.js lanesForGarage and migrations/0021_lane_readers.sql (all three NOT NULL)."
 }

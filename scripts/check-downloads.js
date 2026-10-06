@@ -9,8 +9,9 @@
 // and every file is read back with Python openpyxl and pypdf
 // (scripts/files/read-files.py). It requires:
 //   1  the file is the list: every Excel row equals the row on screen, cell by
-//      cell, as many rows as the screen shows; in the PDF every plate and lane
-//      computer is on a page exactly once;
+//      cell, as many rows as the screen shows; in the PDF every plate, lane
+//      connection and person's name, number and address (Alerts, U4b) is on a
+//      page exactly once;
 //   2  garage time: time cells are the garage's clock, one stay on each side
 //      of a clock change; the zone sentence names the garage's zone; the
 //      "Downloaded" time is the click's, in garage time;
@@ -54,7 +55,7 @@ import { preview } from 'vite';
 import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { A_TEXT, startStub } from '../test/stub-platform.js';
-import { GARAGE, LONG_NAME, TEXT_CASES, changesData, insideData, lanesData, manyStays, refusedData } from '../test/files-fixtures.js';
+import { GARAGE, LONG_NAME, TEXT_CASES, alertsData, changesData, insideData, lanesData, manyStays, refusedData } from '../test/files-fixtures.js';
 import { PYTHON, count, garageClock, plain, readBack, tableOf, zoneSaid } from './files/read-back.js';
 import { oddTextWalk } from './files/odd-text-browser.js';
 import { PAGES, hashFor } from '../src/pages.js';
@@ -92,6 +93,8 @@ A.lanes[HARBOR.id] = lanesData(new Date());
 stub.setChanges(A, [...changesData(new Date()).changes, ...refusedData(new Date()).refused]
   .map((l) => ({ ...l, garage_id: l.garage_id === GARAGE.id ? HARBOR.id : l.garage_id }))
   .sort((x, y) => Date.parse(x.at) - Date.parse(y.at)));
+// Alerts (U4b): the fixture's people, on this garage.
+A.people[HARBOR.id] = structuredClone(alertsData().contacts);
 const TZ = HARBOR.timezone;
 
 const server = await preview({
@@ -252,6 +255,29 @@ const screenRefused = (page) =>
     }),
   );
 
+/**
+ * Alerts, as the screen shows them: each person's row, and the alerts they
+ * get each way read from the ticks, named as the alert cells name them.
+ */
+const screenAlerts = (page, language) =>
+  page.evaluate((lang) => {
+    const names = {};
+    for (const tr of document.querySelectorAll('[data-list="alert-choices"] tr[data-alert]')) {
+      const cell = tr.querySelector('.alert-name');
+      if (cell) names[tr.dataset.alert] = cell.textContent;
+    }
+    const order = Object.keys(names);
+    const list = new Intl.ListFormat(lang, { style: 'long', type: 'conjunction' });
+    const gets = (id, way) => {
+      const on = order.filter((key) => document.querySelector(`[data-list="alert-choices"] tr[data-alert="${key}"][data-person="${id}"] [data-tick="${way}"]`)?.getAttribute('aria-checked') === 'true');
+      return on.length ? list.format(on.map((key) => names[key])) : '–';
+    };
+    return [...document.querySelectorAll('[data-list="alerts"] tbody tr')].map((tr) => {
+      const td = [...tr.cells].map((c) => c.textContent);
+      return { name: td[0], phone: td[1], email: td[2], language: td[3], confirmed: td[4], byText: gets(tr.dataset.person, 'text'), byEmail: gets(tr.dataset.person, 'email') };
+    });
+  }, language);
+
 /** A list's title: its page's, or for the refused attempts, their own section's. */
 const titleOf = (w, list) => w[list === 'refused' ? 'refused.title' : `page.${list}.title`];
 
@@ -286,7 +312,7 @@ try {
     await page.click(`[data-control="language"] [data-value="${language}"]`);
     for (const look of ['day', 'night']) {
       await page.click(`[data-control="theme"] [data-value="${look}"]`);
-      for (const list of ['inside', 'lanes', 'changes', 'refused']) {
+      for (const list of ['inside', 'lanes', 'changes', 'refused', 'alerts']) {
         await goTo(page, list);
         const tag = `${list}-${language}-${look}`;
         const excel = await download(page, 'excel', tag, list);
@@ -295,7 +321,7 @@ try {
           check(after.excel && !after.pdf, `9 loaded only when asked: Download Excel asked for its maker (${after.excel}), and not the PDF one (${after.pdf})`);
         }
         const pdf = await download(page, 'pdf', tag, list);
-        const screen = await { inside: screenInside, lanes: screenLanes, changes: screenChanges, refused: screenRefused }[list](page);
+        const screen = await { inside: screenInside, lanes: screenLanes, changes: screenChanges, refused: screenRefused, alerts: screenAlerts }[list](page, language);
         made.push({ list, language, look, excel, pdf, screen });
       }
     }
@@ -435,6 +461,7 @@ try {
       lanes: ['lanes.lane', 'lanes.direction', 'file.computer', 'file.state', 'file.lastHeard', 'lanes.reader', 'lanes.open'],
       changes: ['changes.when', 'changes.who', 'changes.what', 'changes.before', 'changes.after'],
       refused: ['refused.when', 'refused.who', 'refused.what', 'refused.why', 'refused.times', 'refused.last'],
+      alerts: ['alerts.person', 'alerts.phone', 'alerts.email', 'alerts.language', 'alerts.confirmed', 'file.byText', 'file.byEmail'],
     }[m.list].map((k) => w[k]);
     const book = back[m.excel.path];
     const [sheet, meanings] = book.sheets;
@@ -449,6 +476,8 @@ try {
       expected = m.screen.map((s) => [garageClock(s.time, TZ), s.who, s.what, s.before, s.after]);
     } else if (m.list === 'refused') {
       expected = m.screen.map((s) => [garageClock(s.time, TZ), s.who, s.what, s.why, s.times, garageClock(s.last, TZ)]);
+    } else if (m.list === 'alerts') {
+      expected = m.screen.map((s) => [s.name, s.phone, s.email, s.language, s.confirmed, s.byText, s.byEmail]);
     } else {
       const devices = Object.fromEntries(A.lanes[HARBOR.id].flatMap((l) => l.devices).map((d) => [d.id, d]));
       expected = m.screen.flatMap((l) =>
@@ -469,7 +498,13 @@ try {
     const pdf = back[m.pdf.path].pages;
     const pdfText = plain(pdf.map((p) => p.text).join(' '));
     // The change log names a lane or computer again in what changed: there, each at least once.
-    const items = { inside: () => m.screen.map((s) => s.plate).filter((p) => p !== '–'), lanes: () => m.screen.flatMap((l) => l.devices.map((d) => d.name)), changes: () => [], refused: () => [] }[m.list]();
+    const items = {
+      inside: () => m.screen.map((s) => s.plate).filter((p) => p !== '–'),
+      lanes: () => m.screen.flatMap((l) => l.devices.map((d) => d.name)),
+      changes: () => [],
+      refused: () => [],
+      alerts: () => m.screen.flatMap((s) => [s.name, s.phone, s.email]).filter((x) => x !== w['alerts.none']),
+    }[m.list]();
     const notOnce = items.filter((p) => count(pdfText, p) !== 1 && !items.some((o) => o !== p && o.includes(p)));
     if (m.list === 'changes' || m.list === 'refused') {
       const whats = m.screen.map((s) => s.what);
@@ -491,7 +526,8 @@ try {
     // 3
     const texts = rows.flat().filter((c) => c?.kind === 'text').map((c) => c.value);
     // The change log keeps no stored text in a cell of its own: for it, the formula count alone.
-    const cases = { inside: Object.values(TEXT_CASES), lanes: [TEXT_CASES.at], changes: [], refused: [] }[m.list];
+    // Alerts: a name and a phone number a spreadsheet would take for a number or a formula.
+    const cases = { inside: Object.values(TEXT_CASES), lanes: [TEXT_CASES.at], changes: [], refused: [], alerts: [TEXT_CASES.ticket, TEXT_CASES.formula, '+15550100001', '+442079460000123'] }[m.list];
     const lost = cases.filter((v) => !texts.includes(v));
     check(lost.length === 0 && book.formulas === 0, `3 text stays text: ${where}: ${cases.length - lost.length} of ${cases.length} back as text; formulas: ${book.formulas}`);
 

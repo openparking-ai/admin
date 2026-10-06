@@ -1,6 +1,6 @@
 // The class of odd stored text, through the files, in node: every text the
 // lists show × every case in scripts/files/odd-text.js × PDF, Excel, file name
-// and the PDF's title, in English and Spanish, both lists. Each file is made in
+// and the PDF's title, in English and Spanish, the lists (and Alerts, U4b). Each file is made in
 // a worker and stopped at FILE_SECONDS. Every result is one cell of the table
 // the receipt lists: text × output × case.
 
@@ -67,11 +67,27 @@ export const TEXTS = {
     { text: 'lane name', field: 'name', column: 0, mark: 'L' },
     { text: 'lane computer name', field: 'computer', column: 2, mark: 'C' },
   ],
+  // U4b: a person's name, as typed by the owner.
+  alerts: [{ text: 'person name', field: 'name', column: 0, mark: 'N' }],
 };
+
+/** Alerts (U4b): the platform's five alerts, and one person a row, each reached by email only. */
+const ALERT_KEYS = ['lane_problem', 'lane_not_answering', 'garage_not_answering', 'card_payments_stopped', 'attendant_link_dropped'];
+const person = (n, { name }) => ({
+  id: `dp300000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+  name,
+  phone: null,
+  email: `person.${n}@example.com`,
+  language: 'en',
+  confirmed: false,
+  by_text: [],
+  by_email: ['lane_problem'],
+});
 
 /** A list whose rows carry `rows` (one object of field texts per row), as the platform answers it. */
 export function listOf(list, rows, readAt) {
   if (list === 'lanes') return rows.map((r, i) => lane(i + 1, r, readAt));
+  if (list === 'alerts') return { alerts: ALERT_KEYS.map((key) => ({ key, needs: [] })), quietMinutes: 5, maxContacts: 25, contacts: rows.map((r, i) => person(i + 1, r)) };
   const sessions = rows.map((r, i) => stay(i + 1, r));
   return { inside_count: sessions.length, unconfirmable_count: 0, open_count: sessions.length, sessions };
 }
@@ -82,6 +98,7 @@ export function cellOf(list, column, row) {
   if (list === 'inside' && column === 1) return row.ticket || NOTHING;
   if (list === 'inside' && column === 3) return row.lane ?? NOTHING;
   if (list === 'lanes' && column === 0) return row.name;
+  if (list === 'alerts') return row.name;
   return row.computer;
 }
 
@@ -255,7 +272,7 @@ export function judge({ list, language, f, pdf, xlsx, back, others = {}, cell, t
 export async function oddTextFiles({ dir, readAt, garage, cell, log }) {
   const jobs = [];
   for (const language of ['en', 'es']) {
-    for (const list of ['inside', 'lanes']) {
+    for (const list of ['inside', 'lanes', 'alerts']) {
       for (const f of classFiles(list)) {
         const g = { ...garage, name: f.garage };
         const data = listOf(list, f.rows, readAt);

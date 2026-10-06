@@ -79,8 +79,20 @@ const STRUCTURE = {
     return {
       keys: Object.keys(data).sort(),
       newest: { keys: Object.keys(line).sort(), who: Object.keys(line.who).sort(), subject: Object.keys(line.subject).sort(), action: line.action, outcome: line.outcome, before: line.before, after: line.after },
+      // U4b fix round 2: a person is named when the log is read, or said to be removed -- the kinds, never the name.
+      subject_name: line.subject.name === null ? 'null' : typeof line.subject.name,
+      subject_removed: line.subject.removed,
     };
   },
+  // U4b: the alerts are the contract itself, in order; a person's fields by name.
+  alerts: (data) => ({
+    keys: Object.keys(data).sort(),
+    alerts: data.alerts,
+    quiet_minutes: typeof data.quiet_minutes,
+    max_contacts: data.max_contacts,
+    sending: data.sending,
+    contact: Object.keys(data.contacts[0]).sort(),
+  }),
   refused: (data) => {
     const [line] = data.refused;
     return {
@@ -148,6 +160,7 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   await call('lanes, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/lanes`);
   await call('cars inside, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/sessions/open`);
   await setupCalls(call, (g) => (garage = g ?? garage), garage);
+  await alertsCalls(call, garage);
   await call('sign-out, from a page at another address', 'POST', '/auth/sign-out', undefined, { origin: elsewhere });
   const kept = cookie;
   await call('sign-out', 'POST', '/auth/sign-out');
@@ -209,6 +222,43 @@ async function setupCalls(call, _keep, garage) {
   await call('refused attempts', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
   await call('refused attempts, after a line not in this log', 'GET', `/garages/{garage}/refused-attempts/${NOT_THEIRS}`);
   await call('refused attempts, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/refused-attempts`);
+}
+
+/**
+ * U4b: the alerts read, a person added, changed, given choices and removed,
+ * with every refusal the Alerts page can meet. Every person, number and
+ * address here is invented.
+ */
+async function alertsCalls(call, garage) {
+  const base = `/garages/${garage}/alert-contacts`;
+  const person = (await call('a person to tell, added', 'POST', base, { name: 'Recorded manager', phone: '(555) 010-0199', email: 'recorded.manager@example.com', language: 'es' })).contact;
+  await call('alerts', 'GET', `/garages/${garage}/alerts`, undefined, {}, { structure: 'alerts' });
+  await call('alerts, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/alerts`);
+  await call('a person to tell, a phone with letters', 'POST', base, { name: 'Letters', phone: '555-CALL-NOW' });
+  await call('a person to tell, a phone too short', 'POST', base, { name: 'Short', phone: '555-0101' });
+  await call('a person to tell, an address with two @', 'POST', base, { name: 'Two at', email: 'two@@example.com' });
+  await call('a person to tell, an address with a space', 'POST', base, { name: 'Space', email: 'two words@example.com' });
+  await call('a person to tell, neither a phone nor an address', 'POST', base, { name: 'Nobody to reach' });
+  // U4b fix round 2: what a name holds is the owner's -- a number in any form, or an @ -- and never in a log.
+  for (const [what, name] of [['a number', 'Call 5550100199'], ['a number in circled digits', 'Maria ❺❺❺⓿❶⓿⓿❶❾❾'], ['a number in words', 'Maria five five five'], ['an @', 'Mail me＠example']]) {
+    const kept = (await call(`a person to tell, a name holding ${what}`, 'POST', base, { name, email: 'named.number@example.com' })).contact;
+    await call(`a person to tell, a name holding ${what}, removed quietly`, 'DELETE', `${base}/${kept.id}`, undefined, {}, { quiet: true });
+  }
+  await call('a person to tell, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/alert-contacts`, { name: 'Elsewhere', email: 'elsewhere@example.com' });
+  const mailOnly = (await call('a person to tell, email only', 'POST', base, { name: 'Recorded office', email: 'recorded.office@example.com' }, {}, { quiet: true })).contact;
+  await call('choices, a text for someone with no phone', 'PUT', `${base}/${mailOnly.id}/choices`, { by_text: ['lane_problem'], by_email: [] });
+  await call('choices, an alert there is none of', 'PUT', `${base}/${person.id}/choices`, { by_text: ['no_such_alert'], by_email: [] });
+  await call('choices, set', 'PUT', `${base}/${person.id}/choices`, { by_text: ['lane_problem', 'card_payments_stopped'], by_email: ['garage_not_answering'] });
+  await call('a person to tell, changed to what they are', 'PATCH', `${base}/${person.id}`, { name: 'Recorded manager' });
+  await call('a person to tell, renamed', 'PATCH', `${base}/${person.id}`, { name: 'Recorded manager 2' });
+  await call('changes, after a person was renamed', 'GET', `/garages/${garage}/changes`, undefined, {}, { structure: 'changes' });
+  await call('a person to tell, the phone taken away', 'PATCH', `${base}/${person.id}`, { phone: null });
+  await call('a person to tell, the last way to reach them taken away', 'PATCH', `${base}/${person.id}`, { email: null });
+  await call('a person to tell not theirs, changed', 'PATCH', `${base}/${NOT_THEIRS}`, { name: 'Mine' });
+  await call('a person to tell, removed', 'DELETE', `${base}/${person.id}`);
+  await call('a person to tell not theirs, removed', 'DELETE', `${base}/${NOT_THEIRS}`);
+  await call('a person to tell, removed quietly', 'DELETE', `${base}/${mailOnly.id}`, undefined, {}, { quiet: true });
+  await call('changes, after a person was removed', 'GET', `/garages/${garage}/changes`, undefined, {}, { structure: 'changes' });
 }
 
 /** One sign-in, for the answers only a platform set up to give them can give. */

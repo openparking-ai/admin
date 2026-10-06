@@ -836,6 +836,61 @@ textarea {
 .warning .primary-button {
   margin-top: 10px;
 }
+/* U4b: the people to tell, and who gets which alert. */
+.setup-form input[type='tel'] {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.alert-cell {
+  max-width: 34ch;
+}
+.alert-name,
+.alert-says {
+  display: block;
+}
+.alert-name {
+  font-weight: 600;
+}
+.alert-says {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.tick:disabled {
+  cursor: wait;
+}
+.tick-box {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text-secondary);
+  border-radius: 4px;
+}
+.tick-box[data-on='yes'] {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  box-shadow: inset 0 0 0 3px var(--bg-panel);
+}
+.print-word {
+  display: none;
+}
+.tick:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
 .connection-code {
   display: block;
   margin-top: 6px;
@@ -876,13 +931,29 @@ textarea {
     background: none;
     box-shadow: none;
   }
+  /* A row is never split across two sheets: its words read together. */
+  tr {
+    break-inside: avoid;
+  }
+  /* A print leaves backgrounds out by default, so on paper no state is a
+     background or a colour alone: each is a mark or a word. A list prints
+     its own name (the refused attempts are told apart by it), a tick prints
+     as a word, and of a row of choices only the one chosen prints. */
   .sidebar,
   .topbar,
   .page-title,
   .page-purpose,
   .no-print,
-  .list-head .section-title {
+  .tick-box,
+  .segment[aria-checked='false'] {
     display: none;
+  }
+  .print-word {
+    display: inline;
+  }
+  .segmented {
+    border: none;
+    padding: 0;
   }
   .shell {
     min-width: 0;

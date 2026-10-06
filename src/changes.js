@@ -8,8 +8,14 @@
 // the screen keeps it apart on its own and a file writes it as it is. Every
 // other value is said in words from the dictionaries, or by the browser's own
 // names for a time zone or a currency: never as the code the platform keeps.
+//
+// A line about a person to tell holds no name and nothing typed: the platform
+// names the person as they are named now (`subject.name`), or says they were
+// removed (`subject.removed`), and the line says only what kind of change it
+// was -- "the name changed", never from what to what.
 
 import { garageDateTime, zoneSaid } from './time.js';
+import { alertName } from './alerts.js';
 
 /** The actions the platform writes, each with words of its own for a change made and for one tried. */
 export const ACTIONS = [
@@ -19,6 +25,7 @@ export const ACTIONS = [
   'lane.card_reader_connect', 'lane.card_reader_disconnect',
   'computer.connect', 'computer.cancel',
   'rate_plan.add', 'tax_set.add', 'key.cancel', 'language.change', 'rates.retired',
+  'alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices',
 ];
 
 /** The refusals the platform names, each with words of its own; any other is "it was not allowed". */
@@ -27,6 +34,9 @@ export const REFUSALS = [
   'key_not_found', 'bad_request', 'lane_name_refused', 'lane_message_refused', 'lane_reason_refused', 'lane_override_refused',
   'last_open_lane', 'lane_has_history', 'lane_already_open', 'language_refused', 'rates_retired',
   'garage_not_activatable', 'connect_not_configured', 'too_many_refused', 'key_cancelled', 'key_expired',
+  'alert_contact_not_found', 'alert_contact_name_refused', 'alert_contact_phone_refused', 'alert_contact_email_refused',
+  'alert_contact_language_refused', 'alert_contact_unreachable', 'alert_contacts_full', 'alert_text_needs_phone',
+  'alert_email_needs_email', 'alert_choice_refused',
 ];
 
 /**
@@ -45,18 +55,29 @@ const named = (text, name) => {
 };
 
 /** A refusal that says what the request named was not found: from the account it belongs to, it is not the asker's. */
-const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found'];
+const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found', 'alert_contact_not_found'];
 
 /** The fields a before or after can hold, each with a name of its own. */
 export const FIELDS = [
   'name', 'direction', 'state', 'reason', 'message', 'access', 'lane', 'label', 'transient_available', 'default_action',
   'open', 'language', 'plan_version', 'effective_from', 'taxes', 'account', 'charges_enabled', 'card_payments',
   'details_submitted', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
-  'validations', 'last_open_overridden',
+  'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
 ];
+
+/**
+ * The alerts a person gets one way: a list of alert names, said in words.
+ * A person's phone number and email address are never in a line: only
+ * whether one is kept, or that it changed (CHOICES).
+ */
+const ALERT_LISTS = new Set(['by_text', 'by_email']);
 
 /** Fields holding text someone typed: kept as it is, apart. */
 export const STORED = new Set(['name', 'message', 'lane', 'label', 'plan_version', 'place_name']);
+
+/** A line about a person to tell: its fields are all of a known few, the name too. */
+const PERSON = 'alert_contact';
+const PERSON_CHOICES = { name: ['changed'] };
 
 /**
  * Fields whose value is one of a known few: each said in words. A value the
@@ -69,6 +90,8 @@ export const CHOICES = {
   default_action: ['allow', 'deny'],
   card_payments: ['active', 'inactive', 'pending', 'unrequested'],
   space_class: ['standard'],
+  phone: ['given', 'none', 'changed'],
+  email: ['given', 'none', 'changed'],
 };
 
 const NOTHING = '–';
@@ -93,19 +116,24 @@ export function whoPieces(t, line) {
 
 /**
  * What was done -- or, for a refused attempt, what was tried: the action's
- * words, and the thing it was aimed at by name when there is one.
+ * words, and the thing it was aimed at by name when there is one. A person to
+ * tell who has been removed is said to be, by no name.
  */
 export function whatPieces(t, line) {
   const refused = line.outcome === 'refused';
   if (refused && line.refusal === 'too_many_refused') return [{ words: t('changes.tried.many') }];
   const pieces = [{ words: t(actionKey(line.action, refused)) }];
-  if (line.subject?.name) pieces.push({ words: ': ' }, { stored: line.subject.name });
+  if (line.subject?.kind === PERSON && line.subject.removed) pieces.push({ words: ': ' }, { words: t('changes.person.removed') });
+  else if (line.subject?.name) pieces.push({ words: ': ' }, { stored: line.subject.name });
   return pieces;
 }
 
 /** One value of a before or after, in words. */
-function valueWords(t, field, value, garage, language) {
+function valueWords(t, field, value, garage, language, kind) {
   if (value === null || value === undefined) return { words: NOTHING };
+  if (kind === PERSON && PERSON_CHOICES[field]) {
+    return { words: PERSON_CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };
+  }
   if (typeof value === 'boolean') {
     if (field === 'transient_available') return { words: t(value ? 'changes.value.anyDriver' : 'changes.value.passOnly') };
     return { words: t(value ? 'yes' : 'no') };
@@ -120,6 +148,10 @@ function valueWords(t, field, value, garage, language) {
   if (field === 'timezone') return { words: zoneSaid(value, language) ?? t('changes.value.anotherZone') };
   if (field === 'currency') return { words: currencySaid(value, language) ?? t('changes.value.another') };
   if (field === 'effective_from') return { words: garageDateTime(value, garage.timezone, language) };
+  if (ALERT_LISTS.has(field) && Array.isArray(value)) {
+    if (value.length === 0) return { words: t('changes.value.noAlerts') };
+    return { words: value.map((key) => alertName(t, key)).join(', ') };
+  }
   if (field === 'taxes' && Array.isArray(value)) {
     if (value.length === 0) return { words: t('changes.value.noTax') };
     return { stored: value.map((x) => `${x.label} ${(Number(x.percent_bp) / 100).toLocaleString(language === 'es' ? 'es-US' : 'en-US')}%`).join(', ') };
@@ -149,8 +181,8 @@ export function changedFields(t, line, garage, language) {
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])];
   return fields.map((field) => ({
     field: FIELDS.includes(field) ? t(`changes.field.${field}`) : t('changes.field.other'),
-    before: field in before ? valueWords(t, field, before[field], garage, language) : { words: NOTHING },
-    after: field in after ? valueWords(t, field, after[field], garage, language) : { words: NOTHING },
+    before: field in before ? valueWords(t, field, before[field], garage, language, line.subject?.kind) : { words: NOTHING },
+    after: field in after ? valueWords(t, field, after[field], garage, language, line.subject?.kind) : { words: NOTHING },
   }));
 }
 

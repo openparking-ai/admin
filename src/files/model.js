@@ -19,6 +19,7 @@ import { insideWords } from '../inside.js';
 import { directionKey, openText } from '../lanes.js';
 import { changeText, piecesText, timesWords, whatPieces, whoPieces, whyWords } from '../changes.js';
 import { garageDateTime, garageTime, heardFrom } from '../time.js';
+import { alertNames, canEmail, canText, languageWords } from '../alerts.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
 const locale = (language) => LOCALES[language] ?? LOCALES.en;
@@ -27,7 +28,9 @@ const NOTHING = '–';
 /**
  * The columns of each list's file, by dictionary key; each has `<key>.about`
  * (scripts/check-descriptions.js holds them to it). `width` is each column's
- * share of a PDF page.
+ * share of a PDF page: wide enough for the longest of our own words and
+ * headings that can stand in it, in both languages, so a line breaks only at
+ * a space (scripts/check-pdf-words.js reads every one back whole).
  */
 export const COLUMNS = {
   inside: [
@@ -53,12 +56,23 @@ export const COLUMNS = {
     { key: 'changes.before', width: 0.22 },
     { key: 'changes.after', width: 0.22 },
   ],
+  alerts: [
+    // Each at the least our longest word needs ("Confirmado", "estacionamiento"),
+    // and the rest to the name, number and address the owner types.
+    { key: 'alerts.person', width: 0.103 },
+    { key: 'alerts.phone', width: 0.179 },
+    { key: 'alerts.email', width: 0.221 },
+    { key: 'alerts.language', width: 0.092 },
+    { key: 'alerts.confirmed', width: 0.109 },
+    { key: 'file.byText', width: 0.148 },
+    { key: 'file.byEmail', width: 0.148 },
+  ],
   refused: [
     { key: 'refused.when', width: 0.15 },
-    { key: 'refused.who', width: 0.18 },
-    { key: 'refused.what', width: 0.22 },
+    { key: 'refused.who', width: 0.17 },
+    { key: 'refused.what', width: 0.21 },
     { key: 'refused.why', width: 0.2 },
-    { key: 'refused.times', width: 0.08 },
+    { key: 'refused.times', width: 0.1 },
     { key: 'refused.last', width: 0.17 },
   ],
 };
@@ -220,7 +234,35 @@ export function refusedFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile };
+/**
+ * Alerts: that nothing is sent yet, then one row per person -- their phone
+ * number and address as kept, their language, that they have not
+ * confirmed, and the alerts they get each way, in the platform's order.
+ */
+export function alertsFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'alerts', garage, language, readAt);
+  const order = data.alerts.map((a) => a.key);
+  const rows = data.contacts.map((p) => [
+    { text: p.name },
+    { text: canText(p) ? p.phone : t('alerts.none') },
+    { text: canEmail(p) ? p.email : t('alerts.none') },
+    { text: languageWords(t, p.language) },
+    { text: p.confirmed ? t('alerts.isConfirmed') : t('alerts.notConfirmed') },
+    { text: alertNames(t, p.by_text, order, language) ?? NOTHING },
+    { text: alertNames(t, p.by_email, order, language) ?? NOTHING },
+  ]);
+  return {
+    list: 'alerts',
+    title,
+    garage: garage.name,
+    lines: [...lines, t('alerts.notSentYet')],
+    columns: columnsOf(t, 'alerts'),
+    rows,
+    empty: rows.length === 0 ? t('alerts.nobody') : null,
+  };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;

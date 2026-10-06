@@ -169,7 +169,8 @@ async function checkPrint(page, list, garage) {
   );
   check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
   // The change log prints both its lists: the changes made (5 columns) and the refused attempts (6).
-  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 11 }[list] ?? 5);
+  // Alerts prints its people (5 columns: changing them is not printed) and who gets which alert (4).
+  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 11, [EN['page.alerts.title']]: 9 }[list] ?? 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
 }
@@ -185,6 +186,9 @@ async function nobodyThere() {
 
 // What a raw failure looks like on screen: a code, a status number, a brace,
 // or the browser's own words for a broken answer.
+/** "Lane computer" in either language: there is none, and no page may say there is (U4b). */
+const LANE_COMPUTER = /lane'?s? computers?|computers? (at|of) the lane|computadoras? (de|del|en el) carril/i;
+
 const RAW = [
   [/[{}]/, 'a brace'],
   [/\b[1-5]\d\d\b/, 'a status number'],
@@ -473,7 +477,10 @@ try {
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     const purpose = await page.textContent('.page-purpose');
     check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
-    if (!['home', 'setup', 'lanes', 'inside', 'changes'].includes(p.id)) {
+    // U4b: there is no computer at a lane, and no page says so.
+    const said = await bodyText(page);
+    check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
+    if (!['home', 'setup', 'lanes', 'inside', 'changes', 'alerts'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
@@ -503,7 +510,7 @@ try {
   check(setupText.includes(EN['setup.notFromHere']) && setupText.includes(EN['setup.goTo'].replace('{page}', LANES_TITLE)), 'Setup: where each step is done, or that it cannot be set from here yet');
   check(setupText.includes('Service Lane') && setupText.includes(EN['setup.fact.noComputer']), 'Setup: the facts in plain words, naming the lane with no computer');
   check(rawIn(setupText).length === 0, `Setup: nothing raw on screen${rawIn(setupText).length ? `: ${rawIn(setupText).join(', ')}` : ''}`);
-  await checkDescribed(page, SETUP_TITLE, 'en', 10);
+  await checkDescribed(page, SETUP_TITLE, 'en', 11);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'setup-english.png'), fullPage: true });
   // A platform whose answer contradicts its own facts: the page follows the answer.
   stub.flipSetup(true);
@@ -679,9 +686,102 @@ try {
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'change-log-english.png'), fullPage: true });
   await checkPrint(page, CHANGES_TITLE, HARBOR);
 
+  // ── U4b: Alerts, who gets which alert ───────────────────────────────────
+  const ALERTS_TITLE = EN['page.alerts.title'];
+  const platformAlerts = (p, garageId) =>
+    p.evaluate(async (id) => (await fetch(`/api/v1/garages/${id}/alerts`, { credentials: 'same-origin' })).json(), garageId);
+  const personRow = (name) => `[data-list="alerts"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
+  const tickOf = (alert, name, way) => `[data-list="alert-choices"] tr[data-alert="${alert}"]:has(bdi:text-is("${name}")) [data-tick="${way}"]`;
+  const missingOf = (alert, name, way) => `[data-list="alert-choices"] tr[data-alert="${alert}"]:has(bdi:text-is("${name}")) [data-missing="${way}"]`;
+  await page.click('.nav-item[href="#/alerts"]');
+  check(await showsHeading(page, ALERTS_TITLE), 'Alerts is in the navigation');
+  await settles(page, () => document.querySelectorAll('[data-list="alerts"] tbody tr').length > 0);
+  const top = await page.evaluate(() => document.querySelector('main section.panel')?.querySelector('[data-notice]')?.textContent);
+  check(top === EN['alerts.notSentYet'], `Alerts: the first thing it says is "${EN['alerts.notSentYet']}" (it says "${top}")`);
+  check((await page.textContent('[data-notice="confirm-first"]')) === EN['alerts.confirmFirst'], 'Alerts: before the first alert, each person is asked to confirm, and the page says so');
+  const people = await page.evaluate(() => [...document.querySelectorAll('[data-list="alerts"] tbody tr')].map((tr) => [...tr.cells].slice(0, 5).map((c) => c.textContent)));
+  check(JSON.stringify(people) === JSON.stringify([
+    ['Night manager', '+15550100001', EN['alerts.none'], EN['language.en'], EN['alerts.notConfirmed']],
+    ['Office', EN['alerts.none'], 'office@example.com', EN['language.es'], EN['alerts.notConfirmed']],
+  ]), `Alerts: each person's name, phone, email, language and "${EN['alerts.notConfirmed']}" (${JSON.stringify(people)})`);
+  const truthA = await platformAlerts(page, HARBOR.id);
+  const shownAlerts = await page.evaluate(() => [...new Set([...document.querySelectorAll('[data-list="alert-choices"] tr[data-alert]')].map((tr) => tr.dataset.alert))]);
+  check(JSON.stringify(shownAlerts) === JSON.stringify(truthA.alerts.map((a) => a.key)), `Alerts: the platform's alerts, in its order (${shownAlerts.join(', ')})`);
+  const quietSays = EN['alerts.alert.lane_not_answering.says'].replace('{minutes}', String(truthA.quiet_minutes));
+  check((await bodyText(page)).includes(quietSays), `Alerts: "A lane stopped answering" says the platform's quiet setting: "${quietSays}"`);
+  check((await page.$(tickOf('lane_problem', 'Office', 'text'))) === null && (await page.textContent(missingOf('lane_problem', 'Office', 'phone'))) === EN['alerts.needsPhone'], `Alerts: no text offered to someone with no phone number; the cell says "${EN['alerts.needsPhone']}"`);
+  check((await page.$(tickOf('lane_problem', 'Night manager', 'email'))) === null && (await page.textContent(missingOf('lane_problem', 'Night manager', 'email'))) === EN['alerts.needsEmail'], `Alerts: no email offered to someone with no address; the cell says "${EN['alerts.needsEmail']}"`);
+  check((await page.getAttribute(tickOf('lane_problem', 'Night manager', 'text'), 'aria-checked')) === 'true' && (await page.getAttribute(tickOf('card_payments_stopped', 'Night manager', 'text'), 'aria-checked')) === 'false', 'Alerts: each tick as the platform holds it');
+  const alertsText = await bodyText(page);
+  check(rawIn(alertsText).length === 0, `Alerts: nothing raw on screen${rawIn(alertsText).length ? `: ${rawIn(alertsText).join(', ')}` : ''}`);
+  await checkDescribed(page, ALERTS_TITLE, 'en', 14);
+  await checkChoosers(page, ALERTS_TITLE, 'en');
+  // A bad phone number: refused in plain words, and nobody added.
+  const addForm = '[data-form="add-person"]';
+  await page.fill(`${addForm} label:has([data-about="alerts.person"]) input`, 'Weekend lead');
+  await page.fill(`${addForm} [data-field="phone"]`, '555-CALL-NOW');
+  await page.click(`${addForm} button[type="submit"]`);
+  check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.phoneLetters']), `Alerts: a phone with letters is refused: "${EN['problem.phoneLetters']}"`);
+  await page.fill(`${addForm} [data-field="phone"]`, '555-0101');
+  await page.click(`${addForm} button[type="submit"]`);
+  check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.phoneShort']), `Alerts: a phone too short is refused: "${EN['problem.phoneShort']}"`);
+  await page.fill(`${addForm} [data-field="phone"]`, '');
+  await page.fill(`${addForm} [data-field="email"]`, 'weekend@@example.com');
+  await page.click(`${addForm} button[type="submit"]`);
+  check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.emailAt']), `Alerts: an address with two @ is refused: "${EN['problem.emailAt']}"`);
+  // U4b fix round 2: what a name holds is the owner's; it is never written into a log (scripts/check-removed-person.js).
+  await page.fill(`${addForm} [data-field="email"]`, '');
+  check((await platformAlerts(page, HARBOR.id)).contacts.length === 2, 'Alerts: ...and nobody was added');
+  await page.fill(`${addForm} [data-field="phone"]`, '(555) 010-0144');
+  await page.fill(`${addForm} [data-field="email"]`, 'weekend.lead@example.com');
+  await page.click(`${addForm} button[type="submit"]`);
+  const appears = (sel) => page.waitForSelector(sel, { timeout: 5000 }).then(() => true, () => false);
+  const goes = (sel) => page.waitForSelector(sel, { state: 'detached', timeout: 5000 }).then(() => true, () => false);
+  check(await appears(personRow('Weekend lead')), 'Alerts: a person added, in place');
+  check((await page.textContent(`${personRow('Weekend lead')} td:nth-child(2)`)) === '+15550100144', 'Alerts: the phone number as the platform keeps it (+1 and the ten digits)');
+  // Ticks: saved when pressed, as the platform then holds them.
+  await page.click(tickOf('lane_problem', 'Weekend lead', 'text'));
+  check(await appears(`${tickOf('lane_problem', 'Weekend lead', 'text')}[aria-checked="true"]`), 'Alerts: a text tick saved');
+  await page.click(tickOf('card_payments_stopped', 'Weekend lead', 'email'));
+  check(await appears(`${tickOf('card_payments_stopped', 'Weekend lead', 'email')}[aria-checked="true"]`), 'Alerts: an email tick saved');
+  const weekend = (await platformAlerts(page, HARBOR.id)).contacts.find((c) => c.name === 'Weekend lead');
+  check(JSON.stringify([weekend?.by_text, weekend?.by_email]) === JSON.stringify([['lane_problem'], ['card_payments_stopped']]), 'Alerts: ...and the platform holds exactly those');
+  // The phone taken away: said before the save, and what stopped said after.
+  await page.click(`${personRow('Weekend lead')} [data-action="change-person"]`);
+  await page.fill('[data-panel="change-person"] [data-field="phone"]', '');
+  check(await settles(page, (t) => document.querySelector('[data-notice="phone-goes"]')?.textContent === t, EN['alerts.phoneGoes']), `Alerts: emptying the phone says first: "${EN['alerts.phoneGoes']}"`);
+  await page.click('[data-panel="change-person"] button[type="submit"]');
+  const offSaid = `${EN['alerts.turnedOffText']} ${EN['alerts.alert.lane_problem']}`;
+  check(await settles(page, (t) => document.querySelector('[data-notice="turned-off"]')?.textContent.includes(t), offSaid), `Alerts: after the save, "${offSaid}"`);
+  check(await appears(missingOf('lane_problem', 'Weekend lead', 'phone')), 'Alerts: ...and their text ticks are no longer offered');
+  // Remove: a question on the page, "No, keep them" beside it; then gone.
+  await page.click(`${personRow('Office')} [data-action="remove-person"]`);
+  const keep = await page.textContent('[data-panel="remove-person"] [data-action="close-panel"]');
+  check(keep === EN['alerts.panelKeep'], `Alerts: removing asks on the page, with "${EN['alerts.panelKeep']}" beside "${EN['alerts.removeButton']}" (it says "${keep}")`);
+  await page.click('[data-action="remove-person-confirm"]');
+  check(await goes(personRow('Office')), 'Alerts: a person removed, in place');
+  // The Setup step: the platform's, and it leads here.
+  await page.click('.nav-item[href="#/setup"]');
+  await stepsAgree(page, 'with the alerts changed');
+  check((await page.textContent('[data-step="alerts"] .setup-where')) === EN['setup.goTo'].replace('{page}', ALERTS_TITLE), `Setup: the alerts step says where it is done: "${EN['setup.goTo'].replace('{page}', ALERTS_TITLE)}"`);
+  const alertsStep = await page.textContent('[data-step="alerts"]');
+  check(alertsStep.includes(EN['setup.fact.alertsNobody']) && alertsStep.includes(EN['alerts.alert.attendant_link_dropped']), 'Setup: the alerts step names, in words, the alerts nobody is told about');
+  await page.click('[data-step="alerts"] .setup-where a');
+  check(await showsHeading(page, ALERTS_TITLE), 'Setup: its alerts step leads to Alerts');
+  await settles(page, () => document.querySelectorAll('[data-list="alerts"] tbody tr').length > 0);
+  await checkPrint(page, ALERTS_TITLE, HARBOR);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'alerts-english.png'), fullPage: true });
+  // The change log: each change said in words, and never the number or the address.
+  await page.click('.nav-item[href="#/change-log"]');
+  await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
+  const logText = await page.textContent('[data-list="changes"]');
+  check([EN['changes.action.alert_contact_add'], EN['changes.action.alert_contact_choices'], EN['changes.action.alert_contact_change'], EN['changes.action.alert_contact_remove'], EN['changes.value.phone.given']].every((w) => logText.includes(w)), `${CHANGES_TITLE}: each change to a person, in words`);
+  check(!['+15550100144', '0100144', 'weekend.lead@example.com', 'office@example.com'].some((d) => logText.includes(d)), `${CHANGES_TITLE}: no phone number or email address in any line`);
+  check(rawIn(logText).length === 0, `${CHANGES_TITLE}: nothing raw after the alerts changes${rawIn(logText).length ? `: ${rawIn(logText).join(', ')}` : ''}`);
+
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await page.click('[data-control="language"] [data-value="es"]');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 11], ['#/lanes', 'page.lanes.title', 8]]) {
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 14], ['#/lanes', 'page.lanes.title', 8]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);
@@ -828,6 +928,8 @@ try {
     await page.click(`.nav-item[href="#${p.path}"]`);
     const title = ES[`page.${p.id}.title`];
     check(await showsHeading(page, title), `la navegación llega a "${title}"`);
+    const dice = await bodyText(page);
+    check(!LANE_COMPUTER.test(dice), `"${title}": nunca "computadora de carril"${LANE_COMPUTER.test(dice) ? ` (dice "${dice.match(LANE_COMPUTER)[0]}")` : ''}`);
   }
   await page.keyboard.press('Control+K');
   await page.keyboard.type('impuestos');

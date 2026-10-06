@@ -18,6 +18,9 @@ export const PROBLEM_KINDS = [
   'refused', 'tooMany', 'busy', 'notSetUp', 'wrongPlace', 'incomplete', 'ended', 'unreachable', 'unexpected',
   // U4: the setup changes' own refusals.
   'laneName', 'laneMessage', 'laneHasHistory', 'lastOpenLane', 'laneAlreadyOpen', 'notFound', 'notKept',
+  // U4b: the people to tell, and what each gets.
+  'personName', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
+  'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
 ];
 
 /**
@@ -38,7 +41,24 @@ const NAMED = [
   [409, 'last_open_lane', 'lastOpenLane'],
   [409, 'lane_already_open', 'laneAlreadyOpen'],
   [404, 'lane_not_found', 'notFound'],
+  // U4b, as the platform's src/alerts.js names them.
+  [400, 'alert_contact_unreachable', 'unreachable'],
+  [409, 'alert_contacts_full', 'peopleFull'],
+  [409, 'alert_text_needs_phone', 'textNeedsPhone'],
+  [409, 'alert_email_needs_email', 'emailNeedsEmail'],
+  [404, 'alert_contact_not_found', 'notFound'],
 ];
+
+/**
+ * A name, phone number or email address refused, by why: the platform's
+ * `details.reason`, one of a known few, each with its own words. Any other
+ * reason is the plainest sentence for the field.
+ */
+const BY_REASON = {
+  alert_contact_name_refused: { other: 'personName' },
+  alert_contact_phone_refused: { letters: 'phoneLetters', too_short: 'phoneShort', too_long: 'phoneLong', not_us: 'phoneNotUs', other: 'phoneOdd' },
+  alert_contact_email_refused: { space: 'emailSpace', no_at: 'emailAt', two_at: 'emailAt', empty_side: 'emailAt', too_long: 'emailLong', other: 'emailOdd' },
+};
 
 /**
  * A refusal with no code that these screens still meet by status alone: a
@@ -130,6 +150,11 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     }
     if (GATEWAY.includes(res.status) && !fromPlatform) throw new Problem('unreachable');
     if (!res.ok) {
+      const reasons = res.status === 400 ? BY_REASON[code] : undefined;
+      if (reasons) {
+        const reason = typeof data.details?.reason === 'string' ? data.details.reason : 'other';
+        throw new Problem(Object.hasOwn(reasons, reason) ? reasons[reason] : reasons.other);
+      }
       const named = NAMED.find(([status, name]) => status === res.status && name === code)?.[2];
       throw new Problem(named ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
     }
@@ -249,6 +274,27 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       return { device: data.device, code: data.token };
     },
     cancelComputer: async (deviceId) => object(await request(`/devices/${encodeURIComponent(deviceId)}/revoke`, { method: 'POST' })),
+    /**
+     * The alerts, in the platform's order, its quiet setting, and the
+     * garage's people with what each gets: read, never kept here.
+     */
+    alerts: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/alerts`));
+      if (!Array.isArray(data.alerts) || !Array.isArray(data.contacts) || !Number.isInteger(data.quiet_minutes) || !Number.isInteger(data.max_contacts)) {
+        throw new Problem('unexpected');
+      }
+      return { alerts: data.alerts, contacts: data.contacts, quietMinutes: data.quiet_minutes, maxContacts: data.max_contacts };
+    },
+    addPerson: async (garageId, person) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/alert-contacts`, { method: 'POST', body: person })),
+    /** Only what changed is sent; `phone: null` or `email: null` takes it away. The answer says what was turned off. */
+    changePerson: async (garageId, personId, changes) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/alert-contacts/${encodeURIComponent(personId)}`, { method: 'PATCH', body: changes })),
+    removePerson: async (garageId, personId) =>
+      request(`/garages/${encodeURIComponent(garageId)}/alert-contacts/${encodeURIComponent(personId)}`, { method: 'DELETE' }),
+    /** The whole of what a person gets: { by_text: [alert], by_email: [alert] }. */
+    setChoices: async (garageId, personId, choices) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/alert-contacts/${encodeURIComponent(personId)}/choices`, { method: 'PUT', body: choices })),
     carsInside: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/sessions/open`));
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');

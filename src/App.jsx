@@ -15,8 +15,9 @@ import LanesPage from './LanesPage.jsx';
 import InsidePage from './InsidePage.jsx';
 import SetupPage from './SetupPage.jsx';
 import ChangesPage from './ChangesPage.jsx';
+import AlertsPage from './AlertsPage.jsx';
 
-const PAGE_BODIES = { home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage };
+const PAGE_BODIES = { home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage };
 
 function useHashPage() {
   const [page, setPage] = useState(() => pageForHash(window.location.hash));
