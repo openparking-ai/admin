@@ -8,3 +8,5 @@ coverage/
 # Screenshots and browser-check output; never tracked.
 .screens/
 test-results/
+# A fail-controls shard's report, read by --verify in CI.
+fail-controls-*-shard-*.json
