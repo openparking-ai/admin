@@ -1,0 +1,39 @@
+name: The check environment
+description: >-
+  Node and the npm packages, Python and the pinned readers the downloaded
+  files are read back with, and -- when asked -- LibreOffice reading the Excel
+  files as a spreadsheet app does, or Chromium for the browser checks. Every
+  job that runs checks or fail-controls starts here, so a shard runs in the
+  environment its controls always ran in.
+inputs:
+  spreadsheet-app:
+    description: Install LibreOffice (headless).
+    default: 'false'
+  browser:
+    description: Install Chromium for Playwright.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+    - shell: bash
+      run: npm ci
+    - if: inputs.browser == 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: The readers the downloaded files are read back with (pinned, by hash)
+      shell: bash
+      run: pip install --require-hashes -r scripts/files/readers.txt
+    - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
+      if: inputs.spreadsheet-app == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+        soffice --version

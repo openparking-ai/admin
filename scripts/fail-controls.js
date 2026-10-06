@@ -12,6 +12,19 @@
 //   node scripts/fail-controls.js --browser  the ones that do (each builds its copy)
 //   A control may set `env` for its run: the LibreOffice one needs soffice (CI).
 //   ... --only TEXT                          only the controls whose name holds TEXT
+//   ... --plan                               print every control's name, one per line
+//   ... --shard i/N                          run shard i of N; write what ran, what
+//                                            failed and how long each took to
+//                                            fail-controls-<plain|browser>-shard-<i>.json
+//   ... --verify DIR                         read the shard files in DIR: shards 1..N
+//                                            each exactly once, every control run in
+//                                            exactly one of them, none failed
+//
+// Which shard a control lands in is chosen by its measured seconds on CI
+// (scripts/fail-controls-times.json): longest first, each to the shard with
+// the fewest seconds so far. A control with no measured time yet counts as the
+// longest of its kind. The times only balance the shards; which controls run
+// is the list below, whole, and --verify holds every shard to it.
 //
 // The download check's odd-text walk (thousands of cells, most of its minutes)
 // runs only in the controls marked `oddText: true`: the ones whose break is in
@@ -21,7 +34,7 @@
 // The estate-name guard's control is not here: it plants its own, in the same
 // run as its scan (`check-no-sibling-names.js --worktree`).
 
-import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -1256,14 +1269,108 @@ const run = (dir, [cmd, ...args], env = {}) => {
   return { status: r.status, out: `${r.stdout}\n${r.stderr}` };
 };
 
-// --only TEXT runs just the controls whose name holds TEXT (for working on one).
-const onlyAt = process.argv.indexOf('--only');
-const only = onlyAt > 0 ? process.argv[onlyAt + 1] : null;
-const controls = (process.argv.includes('--browser') ? BROWSER_CONTROLS : CONTROLS).filter((c) => !only || c.check.includes(only));
-if (controls.length === 0) {
-  console.error(`no control's name holds "${only}"`);
+const args = process.argv.slice(2);
+const valueOf = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : null);
+const KIND = args.includes('--browser') ? 'browser' : 'plain';
+const ALL = KIND === 'browser' ? BROWSER_CONTROLS : CONTROLS;
+const reportName = (i) => `fail-controls-${KIND}-shard-${i}.json`;
+
+// A shard's report names its controls; two with one name could not be told apart.
+const twice = ALL.map((c) => c.check).filter((name, at, all) => all.indexOf(name) !== at);
+if (twice.length) {
+  for (const name of new Set(twice)) console.error(`two controls are named "${name}"; a shard report could not tell them apart`);
   process.exit(1);
 }
+
+if (args.includes('--plan')) {
+  for (const c of ALL) console.log(c.check);
+  process.exit(0);
+}
+
+if (args.includes('--verify')) {
+  const dir = valueOf('--verify');
+  const pattern = new RegExp(`^fail-controls-${KIND}-shard-\\d+\\.json$`);
+  let files = [];
+  try {
+    files = readdirSync(dir).filter((f) => pattern.test(f));
+  } catch {
+    // reported below as no shard report
+  }
+  const reports = files.map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
+  const wrong = [];
+  if (reports.length === 0) wrong.push(`no ${KIND} shard report in ${dir}`);
+  const of = [...new Set(reports.map((r) => r.of))];
+  if (of.length > 1) wrong.push(`the ${KIND} shard reports disagree on the shard count: ${of.join(', ')}`);
+  const n = of[0] ?? 0;
+  for (let i = 1; i <= n; i += 1) {
+    const count = reports.filter((r) => r.shard === i).length;
+    if (count !== 1) wrong.push(`shard ${i}/${n} reported ${count} times`);
+  }
+  for (const r of reports) {
+    if (r.kind !== KIND) wrong.push(`a report from shard ${r.shard}/${r.of} is of the ${r.kind} controls, not the ${KIND}`);
+    if (!(r.shard >= 1 && r.shard <= n)) wrong.push(`a report from shard ${r.shard} of ${n}`);
+  }
+  const ran = reports.flatMap((r) => r.ran);
+  for (const c of ALL) {
+    const count = ran.filter((name) => name === c.check).length;
+    if (count === 0) wrong.push(`control "${c.check}" ran in no shard`);
+    if (count > 1) wrong.push(`control "${c.check}" ran ${count} times, in shards ${reports.filter((r) => r.ran.includes(c.check)).map((r) => r.shard).join(' and ')}`);
+  }
+  for (const name of new Set(ran)) if (!ALL.some((c) => c.check === name)) wrong.push(`"${name}" ran but is not a control`);
+  for (const r of reports) for (const name of r.failed) wrong.push(`shard ${r.shard}/${r.of}: control "${name}" did not fail as required`);
+  for (const r of [...reports].sort((a, b) => a.shard - b.shard)) {
+    const seconds = Object.values(r.seconds).reduce((a, b) => a + b, 0);
+    console.log(`  shard ${r.shard}/${r.of}: ${r.ran.length} controls, ${(seconds / 60).toFixed(1)} min`);
+  }
+  if (wrong.length) {
+    for (const w of wrong) console.error(`  WRONG ${w}`);
+    console.error(`\nthe ${KIND} controls' shards do not add up to one whole run (${wrong.length} problem(s)).`);
+    process.exit(1);
+  }
+  console.log(`\nall ${ALL.length} ${KIND} controls ran exactly once over ${n} shards, each caught and named.`);
+  process.exit(0);
+}
+
+// The measured seconds, for balancing the shards and nothing else.
+const TIMES = JSON.parse(readFileSync(join(ROOT, 'scripts', 'fail-controls-times.json'), 'utf8'))[KIND];
+const longest = Math.max(...Object.values(TIMES));
+const cost = (c) => TIMES[c.check] ?? longest;
+
+/** The controls of shard `i` of `n`: longest first, each to the shard with the fewest seconds so far. */
+function shardOf(i, n) {
+  const load = Array(n).fill(0);
+  const shardAt = new Map();
+  const order = ALL.map((c, at) => ({ c, at })).sort((a, b) => cost(b.c) - cost(a.c) || a.at - b.at);
+  for (const { c } of order) {
+    const least = load.indexOf(Math.min(...load));
+    load[least] += cost(c);
+    shardAt.set(c, least + 1);
+  }
+  return ALL.filter((c) => shardAt.get(c) === i);
+}
+
+let shard = null;
+if (args.includes('--shard')) {
+  const m = /^(\d+)\/(\d+)$/.exec(valueOf('--shard') ?? '');
+  if (!m || Number(m[1]) < 1 || Number(m[1]) > Number(m[2])) {
+    console.error(`--shard takes i/N with 1 <= i <= N, not ${JSON.stringify(valueOf('--shard'))}`);
+    process.exit(1);
+  }
+  if (args.includes('--only')) {
+    console.error('--shard runs whole shards; --only is for working on one control');
+    process.exit(1);
+  }
+  shard = { i: Number(m[1]), n: Number(m[2]) };
+}
+
+// --only TEXT runs just the controls whose name holds TEXT (for working on one).
+const only = valueOf('--only');
+const controls = (shard ? shardOf(shard.i, shard.n) : ALL).filter((c) => !only || c.check.includes(only));
+if (controls.length === 0) {
+  console.error(shard ? `shard ${shard.i}/${shard.n} has no control` : `no control's name holds "${only}"`);
+  process.exit(1);
+}
+if (shard) console.log(`== ${KIND} controls, shard ${shard.i} of ${shard.n}: ${controls.length} of ${ALL.length} ==\n`);
 // A control that expects a line only the odd-text walk prints must walk it.
 const walkLine = /^(FAIL )?(odd text|F2 |F3 )/;
 const unwalked = controls.filter((c) => c.run === CHECK_DOWNLOADS && !c.oddText && c.names.some((n) => walkLine.test(n)));
@@ -1272,8 +1379,10 @@ if (unwalked.length) {
   process.exit(1);
 }
 const failures = [];
+const seconds = {};
 for (const c of controls) {
   const dir = scratchCopy();
+  const started = Date.now();
   try {
     plant(dir, c.plant);
     for (const step of c.before ?? []) {
@@ -1298,7 +1407,14 @@ for (const c of controls) {
     console.log(`  FAIL check ${c.check}: ${error.message}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+    seconds[c.check] = Math.round((Date.now() - started) / 100) / 10;
   }
+}
+
+if (shard) {
+  const ran = controls.map((c) => c.check);
+  const report = { kind: KIND, shard: shard.i, of: shard.n, ran, failed: failures, seconds };
+  writeFileSync(join(ROOT, reportName(shard.i)), `${JSON.stringify(report, null, 1)}\n`);
 }
 
 if (failures.length) {
