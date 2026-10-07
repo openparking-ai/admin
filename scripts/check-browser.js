@@ -699,6 +699,35 @@ try {
   check(await settles(page, () => document.querySelectorAll('[data-list="board"] tbody tr').length === 0), 'Lane screens: a message removed, in place');
   await page.click(`[data-list="board-prices"] [data-lane="${northEntry.id}"] [data-tick="prices"]`);
   await untilRead(async () => (await boardRead()).lanes.every((l) => !l.prices));
+  // F1: nothing on the board outlives its lane. A message on a lane alone goes with the lane; one on two loses only it.
+  {
+    await page.fill('[data-form="add-lane"] input[type="text"]', 'Spare Gate');
+    await page.click('[data-form="add-lane"] [data-chooser="direction"] [data-value="entry"]');
+    await page.click('[data-form="add-lane"] button[type="submit"]');
+    await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].some((tr) => tr.cells[0].textContent === 'Spare Gate'));
+    const spare = (await boardRead()).lanes.find((l) => l.name === 'Spare Gate');
+    const offered = await settles(page, (id) => Boolean(document.querySelector(`[data-panel="add-message"] [data-pick="${id}"]`)), spare.id);
+    check(offered, 'Lane screens: a lane added is offered for a message at once (the board read again)');
+    for (const [text, ids] of offered ? [['Spare only', [spare.id]], ['Both doors', [northEntry.id, spare.id]]] : []) {
+      await page.fill('[data-panel="add-message"] textarea', text);
+      for (const id of ids) await page.click(`[data-panel="add-message"] [data-pick="${id}"]`);
+      await page.click('[data-panel="add-message"] button[type="submit"]');
+      await settles(page, (n) => document.querySelectorAll('[data-list="board"] tbody tr').length === n, ids.length);
+    }
+    await page.click(`${laneRow('Spare Gate')} [data-action="remove"]`);
+    await page.click('[data-panel="remove"] [data-action="remove-confirm"]');
+    const shownNow = () => page.evaluate(() => [...document.querySelectorAll('[data-list="board"] tbody tr')].map((tr) => `${tr.cells[0].textContent} @ ${[...tr.cells[1].querySelectorAll('bdi')].map((b) => `[${b.textContent}]`).join('')}`));
+    const settled = await settles(page, () => {
+      const rows = [...document.querySelectorAll('[data-list="board"] tbody tr')];
+      return rows.length === 1 && rows[0].cells[0].textContent === 'Both doors' && [...rows[0].cells[1].querySelectorAll('bdi')].map((b) => b.textContent).join('|') === 'North Entry';
+    });
+    check(settled, `Lane screens: a lane removed takes its lone message with it and comes off the other; every lane named, none empty (${JSON.stringify(await shownNow())})`);
+    const kept = (await boardRead()).messages;
+    check(kept.length === 1 && kept[0].lanes.length === 1 && kept[0].lanes[0] === northEntry.id, 'Lane screens: ...and the platform keeps the same');
+    await page.click('[data-list="board"] [data-action="remove-message"]');
+    await page.click('[data-action="remove-message-confirm"]');
+    await settles(page, () => document.querySelectorAll('[data-list="board"] tbody tr').length === 0);
+  }
   check(dialogs === 0 && (await page.evaluate(() => document.querySelectorAll('dialog').length)) === 0, `${LANES_TITLE}: every confirmation was on the page, none in a browser dialog (${dialogs} dialogs)`);
 
   // The connection code: shown once, kept nowhere.

@@ -1283,6 +1283,32 @@ const BROWSER_CONTROLS = [
     names: ['FAIL Lane screens: ...and for that lane only'],
   },
   {
+    check: 'U4c fix F1: a lane removed leaves its lone message on no lane',
+    plant: { file: 'test/stub-platform.js', anchor: '        board.messages = board.messages.filter((msg) => !gone.includes(msg));', with: '        for (const msg of gone) msg.lanes = [];' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lane screens: a lane removed takes its lone message with it'],
+  },
+  {
+    check: 'U4c fix F1: the board not read again when the lanes change',
+    plant: { file: 'src/BoardSection.jsx', anchor: '    if (lanesBefore.current === lanesNow) return;', with: '    return;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Lane screens: a lane added is offered for a message at once'],
+  },
+  {
+    check: 'U4c fix F1: a lane the read does not hold, named as nothing',
+    plant: { file: 'src/screen.js', anchor: "  message.lanes.map((id) => lanes.find((l) => l.id === id)).filter((l) => l !== undefined && typeof l.name === 'string' && l.name !== '');", with: "  message.lanes.map((id) => lanes.find((l) => l.id === id) ?? { id, name: '' });" },
+    run: ['node', '--test', 'test/screen.test.js'],
+    names: ['F1: a message is shown at real lanes only'],
+  },
+  {
+    check: 'U4c fix F1: the messages a lane removal took, not said',
+    plant: { file: 'src/changes.js', anchor: "  if (MESSAGE_LISTS.has(field) && Array.isArray(value)) return value.length ? { stored: value.map((m) => `“${m}”`).join(', ') } : { words: NOTHING };", with: '' },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['F1: a lane removed says'],
+  },
+  {
     check: 'U4 fix 1: refused attempts read among the changes made',
     plant: { file: 'test/stub-platform.js', anchor: "(l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);", with: "(l.garage_id === garage.id || l.garage_id === null) && (outcome === 'done' || l.outcome === outcome));" },
     before: BUILD,

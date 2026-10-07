@@ -53,3 +53,11 @@ export function screenLines(text, width = PREVIEW_WIDTH) {
   if (line) lines.push(line);
   return lines;
 }
+
+/**
+ * The lanes a board message is shown at, as lanes of the same read of the
+ * board: each a real lane with its name, in the order the message keeps
+ * them. An id the read does not hold is left out, never named as nothing.
+ */
+export const messageLanes = (message, lanes) =>
+  message.lanes.map((id) => lanes.find((l) => l.id === id)).filter((l) => l !== undefined && typeof l.name === 'string' && l.name !== '');

@@ -684,4 +684,6 @@ export default {
   "changes.field.starts": "Empieza",
   "changes.field.ends": "Termina",
   "changes.field.prices": "Precio en la pantalla",
+  "changes.field.messages_off": "Mensajes de pantalla que ya no se muestran allí",
+  "changes.field.messages_removed": "Mensajes de pantalla quitados con él",
 };

@@ -66,7 +66,7 @@ export const FIELDS = [
   'open', 'language', 'plan_version', 'effective_from', 'taxes', 'account', 'charges_enabled', 'card_payments',
   'details_submitted', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
   'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
-  'text', 'lanes', 'starts', 'ends', 'prices',
+  'text', 'lanes', 'starts', 'ends', 'prices', 'messages_off', 'messages_removed',
 ];
 
 /**
@@ -81,6 +81,8 @@ export const STORED = new Set(['name', 'message', 'lane', 'label', 'plan_version
 
 /** A screen message's lanes, by name as the line keeps them: typed names, kept as they are. */
 const LANE_NAMES = 'lanes';
+/** A lane removed: the screen messages it came off, and the ones removed with it -- typed words, kept as they are. */
+const MESSAGE_LISTS = new Set(['messages_off', 'messages_removed']);
 /** A screen message's start and end, in the garage's own time as the owner wrote them. */
 const GARAGE_LOCAL = new Set(['starts', 'ends']);
 
@@ -159,6 +161,7 @@ function valueWords(t, field, value, garage, language, kind) {
   if (field === 'effective_from') return { words: garageDateTime(value, garage.timezone, language) };
   if (GARAGE_LOCAL.has(field)) return { words: localSaid(value, language) ?? t('changes.value.another') };
   if (field === LANE_NAMES && Array.isArray(value)) return value.length ? { stored: value.join(', ') } : { words: NOTHING };
+  if (MESSAGE_LISTS.has(field) && Array.isArray(value)) return value.length ? { stored: value.map((m) => `“${m}”`).join(', ') } : { words: NOTHING };
   if (ALERT_LISTS.has(field) && Array.isArray(value)) {
     if (value.length === 0) return { words: t('changes.value.noAlerts') };
     return { words: value.map((key) => alertName(t, key)).join(', ') };

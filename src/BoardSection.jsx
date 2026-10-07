@@ -1,8 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProblemNote, useGarageRead } from './parts.jsx';
 import { STALE } from './api.js';
 import { localSaid } from './time.js';
-import { charactersSaid, screenLines, undrawable } from './screen.js';
+import { charactersSaid, messageLanes, screenLines, undrawable } from './screen.js';
 import FieldName from './FieldName.jsx';
 
 /**
@@ -16,6 +16,11 @@ import FieldName from './FieldName.jsx';
  * named as it is typed and the message is not sent with it; a preview shows
  * it the way the screen will, in capitals and broken into lines. Times are
  * written in the garage's own time. Every confirmation is on the page.
+ *
+ * A message is always on at least one real lane: a lane removed takes itself
+ * off every message, and a message left on no lane goes with it (the
+ * platform does both). So the board is read again whenever the lanes change,
+ * and a message's lanes are named from that same read -- never an empty name.
  */
 export default function BoardSection({ t, language, client, garage, lanes }) {
   const board = useGarageRead(useCallback((id) => client.board(id), [client]), garage.id);
@@ -24,6 +29,14 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
   const [busy, setBusy] = useState(null);
   const [problem, setProblem] = useState(null);
   const reread = useCallback(() => board.refresh().catch(() => board.retry()), [board]);
+  // The lanes changed (one added, renamed or removed): read the board again, so it shows what the platform now keeps.
+  const lanesNow = lanes.map((l) => `${l.id}:${l.name}`).join('|');
+  const lanesBefore = useRef(lanesNow);
+  useEffect(() => {
+    if (lanesBefore.current === lanesNow) return;
+    lanesBefore.current = lanesNow;
+    reread();
+  }, [lanesNow, reread]);
   const fail = (p) => {
     if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
   };
@@ -31,7 +44,7 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
   if (board.problem) return <ProblemNote t={t} kind={board.problem} onRetry={board.retry} />;
   if (!board.data) return null;
   const { messages, messagesMax, screen } = board.data;
-  const laneName = (id) => lanes.find((l) => l.id === id)?.name ?? board.data.lanes.find((l) => l.id === id)?.name ?? '';
+  const shownAt = (m) => messageLanes(m, board.data.lanes);
 
   const setPrices = async (lane, show) => {
     setBusy(lane.id);
@@ -111,10 +124,10 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
                   <bdi>{m.text}</bdi>
                 </td>
                 <td>
-                  {m.lanes.map((id, i) => (
-                    <span key={id}>
+                  {shownAt(m).map((lane, i) => (
+                    <span key={lane.id} data-shown-at={lane.id}>
                       {i ? ', ' : ''}
-                      <bdi>{laneName(id)}</bdi>
+                      <bdi>{lane.name}</bdi>
                     </span>
                   ))}
                 </td>

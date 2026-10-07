@@ -49,6 +49,8 @@ const LINES = [
   ['lane.add', null, { name: 'North gate', direction: 'entry' }],
   ['lane.rename', { name: 'Old' }, { name: 'North gate' }],
   ['lane.remove', { name: 'North gate', direction: 'exit' }, null],
+  // F1: a lane removed names the screen messages it came off and the ones removed with it.
+  ['lane.remove', { name: 'South gate', direction: 'entry', messages_off: ['Both doors'], messages_removed: ['South only', 'Event tonight'] }, null],
   ['lane.close', { state: 'open' }, { state: 'closed', reason: 'full', message: 'Garage full', last_open_overridden: true }],
   ['lane.close_again', { state: 'closed', reason: 'full', message: 'Garage full' }, { state: 'closed', reason: 'everyone', message: 'Closed tonight' }],
   ['lane.reopen', { state: 'closed', reason: 'everyone', message: 'Closed tonight' }, { state: 'open' }],
@@ -221,5 +223,15 @@ test('6 NO SENTENCE ENDS TWICE: every entry filled with a value that already end
       const filled = translate(language, key, Object.fromEntries(names.map((n) => [n, '6:41 a.m.'])));
       assert.doesNotMatch(filled, /(?<!\.)\.\.(?!\.)/, `${language} ${key}: "${filled}"`);
     }
+  }
+});
+
+test('F1: a lane removed says, in both languages, the screen messages no longer shown there and the ones removed with it, as typed', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const fields = changedFields(t, done('lane.remove', { name: 'South gate', direction: 'entry', messages_off: ['Both doors'], messages_removed: ['South only', 'Event tonight'] }, null), GARAGE, language);
+    const by = Object.fromEntries(fields.map((f) => [f.field, f.before]));
+    assert.deepEqual(by[t('changes.field.messages_off')], { stored: '“Both doors”' }, language);
+    assert.deepEqual(by[t('changes.field.messages_removed')], { stored: '“South only”, “Event tonight”' }, language);
   }
 });

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { SAMPLE_KEYS, reasonsFor } from '../src/lanes.js';
-import { screenLines, undrawable } from '../src/screen.js';
+import { messageLanes, screenLines, undrawable } from '../src/screen.js';
 import { SCREEN_CHARACTERS } from './stub-platform.js';
 
 // U4c, rule 7 and rule 9, on the owner's side: what a lane's screen can show,
@@ -45,4 +45,11 @@ test('the preview is the screen\'s: capitals, wrapped by words, nothing cut off'
 test('a way out is closed to everyone only; a way in, for either reason', () => {
   assert.deepEqual(reasonsFor({ direction: 'exit' }), ['everyone']);
   assert.deepEqual(reasonsFor({ direction: 'entry' }), ['full', 'everyone']);
+});
+
+test('F1: a message is shown at real lanes only, by name, in its own order -- never an empty name', () => {
+  const lanes = [{ id: 'a', name: 'North gate' }, { id: 'b', name: 'South gate' }];
+  assert.deepEqual(messageLanes({ lanes: ['b', 'a'] }, lanes).map((l) => l.name), ['South gate', 'North gate']);
+  assert.deepEqual(messageLanes({ lanes: ['a', 'gone'] }, lanes).map((l) => l.name), ['North gate'], 'a lane the read does not hold is left out');
+  assert.deepEqual(messageLanes({ lanes: ['c'] }, [...lanes, { id: 'c', name: '' }]), [], 'a lane with no name is never shown as nothing');
 });

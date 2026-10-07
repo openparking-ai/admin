@@ -631,10 +631,20 @@ export async function startStub({ port = 0 } = {}) {
             details: had,
           }, at);
         }
+        // As the platform's src/lanes.js: the lane comes off every message, a message left on no lane goes with it, and the line names both.
         lanes.splice(lanes.indexOf(lane), 1);
-        for (const msg of boardOf(who, garageId).messages) msg.lanes = msg.lanes.filter((id) => id !== lane.id);
-        boardOf(who, garageId).prices.delete(lane.id);
-        line(who, { ...at, before: { name: lane.name, direction: lane.direction } });
+        const board = boardOf(who, garageId);
+        const on = board.messages.filter((msg) => msg.lanes.includes(lane.id));
+        const off = on.filter((msg) => msg.lanes.length > 1);
+        const gone = on.filter((msg) => msg.lanes.length === 1);
+        for (const msg of off) msg.lanes = msg.lanes.filter((id) => id !== lane.id);
+        board.messages = board.messages.filter((msg) => !gone.includes(msg));
+        board.prices.delete(lane.id);
+        const said = {
+          ...(off.length ? { messages_off: off.map((msg) => msg.text) } : {}),
+          ...(gone.length ? { messages_removed: gone.map((msg) => msg.text) } : {}),
+        };
+        line(who, { ...at, before: { name: lane.name, direction: lane.direction, ...said } });
         return answer(res, 204);
       }
       if (m[2] === '/devices') {
