@@ -116,12 +116,20 @@ The build publishes no source maps.
 - **Lanes and equipment** also sets lanes up: add, rename, remove (a used lane is
   kept, with the reason), connect a lane computer or cancel its access, close
   (full, or closed to everyone, with a message picked from English and Spanish
-  samples or typed) and reopen. The last open lane of a direction warns and
-  closes only on a second press. Every confirmation is on the page. A new lane
-  computer's connection code is shown once, with a copy button, and kept
-  nowhere: not in browser storage, the address, a log line or a file; it goes
-  when the panel closes. Until the lanes themselves act on a closing, the page
-  says so.
+  samples or typed) and reopen. A way out is closed to everyone only: full is a
+  way in's reason. The message is shown on the lane's screen, so a character
+  the screen cannot show (its list is the platform's, `screen.characters` on
+  the lanes read) is named as it is typed and the lane is not closed with it,
+  and a preview shows it in capitals and in lines as the screen does. The last
+  open lane of a direction warns and closes only on a second press. Every
+  confirmation is on the page. A new lane computer's connection code is shown
+  once, with a copy button, and kept nowhere: not in browser storage, the
+  address, a log line or a file; it goes when the panel closes.
+- **What the lane screens show**, under the lanes: the owner's messages, each
+  with the lanes it shows at and an optional start and end in the garage's own
+  time, added, changed and removed on the page; and, per lane, a switch to show
+  the price, which the lane works out itself. The same character rule and
+  preview as a closing message.
 - **Change log**: who changed what, before and after, when, in the garage's time.
   Below it and apart, the **refused attempts**, with how many there are: who
   tried what, why it was refused (true in whichever account's log it is read),

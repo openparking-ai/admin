@@ -221,6 +221,15 @@ async function until(fn) {
   return false;
 }
 
+/** `until`, for a question that is answered asynchronously: a read of the platform. */
+async function untilRead(fn) {
+  for (let i = 0; i < 50; i += 1) {
+    if (await fn()) return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
+
 /**
  * The two choosers at the top, Language and Look: each shows its name, its
  * description directly under the name, word for word, and its choices under
@@ -466,7 +475,9 @@ try {
   check(lanes.includes(EN['lanes.readerYes']) && lanes.includes(EN['lanes.readerNo']), `${LANES_TITLE}: which lanes have a card reader`);
   const southCancelled = EN['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'en'));
   check(lanes.includes('Harbor south exit computer') && lanes.includes(southCancelled), `${LANES_TITLE}: the lane whose only computer was cancelled lists it, "${southCancelled}"`);
-  await checkDescribed(page, LANES_TITLE, 'en', 8);
+  // The lanes, and under them what their screens show (U4c): five more described fields.
+  await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
+  await checkDescribed(page, LANES_TITLE, 'en', 13);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-english.png'), fullPage: true });
   await checkPrint(page, LANES_TITLE, A.garages[0]);
 
@@ -582,8 +593,9 @@ try {
   page.on('framenavigated', (f) => addresses.push(f.url()));
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
-  await checkDescribed(page, LANES_TITLE, 'en', 8);
-  check((await bodyText(page)).includes(EN['lanes.closingNotYet']), `${LANES_TITLE}: says closing is recorded but the lane does not act on it yet`);
+  await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
+  await checkDescribed(page, LANES_TITLE, 'en', 13);
+  check(!(await bodyText(page)).includes('does not act on it yet'), `${LANES_TITLE}: no longer says the lane does not act on a closing (U4c: it does)`);
   const laneRow = (name) => `[data-list="lanes"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
   // Add, rename.
   await page.fill('[data-form="add-lane"] input[type="text"]', 'West Gate');
@@ -625,6 +637,96 @@ try {
     await page.click(`${laneRow(name)} [data-action="reopen"]`);
     await page.click('[data-panel="reopen"] [data-action="reopen-confirm"]');
     check(await settles(page, (n) => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].find((tr) => tr.cells[0].textContent === n)?.querySelector('[data-open]')?.dataset.open === 'open', name), `${LANES_TITLE}: "${name}" reopened`);
+  }
+  // ── U4c: a way out is closed to everyone only; the screen's characters ──
+  const reasonsOffered = () => page.evaluate(() => [...document.querySelectorAll('[data-panel="close"] [data-chooser="reason"] [data-value]')].map((b) => b.dataset.value));
+  await page.click(`${laneRow('North Exit')} [data-action="close"]`);
+  {
+    const offered = await reasonsOffered();
+    const said = await page.evaluate(() => document.querySelector('[data-notice="out-lane-everyone"]')?.textContent ?? '');
+    check(JSON.stringify(offered) === '["everyone"]' && said === EN['lanes.reasonOut'], `${LANES_TITLE}: a way out offers only "${EN['lanes.reason.everyone']}" (it offers ${JSON.stringify(offered)}), and says why`);
+  }
+  await page.click('[data-action="close-panel"]');
+  await page.click(`${laneRow('West Gate 2')} [data-action="close"]`);
+  {
+    const offered = await reasonsOffered();
+    check(JSON.stringify(offered) === '["full","everyone"]', `${LANES_TITLE}: a way in offers both reasons (it offers ${JSON.stringify(offered)})`);
+    await page.fill('[data-panel="close"] textarea', 'Closed — sorry, € 5 (cash)');
+    const want = EN['screen.cannotShow'].replace('{characters}', '“—”, “€”, “(”, “)”');
+    const notice = await page.evaluate(() => document.querySelector('[data-panel="close"] [data-notice="screen-characters"]')?.textContent ?? '');
+    const blocked = await page.evaluate(() => document.querySelector('[data-panel="close"] button[type="submit"]')?.disabled === true);
+    check(notice === want && blocked, `${LANES_TITLE}: a closing message names each character the screen cannot show, as it is typed, and is not sent ("${notice}")`);
+    await page.fill('[data-panel="close"] textarea', 'Garage is full. Monthly parkers only.');
+    const preview = await page.evaluate(() => [...document.querySelectorAll('[data-panel="close"] [data-preview="screen"] .screen-line')].map((l) => l.textContent));
+    check(preview.join(' ') === 'GARAGE IS FULL. MONTHLY PARKERS ONLY.' && preview.every((l) => l.length <= 24) && !(await page.$('[data-panel="close"] [data-notice="screen-characters"]')),
+      `${LANES_TITLE}: the closing message previewed as the screen shows it, in capitals and whole (${JSON.stringify(preview)})`);
+  }
+  await page.click('[data-action="close-panel"]');
+
+  // ── U4c: what the lanes' screens show ──────────────────────────────────
+  const boardRead = () => page.evaluate(async (id) => (await fetch(`/api/v1/garages/${id}/board`, { credentials: 'same-origin' })).json(), HARBOR.id);
+  await page.fill('[data-panel="add-message"] textarea', 'Event tonight € 20');
+  {
+    const notice = await page.evaluate(() => document.querySelector('[data-panel="add-message"] [data-notice="screen-characters"]')?.textContent ?? '');
+    check(notice === EN['screen.cannotShow'].replace('{characters}', '“€”'), `Lane screens: a message names the character the screen cannot show ("${notice}")`);
+  }
+  await page.fill('[data-panel="add-message"] textarea', 'Event tonight: 20.00 flat');
+  const northEntry = A.lanes[HARBOR.id].find((l) => l.name === 'North Entry');
+  const northExit = A.lanes[HARBOR.id].find((l) => l.name === 'North Exit');
+  check(await page.evaluate(() => document.querySelector('[data-panel="add-message"] button[type="submit"]').disabled), 'Lane screens: a message with no lane chosen is not sent');
+  await page.click(`[data-panel="add-message"] [data-pick="${northEntry.id}"]`);
+  await page.click(`[data-panel="add-message"] [data-pick="${northExit.id}"]`);
+  await page.fill('[data-panel="add-message"] [data-field="board-starts"]', '2030-01-01T08:00');
+  await page.fill('[data-panel="add-message"] [data-field="board-ends"]', '2030-01-01T23:30');
+  await page.click('[data-panel="add-message"] button[type="submit"]');
+  check(await settles(page, () => document.querySelectorAll('[data-list="board"] tbody tr').length === 1), 'Lane screens: a message added, in place');
+  {
+    const row = await page.evaluate(() => document.querySelector('[data-list="board"] tbody tr')?.textContent ?? '');
+    const kept = (await boardRead()).messages[0];
+    check(row.includes('Event tonight: 20.00 flat') && row.includes('North Entry') && row.includes('North Exit') && row.includes('Jan 1, 2030') && kept.starts === '2030-01-01T08:00' && kept.ends === '2030-01-01T23:30' && JSON.stringify(kept.lanes) === JSON.stringify([northEntry.id, northExit.id]),
+      `Lane screens: the message, its lanes and its times in the garage's own time, as kept ("${row}")`);
+  }
+  await page.click(`[data-list="board-prices"] [data-lane="${northEntry.id}"] [data-tick="prices"]`);
+  check(await untilRead(async () => (await boardRead()).lanes.find((l) => l.id === northEntry.id)?.prices === true), 'Lane screens: the price switched on for one lane');
+  check((await boardRead()).lanes.filter((l) => l.prices).length === 1, 'Lane screens: ...and for that lane only');
+  await page.click('[data-list="board"] [data-action="change-message"]');
+  await page.fill('[data-panel="change-message"] textarea', 'Event tomorrow');
+  await page.click('[data-panel="change-message"] button[type="submit"]');
+  check(await settles(page, () => (document.querySelector('[data-list="board"] tbody tr')?.textContent ?? '').includes('Event tomorrow')), 'Lane screens: a message changed, in place');
+  await page.click('[data-list="board"] [data-action="remove-message"]');
+  check(await settles(page, (t) => document.querySelector('[data-panel="remove-message"] p')?.textContent === t, EN['board.removeAsk']), 'Lane screens: removing asks on the page first');
+  await page.click('[data-action="remove-message-confirm"]');
+  check(await settles(page, () => document.querySelectorAll('[data-list="board"] tbody tr').length === 0), 'Lane screens: a message removed, in place');
+  await page.click(`[data-list="board-prices"] [data-lane="${northEntry.id}"] [data-tick="prices"]`);
+  await untilRead(async () => (await boardRead()).lanes.every((l) => !l.prices));
+  // F1: nothing on the board outlives its lane. A message on a lane alone goes with the lane; one on two loses only it.
+  {
+    await page.fill('[data-form="add-lane"] input[type="text"]', 'Spare Gate');
+    await page.click('[data-form="add-lane"] [data-chooser="direction"] [data-value="entry"]');
+    await page.click('[data-form="add-lane"] button[type="submit"]');
+    await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].some((tr) => tr.cells[0].textContent === 'Spare Gate'));
+    const spare = (await boardRead()).lanes.find((l) => l.name === 'Spare Gate');
+    const offered = await settles(page, (id) => Boolean(document.querySelector(`[data-panel="add-message"] [data-pick="${id}"]`)), spare.id);
+    check(offered, 'Lane screens: a lane added is offered for a message at once (the board read again)');
+    for (const [text, ids] of offered ? [['Spare only', [spare.id]], ['Both doors', [northEntry.id, spare.id]]] : []) {
+      await page.fill('[data-panel="add-message"] textarea', text);
+      for (const id of ids) await page.click(`[data-panel="add-message"] [data-pick="${id}"]`);
+      await page.click('[data-panel="add-message"] button[type="submit"]');
+      await settles(page, (n) => document.querySelectorAll('[data-list="board"] tbody tr').length === n, ids.length);
+    }
+    await page.click(`${laneRow('Spare Gate')} [data-action="remove"]`);
+    await page.click('[data-panel="remove"] [data-action="remove-confirm"]');
+    const shownNow = () => page.evaluate(() => [...document.querySelectorAll('[data-list="board"] tbody tr')].map((tr) => `${tr.cells[0].textContent} @ ${[...tr.cells[1].querySelectorAll('bdi')].map((b) => `[${b.textContent}]`).join('')}`));
+    const settled = await settles(page, () => {
+      const rows = [...document.querySelectorAll('[data-list="board"] tbody tr')];
+      return rows.length === 1 && rows[0].cells[0].textContent === 'Both doors' && [...rows[0].cells[1].querySelectorAll('bdi')].map((b) => b.textContent).join('|') === 'North Entry';
+    });
+    check(settled, `Lane screens: a lane removed takes its lone message with it and comes off the other; every lane named, none empty (${JSON.stringify(await shownNow())})`);
+    const kept = (await boardRead()).messages;
+    check(kept.length === 1 && kept[0].lanes.length === 1 && kept[0].lanes[0] === northEntry.id, 'Lane screens: ...and the platform keeps the same');
+    await page.click('[data-list="board"] [data-action="remove-message"]');
+    await page.click('[data-action="remove-message-confirm"]');
+    await settles(page, () => document.querySelectorAll('[data-list="board"] tbody tr').length === 0);
   }
   check(dialogs === 0 && (await page.evaluate(() => document.querySelectorAll('dialog').length)) === 0, `${LANES_TITLE}: every confirmation was on the page, none in a browser dialog (${dialogs} dialogs)`);
 
@@ -781,16 +883,17 @@ try {
 
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await page.click('[data-control="language"] [data-value="es"]');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 14], ['#/lanes', 'page.lanes.title', 8]]) {
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 14], ['#/lanes', 'page.lanes.title', 13]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);
+    if (hash === '#/lanes') await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
     const text = await bodyText(page);
     check(rawIn(text).length === 0, `en español, ${ES[key]}: nothing raw on screen${rawIn(text).length ? `: ${rawIn(text).join(', ')}` : ''}`);
     await checkDescribed(page, ES[key], 'es', expect);
     if (SCREENS) await page.screenshot({ path: join(SCREENS, `${hash.slice(2)}-spanish.png`), fullPage: true });
   }
-  check((await bodyText(page)).includes(ES['lanes.closingNotYet']), 'en español: closing is recorded, and the lane does not act on it yet');
+  check((await page.textContent('[data-form="board"] .section-title')) === ES['board.title'] && !(await bodyText(page)).includes('todavía no actúa'), `en español: what the lane screens show ("${ES['board.title']}"), and no word that the lane does not act on a closing`);
   await page.click('[data-control="language"] [data-value="en"]');
 
   // ── Day / night / auto ───────────────────────────────────────────────────
@@ -910,7 +1013,8 @@ try {
   await page.keyboard.press('Escape');
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
-  await checkDescribed(page, ES['page.lanes.title'], 'es', 8);
+  await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
+  await checkDescribed(page, ES['page.lanes.title'], 'es', 13);
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'es'))), 'Carriles y equipos: the cancelled computer, in Spanish');
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'))), "Carriles y equipos: the lane whose only computer was cancelled, in Spanish");
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-spanish.png'), fullPage: true });

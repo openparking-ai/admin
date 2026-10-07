@@ -63,3 +63,16 @@ export function zoneSaid(timeZone, language, at = new Date()) {
     return null;
   }
 }
+
+/**
+ * A moment the owner wrote in the garage's own time, `YYYY-MM-DDTHH:MM` --
+ * as the platform keeps a board message's start and end -- said as a date
+ * and time ("Jan 1, 2030, 8:00 AM"). It is already the garage's time, so no
+ * zone is applied to it. Null for anything else.
+ */
+export function localSaid(value, language) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(value ?? ''));
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  return parts(new Date(Date.UTC(y, mo - 1, d, h, mi)), 'UTC', language, { dateStyle: 'medium', timeStyle: 'short' });
+}

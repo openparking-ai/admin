@@ -26,6 +26,16 @@
 //   POST   /api/v1/lanes/:id/reopen         -> { lane }; an open one is 409 lane_already_open
 //   POST   /api/v1/lanes/:id/devices        { name } -> 201 { device, token, token_note }
 //   POST   /api/v1/devices/:id/revoke       -> { device }
+// U4c, as the platform's src/lanes.js, src/screenText.js and src/board.js answer:
+//   GET    /api/v1/garages/:id/lanes          ... and screen: { characters, message_max }
+//   POST   /api/v1/lanes/:id/close            full on a way out is 400 lane_reason_refused; a
+//                                             character the screen cannot show, 400 naming each
+//   GET    /api/v1/garages/:id/board          { timezone, messages_max, messages, lanes, screen }
+//   POST   /api/v1/garages/:id/board-messages            { text, lanes, starts?, ends? } -> 201 { message }
+//   PATCH  /api/v1/garages/:id/board-messages/:message   { text?, lanes?, starts?, ends? } -> { message }
+//   DELETE /api/v1/garages/:id/board-messages/:message   204
+//   PUT    /api/v1/lanes/:id/board-prices                { show } -> { lane: { id, prices } }
+//   Times are the garage's own, YYYY-MM-DDTHH:MM, kept as instants; at most 20 messages a garage.
 // U4b, as the platform's src/alerts.js answers:
 //   GET    /api/v1/garages/:id/alerts       { alerts: [{ key, needs }], quiet_minutes, max_contacts, sending, contacts }
 //   POST   /api/v1/garages/:id/alert-contacts           { name, phone?, email?, language? } -> 201 { contact }
@@ -193,6 +203,61 @@ const lastOpen = (direction) => {
 };
 const CONTROL = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const LINES_PAGE = 50;
+
+// U4c: what a lane's screen can draw (the platform's src/screen-characters.json), and its sentences.
+export const SCREEN_CHARACTERS = " !'+,-./0123456789:?ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÑÓÚÜ";
+const MESSAGE_MAX = 160;
+const BOARD_MAX = 20;
+const FULL_IS_A_WAY_IN = { error: 'reason full is for a way in: it lets pass and monthly holders in. A way out is closed to everyone', code: 'lane_reason_refused' };
+const BOARD_NOT_FOUND = { error: 'board message not found', code: 'board_message_not_found' };
+const BOARD_LANES_REFUSED = { error: 'lanes is the list of lanes the message shows on: one or more lane ids of this garage, each once', code: 'board_lanes_refused' };
+const BOARD_FULL = { error: `a garage has at most ${BOARD_MAX} board messages: remove one first`, code: 'board_messages_full', details: { max: BOARD_MAX } };
+const timeRefused = (field) => ({ error: `${field} is a date and time in the garage's own time, as YYYY-MM-DDTHH:MM, or null for none`, code: 'board_time_refused' });
+// An id's shape. The stand-in's own ids carry letters past f (la1..., bm...), so the shape is read, not the hex.
+const UUID = /^[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$/i;
+
+/** Text for a lane's screen, as the platform's src/lanes.js takes it: the refusal's body, or null. */
+function screenTextRefused(raw, field, code) {
+  if (typeof raw !== 'string') return { error: `${field} must be text of 1 to ${MESSAGE_MAX} characters`, code };
+  const text = raw.trim();
+  if (text === '' || text.length > MESSAGE_MAX || CONTROL.test(text)) {
+    return { error: `${field} must be text of 1 to ${MESSAGE_MAX} characters, with no control or invisible formatting characters`, code };
+  }
+  const drawable = new Set([...SCREEN_CHARACTERS]);
+  const absent = [];
+  for (const c of text) {
+    const upper = [...c.toUpperCase()];
+    if ((upper.length !== 1 || !drawable.has(upper[0])) && !absent.includes(c)) absent.push(c);
+  }
+  if (!absent.length) return null;
+  const named = absent.map((c) => `"${c}" (U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')})`).join(', ');
+  return {
+    error: `${field} has ${absent.length === 1 ? 'a character' : 'characters'} the lane's screen cannot show: ${named}. The screen shows letters A to Z, the digits, spaces, the Spanish accented letters, and . , - : ' ! ? / +`,
+    code,
+    details: { characters: absent },
+  };
+}
+
+/** A garage-time moment, YYYY-MM-DDTHH:MM, as the instant it is in `timeZone`. */
+function instantIn(local, timeZone) {
+  const [y, mo, d, h, mi] = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local).slice(1).map(Number);
+  const wall = Date.UTC(y, mo - 1, d, h, mi);
+  const offset = (at) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(at)).map((x) => [x.type, x.value]));
+    return Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute)) - at;
+  };
+  let at = wall - offset(wall);
+  at = wall - offset(at);
+  return new Date(at).toISOString();
+}
+
+/** A real date and time, as the platform's src/board.js reads one. */
+function localOk(raw) {
+  const m = typeof raw === 'string' ? /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(raw) : null;
+  if (!m) return false;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate() && h <= 23 && mi <= 59;
+}
 
 // U4b: the platform's one list of alerts, and its sentences (src/alerts.js).
 const ALERTS = [
@@ -537,7 +602,7 @@ export async function startStub({ port = 0 } = {}) {
       const lane = { id: `la9${String(Date.now()).slice(-5)}-${String(Math.floor(Math.random() * 1e4)).padStart(4, '0')}-4000-8000-${String((lineN += 1)).padStart(12, '0')}`, name: body.name, direction: body.direction, reader: null, devices: [], closed: null, reopened: null };
       (who.lanes[garage.id] ??= []).push(lane);
       line(who, { garageId: garage.id, action: 'lane.add', subject: subjectOfLane(lane), after: { name: lane.name, direction: lane.direction } });
-      return answer(res, 201, { lane: { id: lane.id, tenant_id: who.tenant_id, garage_id: garage.id, name: lane.name, direction: lane.direction, created_at: new Date().toISOString(), closed_reason: null, closed_message: null, closed_by: null, closed_at: null, reopened_by: null, reopened_at: null } });
+      return answer(res, 201, { lane: { id: lane.id, tenant_id: who.tenant_id, garage_id: garage.id, name: lane.name, direction: lane.direction, created_at: new Date().toISOString(), closed_reason: null, closed_message: null, closed_by: null, closed_at: null, reopened_by: null, reopened_at: null, board_prices: false } });
     }
     m = /^\/api\/v1\/lanes\/([^/]+)(\/close|\/reopen|\/devices)?$/.exec(path);
     if (m && ['PATCH', 'DELETE', 'POST'].includes(req.method) && (req.method === 'POST') === Boolean(m[2])) {
@@ -566,8 +631,20 @@ export async function startStub({ port = 0 } = {}) {
             details: had,
           }, at);
         }
+        // As the platform's src/lanes.js: the lane comes off every message, a message left on no lane goes with it, and the line names both.
         lanes.splice(lanes.indexOf(lane), 1);
-        line(who, { ...at, before: { name: lane.name, direction: lane.direction } });
+        const board = boardOf(who, garageId);
+        const on = board.messages.filter((msg) => msg.lanes.includes(lane.id));
+        const off = on.filter((msg) => msg.lanes.length > 1);
+        const gone = on.filter((msg) => msg.lanes.length === 1);
+        for (const msg of off) msg.lanes = msg.lanes.filter((id) => id !== lane.id);
+        board.messages = board.messages.filter((msg) => !gone.includes(msg));
+        board.prices.delete(lane.id);
+        const said = {
+          ...(off.length ? { messages_off: off.map((msg) => msg.text) } : {}),
+          ...(gone.length ? { messages_removed: gone.map((msg) => msg.text) } : {}),
+        };
+        line(who, { ...at, before: { name: lane.name, direction: lane.direction, ...said } });
         return answer(res, 204);
       }
       if (m[2] === '/devices') {
@@ -593,7 +670,10 @@ export async function startStub({ port = 0 } = {}) {
       if (extra.length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(extra[0])}; the body is {reason, message, override}` }, at);
       if (!['full', 'everyone'].includes(body.reason)) return refuse(res, who, 400, LANE_REASON_REFUSED, at);
       if (!nameOk(body.message, 160)) return refuse(res, who, 400, LANE_MESSAGE_REFUSED, at);
+      const cannot = screenTextRefused(body.message, 'message', 'lane_message_refused');
+      if (cannot) return refuse(res, who, 400, cannot, at);
       if (body.override !== undefined && body.override !== true) return refuse(res, who, 400, { error: 'override, when sent, is true', code: 'lane_override_refused' }, at);
+      if (body.reason === 'full' && lane.direction !== 'entry') return refuse(res, who, 400, FULL_IS_A_WAY_IN, at);
       const others = lanes.filter((l) => l !== lane && l.direction === lane.direction && !l.closed);
       if (!lane.closed && others.length === 0 && body.override !== true) return refuse(res, who, 409, lastOpen(lane.direction), at);
       const was = stateOf(lane);
@@ -604,6 +684,8 @@ export async function startStub({ port = 0 } = {}) {
     }
     const u4b = await alertRoutes(req, res, path, who);
     if (u4b !== undefined) return u4b;
+    const u4c = await boardRoutes(req, res, path, who);
+    if (u4c !== undefined) return u4c;
     m = /^\/api\/v1\/devices\/([^/]+)\/revoke$/.exec(path);
     if (m && req.method === 'POST') {
       const found = deviceOf(who, m[1]);
@@ -615,6 +697,141 @@ export async function startStub({ port = 0 } = {}) {
       return answer(res, 200, { device: { id: device.id, lane_id: lane.id, name: device.name, created_at: new Date().toISOString(), revoked_at: device.revoked_at } });
     }
     return undefined;
+  }
+
+  // ── U4c: the lanes' screens ───────────────────────────────────────────────
+  const boards = new Map(); // tenant|garage -> { messages, prices }
+  const boardOf = (who, garageId) => {
+    const key = `${who.tenant_id}|${garageId}`;
+    if (!boards.has(key)) boards.set(key, { messages: [], prices: new Set() });
+    return boards.get(key);
+  };
+  let boardN = 0;
+  const local = (instant, timeZone) => {
+    if (instant === null) return null;
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(instant)).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  };
+  const presentMessage = (m, garage) => ({ id: m.id, text: m.text, lanes: [...m.lanes], starts: local(m.starts_at, garage.timezone), ends: local(m.ends_at, garage.timezone), starts_at: m.starts_at, ends_at: m.ends_at, created_at: m.created_at });
+  const messageLine = (m, garage, lanes) => {
+    const p = presentMessage(m, garage);
+    return { text: p.text, lanes: lanes.filter((l) => m.lanes.includes(l.id)).map((l) => l.name), starts: p.starts, ends: p.ends };
+  };
+
+  async function boardRoutes(req, res, path, who) {
+    let m = /^\/api\/v1\/garages\/([^/]+)\/board$/.exec(path);
+    if (m && req.method === 'GET') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      const board = boardOf(who, garage.id);
+      const lanes = who.lanes[garage.id] ?? [];
+      return answer(res, 200, {
+        timezone: garage.timezone,
+        messages_max: BOARD_MAX,
+        messages: board.messages.map((x) => presentMessage(x, garage)),
+        lanes: lanes.map((l) => ({ id: l.id, name: l.name, direction: l.direction, prices: board.prices.has(l.id) })),
+        screen: { characters: SCREEN_CHARACTERS, message_max: MESSAGE_MAX },
+      });
+    }
+    m = /^\/api\/v1\/lanes\/([^/]+)\/board-prices$/.exec(path);
+    if (m && req.method === 'PUT') {
+      const found = laneOf(who, m[1]);
+      const body = (await readBody(req)) ?? {};
+      const action = 'lane.board_prices';
+      if (!found) return refuse(res, who, 404, LANE_NOT_FOUND_NAMED, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'lane_not_found' });
+      const { garageId, lane } = found;
+      const at = { garageId, action, subject: subjectOfLane(lane) };
+      const extra = Object.keys(body).filter((k) => k !== 'show');
+      if (extra.length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(extra[0])}; the body is {show}` }, at);
+      if (typeof body.show !== 'boolean') return refuse(res, who, 400, { error: 'show is true (this lane shows the price) or false', code: 'board_prices_refused' }, at);
+      const prices = boardOf(who, garageId).prices;
+      const was = prices.has(lane.id);
+      if (body.show) prices.add(lane.id);
+      else prices.delete(lane.id);
+      line(who, { ...at, before: { prices: was }, after: { prices: body.show } });
+      return answer(res, 200, { lane: { id: lane.id, prices: body.show } });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)\/board-messages(?:\/([^/]+))?$/.exec(path);
+    if (!m) return undefined;
+    const method = req.method;
+    if (m[2] ? !['PATCH', 'DELETE'].includes(method) : method !== 'POST') return undefined;
+    const action = !m[2] ? 'board_message.add' : { PATCH: 'board_message.change', DELETE: 'board_message.remove' }[method];
+    const garage = who.garages.find((g) => g.id === m[1]);
+    const body = method === 'DELETE' ? {} : (await readBody(req)) ?? {};
+    if (m[2] && !UUID.test(m[2])) return refuse(res, who, 404, BOARD_NOT_FOUND, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'board_message_not_found' });
+    if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action, subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
+    const board = boardOf(who, garage.id);
+    const lanes = who.lanes[garage.id] ?? [];
+    const at = { garageId: garage.id, action, subject: { kind: 'garage', id: garage.id, name: garage.name } };
+    const keys = ['text', 'lanes', 'starts', 'ends'];
+    if (method !== 'DELETE') {
+      const extra = Object.keys(body).filter((k) => !keys.includes(k));
+      if (extra.length) return refuse(res, who, 400, { error: `unknown field ${JSON.stringify(extra[0])}; the body is {${keys.join(', ')}}` }, at);
+    }
+    const lanesOk = (raw) => Array.isArray(raw) && raw.length > 0 && raw.every((id) => typeof id === 'string' && UUID.test(id)) && new Set(raw).size === raw.length;
+    const checkLanes = (ids) => {
+      const unknown = ids.filter((id) => !lanes.some((l) => l.id === id));
+      return unknown.length ? { error: 'lanes names a lane that is not one of this garage', code: 'board_lanes_refused', details: { lanes: unknown } } : null;
+    };
+    const timesRefused = (startsAt, endsAt) => {
+      if (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt)) return { error: 'ends is after starts', code: 'board_time_refused' };
+      if (endsAt !== null && Date.parse(endsAt) <= Date.now()) return { error: 'ends has already passed: a message that ended would never be shown', code: 'board_time_refused' };
+      return null;
+    };
+    if (method === 'POST') {
+      const textNo = screenTextRefused(body.text, 'text', 'board_text_refused');
+      if (textNo) return refuse(res, who, 400, textNo, at);
+      if (!lanesOk(body.lanes)) return refuse(res, who, 400, BOARD_LANES_REFUSED, at);
+      for (const f of ['starts', 'ends']) if ((body[f] ?? null) !== null && !localOk(body[f])) return refuse(res, who, 400, timeRefused(f), at);
+      if (board.messages.length >= BOARD_MAX) return refuse(res, who, 409, BOARD_FULL, at);
+      const lanesNo = checkLanes(body.lanes);
+      if (lanesNo) return refuse(res, who, 400, lanesNo, at);
+      const startsAt = (body.starts ?? null) === null ? null : instantIn(body.starts, garage.timezone);
+      const endsAt = (body.ends ?? null) === null ? null : instantIn(body.ends, garage.timezone);
+      const timeNo = timesRefused(startsAt, endsAt);
+      if (timeNo) return refuse(res, who, 400, timeNo, at);
+      boardN += 1;
+      const message = {
+        id: `bm${String(boardN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`,
+        text: body.text.trim(), lanes: lanes.filter((l) => body.lanes.includes(l.id)).map((l) => l.id), starts_at: startsAt, ends_at: endsAt, created_at: new Date().toISOString(),
+      };
+      board.messages.push(message);
+      line(who, { garageId: garage.id, action, subject: { kind: 'board_message', id: message.id, name: message.text }, after: messageLine(message, garage, lanes) });
+      return answer(res, 201, { message: presentMessage(message, garage) });
+    }
+    // The platform asks for something to change before it looks the message up.
+    if (method === 'PATCH' && Object.keys(body).length === 0) return refuse(res, who, 400, { error: 'send at least one of text, lanes, starts, ends', code: 'board_message_refused' }, at);
+    const message = board.messages.find((x) => x.id === m[2]);
+    if (!message) return refuse(res, who, 404, BOARD_NOT_FOUND, { ...at, missing: 'board_message_not_found' });
+    const mat = { garageId: garage.id, action, subject: { kind: 'board_message', id: message.id, name: message.text } };
+    if (method === 'DELETE') {
+      board.messages.splice(board.messages.indexOf(message), 1);
+      line(who, { ...mat, before: messageLine(message, garage, lanes) });
+      return answer(res, 204);
+    }
+    if (body.text !== undefined) {
+      const textNo = screenTextRefused(body.text, 'text', 'board_text_refused');
+      if (textNo) return refuse(res, who, 400, textNo, at);
+    }
+    if (body.lanes !== undefined && !lanesOk(body.lanes)) return refuse(res, who, 400, BOARD_LANES_REFUSED, at);
+    for (const f of ['starts', 'ends']) if (body[f] !== undefined && body[f] !== null && !localOk(body[f])) return refuse(res, who, 400, timeRefused(f), at);
+    if (body.lanes !== undefined) {
+      const lanesNo = checkLanes(body.lanes);
+      if (lanesNo) return refuse(res, who, 400, lanesNo, at);
+    }
+    const startsAt = body.starts === undefined ? message.starts_at : body.starts === null ? null : instantIn(body.starts, garage.timezone);
+    const endsAt = body.ends === undefined ? message.ends_at : body.ends === null ? null : instantIn(body.ends, garage.timezone);
+    if (body.starts !== undefined || body.ends !== undefined) {
+      const timeNo = timesRefused(startsAt, endsAt);
+      if (timeNo) return refuse(res, who, 400, timeNo, at);
+    }
+    const before = messageLine(message, garage, lanes);
+    if (body.text !== undefined) message.text = body.text.trim();
+    if (body.lanes !== undefined) message.lanes = lanes.filter((l) => body.lanes.includes(l.id)).map((l) => l.id);
+    message.starts_at = startsAt;
+    message.ends_at = endsAt;
+    line(who, { ...mat, subject: { kind: 'board_message', id: message.id, name: message.text }, before, after: messageLine(message, garage, lanes) });
+    return answer(res, 200, { message: presentMessage(message, garage) });
   }
 
   // ── U4b: the people to tell ───────────────────────────────────────────────
@@ -789,7 +1006,7 @@ export async function startStub({ port = 0 } = {}) {
       }
       if (!garage) return send(res, 404, GARAGE_NOT_FOUND);
       if (!m[2]) return send(res, 200, { garage });
-      return send(res, 200, { lanes: who.lanes[garage.id] ?? [], quiet_minutes: quiet });
+      return send(res, 200, { lanes: who.lanes[garage.id] ?? [], quiet_minutes: quiet, screen: { characters: SCREEN_CHARACTERS, message_max: MESSAGE_MAX } });
     }
     return send(res, 404, { error: 'not found' });
   });

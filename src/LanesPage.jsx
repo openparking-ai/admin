@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { PrintHead, ProblemNote, Segmented, useGarageRead, useNow, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
-import { CLOSE_REASONS, SAMPLE_KEYS, deviceWords, directionKey, openPieces } from './lanes.js';
+import { SAMPLE_KEYS, deviceWords, directionKey, openPieces, reasonsFor } from './lanes.js';
 import { garageTime } from './time.js';
+import { charactersSaid, undrawable } from './screen.js';
+import BoardSection, { ScreenPreview } from './BoardSection.jsx';
 import { translate } from './i18n/index.js';
 import FieldName from './FieldName.jsx';
 import Icon from './Icon.jsx';
@@ -11,8 +13,9 @@ import ListActions from './ListActions.jsx';
 /**
  * Every lane of the garage, its lane computers, whether it has a card reader,
  * and whether it is open -- and setting them up: add, rename, remove, connect
- * a lane computer or cancel its access, close and reopen. Every confirmation
- * is on the page; nothing opens a browser dialog.
+ * a lane computer or cancel its access, close and reopen -- and what the
+ * lanes' screens show while no car is there (BoardSection.jsx). Every
+ * confirmation is on the page; nothing opens a browser dialog.
  */
 export default function LanesPage({ t, language, client, garage }) {
   const now = useNow();
@@ -124,9 +127,6 @@ export default function LanesPage({ t, language, client, garage }) {
             </tbody>
           </table>
         )}
-        <p className="quiet no-print" data-notice="closing-not-acted-on">
-          {t('lanes.closingNotYet')}
-        </p>
       </section>
 
       {panel ? (
@@ -136,12 +136,15 @@ export default function LanesPage({ t, language, client, garage }) {
           client={client}
           panel={panel}
           lanes={lanes.data.lanes}
+          screen={lanes.data.screen}
           onDone={() => reread()}
           onClose={() => setPanel(null)}
         />
       ) : null}
 
       <AddLane t={t} client={client} garage={garage} onAdded={() => reread()} />
+
+      <BoardSection t={t} language={language} client={client} garage={garage} lanes={lanes.data.lanes} />
     </>
   );
 }
@@ -231,7 +234,7 @@ function AddLane({ t, client, garage, onAdded }) {
  */
 const CLOSE_WORDS = { remove: 'lanes.panelKeep', cancel: 'lanes.panelKeep', reopen: 'lanes.panelKeep', rename: 'lanes.panelCancel', close: 'lanes.panelCancel', connect: 'lanes.panelCancel' };
 
-function LanePanel({ t, client, panel, lanes, onDone, onClose }) {
+function LanePanel({ t, client, panel, lanes, screen, onDone, onClose }) {
   const Body = { rename: Rename, remove: Remove, connect: Connect, cancel: Cancel, close: Close, reopen: Reopen }[panel.kind];
   // A connect panel showing its code has nothing left to cancel.
   const [shown, setShown] = useState(false);
@@ -245,7 +248,7 @@ function LanePanel({ t, client, panel, lanes, onDone, onClose }) {
           {t(shown ? 'lanes.panelDone' : CLOSE_WORDS[panel.kind])}
         </button>
       </div>
-      <Body t={t} client={client} lane={panel.lane} device={panel.device} lanes={lanes} onDone={onDone} onClose={onClose} onShown={() => setShown(true)} />
+      <Body t={t} client={client} lane={panel.lane} device={panel.device} lanes={lanes} screen={screen} onDone={onDone} onClose={onClose} onShown={() => setShown(true)} />
     </section>
   );
 }
@@ -414,12 +417,17 @@ function Connect({ t, client, lane, onDone, onShown }) {
 /**
  * Close a lane: why (full, so pass and monthly holders still get in; or
  * closed to everyone), and the message for the lane, picked from the samples
- * in either language or typed. The last open lane of a direction is refused
- * with a plain warning, and closed only on a second, deliberate press.
+ * in either language or typed. A way out is closed to everyone only: full
+ * is a way in's reason. The message is shown on the lane's screen, so a
+ * character the screen cannot show is named as it is typed, and the lane is
+ * not closed with it. The last open lane of a direction is refused with a
+ * plain warning, and closed only on a second, deliberate press.
  */
-function Close({ t, client, lane, onDone, onClose }) {
-  const [reason, setReason] = useState(lane.closed?.reason ?? 'full');
+function Close({ t, client, lane, screen, onDone, onClose }) {
+  const reasons = reasonsFor(lane);
+  const [reason, setReason] = useState(reasons.includes(lane.closed?.reason) ? lane.closed.reason : reasons[0]);
   const [message, setMessage] = useState(lane.closed?.message ?? '');
+  const cannotShow = undrawable(message, screen?.characters);
   const [lastOpen, setLastOpen] = useState(false);
   const [problem, setProblem, fail] = useProblem();
   const send = async (override) => {
@@ -438,7 +446,7 @@ function Close({ t, client, lane, onDone, onClose }) {
       className="setup-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (message.trim()) send(false);
+        if (message.trim() && cannotShow.length === 0) send(false);
       }}
     >
       <div className="chooser" data-chooser="reason">
@@ -446,13 +454,18 @@ function Close({ t, client, lane, onDone, onClose }) {
         <Segmented
           label={t('lanes.reason')}
           value={reason}
-          options={CLOSE_REASONS.map((r) => ({ value: r, text: t(`lanes.reason.${r}`) }))}
+          options={reasons.map((r) => ({ value: r, text: t(`lanes.reason.${r}`) }))}
           onChange={(r) => {
             setReason(r);
             setLastOpen(false);
           }}
           name="reason"
         />
+        {lane.direction === 'exit' ? (
+          <p className="quiet" data-notice="out-lane-everyone">
+            {t('lanes.reasonOut')}
+          </p>
+        ) : null}
       </div>
       <label className="field">
         <FieldName t={t} name="lanes.sample" />
@@ -471,8 +484,14 @@ function Close({ t, client, lane, onDone, onClose }) {
       </label>
       <label className="field">
         <FieldName t={t} name="lanes.message" />
-        <textarea value={message} maxLength={160} rows={2} onChange={(e) => { setMessage(e.target.value); setLastOpen(false); }} />
+        <textarea value={message} maxLength={screen?.messageMax ?? 160} rows={2} onChange={(e) => { setMessage(e.target.value); setLastOpen(false); }} />
       </label>
+      {cannotShow.length ? (
+        <p className="warning" role="alert" data-notice="screen-characters">
+          {t('screen.cannotShow', { characters: charactersSaid(cannotShow, t) })}
+        </p>
+      ) : null}
+      <ScreenPreview t={t} text={message} />
       {lastOpen ? (
         <div className="warning" role="alert" data-notice="last-open-lane">
           <p>{t(lane.direction === 'exit' ? 'lanes.lastOut' : 'lanes.lastIn')}</p>
@@ -481,7 +500,7 @@ function Close({ t, client, lane, onDone, onClose }) {
           </button>
         </div>
       ) : (
-        <button type="submit" className="primary-button" disabled={!message.trim()}>
+        <button type="submit" className="primary-button" disabled={!message.trim() || cannotShow.length > 0}>
           {t('lanes.closeButton')}
         </button>
       )}

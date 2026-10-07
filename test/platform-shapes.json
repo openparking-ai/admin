@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 5c333e7 (u4b/alerts, fix round 2: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-05",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -361,6 +361,23 @@
             "types": [
               "number"
             ]
+          },
+          "screen": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "characters": {
+                "types": [
+                  "string"
+                ]
+              },
+              "message_max": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
           }
         }
       }
@@ -828,6 +845,11 @@
               "object"
             ],
             "keys": {
+              "board_prices": {
+                "types": [
+                  "boolean"
+                ]
+              },
               "closed_at": {
                 "types": [
                   "null"
@@ -1500,6 +1522,23 @@
             "types": [
               "number"
             ]
+          },
+          "screen": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "characters": {
+                "types": [
+                  "string"
+                ]
+              },
+              "message_max": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
           }
         }
       }
@@ -2526,6 +2565,595 @@
         },
         "subject_name": "null",
         "subject_removed": true
+      }
+    },
+    {
+      "what": "a way out, closed full",
+      "status": 400,
+      "body": {
+        "error": "reason full is for a way in: it lets pass and monthly holders in. A way out is closed to everyone",
+        "code": "lane_reason_refused"
+      }
+    },
+    {
+      "what": "a lane, closed with a character the screen cannot show",
+      "status": 400,
+      "body": {
+        "error": "message has a character the lane's screen cannot show: \"—\" (U+2014). The screen shows letters A to Z, the digits, spaces, the Spanish accented letters, and . , - : ' ! ? / +",
+        "code": "lane_message_refused",
+        "details": {
+          "characters": [
+            "—"
+          ]
+        }
+      }
+    },
+    {
+      "what": "board, before any message",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lanes": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "direction": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "prices": {
+                  "types": [
+                    "boolean"
+                  ]
+                }
+              }
+            }
+          },
+          "messages": {
+            "types": [
+              "array"
+            ]
+          },
+          "messages_max": {
+            "types": [
+              "number"
+            ]
+          },
+          "screen": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "characters": {
+                "types": [
+                  "string"
+                ]
+              },
+              "message_max": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
+          },
+          "timezone": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "board, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "a board message, added",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "message": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ends": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ends_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lanes": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "starts": {
+                "types": [
+                  "string"
+                ]
+              },
+              "starts_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "text": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a board message, added with no times",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "message": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ends": {
+                "types": [
+                  "null"
+                ]
+              },
+              "ends_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lanes": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "starts": {
+                "types": [
+                  "null"
+                ]
+              },
+              "starts_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "text": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a board message, a character the screen cannot show",
+      "status": 400,
+      "body": {
+        "error": "text has a character the lane's screen cannot show: \"€\" (U+20AC). The screen shows letters A to Z, the digits, spaces, the Spanish accented letters, and . , - : ' ! ? / +",
+        "code": "board_text_refused",
+        "details": {
+          "characters": [
+            "€"
+          ]
+        }
+      }
+    },
+    {
+      "what": "a board message, no lane",
+      "status": 400,
+      "body": {
+        "error": "lanes is the list of lanes the message shows on: one or more lane ids of this garage, each once",
+        "code": "board_lanes_refused"
+      }
+    },
+    {
+      "what": "a board message, a lane not theirs",
+      "status": 400,
+      "body": {
+        "error": "lanes names a lane that is not one of this garage",
+        "code": "board_lanes_refused",
+        "details": {
+          "lanes": [
+            "00000000-0000-4000-8000-000000000009"
+          ]
+        }
+      }
+    },
+    {
+      "what": "a board message, a time that is not one",
+      "status": 400,
+      "body": {
+        "error": "starts is a date and time in the garage's own time, as YYYY-MM-DDTHH:MM, or null for none",
+        "code": "board_time_refused"
+      }
+    },
+    {
+      "what": "a board message, an end already past",
+      "status": 400,
+      "body": {
+        "error": "ends has already passed: a message that ended would never be shown",
+        "code": "board_time_refused"
+      }
+    },
+    {
+      "what": "a board message, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "board",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lanes": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "direction": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "prices": {
+                  "types": [
+                    "boolean"
+                  ]
+                }
+              }
+            }
+          },
+          "messages": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "created_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "ends": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "ends_at": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "lanes": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                },
+                "starts": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "starts_at": {
+                  "types": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "text": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "messages_max": {
+            "types": [
+              "number"
+            ]
+          },
+          "screen": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "characters": {
+                "types": [
+                  "string"
+                ]
+              },
+              "message_max": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
+          },
+          "timezone": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "a board message, changed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "message": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ends": {
+                "types": [
+                  "null"
+                ]
+              },
+              "ends_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lanes": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              },
+              "starts": {
+                "types": [
+                  "string"
+                ]
+              },
+              "starts_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "text": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a board message, changed with nothing",
+      "status": 400,
+      "body": {
+        "error": "send at least one of text, lanes, starts, ends",
+        "code": "board_message_refused"
+      }
+    },
+    {
+      "what": "a board message, an end before its start",
+      "status": 400,
+      "body": {
+        "error": "ends is after starts",
+        "code": "board_time_refused"
+      }
+    },
+    {
+      "what": "a board message not theirs, changed",
+      "status": 404,
+      "body": {
+        "error": "board message not found",
+        "code": "board_message_not_found"
+      }
+    },
+    {
+      "what": "a board message, removed",
+      "status": 204,
+      "shape": "empty"
+    },
+    {
+      "what": "a board message not theirs, removed",
+      "status": 404,
+      "body": {
+        "error": "board message not found",
+        "code": "board_message_not_found"
+      }
+    },
+    {
+      "what": "price on a lane screen, on",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "prices": {
+                "types": [
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "price on a lane screen, neither on nor off",
+      "status": 400,
+      "body": {
+        "error": "show is true (this lane shows the price) or false",
+        "code": "board_prices_refused"
+      }
+    },
+    {
+      "what": "price on a lane screen not theirs",
+      "status": 404,
+      "body": {
+        "error": "lane not found",
+        "code": "lane_not_found"
+      }
+    },
+    {
+      "what": "price on a lane screen, off",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lane": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "prices": {
+                "types": [
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     {

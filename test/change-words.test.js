@@ -49,6 +49,8 @@ const LINES = [
   ['lane.add', null, { name: 'North gate', direction: 'entry' }],
   ['lane.rename', { name: 'Old' }, { name: 'North gate' }],
   ['lane.remove', { name: 'North gate', direction: 'exit' }, null],
+  // F1: a lane removed names the screen messages it came off and the ones removed with it.
+  ['lane.remove', { name: 'South gate', direction: 'entry', messages_off: ['Both doors'], messages_removed: ['South only', 'Event tonight'] }, null],
   ['lane.close', { state: 'open' }, { state: 'closed', reason: 'full', message: 'Garage full', last_open_overridden: true }],
   ['lane.close_again', { state: 'closed', reason: 'full', message: 'Garage full' }, { state: 'closed', reason: 'everyone', message: 'Closed tonight' }],
   ['lane.reopen', { state: 'closed', reason: 'everyone', message: 'Closed tonight' }, { state: 'open' }],
@@ -59,6 +61,11 @@ const LINES = [
   ['tax_set.add', null, { effective_from: '2026-01-01T05:00:00Z', taxes: [] }],
   ['key.cancel', { access: 'active' }, { access: 'cancelled' }],
   ['language.change', { language: 'en' }, { language: 'es' }],
+  // U4c: the lanes' screens. A message's line holds its words, its lanes by name and its times in the garage's own time.
+  ['board_message.add', null, { text: 'Event tonight', lanes: ['North gate', 'South gate'], starts: '2030-01-01T08:00', ends: null }],
+  ['board_message.change', { text: 'Event tonight', lanes: ['North gate'], starts: null, ends: null }, { text: 'Event tomorrow', lanes: [], starts: null, ends: '2030-01-02T23:30' }],
+  ['board_message.remove', { text: 'Event tomorrow', lanes: ['North gate'], starts: null, ends: null }, null],
+  ['lane.board_prices', { prices: false }, { prices: true }],
   // U4b: a person to tell, as the platform's src/alerts.js writes the lines (fix round 2) -- their id
   // and what kind of change it was, never their name, number or address.
   ...PERSON_LINES,
@@ -216,5 +223,15 @@ test('6 NO SENTENCE ENDS TWICE: every entry filled with a value that already end
       const filled = translate(language, key, Object.fromEntries(names.map((n) => [n, '6:41 a.m.'])));
       assert.doesNotMatch(filled, /(?<!\.)\.\.(?!\.)/, `${language} ${key}: "${filled}"`);
     }
+  }
+});
+
+test('F1: a lane removed says, in both languages, the screen messages no longer shown there and the ones removed with it, as typed', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const fields = changedFields(t, done('lane.remove', { name: 'South gate', direction: 'entry', messages_off: ['Both doors'], messages_removed: ['South only', 'Event tonight'] }, null), GARAGE, language);
+    const by = Object.fromEntries(fields.map((f) => [f.field, f.before]));
+    assert.deepEqual(by[t('changes.field.messages_off')], { stored: '“Both doors”' }, language);
+    assert.deepEqual(by[t('changes.field.messages_removed')], { stored: '“South only”, “Event tonight”' }, language);
   }
 });

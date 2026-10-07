@@ -44,6 +44,12 @@ export const directionKey = (lane) => (lane.direction === 'exit' ? 'lane.out' : 
 /** Why a lane is closed, as the platform takes it: full lets pass and monthly holders in. */
 export const CLOSE_REASONS = ['full', 'everyone'];
 
+/**
+ * The reasons a lane can be closed for: full is a way in's reason, so a way
+ * out is closed to everyone only, as the platform refuses full on one.
+ */
+export const reasonsFor = (lane) => (lane.direction === 'exit' ? ['everyone'] : CLOSE_REASONS);
+
 /** The sample messages for each reason, by dictionary key: each exists in both languages. */
 export const SAMPLE_KEYS = {
   full: ['lanes.sample.full1', 'lanes.sample.full2'],
