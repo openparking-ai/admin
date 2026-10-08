@@ -11,8 +11,8 @@ sudo apt-get install -y -q --no-install-recommends figlet > /dev/null
 $S/apt-cache.sh prune "$D" || { echo "MISS the real set did not save"; exit 1; }
 echo "real set:"; ls "$D" "$D/lists"
 fresh() { rm -rf "$P"; cp -a "$D" "$P"; }
-gone() { sudo dpkg -r figlet > /dev/null 2>&1 || true; }
-inst() { dpkg -s figlet > /dev/null 2>&1 && echo yes || echo no; }
+gone() { sudo dpkg -P figlet > /dev/null 2>&1 || true; }
+inst() { [ "$(dpkg-query -W -f='${Status}' figlet 2> /dev/null)" = "install ok installed" ] && echo yes || echo no; }
 refused() {
   gone; out=$($S/apt-cache.sh install "$P" 2>&1); rc=$?
   if [ $rc -ne 0 ] && [ "$(inst)" = no ]; then echo "ok   $1: refused (exit $rc): $(grep REFUSED <<< "$out" | head -2 | tr '\n' ' ')"
