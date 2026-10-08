@@ -282,7 +282,7 @@ function cablingSheet(s, t, _spec, { reader }) {
     [mark(MARK.N2), t('drawings.cable.n2'), cable, t('drawings.cable.n2rule', { outlet: MARK.W4 })],
     [mark(`${MARK.N3}, ${MARK.N4}`), t('drawings.cable.n34'), cable, t('drawings.cable.n34rule')],
   ];
-  if (reader) rows.push([mark(MARK.N5), t('drawings.cable.n5'), cable, t('drawings.cable.n5rule', { outlet: MARK.W3 })]);
+  if (reader) rows.push([mark(MARK.N5), t('drawings.cable.n5'), cable, t('drawings.cable.n5rule', { outlet: MARK.W3 }) + ' At most 328 ft.']);
   rows.push(
     [mark(MARK.N6), t('drawings.cable.n6'), cable, t('drawings.cable.n6rule')],
     [mark(MARK.N7), t('drawings.cable.n7'), cable, t('drawings.cable.n7rule')],
