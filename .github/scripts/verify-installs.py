@@ -210,7 +210,8 @@ def selftest_debs(directory):
         d = copy(); lists = os.path.join(d, 'lists')
         rel = sorted(f for f in os.listdir(lists) if f.endswith('_InRelease'))[0]
         text = open(os.path.join(lists, rel), 'rb').read()
-        open(os.path.join(lists, rel), 'wb').write(text.replace(b'SHA256:', b'SHA256: ', 1))
+        # A signed byte, not a trailing space: a cleartext signature ignores trailing whitespace.
+        open(os.path.join(lists, rel), 'wb').write(text.replace(b'Origin: Ubuntu', b'Origin: Ubuntx', 1))
         ok &= control('an InRelease changed', verify_debs(d), f'{rel}: not signed by Ubuntu')
     return ok
 
