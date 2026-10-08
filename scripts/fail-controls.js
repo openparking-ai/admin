@@ -841,6 +841,12 @@ const CONTROLS = [
     names: ['FAIL en, any driver: no label crossed by a line', '"L2 arming"'],
   },
   {
+    check: 'U5 gate 3: a job with no time limit',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL emails.yml: job "emails" has no timeout-minutes'],
+  },
+  {
     check: 'U5 6: the sheets on Letter paper',
     plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },
     run: CHECK_DRAWINGS,

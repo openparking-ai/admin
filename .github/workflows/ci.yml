@@ -28,6 +28,9 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
 
+      - name: Every job in every workflow has a time limit
+        run: npm run check-job-limits
+
       - name: No real personal data in the repository
         run: node .github/scripts/check-no-real-data.js --self-test
 

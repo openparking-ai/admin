@@ -30,6 +30,7 @@
     "check-print": "node scripts/check-print.js",
     "check-drawings": "node scripts/check-drawings.js",
     "check-drawings-browser": "node scripts/check-drawings-browser.js",
+    "check-job-limits": "node scripts/check-job-limits.js",
     "check-removed-person": "node scripts/check-removed-person.js",
     "check-first-load": "node scripts/check-first-load.js",
     "fail-controls": "node scripts/fail-controls.js",

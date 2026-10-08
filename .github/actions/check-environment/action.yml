@@ -170,3 +170,20 @@ runs:
       with:
         path: ~/libreoffice-debs
         key: libreoffice-calc-${{ steps.image.outputs.image }}-v2
+
+    # The time limit's own control: a command that hangs is stopped, and the step is named.
+    - name: The time limit stops a hang and names it (control)
+      if: inputs.controls == 'true'
+      shell: bash
+      run: |
+        source .github/scripts/limit.sh
+        rc=0
+        out=$(limit 3 "the control's hanging fetch" sleep 60 2>&1) || rc=$?
+        # Shown, but not as a workflow command: the control's own stop is not an error of the run.
+        echo "${out//::error/(error)}"
+        if [ "$rc" -eq 124 ] && grep -q "the control's hanging fetch took over" <<< "$out"; then
+          echo "  ok   control: a hang is stopped after its limit (exit $rc) and named"
+        else
+          echo "  MISS control: a hang was not stopped and named (exit $rc)"
+          exit 1
+        fi
