@@ -38,14 +38,26 @@ runs:
     # image's version: on a hit they are installed with dpkg and nothing is
     # downloaded; on a miss (a new image, about weekly) apt fetches only what
     # the last image's cache does not already hold, and the set is saved.
+    # The image's name and version are the runner's own environment, which a
+    # composite action's `env` context does not see: read them in the shell.
+    # Either one missing stops the job, so a cache is never shared across images.
+    - name: The runner image, for LibreOffice's cache key
+      if: inputs.spreadsheet-app == 'true'
+      id: runner-image
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${ImageOS:?the runner does not say its image}" "${ImageVersion:?the runner does not say its image version}"
+        echo "key=libreoffice-calc-${ImageOS}-${ImageVersion}-v1" >> "$GITHUB_OUTPUT"
+        echo "prefix=libreoffice-calc-${ImageOS}-" >> "$GITHUB_OUTPUT"
     - name: LibreOffice's packages, from the cache
       if: inputs.spreadsheet-app == 'true'
       id: libreoffice-cache
       uses: actions/cache/restore@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
-        restore-keys: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-
+        key: ${{ steps.runner-image.outputs.key }}
+        restore-keys: ${{ steps.runner-image.outputs.prefix }}
     - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
       if: inputs.spreadsheet-app == 'true'
       shell: bash
@@ -77,4 +89,4 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
+        key: ${{ steps.runner-image.outputs.key }}
