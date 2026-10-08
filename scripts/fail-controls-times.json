@@ -108,7 +108,14 @@
     "U5 5: a person's name on a sheet": 3,
     "U5 6: the sheets on Letter paper": 3,
     "U5 fix 1: the 6 ft loop drawn back in the 10 ft lane": 3,
-    "U5 fix 3: a driver's control drawn within 6 ft of the arm": 3
+    "U5 fix 3: a driver's control drawn within 6 ft of the arm": 3,
+    "U5 gate 4: the card reader in a sentence on a pass-only set": 3,
+    "U5 gate 4: the card-reader sentence typed into a sheet": 3,
+    "U5 gate 4: a capitalised name typed into a sheet": 3,
+    "U5 gate 4: \"gate-box\" with a hyphen": 3,
+    "U5 gate 4: \"Gate Box\" in capitals": 3,
+    "U5 gate 5: a scanner on every lane of a garage that takes any driver": 3,
+    "U5 gate 6: a label back on a line": 3
   },
   "browser": {
     "6 no request leaves the page": 52,

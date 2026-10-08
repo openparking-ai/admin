@@ -797,6 +797,49 @@ const CONTROLS = [
     run: CHECK_DRAWINGS,
     names: ["a driver's control drawn", "in from the arm's sweep, under 72 in", "FAIL en, any driver: all 3 drivers' controls"],
   },
+  // ── U5 gate fixes (handover 2026-10-08 14:20) ─────────────────────────────
+  {
+    check: 'U5 gate 4: the card reader in a sentence on a pass-only set',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.every.reach' : 'drawings.every.reachPassOnly',", with: "t('drawings.every.reach'," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'scanner, card reader, intercom'],
+  },
+  {
+    check: 'U5 gate 4: the card-reader sentence typed into a sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  left.para(t('drawings.about.trade'));", with: "  left.para(t('drawings.about.trade'));\n  left.para('Each exit lane also has a card reader.');" },
+    run: CHECK_DRAWINGS,
+    names: ["FAIL es, pass holders only: every text on 9 sheets is the drawings' own", '"Each exit lane also has a card reader."'],
+  },
+  {
+    check: 'U5 gate 4: a capitalised name typed into a sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  left.para(t('drawings.about.trade'));", with: "  left.para(t('drawings.about.trade'));\n  left.para('Jane chose these lanes.');" },
+    run: CHECK_DRAWINGS,
+    names: ["FAIL en, any driver: every text on 10 sheets is the drawings' own", '"Jane chose these lanes."'],
+  },
+  {
+    check: 'U5 gate 4: "gate-box" with a hyphen',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate-box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gate box" in "Front camera, on the gate-box."'],
+  },
+  {
+    check: 'U5 gate 4: "Gate Box" in capitals',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the Gate Box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gate box" in "Front camera, on the Gate Box."'],
+  },
+  {
+    check: 'U5 gate 5: a scanner on every lane of a garage that takes any driver',
+    plant: { file: 'src/i18n/en.js', anchor: 'a display, an intercom and a small relay box, and one control panel that holds its wiring.",', with: 'a display, a scanner, an intercom and a small relay box, and one control panel that holds its wiring.",' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: "Every lane" says what each lane has', 'scanner: the sheet says it is on North Entry (2A), whose plan has none'],
+  },
+  {
+    check: 'U5 gate 6: a label back on a line',
+    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);", with: "  g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: no label crossed by a line', '"L2 arming"'],
+  },
   {
     check: 'U5 6: the sheets on Letter paper',
     plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },

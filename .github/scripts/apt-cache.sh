@@ -46,8 +46,16 @@ case "$what" in
     done
     rm -rf "$dir/lists"
     mkdir -p "$dir/lists"
-    for f in /var/lib/apt/lists/*archive.ubuntu.com_ubuntu_dists_*_InRelease /var/lib/apt/lists/*archive.ubuntu.com_ubuntu_dists_*_binary-amd64_Packages*; do
-      [ -e "$f" ] && cp "$f" "$dir/lists/"
+    # The lists apt fetched whose InRelease Ubuntu signed (the runner reaches the archive through a mirror list, so the
+    # files are named after that, not the host); another repository's lists are never kept.
+    for release in /var/lib/apt/lists/*_dists_*_InRelease; do
+      [ -e "$release" ] || continue
+      gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg "$release" 2> /dev/null || continue
+      prefix="${release%_InRelease}"
+      cp "$release" "$dir/lists/"
+      for f in "$prefix"_*_binary-amd64_Packages*; do
+        [ -e "$f" ] && cp "$f" "$dir/lists/"
+      done
     done
     echo "$(find "$dir" -maxdepth 1 -name '*.deb' | wc -l) packages to save for this image"
     python3 -I "$here/verify-installs.py" trim "$dir"

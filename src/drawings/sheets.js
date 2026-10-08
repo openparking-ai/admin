@@ -114,7 +114,8 @@ function frame(s, t, { title, garage, lane, number, total, date }) {
     s.text(x + 8, top + 14, t(cell.label).toLocaleUpperCase(), { size: SIZE.small, bold: true, color: COLOR.soft });
     const lines = s.wrap(cell.value, w - 16, SIZE.value, true);
     const shown = lines.length > 2 ? [lines[0], fit(s, `${lines[1]} ${lines.slice(2).join(' ')}`, w - 16, SIZE.value, true)] : lines;
-    shown.forEach((line, j) => s.text(x + 8, top + 30 + j * 13, line, { size: SIZE.value, bold: true, kind: cell.kind }));
+    const run = s.run();
+    shown.forEach((line, j) => s.text(x + 8, top + 30 + j * 13, line, { size: SIZE.value, bold: true, kind: cell.kind, run }));
     x += w;
   });
 }
@@ -208,12 +209,14 @@ function everyLaneSheet(s, t, _spec, { lanes, reader, specs }) {
   const left = column(s, FRAME.left, FRAME.top, HALF);
   left.heading(t('drawings.box.about'));
   left.para(t('drawings.about.oneComputer'));
-  if (reader) left.para(t('drawings.about.reader'));
+  // What this garage's lanes add (Gokhan 2026-10-02): every exit has the scanner; an entry has one only in a garage for
+  // pass holders only (2B), and only a garage that takes any driver has card readers, at its exits.
+  left.para(t(reader ? 'drawings.about.alsoAtExit' : 'drawings.about.alsoEveryLane'));
   left.para(t('drawings.about.trade'));
   left.heading(t('drawings.box.entryType'));
   left.para(t(reader ? 'drawings.entryType.any' : 'drawings.entryType.passOnly'));
   left.heading(t('drawings.box.everyLane'));
-  left.bullets([t('drawings.every.pictures'), t('drawings.every.backCamera'), t('drawings.every.same'), t('drawings.everyWay'), t('drawings.every.reach', { distance: say('controlsFromGate', t) })]);
+  left.bullets([t('drawings.every.pictures'), t('drawings.every.backCamera'), t('drawings.every.same'), t('drawings.everyWay'), t(reader ? 'drawings.every.reach' : 'drawings.every.reachPassOnly', { distance: say('controlsFromGate', t) })]);
 
   const right = column(s, RIGHT, FRAME.top, HALF);
   right.heading(t('drawings.box.lanes'));

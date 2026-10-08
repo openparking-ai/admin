@@ -60,6 +60,7 @@ export function wrapText(text, width, measure) {
 /** A blank sheet to draw on. */
 export function createSheet(fonts) {
   const items = [];
+  let runs = 0;
   const add = (item) => {
     items.push(item);
     return item;
@@ -71,9 +72,19 @@ export function createSheet(fonts) {
     rect: (x, y, w, h, o = {}) => add({ t: 'rect', x, y, w, h, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75, dash: o.dash ?? null, radius: o.radius ?? 0, role: o.role ?? null }),
     poly: (points, o = {}) => add({ t: 'poly', points, closed: o.closed ?? false, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75, dash: o.dash ?? null }),
     circle: (cx, cy, r, o = {}) => add({ t: 'circle', cx, cy, r, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75 }),
-    /** Text; `kind` is 'words' (the dictionaries' words and the table's numbers), 'data' (what the garage stored) or 'link'. */
-    text: (x, y, text, o = {}) =>
-      add({ t: 'text', x, y, text: fonts.clean(text), size: o.size ?? SIZE.text, bold: o.bold ?? false, color: o.color ?? COLOR.ink, anchor: o.anchor ?? 'start', kind: o.kind ?? 'words' }),
+    /**
+     * Text; `kind` is 'words' (the dictionaries' words and the table's numbers), 'data' (what the garage stored) or 'link'.
+     * `run` groups the lines one paragraph, bullet or cell was broken into (each other text is a run of its own), so a
+     * check reads the paragraph whole; `w` is its width in the PDF's font, so a check can see where it lies.
+     */
+    text: (x, y, text, o = {}) => {
+      const clean = fonts.clean(text);
+      const size = o.size ?? SIZE.text;
+      const bold = o.bold ?? false;
+      return add({ t: 'text', x, y, text: clean, size, bold, color: o.color ?? COLOR.ink, anchor: o.anchor ?? 'start', kind: o.kind ?? 'words', run: o.run ?? (runs += 1), w: fonts.measure(clean, size, bold) });
+    },
+    /** A new run, for the lines of one paragraph. */
+    run: () => (runs += 1),
     measure: (text, size = SIZE.text, bold = false) => fonts.measure(fonts.clean(text), size, bold),
     // Broken at plain spaces only, so a number (written with no-break spaces) stays whole; each line is cleaned when drawn.
     wrap: (text, width, size = SIZE.text, bold = false) => wrapText(String(text), width, (x) => fonts.measure(fonts.clean(x), size, bold)),
@@ -122,9 +133,10 @@ export function scaled(s, ox, oy, k) {
 export function column(s, x, y, width) {
   let at = y;
   const lines = (list, o, indent = 0) => {
+    const run = s.run();
     for (const line of list) {
       at += o.size * LEAD;
-      s.text(x + indent, at, line, o);
+      s.text(x + indent, at, line, { ...o, run });
     }
   };
   const c = {
@@ -169,7 +181,10 @@ export function column(s, x, y, width) {
       // Headings.
       const heads = cols.map((col) => s.wrap(col.name.toLocaleUpperCase(), col.share * width - pad, SIZE.small, true));
       const top = at;
-      heads.forEach((head, i) => head.forEach((line, j) => s.text(xs[i], top + (j + 1) * SIZE.small * LEAD, line, { size: SIZE.small, bold: true, color: COLOR.soft })));
+      heads.forEach((head, i) => {
+        const run = s.run();
+        head.forEach((line, j) => s.text(xs[i], top + (j + 1) * SIZE.small * LEAD, line, { size: SIZE.small, bold: true, color: COLOR.soft, run }));
+      });
       at = top + Math.max(...heads.map((h) => h.length)) * SIZE.small * LEAD + 3;
       s.line(x, at, x + width, at, { color: COLOR.ink, width: 0.75 });
       for (const row of rows) {
@@ -178,9 +193,10 @@ export function column(s, x, y, width) {
           return { ...c2, lines: c2.text ? s.wrap(c2.text, cols[i].share * width - pad, SIZE.text, c2.bold) : [] };
         });
         const rowTop = at;
-        cells.forEach((cell, i) =>
-          cell.lines.forEach((line, j) => s.text(xs[i], rowTop + (j + 1) * SIZE.text * LEAD, line, { size: SIZE.text, bold: cell.bold ?? false, color: cell.color ?? COLOR.ink, kind: cell.kind })),
-        );
+        cells.forEach((cell, i) => {
+          const run = s.run();
+          cell.lines.forEach((line, j) => s.text(xs[i], rowTop + (j + 1) * SIZE.text * LEAD, line, { size: SIZE.text, bold: cell.bold ?? false, color: cell.color ?? COLOR.ink, kind: cell.kind, run }));
+        });
         at = rowTop + Math.max(1, ...cells.map((cell) => cell.lines.length)) * SIZE.text * LEAD + 3.5;
         s.line(x, at, x + width, at, { color: COLOR.rule, width: 0.5 });
       }

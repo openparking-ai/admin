@@ -54,9 +54,10 @@ export function drawPlan(g, t, { kind, reader }) {
 
   // The longest F-150 where it stops, and a small car beside it, dashed.
   g.rect(truckBack, MID - truckHalf, truckFront - truckBack, 2 * truckHalf, { fill: COLOR.car, width: 1.2, radius: 10 });
-  g.text(truckBack + 16, 222, t('drawings.plan.truck'), lbl);
-  g.text(truckBack + 16, 236, t('drawings.plan.truckLong', { length: say('truckLength', t) }), soft);
-  g.text(truckBack + 16, 250, t('drawings.plan.truckWide', { width: say('truckWidth', t) }), soft);
+  g.text(truckBack + 8, 222, t('drawings.plan.truck'), lbl);
+  // Small, so the longer Spanish stays clear of the small car's outline.
+  g.text(truckBack + 8, 236, t('drawings.plan.truckLong', { length: say('truckLength', t) }), { ...soft, size: SIZE.small });
+  g.text(truckBack + 8, 250, t('drawings.plan.truckWide', { width: say('truckWidth', t) }), { ...soft, size: SIZE.small });
   const smallHalf = (U * metres('smallCarWidth')) / 2;
   g.rect(truckFront - U * metres('smallCarLength'), MID - smallHalf, U * metres('smallCarLength'), 2 * smallHalf, { width: 1.2, dash: [6, 4], radius: 10 });
   g.text(truckBack + 16, 318, t('drawings.plan.smallCar', { length: say('smallCarLength', t) }), soft);
@@ -75,19 +76,21 @@ export function drawPlan(g, t, { kind, reader }) {
   for (const [x, dash] of [[l1, [7, 4]], [l2], [l3], [l4], [l5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop' });
   const loopText = { size: SIZE.text, bold: true, color: COLOR.loop };
   g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });
-  g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });
+  // Beside its loop, as L3's is: above it runs the pay station's dashed line.
+  g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);
   g.text(l3 + loopW + 4, loopTop - 7, t('drawings.plan.l3', { mark: MARK.L3 }), loopText);
   g.text(l4 + loopW / 2, loopTop - 7, MARK.L4, { ...loopText, anchor: 'middle' });
   g.text(l5 + loopW / 2, loopTop - 7, MARK.L5, { ...loopText, anchor: 'middle' });
 
   // The control panel, the arm, the display and the front camera.
   g.rect(742, 104, 36, 42, { stroke: null, fill: COLOR.ink });
-  g.text(ARM - 10, 80, t('drawings.plan.panel', { mark: MARK.panel }), { ...lbl, anchor: 'end' });
+  // Labels on the driver's side stand clear of the strip's edge (y 80) and the island's (islandTop): no line crosses one.
+  g.text(ARM - 10, 74, t('drawings.plan.panel', { mark: MARK.panel }), { ...lbl, anchor: 'end' });
   g.line(ARM, 146, ARM, laneBottom, { width: 4, role: 'arm' });
   g.text(ARM + 8, laneBottom - 12, t('drawings.plan.arm'), soft);
   g.rect(726, 108, 12, 30, { stroke: null, fill: COLOR.gold });
   g.circle(ARM - 8, 146, 5, { fill: COLOR.paper, width: 1.5 });
-  g.text(722, 100, t('drawings.plan.display', { mark: MARK.display }), { ...lbl, anchor: 'end' });
+  g.text(722, 106, t('drawings.plan.display', { mark: MARK.display }), { ...lbl, anchor: 'end' });
   g.text(722, 140, t('drawings.plan.frontCamera', { mark: MARK.frontCamera }), { ...lbl, anchor: 'end' });
 
   // The pay station (exit) or the pedestal (entry), at the driver's window.
@@ -97,13 +100,15 @@ export function drawPlan(g, t, { kind, reader }) {
   else g.rect(pay - 7, 118, 14, 18, { width: 2, fill: COLOR.paper, role: 'driver' });
   if (station && reader) g.circle(pay, 134, 3.5, { stroke: null, fill: COLOR.ink });
   const payLabel = station ? (reader ? 'drawings.plan.payReader' : 'drawings.plan.payNoReader') : kind === '2A' ? 'drawings.plan.pedestal2A' : 'drawings.plan.pedestal2B';
-  g.text(pay + 16, islandTop - 8, t(payLabel, { mark: MARK.pay }), { ...lbl, anchor: 'end' });
+  // Left of the island's witness line and above the strip, with a leader to the station: no line crosses it.
+  g.text(islandStart - 6, 70, t(payLabel, { mark: MARK.pay }), { ...lbl, anchor: 'end' });
+  g.line(islandStart - 3, 68, pay - (station ? 12 : 7), station ? 112 : 118, { width: 0.75, color: COLOR.soft });
   g.line(pay, 142, pay, loopTop, { width: 1, dash: [2, 3] });
 
   // The back camera.
   g.circle(backCamera, 128, 6, { fill: COLOR.paper, width: 1.5 });
   g.text(backCamera, 100, t('drawings.plan.backCamera', { mark: MARK.backCamera }), { ...lbl, anchor: 'middle' });
-  g.text(backCamera, 86, t('drawings.plan.ceilingOrPost'), { ...soft, anchor: 'middle' });
+  g.text(backCamera, 112, t('drawings.plan.ceilingOrPost'), { ...soft, anchor: 'middle' });
 
   // Conduit runs.
   const conduit = { stroke: COLOR.conduit, width: 2, dash: [3, 4] };
@@ -136,7 +141,8 @@ export function drawPlan(g, t, { kind, reader }) {
   g.text(ARM + 6 + g.measure(stop, SIZE.text) / g.k + 6, 370, t('drawings.plan.stop'), soft);
   dim(pay, 400, say('payStation', t), t(station ? 'drawings.plan.payAt' : 'drawings.plan.pedestalAt', { mark: MARK.L2 }));
   g.line(l1 + loopW, 400, pay - 8, 400, { width: 1, dash: [2, 3] });
-  g.text(l1 + loopW + 6, 394, t('drawings.plan.l1At', { mark: MARK.L1, length: say('thirdLoopNear', t) }), num);
+  // Under its dashed line, right of the truck's witness line, where no witness line runs.
+  g.text(truckBack + 6, 413, t('drawings.plan.l1At', { mark: MARK.L1, length: say('thirdLoopNear', t) }), num);
   dim(truckBack, 434, say('truckBack', t), t('drawings.plan.truckBack'));
   dim(backCamera, 470, say('backCamera', t), t('drawings.plan.backCameraAt'));
 

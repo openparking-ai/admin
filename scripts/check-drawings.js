@@ -19,6 +19,17 @@
 //      drivers question, or no lanes -> no set.
 //   5  words: no "gate box", no "lane computer", no owner's decision, no
 //      person's name, in any sheet, either language.
+//   4  also: on a garage for pass holders only, no text names the card reader
+//      but to say there is none; and the "Every lane" sheet says each piece
+//      of equipment is on exactly the lanes whose plan sheets draw it.
+//   5  also: read made alike (case, accents, hyphens, spaces), so "gate-box"
+//      and "Gate Box" are "gate box". A name typed anywhere a sheet is made
+//      is caught by 8; no list of people's names is kept anywhere.
+//   8  every text is the drawings' own: each paragraph, bullet, cell and
+//      label is made only of the dictionary's drawing strings, the table's
+//      numbers, the marks and this garage's names and date. A typed sentence,
+//      a name, anything else is named.
+//   9  nothing crosses a label: no text's box is crossed by a drawn line.
 //   7  the plan agrees with itself: every loop, as drawn, sits within the
 //      edge distance the sheet prints from each lane edge (12 to 20 in), and
 //      the across-the-lane lengths the sheet prints are the lane less those
@@ -44,6 +55,8 @@ import { makeDrawings, openDocument } from '../src/drawings/pdf.js';
 import { readBack } from './files/read-back.js';
 import { ADDED, CHANGED, DRAFT7 } from '../test/draft7-numbers.js';
 import { ANY_DRIVER, LONG_NAMES, MADE_AT, NO_LANES, PASS_ONLY, UNANSWERED } from '../test/drawings-fixtures.js';
+import { MARK } from '../src/drawings/marks.js';
+import { norm, ownWords, runsOf } from './drawings-text.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-'));
@@ -186,6 +199,47 @@ try {
     check(none.needs?.join() === 'drivers' && none.bytes === null && none.sheets.length === 0, `${language}: no answer to the drivers question -> no set, the page asks for it (${none.needs?.join() ?? 'a set was made'})`);
     const noLanes = build(NO_LANES, language);
     check(noLanes.needs?.join() === 'lanes' && noLanes.bytes === null, `${language}: no lanes -> no set, the page asks for lanes (${noLanes.needs?.join() ?? 'a set was made'})`);
+
+    // However it is worded: on a pass-only set, the card reader is named only to say there is none.
+    const readerWord = norm(reader);
+    const saysNone = new Set(
+      [t('drawings.stop.passOnly', { cable: MARK.N5, outlet: MARK.W3 }), t('drawings.entryType.passOnly'), t('drawings.type.exitNoReader'), t('drawings.how2B.noReader')].map(norm),
+    );
+    const named = pass.sheets.flatMap((sheet) => runsOf(sheet).filter((r) => norm(r.text).includes(readerWord) && !saysNone.has(norm(r.text))).map((r) => `"${sheet.title}": "${r.text}"`));
+    check(named.length === 0, `${language}: pass holders only -> the card reader is named only to say there is none${named.length ? `; named:\n      ${named.join('\n      ')}` : ''}`);
+  }
+
+  // Every lane: each piece of equipment is said to be on exactly the lanes whose plan sheets draw it.
+  for (const { name, language, made } of SETS) {
+    const t = words(language);
+    const kit = {
+      scanner: norm(t('drawings.wiring.scanner', { mark: '' })),
+      'card reader': norm(t('drawings.item.cardReader')),
+      intercom: norm(t('drawings.wiring.intercom', { mark: '' })),
+    };
+    const plans = made.sheets.filter((x) => x.key === 'plan');
+    // What each plan draws at the driver's window: its D label.
+    const atWindow = plans.map((p) => norm(runsOf(p).find((r) => norm(r.text).startsWith(`${norm(MARK.pay)} `))?.text ?? ''));
+    const every = made.sheets.find((x) => x.key === 'everyLane');
+    const claims = [
+      { key: 'drawings.about.oneComputer', on: plans.map(() => true) },
+      { key: 'drawings.about.alsoAtExit', on: plans.map((p) => p.kind === 'exit') },
+      { key: 'drawings.about.alsoEveryLane', on: plans.map(() => true) },
+    ];
+    const said = runsOf(every).map((r) => norm(r.text));
+    const wrong = [];
+    for (const [thing, word] of Object.entries(kit)) {
+      const has = atWindow.map((d) => d.includes(word));
+      const claimed = plans.map(() => false);
+      for (const c of claims) {
+        const text = norm(t(c.key));
+        if (said.includes(text) && text.includes(word)) c.on.forEach((on, i) => (claimed[i] ||= on));
+      }
+      plans.forEach((p, i) => {
+        if (claimed[i] !== has[i]) wrong.push(`${thing}: the sheet says ${claimed[i] ? 'it is' : 'nothing of it'} on ${p.lane} (${p.kind}), whose plan ${has[i] ? 'draws it' : 'has none'}`);
+      });
+    }
+    check(wrong.length === 0, `${language}, ${name}: "Every lane" says what each lane has${wrong.length ? `:\n      ${wrong.join('\n      ')}` : ''}`);
   }
 
   // ── 5 words ─────────────────────────────────────────────────────────────
@@ -197,12 +251,12 @@ try {
     const found = [];
     for (const sheet of made.sheets) {
       // Read whole too, so a phrase a line break split in two is still read.
-      const whole = texts(sheet).filter((i) => i.kind === 'words').map((i) => i.text).join(' ').toLocaleLowerCase();
-      for (const b of BANNED) if (whole.includes(b)) found.push(`"${sheet.title}": "${b}" on the sheet`);
+      const whole = norm(texts(sheet).filter((i) => i.kind === 'words').map((i) => i.text).join(' '));
+      for (const b of BANNED) if (whole.includes(norm(b))) found.push(`"${sheet.title}": "${b}" on the sheet`);
       for (const item of texts(sheet)) {
         if (item.kind !== 'words') continue;
-        const low = item.text.toLocaleLowerCase();
-        for (const b of BANNED) if (low.includes(b)) found.push(`"${sheet.title}": "${b}" in "${item.text}"`);
+        const low = norm(item.text);
+        for (const b of BANNED) if (low.includes(norm(b))) found.push(`"${sheet.title}": "${b}" in "${item.text}"`);
         // A capital inside a sentence that is not a mark or a name above is a name: of a person, until said otherwise.
         const sentences = item.text.split(/(?<=[.:;?!])\s+|“|”|\(|\)/);
         for (const sentence of sentences) {
@@ -260,6 +314,86 @@ try {
       }
     }
     check(near.length === 0 && controls > 0, `${language}, ${name}: all ${controls} drivers' controls drawn at least ${N('controlsFromGate')} in from the arm's sweep${near.length ? `:\n      ${[...new Set(near)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 8 every text is the drawings' own ───────────────────────────────────
+  console.log("8 every text is the drawings' own");
+  for (const { name, garage, language, made } of SETS) {
+    const t = words(language);
+    const total = made.sheets.length;
+    const own = ownWords({
+      language,
+      atoms: [
+        ...everyWriting(t),
+        ...Object.values(MARK),
+        ...scaleMarks(t).map((m) => m.text),
+        ...Array.from({ length: total }, (_, i) => String(i + 1)),
+        garage.garage.name,
+        ...garage.lanes.map((l) => l.name),
+        madeOn(MADE_AT, garage.garage, language),
+      ],
+    });
+    const stray = [];
+    for (const sheet of made.sheets) {
+      for (const r of runsOf(sheet)) {
+        if (r.kind !== 'words') continue;
+        if (!own(r.text)) stray.push(`"${sheet.title}": "${r.text}"`);
+      }
+    }
+    check(stray.length === 0, `${language}, ${name}: every text on ${total} sheets is the drawings' own${stray.length ? `; not:\n      ${[...new Set(stray)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 9 nothing crosses a label ────────────────────────────────────────────
+  console.log('9 nothing crosses a label');
+  // A text's box: its width in the PDF's font, from a little above the capitals to below the descenders.
+  const boxOf = (i) => {
+    const left = i.anchor === 'end' ? i.x - i.w : i.anchor === 'middle' ? i.x - i.w / 2 : i.x;
+    return { x1: left, x2: left + i.w, y1: i.y - 0.74 * i.size, y2: i.y + 0.22 * i.size };
+  };
+  // Whether the segment (a)-(b), `width` wide, crosses the box: Liang-Barsky on the box grown by half the stroke.
+  const crosses = (box, a, b, width) => {
+    const g = width / 2;
+    const [x1, y1, x2, y2] = [box.x1 - g, box.y1 - g, box.x2 + g, box.y2 + g];
+    let t0 = 0;
+    let t1 = 1;
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    for (const [p, q] of [[-dx, a[0] - x1], [dx, x2 - a[0]], [-dy, a[1] - y1], [dy, y2 - a[1]]]) {
+      if (p === 0) {
+        if (q < 0) return false;
+      } else {
+        const r = q / p;
+        if (p < 0) t0 = Math.max(t0, r);
+        else t1 = Math.min(t1, r);
+        if (t0 > t1) return false;
+      }
+    }
+    return t1 - t0 > 1e-6;
+  };
+  const segmentsOf = (item) => {
+    if (item.t === 'line') return [[[item.x1, item.y1], [item.x2, item.y2], item.width]];
+    if (item.t === 'rect' && item.stroke) {
+      const { x, y, w, h } = item;
+      const c = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+      return c.map((p, k) => [p, c[(k + 1) % 4], item.width]);
+    }
+    if (item.t === 'poly' && item.stroke) {
+      const segs = item.points.slice(1).map((p, k) => [item.points[k], p, item.width]);
+      if (item.closed) segs.push([item.points[item.points.length - 1], item.points[0], item.width]);
+      return segs;
+    }
+    return [];
+  };
+  for (const { name, language, made } of SETS) {
+    const crossed = [];
+    for (const sheet of made.sheets) {
+      const segs = sheet.items.flatMap(segmentsOf);
+      for (const i of texts(sheet)) {
+        const box = boxOf(i);
+        if (segs.some(([a, b, w]) => crosses(box, a, b, w))) crossed.push(`"${sheet.title}": "${i.text}"`);
+      }
+    }
+    check(crossed.length === 0, `${language}, ${name}: no label crossed by a line${crossed.length ? `; crossed:\n      ${[...new Set(crossed)].join('\n      ')}` : ''}`);
   }
 
   // ── 6 the PDF ───────────────────────────────────────────────────────────
