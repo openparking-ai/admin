@@ -2,10 +2,13 @@ name: The check environment
 description: >-
   Node and the npm packages, Python and the pinned readers the downloaded
   files are read back with, and -- when asked -- LibreOffice reading the Excel
-  files as a spreadsheet app does (its packages from GitHub's cache), or
-  Chromium for the browser checks. Every job that runs checks or
-  fail-controls starts here, so a shard runs in the environment its controls
-  always ran in.
+  files as a spreadsheet app does, or Chromium for the browser checks. Every
+  job that runs checks or fail-controls starts here, so a shard runs in the
+  environment its controls always ran in. Nothing here is fetched from outside
+  on a run whose caches are warm: Node and Python are the runner's own, and
+  the npm packages, the readers, LibreOffice and Chromium (its system packages
+  and the browser) come from GitHub's cache. A cold cache fetches once and
+  saves; the system packages' caches are keyed on the runner image.
 inputs:
   spreadsheet-app:
     description: Install LibreOffice (headless).
@@ -16,48 +19,107 @@ inputs:
 runs:
   using: composite
   steps:
+    # Node 22 is in the runner's tool cache; the npm packages are in GitHub's
+    # cache (keyed on package-lock.json). Offline first, and no audit request:
+    # the audit is its own check, in the checks job.
     - uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: npm
     - shell: bash
-      run: npm ci
-    - if: inputs.browser == 'true'
-      shell: bash
-      run: npx playwright install --with-deps chromium
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-    - name: The readers the downloaded files are read back with (pinned, by hash)
-      shell: bash
-      run: pip install --require-hashes -r scripts/files/readers.txt
-    # LibreOffice's packages come from GitHub's own cache, not the Ubuntu
-    # mirror: the mirror once took 25 minutes to send them, and a job's time
-    # must not be the mirror's. The cache holds exactly the .deb files that
-    # installing libreoffice-calc adds to this runner image, keyed on the
-    # image's version: on a hit they are installed with dpkg and nothing is
-    # downloaded; on a miss (a new image, about weekly) apt fetches only what
-    # the last image's cache does not already hold, and the set is saved.
-    # The image's name and version are the runner's own environment, which a
-    # composite action's `env` context does not see: read them in the shell.
-    # Either one missing stops the job, so a cache is never shared across images.
-    - name: The runner image, for LibreOffice's cache key
-      if: inputs.spreadsheet-app == 'true'
-      id: runner-image
+      run: npm ci --prefer-offline --no-audit --no-fund
+
+    # The runner image's name and version, which a composite action's `env`
+    # context does not see: read in the shell. Either one missing stops the
+    # job, so a system package set is never installed on another image.
+    - name: The runner image, for the caches' keys
+      id: image
       shell: bash
       run: |
         set -euo pipefail
         : "${ImageOS:?the runner does not say its image}" "${ImageVersion:?the runner does not say its image version}"
-        echo "key=libreoffice-calc-${ImageOS}-${ImageVersion}-v1" >> "$GITHUB_OUTPUT"
-        echo "prefix=libreoffice-calc-${ImageOS}-" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+        echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
+        echo "playwright=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    # Chromium: the system packages Playwright installs for it (the Ubuntu
+    # mirror) and the browser itself (Playwright's download site), both from
+    # one cache keyed on the Playwright version and the runner image.
+    - name: Chromium and its system packages, from the cache
+      if: inputs.browser == 'true'
+      id: chromium-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/chromium-debs
+          ~/.cache/ms-playwright
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v1
+    - name: Chromium for Playwright
+      if: inputs.browser == 'true'
+      shell: bash
+      env:
+        HIT: ${{ steps.chromium-cache.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+        if [ "$HIT" = "true" ]; then
+          .github/scripts/apt-cache.sh install "$HOME/chromium-debs"
+          npx playwright install chromium
+        else
+          .github/scripts/apt-cache.sh keep "$HOME/chromium-debs"
+          npx playwright install --with-deps chromium
+          .github/scripts/apt-cache.sh prune "$HOME/chromium-debs"
+        fi
+    - name: Chromium, saved for the next run on this image
+      if: inputs.browser == 'true' && steps.chromium-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/chromium-debs
+          ~/.cache/ms-playwright
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v1
+
+    # Python 3.12 is the runner's own. The readers are pinned by version and
+    # hash (scripts/files/readers.txt); their wheels come from GitHub's cache,
+    # keyed on that file, and pip installs them with no index at all.
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: The readers' wheels, from the cache
+      id: readers-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/reader-wheels
+        key: reader-wheels-${{ steps.image.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+    - name: The readers the downloaded files are read back with (pinned, by hash)
+      shell: bash
+      env:
+        HIT: ${{ steps.readers-cache.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+        if [ "$HIT" = "true" ]; then
+          echo "the readers' wheels from the cache: $(ls ~/reader-wheels | wc -l), nothing downloaded"
+        else
+          pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+        fi
+        pip install --no-index --find-links ~/reader-wheels --require-hashes -r scripts/files/readers.txt
+    - name: The readers' wheels, saved
+      if: steps.readers-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/reader-wheels
+        key: reader-wheels-${{ steps.image.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+
+    # LibreOffice: the .deb files installing libreoffice-calc adds to this
+    # runner image, keyed on the image. The mirror once took 25 minutes to
+    # send them; a job's time must not be the mirror's.
     - name: LibreOffice's packages, from the cache
       if: inputs.spreadsheet-app == 'true'
       id: libreoffice-cache
       uses: actions/cache/restore@v4
       with:
         path: ~/libreoffice-debs
-        key: ${{ steps.runner-image.outputs.key }}
-        restore-keys: ${{ steps.runner-image.outputs.prefix }}
+        key: libreoffice-calc-${{ steps.image.outputs.image }}-v1
+        restore-keys: libreoffice-calc-${{ steps.image.outputs.os }}-
     - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
       if: inputs.spreadsheet-app == 'true'
       shell: bash
@@ -65,23 +127,13 @@ runs:
         HIT: ${{ steps.libreoffice-cache.outputs.cache-hit }}
       run: |
         set -euo pipefail
-        DEBS="$HOME/libreoffice-debs"
-        mkdir -p "$DEBS"
-        if [ "$HIT" = "true" ] && ls "$DEBS"/*.deb > /dev/null 2>&1; then
-          echo "LibreOffice from the cache: $(ls "$DEBS"/*.deb | wc -l) packages, nothing downloaded"
-          sudo dpkg -i "$DEBS"/*.deb > /dev/null
+        if [ "$HIT" = "true" ]; then
+          .github/scripts/apt-cache.sh install "$HOME/libreoffice-debs"
         else
-          echo "LibreOffice: no cache for this image; $(ls "$DEBS"/*.deb 2> /dev/null | wc -l) packages kept from the last one"
+          .github/scripts/apt-cache.sh keep "$HOME/libreoffice-debs"
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::archives="$DEBS" libreoffice-calc
-          sudo rm -rf "$DEBS/partial" "$DEBS/lock"
-          sudo chown -R "$(id -u):$(id -g)" "$DEBS"
-          # Keep only what is installed now, at the version installed: the set a hit installs.
-          for f in "$DEBS"/*.deb; do
-            p=$(dpkg-deb -f "$f" Package); v=$(dpkg-deb -f "$f" Version); a=$(dpkg-deb -f "$f" Architecture)
-            [ "$(dpkg-query -W -f='${Version}' "$p:$a" 2> /dev/null || true)" = "$v" ] || rm -f "$f"
-          done
-          echo "LibreOffice: $(ls "$DEBS"/*.deb | wc -l) packages to save for this image"
+          sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+          .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs"
         fi
         soffice --version
     - name: LibreOffice's packages, saved for the next run on this image
@@ -89,4 +141,4 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/libreoffice-debs
-        key: ${{ steps.runner-image.outputs.key }}
+        key: libreoffice-calc-${{ steps.image.outputs.image }}-v1
