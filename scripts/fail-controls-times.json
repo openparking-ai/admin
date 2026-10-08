@@ -116,7 +116,14 @@
     "U5 gate 4: \"Gate Box\" in capitals": 3,
     "U5 gate 5: a scanner on every lane of a garage that takes any driver": 3,
     "U5 gate 6: a label back on a line": 3,
-    "U5 gate 3: a job with no time limit": 1
+    "U5 gate 3: a job with no time limit": 1,
+    "U5 re-gate 4: \"cardreader\" as one word on a pass-only set": 3,
+    "U5 re-gate 4: \"lectores de tarjetas\" on a pass-only set": 3,
+    "U5 re-gate 4: \"lector de tarjeta\" on a pass-only set": 3,
+    "U5 re-gate 4: \"Card-Reader\" on a pass-only set": 3,
+    "U5 re-gate 4: the card reader with no-break spaces on a pass-only set": 3,
+    "U5 re-gate 5: \"gatebox\" as one word": 3,
+    "U5 re-gate 5: \"lanecomputer\" as one word": 3
   },
   "browser": {
     "6 no request leaves the page": 52,

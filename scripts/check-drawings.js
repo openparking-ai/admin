@@ -56,7 +56,7 @@ import { readBack } from './files/read-back.js';
 import { ADDED, CHANGED, DRAFT7 } from '../test/draft7-numbers.js';
 import { ANY_DRIVER, LONG_NAMES, MADE_AT, NO_LANES, PASS_ONLY, UNANSWERED } from '../test/drawings-fixtures.js';
 import { MARK } from '../src/drawings/marks.js';
-import { norm, ownWords, runsOf } from './drawings-text.js';
+import { norm, ownWords, runsOf, squash } from './drawings-text.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-'));
@@ -171,6 +171,9 @@ try {
     check(bare.length === 0 && lengths > 0, `${language}, ${name}: all ${lengths} lengths are feet and inches with metres in brackets${bare.length ? `; a length in one unit only:\n      ${[...new Set(bare)].join('\n      ')}` : ''}`);
   }
 
+// The card reader's stems, both languages: "reader" (readers, cardreader) and "lector" (lectores, lector de tarjeta).
+const READER_STEMS = ['reader', 'lector'];
+
   // ── 4 per garage ────────────────────────────────────────────────────────
   console.log('4 per garage');
   for (const language of LANGUAGES) {
@@ -201,11 +204,14 @@ try {
     check(noLanes.needs?.join() === 'lanes' && noLanes.bytes === null, `${language}: no lanes -> no set, the page asks for lanes (${noLanes.needs?.join() ?? 'a set was made'})`);
 
     // However it is worded: on a pass-only set, the card reader is named only to say there is none.
-    const readerWord = norm(reader);
+    // Matched as a stem after every non-letter is dropped (squash), so one word, a hyphen, a no-break
+    // space, a plural or another ending are all caught. The only texts allowed to hold the stem are
+    // the named exceptions: the four sentences that say there is no card reader.
     const saysNone = new Set(
-      [t('drawings.stop.passOnly', { cable: MARK.N5, outlet: MARK.W3 }), t('drawings.entryType.passOnly'), t('drawings.type.exitNoReader'), t('drawings.how2B.noReader')].map(norm),
+      [t('drawings.stop.passOnly', { cable: MARK.N5, outlet: MARK.W3 }), t('drawings.entryType.passOnly'), t('drawings.type.exitNoReader'), t('drawings.how2B.noReader')].map(squash),
     );
-    const named = pass.sheets.flatMap((sheet) => runsOf(sheet).filter((r) => norm(r.text).includes(readerWord) && !saysNone.has(norm(r.text))).map((r) => `"${sheet.title}": "${r.text}"`));
+    const holdsReader = (text) => READER_STEMS.some((stem) => squash(text).includes(stem));
+    const named = pass.sheets.flatMap((sheet) => runsOf(sheet).filter((r) => holdsReader(r.text) && !saysNone.has(squash(r.text))).map((r) => `"${sheet.title}": "${r.text}"`));
     check(named.length === 0, `${language}: pass holders only -> the card reader is named only to say there is none${named.length ? `; named:\n      ${named.join('\n      ')}` : ''}`);
   }
 
@@ -244,19 +250,21 @@ try {
 
   // ── 5 words ─────────────────────────────────────────────────────────────
   console.log('5 words');
-  const BANNED = ['gate box', 'gate boxes', 'lane computer', 'lane computers', "owner's decision", 'owner’s decision', 'caja de la barrera', 'caja de barrera', 'computadora del carril', 'computadora de carril', 'decisión del dueño', 'decisiones del dueño'];
+  // Stems, matched after every non-letter is dropped (squash): "gate box", "Gate-Box", "gatebox" and
+  // "gate boxes" all hold "gatebox". A synonym no string uses is the strings review's to find, not this check's.
+  const BANNED = ['gatebox', 'lanecomputer', 'ownersdecision', 'ownerdecision', 'cajadelabarrera', 'cajadebarrera', 'cajadecompuerta', 'cajadelacompuerta', 'computadoradecarril', 'computadoradelcarril', 'decisiondeldueno', 'decisionesdeldueno', 'decisiondelpropietario', 'decisionesdelpropietario'];
   // Proper names the sheets may hold: the project, the sources, the truck, the barrier's series.
   const NAMES = new Set(['Open', 'Parking', 'AI', 'Ford', 'F-150', 'Michigan', 'State', 'University', 'Magnetic', 'MHTM', 'DoorKing', 'Access', 'Stripe', "Stripe's", 'Cat6']);
   for (const { name, language, made } of SETS) {
     const found = [];
     for (const sheet of made.sheets) {
       // Read whole too, so a phrase a line break split in two is still read.
-      const whole = norm(texts(sheet).filter((i) => i.kind === 'words').map((i) => i.text).join(' '));
-      for (const b of BANNED) if (whole.includes(norm(b))) found.push(`"${sheet.title}": "${b}" on the sheet`);
+      // Every text, labels and cells too, each run whole and the sheet whole.
+      const whole = squash(texts(sheet).map((i) => i.text).join(' '));
+      for (const b of BANNED) if (whole.includes(b)) found.push(`"${sheet.title}": "${b}" on the sheet`);
+      for (const r of runsOf(sheet)) for (const b of BANNED) if (squash(r.text).includes(b)) found.push(`"${sheet.title}": "${b}" in "${r.text}"`);
       for (const item of texts(sheet)) {
         if (item.kind !== 'words') continue;
-        const low = norm(item.text);
-        for (const b of BANNED) if (low.includes(norm(b))) found.push(`"${sheet.title}": "${b}" in "${item.text}"`);
         // A capital inside a sentence that is not a mark or a name above is a name: of a person, until said otherwise.
         const sentences = item.text.split(/(?<=[.:;?!])\s+|“|”|\(|\)/);
         for (const sentence of sentences) {

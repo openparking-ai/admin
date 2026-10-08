@@ -24,6 +24,11 @@ export const norm = (text) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Made alike, then every non-letter dropped (spaces, no-break spaces, hyphens,
+// punctuation, digits): "card reader", "Card-Reader", "cardreader" and
+// "card\u00a0reader" are all "cardreader". What checks 4 and 5 match stems in.
+export const squash = (text) => norm(text).replace(/\P{L}/gu, '');
+
 /** The sheet's text runs: { run, kind, text, items }, in the order drawn. */
 export function runsOf(sheet) {
   const runs = new Map();

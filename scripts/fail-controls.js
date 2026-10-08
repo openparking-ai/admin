@@ -765,19 +765,19 @@ const CONTROLS = [
     check: 'U5 5: "gate box" on a sheet',
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate box."' },
     run: CHECK_DRAWINGS,
-    names: ['"gate box" in "Front camera, on the gate box."'],
+    names: ['"gatebox" in "Front camera, on the gate box."'],
   },
   {
     check: 'U5 5: "lane computer" on a Spanish sheet',
     plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2A.atExit": "Un conductor con pase, o uno que quiere registrarse, lo hace a la salida."', with: '"drawings.how2A.atExit": "Un conductor con pase lo hace a la salida, en la computadora del carril."' },
     run: CHECK_DRAWINGS,
-    names: ['FAIL es, any driver: no gate box', '"computadora del carril"'],
+    names: ['FAIL es, any driver: no gate box', '"computadoradelcarril"'],
   },
   {
     check: "U5 5: an owner's decision on a sheet",
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.sources.oneTable": "Every number on these sheets comes from one table, listed here with its source."', with: '"drawings.sources.oneTable": "Every number on these sheets comes from one table. The stop distance is the owner\'s decision."' },
     run: CHECK_DRAWINGS,
-    names: ['"owner\'s decision" in'],
+    names: ['"ownersdecision" in'],
   },
   {
     check: "U5 5: a person's name on a sheet",
@@ -820,13 +820,13 @@ const CONTROLS = [
     check: 'U5 gate 4: "gate-box" with a hyphen',
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate-box."' },
     run: CHECK_DRAWINGS,
-    names: ['"gate box" in "Front camera, on the gate-box."'],
+    names: ['"gatebox" in "Front camera, on the gate-box."'],
   },
   {
     check: 'U5 gate 4: "Gate Box" in capitals',
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the Gate Box."' },
     run: CHECK_DRAWINGS,
-    names: ['"gate box" in "Front camera, on the Gate Box."'],
+    names: ['"gatebox" in "Front camera, on the Gate Box."'],
   },
   {
     check: 'U5 gate 5: a scanner on every lane of a garage that takes any driver',
@@ -845,6 +845,49 @@ const CONTROLS = [
     plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '' },
     run: ['node', 'scripts/check-job-limits.js'],
     names: ['FAIL emails.yml: job "emails" has no timeout-minutes'],
+  },
+  // ── U5 re-gate (handover 2026-10-08 16:50): stems after every non-letter is removed ──
+  {
+    check: 'U5 re-gate 4: "cardreader" as one word on a pass-only set',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.shows": "The driver shows a pass to the scanner to get in."', with: '"drawings.how2B.shows": "The driver shows a pass to the scanner or the cardreader to get in."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'the scanner or the cardreader to get in.'],
+  },
+  {
+    check: 'U5 re-gate 4: "lectores de tarjetas" on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o a los lectores de tarjetas para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'a los lectores de tarjetas para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 4: "lector de tarjeta" on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o al lector de tarjeta para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'al lector de tarjeta para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 4: "Card-Reader" on a pass-only set',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.shows": "The driver shows a pass to the scanner to get in."', with: '"drawings.how2B.shows": "The driver shows a pass to the scanner or the Card-Reader to get in."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'the scanner or the Card-Reader to get in.'],
+  },
+  {
+    check: 'U5 re-gate 4: the card reader with no-break spaces on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o al lector\\u00a0de\\u00a0tarjetas para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'tarjetas para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 5: "gatebox" as one word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gatebox."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gatebox" in "Front camera, on the gatebox."'],
+  },
+  {
+    check: 'U5 re-gate 5: "lanecomputer" as one word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the lanecomputer."' },
+    run: CHECK_DRAWINGS,
+    names: ['"lanecomputer" in "Front camera, on the lanecomputer."'],
   },
   {
     check: 'U5 6: the sheets on Letter paper',
