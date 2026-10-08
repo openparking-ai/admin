@@ -224,7 +224,8 @@ def selftest_browsers(directory, hashes):
         real = verify_browsers(dst, hashes)
         print(f'  {"ok  " if not real else "MISS"} control baseline: the real browsers pass{"" if not real else ": " + real[0]}')
         ok &= not real
-        first = sorted(d for d in os.listdir(dst) if os.path.isdir(os.path.join(dst, d)))[0]
+        # A browser itself, never Playwright's own bookkeeping (.links): the plant must land where the check looks.
+        first = sorted(d for d in os.listdir(dst) if os.path.isdir(os.path.join(dst, d)) and not d.startswith('.'))[0]
         target = None
         for here, _, files in os.walk(os.path.join(dst, first)):
             for f in files:
