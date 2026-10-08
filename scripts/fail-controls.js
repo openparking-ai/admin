@@ -832,6 +832,13 @@ const CONTROLS = [
     check: 'U5 gate 5: a scanner on every lane of a garage that takes any driver',
     plant: { file: 'src/i18n/en.js', anchor: 'a display, an intercom and a small relay box, and one control panel that holds its wiring.",', with: 'a display, a scanner, an intercom and a small relay box, and one control panel that holds its wiring.",' },
     run: CHECK_DRAWINGS,
+    // Since fix 11 the "Every lane" check reads its claims as pinned, so a claim edited in the dictionary is check 0's to name.
+    names: ['en drawings.about.oneComputer: "One computer sits', 'a display, a scanner, an intercom', 'pinned "One computer sits'],
+  },
+  {
+    check: 'U5 fix 11 sweep: the two "Every lane" claims swapped in the code',
+    plant: { file: 'src/drawings/sheets.js', anchor: "left.para(t(reader ? 'drawings.about.alsoAtExit' : 'drawings.about.alsoEveryLane'));", with: "left.para(t(reader ? 'drawings.about.alsoEveryLane' : 'drawings.about.alsoAtExit'));" },
+    run: CHECK_DRAWINGS,
     names: ['FAIL en, any driver: "Every lane" says what each lane has', 'scanner: the sheet says it is on North Entry (2A), whose plan has none'],
   },
   {
@@ -888,6 +895,82 @@ const CONTROLS = [
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the lanecomputer."' },
     run: CHECK_DRAWINGS,
     names: ['"lanecomputer" in "Front camera, on the lanecomputer."'],
+  },
+  // ── U5 fix 11 (handover 2026-10-08 17:40): pinned texts, the limit's ceiling ──
+  // The second re-gate's three edits: each exception edited to name a reader stayed green.
+  {
+    check: 'U5 fix 11 4: en how2B.noReader edited to "A card reader at the window."',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.noReader": "No card reader."', with: '"drawings.how2B.noReader": "A card reader at the window."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.how2B.noReader: "A card reader at the window.", pinned "No card reader."', 'FAIL en: pass holders only -> the card reader is named only to say there is none', '"A card reader at the window."'],
+  },
+  {
+    check: 'U5 fix 11 4: es type.exitNoReader edited to "Salida, con lector de tarjetas"',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.type.exitNoReader": "Salida, sin lector de tarjetas"', with: '"drawings.type.exitNoReader": "Salida, con lector de tarjetas"' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.type.exitNoReader: "Salida, con lector de tarjetas", pinned "Salida, sin lector de tarjetas"', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Salida, con lector de tarjetas"'],
+  },
+  {
+    check: 'U5 fix 11 4: en entryType.passOnly with "The exit has a card reader." added',
+    plant: { file: 'src/i18n/en.js', anchor: 'No exit lane here has a card reader.",', with: 'No exit lane here has a card reader. The exit has a card reader.",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.entryType.passOnly: "', 'FAIL en: pass holders only -> the card reader is named only to say there is none', 'The exit has a card reader."'],
+  },
+  {
+    check: 'U5 fix 11 4: es how2B.noReader edited to "Con lector de tarjetas."',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.noReader": "Sin lector de tarjetas."', with: '"drawings.how2B.noReader": "Con lector de tarjetas."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.how2B.noReader: "Con lector de tarjetas.", pinned "Sin lector de tarjetas."', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Con lector de tarjetas."'],
+  },
+  // A limit, but no limit.
+  {
+    check: 'U5 fix 11 3: a 6-hour job limit',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 11 3: a 31-minute job limit',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '    timeout-minutes: 25\n', with: '    timeout-minutes: 31\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL ci-caches.yml: job "fill" may run 31 minutes, over the 30-minute ceiling'],
+  },
+  // The sweep: the other texts a check took from t(key). A claim's lanes, a unit's words, "3 of 10".
+  {
+    check: 'U5 fix 11 sweep: en "Every lane" claim edited to speak of every lane',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.about.alsoAtExit": "Each exit lane also has a scanner and a card reader."', with: '"drawings.about.alsoAtExit": "Each lane also has a scanner and a card reader."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.about.alsoAtExit: "Each lane also has a scanner and a card reader."', 'FAIL en, any driver: "Every lane" says what each lane has'],
+  },
+  {
+    check: 'U5 fix 11 sweep: es "Every lane" claim edited to speak of every lane',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.about.alsoAtExit": "Cada carril de salida tiene además un escáner y un lector de tarjetas."', with: '"drawings.about.alsoAtExit": "Cada carril tiene además un escáner y un lector de tarjetas."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.about.alsoAtExit: "Cada carril tiene además un escáner y un lector de tarjetas."', 'FAIL es, any driver: "Every lane" says what each lane has'],
+  },
+  {
+    check: "U5 fix 11 sweep: en an equipment word the claims are read for",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.wiring.scanner": "{mark}  Scanner"', with: '"drawings.wiring.scanner": "{mark}  QR scanner"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.wiring.scanner: "{mark}  QR scanner", pinned "{mark}  Scanner"'],
+  },
+  {
+    check: "U5 fix 11 sweep: en a number in a unit's words",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.unit.turns": "{n} turns"', with: '"drawings.unit.turns": "{n} turns, 7 more"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.unit.turns: "{n} turns, 7 more", pinned "{n} turns"', "holds a number that is not the table's"],
+  },
+  {
+    check: "U5 fix 11 sweep: es a number in a unit's words",
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.unit.volts": "{n} V"', with: '"drawings.unit.volts": "{n} V o 240 V"' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.unit.volts: "{n} V o 240 V", pinned "{n} V"', "holds a number that is not the table's"],
+  },
+  {
+    check: 'U5 fix 11 sweep: en a length in the title block\'s "3 of 10"',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.tb.sheetOf": "{n} of {of}"', with: '"drawings.tb.sheetOf": "{n} of {of}, 12 in"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.tb.sheetOf: "{n} of {of}, 12 in", pinned "{n} of {of}"', "is not this garage's data"],
   },
   {
     check: 'U5 6: the sheets on Letter paper',

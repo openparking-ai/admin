@@ -4,6 +4,10 @@
 // sheets as built (every text on every sheet) and the PDF read back by pypdf,
 // a reader this project did not write.
 //
+//   0  pinned: the texts these checks lean on (4's exceptions, the "Every
+//      lane" claims, how a number is written) are held approved in
+//      scripts/drawings-pinned.js; each dictionary string equals its pin, or
+//      its key and language are named. The checks read the pins, never t(key).
 //   1  one table: every number on every sheet is the table's
 //      (src/drawings/numbers.js), written by it; a mark (L1, N5, 2A) is a
 //      label; a scale bar's mark is one of its marks; stored names, the date
@@ -46,7 +50,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { translate } from '../src/i18n/index.js';
+import { DICTIONARIES, translate } from '../src/i18n/index.js';
 import { NUMBERS, SOURCES, everyWriting, scaleMarks } from '../src/drawings/numbers.js';
 import { MARK_SHAPE } from '../src/drawings/marks.js';
 import { FRAME, PAGE } from '../src/drawings/layout.js';
@@ -57,6 +61,7 @@ import { ADDED, CHANGED, DRAFT7 } from '../test/draft7-numbers.js';
 import { ANY_DRIVER, LONG_NAMES, MADE_AT, NO_LANES, PASS_ONLY, UNANSWERED } from '../test/drawings-fixtures.js';
 import { MARK } from '../src/drawings/marks.js';
 import { norm, ownWords, runsOf, squash } from './drawings-text.js';
+import { ALIKE, CLAIMS, PINNED, pinnedWords } from './drawings-pinned.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-'));
@@ -84,15 +89,28 @@ for (const [name, garage] of Object.entries(GARAGES)) {
 }
 
 try {
+  // ── 0 pinned ────────────────────────────────────────────────────────────
+  console.log('0 pinned');
+  for (const language of LANGUAGES) {
+    for (const [group, texts] of Object.entries(PINNED)) {
+      const alike = ALIKE[group];
+      const moved = Object.entries(texts)
+        .filter(([key, pin]) => alike(DICTIONARIES[language][key] ?? '') !== alike(pin[language]))
+        .map(([key, pin]) => `${language} ${key}: "${DICTIONARIES[language][key]}", pinned "${pin[language]}"`);
+      check(moved.length === 0, `${language}: the ${Object.keys(texts).length} ${group} texts are as pinned${moved.length ? `; changed:\n      ${moved.join('\n      ')}` : ''}`);
+    }
+  }
+
   // ── 1 one table ──────────────────────────────────────────────────────────
   console.log('1 one table');
   for (const { name, garage, language, made } of SETS) {
-    const t = words(language);
-    const writings = everyWriting(t);
-    const marks = new Set(scaleMarks(t).map((m) => m.text));
+    // How a number is written, and "3 of 10", from the pins: a digit added to a unit's words is not the table's.
+    const pinned = pinnedWords(language);
+    const writings = everyWriting(pinned);
+    const marks = new Set(scaleMarks(pinned).map((m) => m.text));
     const total = made.sheets.length;
     const data = new Set([garage.garage.name, ...garage.lanes.map((l) => l.name), madeOn(MADE_AT, garage.garage, language)]);
-    for (let n = 1; n <= total; n += 1) data.add(t('drawings.tb.sheetOf', { n, of: total }));
+    for (let n = 1; n <= total; n += 1) data.add(pinned('drawings.tb.sheetOf', { n, of: total }));
     const links = new Set(Object.values(SOURCES).filter(Boolean));
     const strays = [];
     for (const sheet of made.sheets) {
@@ -155,7 +173,7 @@ try {
   const WHOLE = new RegExp(`(?:${IMPERIAL}) \\(\\d+(?:\\.\\d+)? (?:m|mm)\\)`, 'g');
   const BARE = /\d[\d.]*(?: \d\/\d)? (?:ft|in|m|mm|pies|pulg)(?![\p{L}])/u;
   for (const { name, language, made } of SETS) {
-    const marks = new Set(scaleMarks(words(language)).map((m) => m.text));
+    const marks = new Set(scaleMarks(pinnedWords(language)).map((m) => m.text));
     const bare = [];
     let lengths = 0;
     for (const sheet of made.sheets) {
@@ -206,18 +224,19 @@ const READER_STEMS = ['reader', 'lector'];
     // However it is worded: on a pass-only set, the card reader is named only to say there is none.
     // Matched as a stem after every non-letter is dropped (squash), so one word, a hyphen, a no-break
     // space, a plural or another ending are all caught. The only texts allowed to hold the stem are
-    // the named exceptions: the four sentences that say there is no card reader.
-    const saysNone = new Set(
-      [t('drawings.stop.passOnly', { cable: MARK.N5, outlet: MARK.W3 }), t('drawings.entryType.passOnly'), t('drawings.type.exitNoReader'), t('drawings.how2B.noReader')].map(squash),
-    );
+    // the named exceptions: the four sentences that say there is no card reader, as PINNED (check 0),
+    // never as the dictionary says them now. An exception covers its pinned text only, not its key.
+    const pinned = pinnedWords(language);
+    const saysNone = new Set(Object.keys(PINNED.saysNone).map((key) => squash(pinned(key, { cable: MARK.N5, outlet: MARK.W3 }))));
     const holdsReader = (text) => READER_STEMS.some((stem) => squash(text).includes(stem));
     const named = pass.sheets.flatMap((sheet) => runsOf(sheet).filter((r) => holdsReader(r.text) && !saysNone.has(squash(r.text))).map((r) => `"${sheet.title}": "${r.text}"`));
     check(named.length === 0, `${language}: pass holders only -> the card reader is named only to say there is none${named.length ? `; named:\n      ${named.join('\n      ')}` : ''}`);
   }
 
   // Every lane: each piece of equipment is said to be on exactly the lanes whose plan sheets draw it.
+  // The claims and the equipment words are the pinned ones (check 0): a claim edited to speak of other lanes is not read as its key's.
   for (const { name, language, made } of SETS) {
-    const t = words(language);
+    const t = pinnedWords(language);
     const kit = {
       scanner: norm(t('drawings.wiring.scanner', { mark: '' })),
       'card reader': norm(t('drawings.item.cardReader')),
@@ -227,11 +246,7 @@ const READER_STEMS = ['reader', 'lector'];
     // What each plan draws at the driver's window: its D label.
     const atWindow = plans.map((p) => norm(runsOf(p).find((r) => norm(r.text).startsWith(`${norm(MARK.pay)} `))?.text ?? ''));
     const every = made.sheets.find((x) => x.key === 'everyLane');
-    const claims = [
-      { key: 'drawings.about.oneComputer', on: plans.map(() => true) },
-      { key: 'drawings.about.alsoAtExit', on: plans.map((p) => p.kind === 'exit') },
-      { key: 'drawings.about.alsoEveryLane', on: plans.map(() => true) },
-    ];
+    const claims = CLAIMS.map((c) => ({ key: c.key, on: plans.map(c.on) }));
     const said = runsOf(every).map((r) => norm(r.text));
     const wrong = [];
     for (const [thing, word] of Object.entries(kit)) {

@@ -123,7 +123,20 @@
     "U5 re-gate 4: \"Card-Reader\" on a pass-only set": 3,
     "U5 re-gate 4: the card reader with no-break spaces on a pass-only set": 3,
     "U5 re-gate 5: \"gatebox\" as one word": 3,
-    "U5 re-gate 5: \"lanecomputer\" as one word": 3
+    "U5 re-gate 5: \"lanecomputer\" as one word": 3,
+    "U5 fix 11 sweep: the two \"Every lane\" claims swapped in the code": 3,
+    "U5 fix 11 4: en how2B.noReader edited to \"A card reader at the window.\"": 3,
+    "U5 fix 11 4: es type.exitNoReader edited to \"Salida, con lector de tarjetas\"": 3,
+    "U5 fix 11 4: en entryType.passOnly with \"The exit has a card reader.\" added": 3,
+    "U5 fix 11 4: es how2B.noReader edited to \"Con lector de tarjetas.\"": 3,
+    "U5 fix 11 3: a 6-hour job limit": 1,
+    "U5 fix 11 3: a 31-minute job limit": 1,
+    "U5 fix 11 sweep: en \"Every lane\" claim edited to speak of every lane": 3,
+    "U5 fix 11 sweep: es \"Every lane\" claim edited to speak of every lane": 3,
+    "U5 fix 11 sweep: en an equipment word the claims are read for": 3,
+    "U5 fix 11 sweep: en a number in a unit's words": 3,
+    "U5 fix 11 sweep: es a number in a unit's words": 3,
+    "U5 fix 11 sweep: en a length in the title block's \"3 of 10\"": 3
   },
   "browser": {
     "6 no request leaves the page": 52,
