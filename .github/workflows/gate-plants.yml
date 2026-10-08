@@ -1,0 +1,148 @@
+name: gate plants (throwaway, re-gate of #13)
+
+# The re-gate's own plants on the install checks: the real scripts from #13,
+# each fed a set changed one way the builder's controls do not change it.
+# Every plant step passes only when the change is REFUSED.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  plants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+
+      - name: a small real set, made the way a cache miss makes one
+        run: |
+          set -euo pipefail
+          source .github/scripts/limit.sh
+          .github/scripts/apt-cache.sh keep "$HOME/t"
+          limit 300 "apt lists" sudo apt-get update -q
+          limit 600 "small packages" sudo apt-get install -y -q --no-install-recommends figlet sl
+          .github/scripts/apt-cache.sh prune "$HOME/t"
+          ls -la "$HOME/t" "$HOME/t/lists"
+
+      - name: baseline, the real set installs (figlet removed first)
+        run: |
+          set -euo pipefail
+          sudo dpkg -r figlet sl > /dev/null
+          .github/scripts/apt-cache.sh install "$HOME/t"
+          dpkg -s figlet | grep -E '^(Status|Version)'
+
+      - name: "plant A: one byte flipped in the MIDDLE of figlet's .deb -> refused, nothing installed"
+        run: |
+          set -uo pipefail
+          sudo dpkg -r figlet sl > /dev/null
+          rm -rf /tmp/a && cp -a "$HOME/t" /tmp/a
+          f=$(ls /tmp/a/figlet_*.deb); n=$(stat -c %s "$f"); off=$((n / 2))
+          python3 - "$f" "$off" <<'PY'
+          import sys; p, o = sys.argv[1], int(sys.argv[2])
+          b = bytearray(open(p, 'rb').read()); b[o] ^= 0x40; open(p, 'wb').write(b)
+          PY
+          if .github/scripts/apt-cache.sh install /tmp/a; then echo "MISS: installed"; exit 1; fi
+          dpkg -s figlet > /dev/null 2>&1 && { echo "MISS: figlet got installed"; exit 1; }
+          echo "PLANT A REFUSED, figlet not installed"
+
+      - name: "plant B: figlet repacked, same name/version/arch, one file's content changed -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/b /tmp/bx && cp -a "$HOME/t" /tmp/b
+          f=$(ls /tmp/b/figlet_*.deb)
+          dpkg-deb -R "$f" /tmp/bx
+          d=$(find /tmp/bx/usr/share/doc -type f | head -1); echo "changed: $d"; echo extra >> "$d"
+          dpkg-deb -b /tmp/bx "$f" > /dev/null
+          dpkg-deb -f "$f" Package Version Architecture
+          if python3 -I .github/scripts/verify-installs.py debs /tmp/b; then echo "MISS"; exit 1; fi
+          echo "PLANT B REFUSED"
+
+      - name: "plant C: every InRelease replaced by its own signed text WITHOUT the signature -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/c && cp -a "$HOME/t" /tmp/c
+          for r in /tmp/c/lists/*_InRelease; do
+            gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg --output "$r.plain" "$r" 2> /dev/null
+            mv "$r.plain" "$r"
+          done
+          head -3 "$(ls /tmp/c/lists/*_InRelease | head -1)"
+          if python3 -I .github/scripts/verify-installs.py debs /tmp/c; then echo "MISS"; exit 1; fi
+          echo "PLANT C REFUSED"
+
+      - name: "plant D: InRelease signed by a key that is not Ubuntu's -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/d && cp -a "$HOME/t" /tmp/d
+          export GNUPGHOME=$(mktemp -d)
+          gpg --batch --passphrase '' --quick-gen-key 'not ubuntu <x@example.invalid>' rsa2048 sign never 2> /dev/null
+          for r in /tmp/d/lists/*_InRelease; do
+            gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg --output "$r.plain" "$r" 2> /dev/null
+            gpg --batch --yes --clearsign --output "$r" "$r.plain"; rm "$r.plain"
+          done
+          if python3 -I .github/scripts/verify-installs.py debs /tmp/d; then echo "MISS"; exit 1; fi
+          echo "PLANT D REFUSED"
+
+      - name: "plant E: a package list's lines reordered (same packages, not the signed bytes) -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/e && cp -a "$HOME/t" /tmp/e
+          l=$(ls /tmp/e/lists/*_Packages* | head -1); echo "list: $l"
+          case "$l" in
+            *.lz4) lz4 -dc "$l" | tac | lz4 -z -q - "$l.n" && mv "$l.n" "$l" ;;
+            *.gz)  zcat "$l" | tac | gzip > "$l.n" && mv "$l.n" "$l" ;;
+            *.xz)  xzcat "$l" | tac | xz > "$l.n" && mv "$l.n" "$l" ;;
+            *)     tac "$l" > "$l.n" && mv "$l.n" "$l" ;;
+          esac
+          if python3 -I .github/scripts/verify-installs.py debs /tmp/e; then echo "MISS"; exit 1; fi
+          echo "PLANT E REFUSED"
+
+      - name: "plant F: lists folder gone -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/f && cp -a "$HOME/t" /tmp/f && rm -rf /tmp/f/lists
+          if .github/scripts/apt-cache.sh install /tmp/f; then echo "MISS"; exit 1; fi
+          echo "PLANT F REFUSED"
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm ci --no-audit --no-fund
+      - name: the browsers, fetched, and the real check passes
+        run: |
+          set -euo pipefail
+          npx playwright install chromium
+          python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
+
+      - name: "plant G: one byte in the MIDDLE of the chrome binary -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/g && cp -a "$HOME/.cache/ms-playwright" /tmp/g
+          f=$(ls /tmp/g/chromium-*/chrome-linux64/chrome); n=$(stat -c %s "$f")
+          python3 - "$f" "$((n / 2))" <<'PY'
+          import sys; p, o = sys.argv[1], int(sys.argv[2])
+          b = bytearray(open(p, 'rb').read()); b[o] ^= 0x01; open(p, 'wb').write(b)
+          PY
+          if python3 -I .github/scripts/verify-installs.py browsers /tmp/g .github/ci-hashes/playwright-browsers.txt; then echo "MISS"; exit 1; fi
+          echo "PLANT G REFUSED"
+
+      - name: "plant H: a file moved to another path, same bytes -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/h && cp -a "$HOME/.cache/ms-playwright" /tmp/h
+          d=$(ls -d /tmp/h/chromium_headless_shell-*/chrome-headless-shell-linux64)
+          f=$(find "$d" -maxdepth 1 -type f -name '*.pak' | head -1); echo "moved: $f"
+          mkdir -p "$d/elsewhere" && mv "$f" "$d/elsewhere/"
+          if python3 -I .github/scripts/verify-installs.py browsers /tmp/h .github/ci-hashes/playwright-browsers.txt; then echo "MISS"; exit 1; fi
+          echo "PLANT H REFUSED"
+
+      - name: "plant I: a file in the browser replaced by a symlink to a different file -> refused"
+        run: |
+          set -uo pipefail
+          rm -rf /tmp/i && cp -a "$HOME/.cache/ms-playwright" /tmp/i
+          d=$(ls -d /tmp/i/ffmpeg-*)
+          f=$(find "$d" -type f | grep -v -E 'INSTALLATION_COMPLETE|DEPENDENCIES_VALIDATED' | head -1); echo "linked: $f"
+          rm "$f" && ln -s /bin/true "$f"
+          if python3 -I .github/scripts/verify-installs.py browsers /tmp/i .github/ci-hashes/playwright-browsers.txt; then echo "MISS"; exit 1; fi
+          echo "PLANT I REFUSED"
