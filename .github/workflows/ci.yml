@@ -12,6 +12,8 @@ jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,12 +68,17 @@ jobs:
     # green only when both are, so no result here is read without its
     # control having failed first in the same run.
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
         with:
           spreadsheet-app: 'true'
+          # The install checks' own controls: a changed package, an unlisted
+          # one, a changed list, a changed InRelease, each refused by name.
+          controls: 'true'
 
       - name: No technical words, in either language
         run: npm run check-plain-words
@@ -112,6 +119,8 @@ jobs:
     # minutes (scripts/fail-controls-times.json); `test` below proves the
     # shards add up to one whole run.
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -144,6 +153,8 @@ jobs:
     if: always()
     needs: [checks, controls]
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
@@ -171,6 +182,8 @@ jobs:
     # The built site, in a browser. Its controls run beside it in
     # `browser-controls`; `browser` below is green only when both are.
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,6 +193,9 @@ jobs:
       - uses: ./.github/actions/check-environment
         with:
           browser: 'true'
+          # The install checks' own controls, for Chromium's packages and the
+          # browsers: each changed one way, each refused by name.
+          controls: 'true'
 
       - run: npm run build
 
@@ -223,6 +239,8 @@ jobs:
     # among them. Spread over 8 runners by their measured minutes; `browser`
     # below proves the shards add up to one whole run.
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -250,6 +268,8 @@ jobs:
     if: always()
     needs: [browser-checks, browser-controls]
     runs-on: ubuntu-latest
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }

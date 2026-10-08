@@ -8,13 +8,26 @@ description: >-
   on a run whose caches are warm: Node and Python are the runner's own, and
   the npm packages, the readers, LibreOffice and Chromium (its system packages
   and the browser) come from GitHub's cache. A cold cache fetches once and
-  saves; the system packages' caches are keyed on the runner image.
+  saves; the system packages' caches are keyed on the runner image. Main's
+  runs, and the daily run of .github/workflows/ci-caches.yml, fill the caches
+  every pull request reads.
+  Nothing is installed unchecked: the npm packages against package-lock.json,
+  the readers against the hashes in readers.txt, every system package against
+  Ubuntu's signed package lists (.github/scripts/verify-installs.py, gpgv and
+  the image's own Ubuntu keyring), and the browsers against the digests in
+  .github/ci-hashes/playwright-browsers.txt. Every outside fetch has a time
+  limit that stops the job and names the step.
 inputs:
   spreadsheet-app:
     description: Install LibreOffice (headless).
     default: 'false'
   browser:
     description: Install Chromium for Playwright.
+    default: 'false'
+  controls:
+    description: >-
+      Also run the controls of the install checks: copies of the real
+      installs, each changed one way, every one refused by name.
     default: 'false'
 runs:
   using: composite
@@ -27,7 +40,9 @@ runs:
         node-version: '22'
         cache: npm
     - shell: bash
-      run: npm ci --prefer-offline --no-audit --no-fund
+      run: |
+        source .github/scripts/limit.sh
+        limit 600 "npm ci (the npm packages)" npm ci --prefer-offline --no-audit --no-fund
 
     # The runner image's name and version, which a composite action's `env`
     # context does not see: read in the shell. Either one missing stops the
@@ -53,21 +68,28 @@ runs:
         path: |
           ~/chromium-debs
           ~/.cache/ms-playwright
-        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v1
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v2
     - name: Chromium for Playwright
       if: inputs.browser == 'true'
       shell: bash
       env:
         HIT: ${{ steps.chromium-cache.outputs.cache-hit }}
+        CONTROLS: ${{ inputs.controls }}
       run: |
         set -euo pipefail
+        source .github/scripts/limit.sh
         if [ "$HIT" = "true" ]; then
           .github/scripts/apt-cache.sh install "$HOME/chromium-debs"
-          npx playwright install chromium
+          limit 300 "Playwright's browser install (from the cache)" npx playwright install chromium
         else
           .github/scripts/apt-cache.sh keep "$HOME/chromium-debs"
-          npx playwright install --with-deps chromium
+          limit 900 "Chromium's download (the Ubuntu mirror and Playwright's site)" npx playwright install --with-deps chromium
           .github/scripts/apt-cache.sh prune "$HOME/chromium-debs"
+        fi
+        python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
+        if [ "$CONTROLS" = "true" ]; then
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/chromium-debs"
+          python3 -I .github/scripts/verify-installs.py selftest-browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
         fi
     - name: Chromium, saved for the next run on this image
       if: inputs.browser == 'true' && steps.chromium-cache.outputs.cache-hit != 'true'
@@ -76,7 +98,7 @@ runs:
         path: |
           ~/chromium-debs
           ~/.cache/ms-playwright
-        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v1
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v2
 
     # Python 3.12 is the runner's own. The readers are pinned by version and
     # hash (scripts/files/readers.txt); their wheels come from GitHub's cache,
@@ -99,7 +121,8 @@ runs:
         if [ "$HIT" = "true" ]; then
           echo "the readers' wheels from the cache: $(ls ~/reader-wheels | wc -l), nothing downloaded"
         else
-          pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+          source .github/scripts/limit.sh
+          limit 300 "the readers' download (PyPI)" pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
         fi
         pip install --no-index --find-links ~/reader-wheels --require-hashes -r scripts/files/readers.txt
     - name: The readers' wheels, saved
@@ -118,22 +141,27 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ steps.image.outputs.image }}-v1
+        key: libreoffice-calc-${{ steps.image.outputs.image }}-v2
         restore-keys: libreoffice-calc-${{ steps.image.outputs.os }}-
     - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
       if: inputs.spreadsheet-app == 'true'
       shell: bash
       env:
         HIT: ${{ steps.libreoffice-cache.outputs.cache-hit }}
+        CONTROLS: ${{ inputs.controls }}
       run: |
         set -euo pipefail
+        source .github/scripts/limit.sh
         if [ "$HIT" = "true" ]; then
           .github/scripts/apt-cache.sh install "$HOME/libreoffice-debs"
         else
           .github/scripts/apt-cache.sh keep "$HOME/libreoffice-debs"
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+          limit 300 "the Ubuntu package lists' download" sudo apt-get update -q
+          limit 900 "LibreOffice's download (the Ubuntu mirror)" sudo apt-get install -y -q --no-install-recommends libreoffice-calc
           .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs"
+        fi
+        if [ "$CONTROLS" = "true" ]; then
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/libreoffice-debs"
         fi
         soffice --version
     - name: LibreOffice's packages, saved for the next run on this image
@@ -141,4 +169,4 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ steps.image.outputs.image }}-v1
+        key: libreoffice-calc-${{ steps.image.outputs.image }}-v2

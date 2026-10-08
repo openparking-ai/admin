@@ -1,0 +1,12 @@
+# The browsers Playwright 1.63.0 installs for the browser checks, each checked
+# file for file by .github/scripts/verify-installs.py on every run: the SHA256
+# of the browser's manifest ("sha256  path" for every file, sorted by path),
+# worked out from the zip Playwright downloads:
+#   chromium-1243                 cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-linux64.zip
+#   chromium_headless_shell-1243  cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip
+#   ffmpeg-1011                   cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+# A new Playwright version changes these; the job refuses until they are
+# worked out again from its zips and committed here.
+chromium-1243 876a55a1f57abdd6fb98e46ec9926d587330d24cb88d4d22ca9ca6a2a6e90be0
+chromium_headless_shell-1243 9150a9984091ca74c6f407a9af1489d3a50402e350536c2df034516d02fa4614
+ffmpeg-1011 ff3505e7cba182c346ad9e73d25df63b344f180e8aeb6e1559ae7577a6a85811

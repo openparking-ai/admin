@@ -1,0 +1,37 @@
+name: CI caches
+
+# Fills the caches every pull request reads. A cache saved by a pull request
+# is that pull request's own; one saved on main is read by all of them. CI's
+# own runs on main fill them too; this run also fills them for a new runner
+# image (GitHub rolls one about weekly) before the next pull request needs
+# them, so no pull request waits on the Ubuntu mirror. Every package is still
+# checked when it is installed (.github/actions/check-environment).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fill:
+    name: fill (${{ matrix.what }})
+    runs-on: ubuntu-latest
+    # Measured: a cold fill is a cold check-environment, about 3 minutes;
+    # its fetches carry their own 15-minute limits.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        what: [spreadsheet-app, browser]
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        with:
+          spreadsheet-app: ${{ matrix.what == 'spreadsheet-app' }}
+          browser: ${{ matrix.what == 'browser' }}
