@@ -99,6 +99,8 @@ jobs:
         run: npm run check-files
       - name: No word of ours split inside the word, in any PDF, either language
         run: npm run check-pdf-words
+      - name: The installer drawings -- one number table, Draft 7 carried over, both units, each garage's own set, no gate box, 11 x 17 in pages read back
+        run: npm run check-drawings
       - name: No dependency with a known high or critical problem
         run: npm audit --audit-level=high
 
@@ -201,6 +203,9 @@ jobs:
 
       - name: Download Excel, Download PDF and Print, in a browser; every file read back
         run: npm run check-downloads
+
+      - name: The installer drawings page -- each garage's own set, Download PDF and Print, your garage only, no session no file
+        run: npm run check-drawings-browser
 
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,

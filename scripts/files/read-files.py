@@ -5,7 +5,7 @@
 
 Prints one JSON object: for each .xlsx (openpyxl) every sheet, its frozen
 pane, every cell's kind, value and number format, and how many formulas the
-workbook holds; for each .pdf (pypdf) the page count, each page's text, each
+workbook holds; for each .pdf (pypdf) the page count, each page's size and text, each
 line of text drawn with its place and size, and the file's title. The
 checks in scripts/check-files.js and scripts/check-downloads.js compare what
 comes back with what the screens show.
@@ -97,7 +97,7 @@ def read_pdf(path):
                 lines.append([round(x, 2), round(y, 2), round(size * tm[0], 2), text])
 
         text = page.extract_text(visitor_text=visit)
-        pages.append({"text": text, "off_page": off, "lines": lines})
+        pages.append({"text": text, "off_page": off, "lines": lines, "width": float(box.width), "height": float(box.height)})
     title = reader.metadata.title if reader.metadata else None
     return {"kind": "pdf", "pages": pages, "title": title}
 

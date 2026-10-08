@@ -68,12 +68,22 @@ function Where({ t, step }) {
   const where = WHERE[step.key] ?? { notYet: true };
   if (where.page) {
     const page = PAGES.find((p) => p.id === where.page);
+    const drawings = PAGES.find((p) => p.id === 'drawings');
     return (
-      <p className="setup-where">
-        <a href={hashFor(page)} data-go={page.id}>
-          {t('setup.goTo', { page: t(`page.${page.id}.title`) })}
-        </a>
-      </p>
+      <>
+        <p className="setup-where">
+          <a href={hashFor(page)} data-go={page.id}>
+            {t('setup.goTo', { page: t(`page.${page.id}.title`) })}
+          </a>
+        </p>
+        {where.drawings ? (
+          <p className="setup-where">
+            <a href={hashFor(drawings)} data-go="drawings">
+              {t('setup.drawings')}
+            </a>
+          </p>
+        ) : null}
+      </>
     );
   }
   if (where.here) return <p className="setup-where quiet">{t('setup.here')}</p>;

@@ -45,6 +45,7 @@ const LEAVE_OUT = new Set(['node_modules', '.git', 'dist', '.screens', 'test-res
 
 const CHECK_FILES = ['node', 'scripts/check-files.js'];
 const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
+const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -723,6 +724,73 @@ const CONTROLS = [
     run: ['node', '--test', 'test/change-words.test.js'],
     names: ['6 NO SENTENCE ENDS TWICE', 'a.m..'],
   },
+  // ── U5: the installer drawings (scripts/check-drawings.js) ──────────────
+  {
+    check: 'U5 1: a length typed into a sheet',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.plan.measured": "All distances are measured back from the gate arm."', with: '"drawings.plan.measured": "All distances are measured back from the gate arm, 12 ft apart."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: every number', '"All distances are measured back from the gate arm, 12 ft apart." holds a number that is not the table\'s'],
+  },
+  {
+    check: 'U5 2: a Draft 7 value changed in the table',
+    plant: { file: 'src/drawings/numbers.js', anchor: "truckBack: length(283, '7.2', 'worked'),", with: "truckBack: length(283, '7.3', 'worked')," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL Draft 7 "23 ft 7 in (7.2 m)" -> truckBack is 283 in (7.3), not 283 in (7.2)'],
+  },
+  {
+    check: 'U5 3: a length in metres only',
+    plant: { file: 'src/drawings/numbers.js', anchor: "      return t('drawings.unit.length', { imperial: feetAndInches(n.inches, t), metric: metric(n, t) });", with: '      return metric(n, t);' },
+    run: CHECK_DRAWINGS,
+    names: ['a length in one unit only', 'FAIL en, any driver: all'],
+  },
+  {
+    check: 'U5 4: entry types swapped',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  const entryType = reader ? '2A' : '2B';\n  const plans", with: "  const entryType = reader ? '2B' : '2A';\n  const plans" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: any driver, two ways in and one out -> sheets 2B (North Entry), 2B (South Entry), exit (Main Exit)', 'FAIL en: pass holders only -> sheets 2A, exit'],
+  },
+  {
+    check: 'U5 4: a card reader at every exit',
+    plant: { file: 'src/drawings/sheets.js', anchor: "    reader: lane.direction === 'exit' && reader,", with: "    reader: lane.direction === 'exit'," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> no card reader at the exit, no N5, no W3'],
+  },
+  {
+    check: 'U5 4: a set made with no drivers answer',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  if (takesAnyDriver !== true && takesAnyDriver !== false) needs.push('drivers');", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: no answer to the drivers question -> no set'],
+  },
+  {
+    check: 'U5 5: "gate box" on a sheet',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gate box" in "Front camera, on the gate box."'],
+  },
+  {
+    check: 'U5 5: "lane computer" on a Spanish sheet',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2A.atExit": "Un conductor con pase, o uno que quiere registrarse, lo hace a la salida."', with: '"drawings.how2A.atExit": "Un conductor con pase lo hace a la salida, en la computadora del carril."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es, any driver: no gate box', '"computadora del carril"'],
+  },
+  {
+    check: "U5 5: an owner's decision on a sheet",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.sources.oneTable": "Every number on these sheets comes from one table, listed here with its source."', with: '"drawings.sources.oneTable": "Every number on these sheets comes from one table. The stop distance is the owner\'s decision."' },
+    run: CHECK_DRAWINGS,
+    names: ['"owner\'s decision" in'],
+  },
+  {
+    check: "U5 5: a person's name on a sheet",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.sources.worked": "Camera angles are worked out from the distances and the F-150 size."', with: '"drawings.sources.worked": "Camera angles are worked out from the distances by Jane Doe."' },
+    run: CHECK_DRAWINGS,
+    names: ['a name "Jane" in', 'a name "Doe" in'],
+  },
+  {
+    check: 'U5 6: the sheets on Letter paper',
+    plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },
+    run: CHECK_DRAWINGS,
+    names: ['each 11 x 17 in landscape (1224 x 792 points): 792 x 612'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -1314,6 +1382,25 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL Change log: no refused attempt among the changes made'],
+  },
+  // ── U5: the installer drawings, in a browser (scripts/check-drawings-browser.js) ──
+  {
+    check: 'U5 7: a set made from the last read, with no session',
+    plant: { file: 'src/DrawingsPage.jsx', anchor: '      const { data, readAt } = await drawings.refresh();', with: '      const { data, readAt } = { data: drawings.data, readAt: new Date() };' },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL session ended: Download PDF saves no file'],
+  },
+  {
+    check: "U5 7: another owner's garage found",
+    plant: {
+      file: 'test/stub-platform.js',
+      anchor: "      const garage = who.garages.find((g) => g.id === m[1]);\n      // The platform's open-stays read",
+      with: "      const garage = Object.values(data).flatMap((o) => o.garages).find((g) => g.id === m[1]);\n      // The platform's open-stays read",
+    },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL owner B asking for owner A\'s lanes is answered "not found" (200)'],
   },
 ];
 

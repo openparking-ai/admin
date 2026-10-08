@@ -9,6 +9,7 @@ export const PAGES = [
   { id: 'setup', path: '/setup', icon: 'check' },
   { id: 'garages', path: '/garages', icon: 'garage' },
   { id: 'lanes', path: '/lanes', icon: 'lane' },
+  { id: 'drawings', path: '/installer-drawings', icon: 'drawings' },
   { id: 'readers', path: '/card-readers', icon: 'card' },
   { id: 'rates', path: '/rates', icon: 'rate' },
   { id: 'taxes', path: '/taxes', icon: 'tax' },

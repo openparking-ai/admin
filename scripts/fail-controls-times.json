@@ -95,7 +95,18 @@
     "U4b fix F2 a PDF column narrowed back: Confirmed": 6,
     "U4b fix F2 a PDF column narrowed: the change log's What": 6,
     "U4b the stand-in's phone refusal not the platform's word for word": 1,
-    "U4 fix 6: a sentence that ends twice": 1
+    "U4 fix 6: a sentence that ends twice": 1,
+    "U5 1: a length typed into a sheet": 3,
+    "U5 2: a Draft 7 value changed in the table": 3,
+    "U5 3: a length in metres only": 3,
+    "U5 4: entry types swapped": 3,
+    "U5 4: a card reader at every exit": 3,
+    "U5 4: a set made with no drivers answer": 3,
+    "U5 5: \"gate box\" on a sheet": 3,
+    "U5 5: \"lane computer\" on a Spanish sheet": 3,
+    "U5 5: an owner's decision on a sheet": 3,
+    "U5 5: a person's name on a sheet": 3,
+    "U5 6: the sheets on Letter paper": 3
   },
   "browser": {
     "6 no request leaves the page": 52,
@@ -154,6 +165,8 @@
     "U4 a confirmation in a browser dialog": 53,
     "U4 fix: the admin keeps its own quiet number": 48,
     "U4 fix 6: \"Done\" beside a \"Yes\" that was not pressed": 48,
-    "U4 fix 1: refused attempts read among the changes made": 46
+    "U4 fix 1: refused attempts read among the changes made": 46,
+    "U5 7: a set made from the last read, with no session": 60,
+    "U5 7: another owner's garage found": 60
   }
 }

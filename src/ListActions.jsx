@@ -18,7 +18,7 @@ export const RELEASE_MS = 1000;
 export const LETTERS_NAMED = 24;
 
 /** Hand the file to the browser to save, then let go of its address. */
-function save(blob, name) {
+export function save(blob, name) {
   const address = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = address;

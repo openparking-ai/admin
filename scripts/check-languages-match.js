@@ -27,6 +27,12 @@ export const SAME_ON_PURPOSE = {
   'quickFind.shortcutMac': 'the keys printed on the keyboard',
   'quickFind.shortcutOther': 'the keys printed on the keyboard',
   no: '"no" is the same word in both languages',
+  'drawings.unit.m': 'the metre\'s symbol, the same in both languages',
+  'drawings.unit.mm': 'the millimetre\'s symbol, the same in both languages',
+  'drawings.unit.length': 'a length: feet and inches, then metres in brackets, in both languages',
+  'drawings.unit.category': 'the network cable\'s category, as printed on the cable',
+  'drawings.unit.volts': 'the volt\'s symbol, the same in both languages',
+  'drawings.unit.degrees': 'the degree sign, the same in both languages',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');

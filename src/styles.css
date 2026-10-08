@@ -935,6 +935,10 @@ textarea {
   tr {
     break-inside: avoid;
   }
+  /* Nor a setup step: its name and whether it is done read together. */
+  .setup-step {
+    break-inside: avoid;
+  }
   /* A print leaves backgrounds out by default, so on paper no state is a
      background or a colour alone: each is a mark or a word. A list prints
      its own name (the refused attempts are told apart by it), a tick prints
@@ -1002,4 +1006,42 @@ textarea {
 
 .screen-line {
   white-space: pre;
+}
+
+/* U5: the installer drawings. On screen, the page says what the set holds;
+   the sheets themselves are drawn only to be printed, each on a sheet of
+   its own, 11 x 17 in landscape (a printer with only Letter scales it). */
+.drawings-every-way {
+  font-weight: 600;
+}
+.drawings-list-title {
+  margin: 18px 0 6px;
+  font-size: 15px;
+}
+.drawings-list {
+  margin: 0;
+  padding-left: 22px;
+}
+.drawings-print {
+  display: none;
+}
+@page drawings {
+  size: 17in 11in;
+  margin: 0;
+}
+@media print {
+  .drawings-print {
+    display: block;
+    page: drawings;
+  }
+  .drawing-sheet {
+    display: block;
+    width: 17in;
+    height: 11in;
+    break-after: page;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .drawing-sheet:last-child {
+    break-after: auto;
+  }
 }
