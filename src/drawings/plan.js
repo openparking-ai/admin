@@ -12,8 +12,8 @@ import { MARK } from './marks.js';
 export const PLAN = { width: 1140, height: 560 };
 const U = 60; // drawing units to the metre
 const ARM = 760;
-const MID = 240; // the middle of the lane, across
 const LANE_TOP = 150;
+const MID = LANE_TOP + (U * metres('laneWidth')) / 2; // the middle of the lane, across
 const before = (key) => ARM - U * metres(key);
 
 /**
@@ -38,7 +38,7 @@ export function drawPlan(g, t, { kind, reader }) {
   g.arrow(islandStart, 36, islandEnd, 36, { both: true });
   g.text((islandStart + islandEnd) / 2, 26, t('drawings.plan.island', { length: say('islandLength', t), width: say('islandWidth', t), height: say('islandHeight', t) }), { ...num, anchor: 'middle' });
   g.text(1072, 142, t('drawings.plan.driverSide'), { ...soft, anchor: 'end' });
-  g.rect(70, LANE_TOP, 1010, laneWidth, { width: 1.5 });
+  g.rect(70, LANE_TOP, 1010, laneWidth, { width: 1.5, role: 'lane' });
   g.rect(70, laneBottom, 1010, 12, { fill: COLOR.shade, width: 1 });
   g.text(84, laneBottom - 8, t('drawings.plan.lane', { width: say('laneWidth', t) }), soft);
   g.arrow(84, MID, 150, MID, { width: 1.5 });
@@ -63,7 +63,8 @@ export function drawPlan(g, t, { kind, reader }) {
 
   // The loops: L1 behind the truck, L2 at the pay station or pedestal, L3 under the arm, L4 and L5 past it.
   const loopW = U * metres('loopWidth');
-  const loopL = U * metres('loopLength');
+  // Across the lane: the lane less the edge distance at each side, centred.
+  const loopL = laneWidth - 2 * U * metres('loopEdgeMax');
   const spacing = U * metres('loopSpacing');
   const l1 = before('thirdLoopNear') - loopW;
   const l2 = before('payStation') - loopW / 2;
@@ -71,7 +72,7 @@ export function drawPlan(g, t, { kind, reader }) {
   const l4 = l3 + loopW + spacing;
   const l5 = l4 + loopW + spacing;
   const loopTop = MID - loopL / 2;
-  for (const [x, dash] of [[l1, [7, 4]], [l2], [l3], [l4], [l5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null });
+  for (const [x, dash] of [[l1, [7, 4]], [l2], [l3], [l4], [l5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop' });
   const loopText = { size: SIZE.text, bold: true, color: COLOR.loop };
   g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });
   g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });
@@ -109,12 +110,12 @@ export function drawPlan(g, t, { kind, reader }) {
   g.path([[742, 118], [pay + (station ? 12 : 7), 118]], conduit);
   g.path([[pay - 12, 118], [backCamera + 6, 118]], conduit);
   g.path([[ARM, 104], [ARM, 60], [900, 60]], conduit);
-  g.path([[770, 146], [770, 160], [ARM, 160]], conduit);
+  g.path([[770, 146], [770, 154], [ARM, 154]], conduit);
   const cText = { size: SIZE.text, bold: true, color: COLOR.conduit };
   g.text((742 + pay) / 2, 113, MARK.C3, { ...cText, anchor: 'middle' });
   g.text((pay + backCamera) / 2, 134, MARK.C4, { ...cText, anchor: 'middle' });
   g.text(906, 56, t('drawings.plan.c1c2', { power: MARK.C1, network: MARK.C2 }), cText);
-  g.text(800, 164, t('drawings.plan.c5', { mark: MARK.C5 }), cText);
+  g.text(800, 158, t('drawings.plan.c5', { mark: MARK.C5 }), cText);
 
   // Dimensions, measured back from the gate arm.
   const ext = (x, to) => g.line(x, 346, x, to, { width: 1 });

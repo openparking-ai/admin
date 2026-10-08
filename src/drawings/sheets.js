@@ -159,10 +159,11 @@ function loopsTable(c, t) {
   c.para(
     t('drawings.loop.note', {
       width: say('loopWidth', t),
-      length: say('loopLength', t),
       turns: say('loopTurns', t),
       spacing: say('loopSpacing', t),
       edge: t('drawings.range', { from: say('loopEdgeMin', t), to: say('loopEdgeMax', t) }),
+      lane: say('laneWidth', t),
+      across: t('drawings.range', { from: say('loopAcrossLeast', t), to: say('loopAcrossMost', t) }),
     }),
     { color: COLOR.soft },
   );
@@ -324,7 +325,7 @@ function electricalSheet(s, t, _spec, { reader }) {
   const mark = (m) => ({ text: m, color: COLOR.gold, bold: true });
   const volts = say('supply', t);
   const rows = [
-    [mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w1supply', { volts }), t('drawings.power.w1rule', { amps: say('gateDraw', t) })],
+    [mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w1supply', { volts }), t('drawings.power.w1rule', { amps: t('drawings.range', { from: say('gateDrawLeast', t), to: say('gateDrawMost', t) }), peak: say('gatePeak', t) })],
     [mark(MARK.W2), t('drawings.power.w2'), t('drawings.power.w2supply'), ''],
   ];
   if (reader) rows.push([mark(MARK.W3), t('drawings.power.w3'), t('drawings.power.grounded', { volts }), t('drawings.power.w3rule')]);

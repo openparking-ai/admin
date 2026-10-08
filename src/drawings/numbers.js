@@ -20,7 +20,7 @@ export const SOURCES = {
   site: null,
   cable: null,
   supply: null,
-  notNamed: null,
+  notSourced: null,
 };
 
 const length = (inches, metric, source, more = {}) => ({ unit: 'length', inches, metric, source, ...more });
@@ -57,20 +57,28 @@ export const NUMBERS = {
 
   // Loops.
   loopWidth: length(30, '0.76', 'msu'),
-  loopLength: length(72, '1.83', 'msu'),
+  // Across the lane, a loop follows the lane: it ends 12 to 20 in from each
+  // edge (the MHTM manual: "about 11.8 in to 19.7 in (300 to 500 mm)"), so
+  // in the 10 ft lane drawn it is 6 ft 8 in to 8 ft across, centred. The
+  // plan draws it at the 20 in edge.
+  loopAcrossLeast: length(80, '2.0', 'worked'),
+  loopAcrossMost: length(96, '2.4', 'worked'),
   loopTurns: { unit: 'turns', value: 3, source: 'msu' },
   loopSpacing: length(48, '1.2', 'doorking'),
   loopEdgeMin: length(12, '0.3', 'mhtm'),
   loopEdgeMax: length(20, '0.5', 'mhtm'),
   leadTwist: { unit: 'twist', value: 10, source: 'msu' },
-  leadLongest: length(1200, '30', 'notNamed'),
+  leadLongest: length(1200, '30', 'notSourced'),
 
   // Cable, conduit and power.
   cableCategory: { unit: 'category', value: 6, source: 'cable' },
   networkLongest: length(3936, '100', 'cable'),
   conduit: length(1.125, '29', 'mhtm', { mm: true }),
   supply: { unit: 'volts', value: 120, source: 'supply' },
-  gateDraw: { unit: 'amps', value: 1, source: 'notNamed' },
+  // The barrier this set's loop rules come from (Magnetic MHTM, Access series), its manual's table 3, at 120 V AC.
+  gateDrawLeast: { unit: 'amps', value: 0.5, source: 'mhtm' },
+  gateDrawMost: { unit: 'amps', value: 1.5, source: 'mhtm' },
+  gatePeak: { unit: 'amps', value: 3.5, source: 'mhtm' },
 
   // Cameras.
   frontCameraHeight: length(42, '1.07', 'layout'),

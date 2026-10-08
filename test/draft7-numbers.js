@@ -22,7 +22,6 @@ export const DRAFT7 = [
   { key: 'scaleStep', wrote: '0 5 10 15 20 ft', inches: ft(5), metric: null },
   { key: 'cameraBehindTruck', wrote: '6½ ft (2.0 m)', inches: ft(6, 6), metric: '2.0' },
   { key: 'loopWidth', wrote: '2½ × 6 ft (0.76 × 1.83 m)', inches: ft(2, 6), metric: '0.76' },
-  { key: 'loopLength', wrote: '2½ × 6 ft (0.76 × 1.83 m)', inches: ft(6), metric: '1.83' },
   { key: 'loopTurns', wrote: 'three turns', value: 3 },
   { key: 'loopSpacing', wrote: '4 ft (1.2 m)', inches: ft(4), metric: '1.2' },
   { key: 'loopEdgeMin', wrote: '12 to 20 in (0.3 to 0.5 m)', inches: 12, metric: '0.3' },
@@ -33,7 +32,6 @@ export const DRAFT7 = [
   { key: 'leadLongest', wrote: '100 ft (30 m)', inches: ft(100), metric: '30' },
   { key: 'conduit', wrote: '1⅛ in (29 mm)', inches: 1.125, metric: '29' },
   { key: 'supply', wrote: '120 V', value: 120 },
-  { key: 'gateDraw', wrote: 'about 1 amp', value: 1 },
   { key: 'cableCategory', wrote: 'Network cable (Cat6)', value: 6 },
   { key: 'frontCameraHeight', wrote: '3 ft 6 in (1.07 m)', inches: ft(3, 6), metric: '1.07' },
   { key: 'frontLens', wrote: 'about 100°', value: 100 },
@@ -53,6 +51,16 @@ export const CHANGED = [
   { wrote: 'Date 2 October 2026 · Status Draft 7', reason: 'each sheet\'s title block carries the date the set was made and the status "Draft"' },
   { wrote: 'Lane 1 gate box · Lane 2 gate box', reason: 'the server room names each lane as its owner named it' },
   { wrote: 'The light number. Sheet 7.', reason: 'sheet numbers differ from garage to garage; the sheet is named instead' },
+  {
+    wrote: 'Each loop is 2½ × 6 ft (0.76 × 1.83 m) ... 12 to 20 in (0.3 to 0.5 m) from the lane edge',
+    reason:
+      'a 6 ft loop centred in the 10 ft lane is 24 in from each edge, beyond the edge distance Draft 7 itself gives. The Magnetic MHTM manual (p. 57): "The distance of the induction loop from the roadside should be about 11.8 in to 19.7 in (300 to 500 mm)." So across the lane a loop follows the lane: 12 to 20 in from each edge, centred; 6 ft 8 in to 8 ft in a 10 ft lane (loopAcrossLeast, loopAcrossMost)',
+  },
+  {
+    wrote: 'The gate draws about 1 amp.',
+    reason:
+      'no source named in Draft 7. The Magnetic MHTM manual, table 3 (Access series, 120 V AC, without accessories): nominal current 0.5 to 1.5 A, peak 2.5 to 3.5 A. The sheet gives that range and the peak, names the manual, and says to confirm with the gate\'s own manual (gateDrawLeast, gateDrawMost, gatePeak)',
+  },
 ];
 
 /** Numbers the table holds that Draft 7 did not print: drawn to, or listed with their source. */
@@ -60,4 +68,9 @@ export const ADDED = {
   smallCarWidth: 'Draft 7 drew the small car 1.75 m wide without printing it',
   islandPastArm: 'Draft 7 drew the island 0.6 m past the gate arm without printing it',
   scaleStep: 'Draft 7 printed the marks 0, 5, 10, 15 without a metric value; 1.5 m is 5 ft rounded as the table rounds',
+  loopAcrossLeast: 'the loop across the lane, worked out: the 10 ft lane less 20 in at each edge (see CHANGED)',
+  loopAcrossMost: 'the loop across the lane, worked out: the 10 ft lane less 12 in at each edge (see CHANGED)',
+  gateDrawLeast: 'the gate\'s draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
+  gateDrawMost: 'the gate\'s draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
+  gatePeak: 'the gate\'s peak draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
 };

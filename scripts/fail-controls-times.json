@@ -106,7 +106,8 @@
     "U5 5: \"lane computer\" on a Spanish sheet": 3,
     "U5 5: an owner's decision on a sheet": 3,
     "U5 5: a person's name on a sheet": 3,
-    "U5 6: the sheets on Letter paper": 3
+    "U5 6: the sheets on Letter paper": 3,
+    "U5 fix 1: the 6 ft loop drawn back in the 10 ft lane": 3
   },
   "browser": {
     "6 no request leaves the page": 52,

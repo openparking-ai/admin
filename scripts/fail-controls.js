@@ -786,6 +786,12 @@ const CONTROLS = [
     names: ['a name "Jane" in', 'a name "Doe" in'],
   },
   {
+    check: 'U5 fix 1: the 6 ft loop drawn back in the 10 ft lane',
+    plant: { file: 'src/drawings/plan.js', anchor: "  const loopL = laneWidth - 2 * U * metres('loopEdgeMax');", with: '  const loopL = U * 1.83;' },
+    run: CHECK_DRAWINGS,
+    names: ['a loop drawn 24.0 in from the lane edge, not 12 to 20 in', 'FAIL en, any driver: all'],
+  },
+  {
     check: 'U5 6: the sheets on Letter paper',
     plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },
     run: CHECK_DRAWINGS,

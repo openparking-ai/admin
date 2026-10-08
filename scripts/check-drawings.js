@@ -19,6 +19,10 @@
 //      drivers question, or no lanes -> no set.
 //   5  words: no "gate box", no "lane computer", no owner's decision, no
 //      person's name, in any sheet, either language.
+//   7  the plan agrees with itself: every loop, as drawn, sits within the
+//      edge distance the sheet prints from each lane edge (12 to 20 in), and
+//      the across-the-lane lengths the sheet prints are the lane less those
+//      edge distances.
 //   6  the PDF: every page 11 x 17 in landscape (1224 x 792 points), its text
 //      real text (read back), each sheet's title and title block on its page;
 //      nothing drawn off its sheet or into the title block.
@@ -185,8 +189,8 @@ try {
   // ── 5 words ─────────────────────────────────────────────────────────────
   console.log('5 words');
   const BANNED = ['gate box', 'gate boxes', 'lane computer', 'lane computers', "owner's decision", 'owner’s decision', 'caja de la barrera', 'caja de barrera', 'computadora del carril', 'computadora de carril', 'decisión del dueño', 'decisiones del dueño'];
-  // Proper names the sheets may hold: the project, the sources, the truck.
-  const NAMES = new Set(['Open', 'Parking', 'AI', 'Ford', 'F-150', 'Michigan', 'State', 'University', 'Magnetic', 'MHTM', 'DoorKing', 'Stripe', "Stripe's", 'Cat6']);
+  // Proper names the sheets may hold: the project, the sources, the truck, the barrier's series.
+  const NAMES = new Set(['Open', 'Parking', 'AI', 'Ford', 'F-150', 'Michigan', 'State', 'University', 'Magnetic', 'MHTM', 'DoorKing', 'Access', 'Stripe', "Stripe's", 'Cat6']);
   for (const { name, language, made } of SETS) {
     const found = [];
     for (const sheet of made.sheets) {
@@ -212,6 +216,30 @@ try {
       }
     }
     check(found.length === 0, `${language}, ${name}: no gate box, no lane computer, no owner's decision, no person's name${found.length ? `:\n      ${[...new Set(found)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 7 the plan agrees with itself ────────────────────────────────────────
+  console.log('7 the plan agrees with itself');
+  const N = (key) => NUMBERS[key].inches;
+  check(
+    N('loopAcrossLeast') === N('laneWidth') - 2 * N('loopEdgeMax') && N('loopAcrossMost') === N('laneWidth') - 2 * N('loopEdgeMin'),
+    `the table: across the lane, a loop is the lane less the edge distance at each side (${N('loopAcrossLeast')} and ${N('loopAcrossMost')} in, from a ${N('laneWidth')} in lane and ${N('loopEdgeMin')} to ${N('loopEdgeMax')} in)`,
+  );
+  for (const { name, language, made } of SETS) {
+    const wrong = [];
+    let loops = 0;
+    for (const sheet of made.sheets.filter((x) => x.key === 'plan')) {
+      const lane = sheet.items.find((i) => i.role === 'lane');
+      const perInch = lane.h / N('laneWidth');
+      for (const loop of sheet.items.filter((i) => i.role === 'loop')) {
+        loops += 1;
+        const edges = [(loop.y - lane.y) / perInch, (lane.y + lane.h - loop.y - loop.h) / perInch];
+        for (const e of edges) {
+          if (e < N('loopEdgeMin') - 0.01 || e > N('loopEdgeMax') + 0.01) wrong.push(`"${sheet.title}" (${sheet.lane}): a loop drawn ${e.toFixed(1)} in from the lane edge, not ${N('loopEdgeMin')} to ${N('loopEdgeMax')} in`);
+        }
+      }
+    }
+    check(wrong.length === 0 && loops > 0, `${language}, ${name}: all ${loops} loops drawn ${N('loopEdgeMin')} to ${N('loopEdgeMax')} in from each lane edge${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
   }
 
   // ── 6 the PDF ───────────────────────────────────────────────────────────
