@@ -83,7 +83,7 @@ export function drawPlan(g, t, { kind, reader }) {
   // The control panel, the arm, the display and the front camera.
   g.rect(742, 104, 36, 42, { stroke: null, fill: COLOR.ink });
   g.text(ARM - 10, 80, t('drawings.plan.panel', { mark: MARK.panel }), { ...lbl, anchor: 'end' });
-  g.line(ARM, 146, ARM, laneBottom, { width: 4 });
+  g.line(ARM, 146, ARM, laneBottom, { width: 4, role: 'arm' });
   g.text(ARM + 8, laneBottom - 12, t('drawings.plan.arm'), soft);
   g.rect(726, 108, 12, 30, { stroke: null, fill: COLOR.gold });
   g.circle(ARM - 8, 146, 5, { fill: COLOR.paper, width: 1.5 });
@@ -93,8 +93,8 @@ export function drawPlan(g, t, { kind, reader }) {
   // The pay station (exit) or the pedestal (entry), at the driver's window.
   const pay = before('payStation');
   const station = kind === 'exit';
-  if (station) g.rect(pay - 12, 112, 24, 30, { width: 2, fill: COLOR.paper });
-  else g.rect(pay - 7, 118, 14, 18, { width: 2, fill: COLOR.paper });
+  if (station) g.rect(pay - 12, 112, 24, 30, { width: 2, fill: COLOR.paper, role: 'driver' });
+  else g.rect(pay - 7, 118, 14, 18, { width: 2, fill: COLOR.paper, role: 'driver' });
   if (station && reader) g.circle(pay, 134, 3.5, { stroke: null, fill: COLOR.ink });
   const payLabel = station ? (reader ? 'drawings.plan.payReader' : 'drawings.plan.payNoReader') : kind === '2A' ? 'drawings.plan.pedestal2A' : 'drawings.plan.pedestal2B';
   g.text(pay + 16, islandTop - 8, t(payLabel, { mark: MARK.pay }), { ...lbl, anchor: 'end' });

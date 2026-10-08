@@ -69,6 +69,10 @@ export const NUMBERS = {
   loopEdgeMax: length(20, '0.5', 'mhtm'),
   leadTwist: { unit: 'twist', value: 10, source: 'msu' },
   leadLongest: length(1200, '30', 'notSourced'),
+  // The gate's own closing loop (L3): its manual, p. 57, "must not exceed 49.2 ft (15 m)", "ca. 6 twists per feet".
+  // Written to the inch below it: 49 ft 2 in.
+  gateLeadLongest: length(590, '15', 'mhtm'),
+  gateLeadTwist: { unit: 'twist', value: 6, source: 'mhtm' },
 
   // Cable, conduit and power.
   cableCategory: { unit: 'category', value: 6, source: 'cable' },
@@ -79,6 +83,10 @@ export const NUMBERS = {
   gateDrawLeast: { unit: 'amps', value: 0.5, source: 'mhtm' },
   gateDrawMost: { unit: 'amps', value: 1.5, source: 'mhtm' },
   gatePeak: { unit: 'amps', value: 3.5, source: 'mhtm' },
+
+  // What a driver uses (pay station, pedestal, scanner, reader, intercom), from any moving part of the gate:
+  // its manual, p. 48, "at least 6 ft (1.83 m) away from any moving part of the barrier".
+  controlsFromGate: length(72, '1.83', 'mhtm'),
 
   // Cameras.
   frontCameraHeight: length(42, '1.07', 'layout'),

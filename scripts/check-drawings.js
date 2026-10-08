@@ -22,7 +22,9 @@
 //   7  the plan agrees with itself: every loop, as drawn, sits within the
 //      edge distance the sheet prints from each lane edge (12 to 20 in), and
 //      the across-the-lane lengths the sheet prints are the lane less those
-//      edge distances.
+//      edge distances. Everything a driver uses (the pay station or
+//      pedestal), as drawn, stands at least the table's distance from the
+//      gate arm's sweep, on every plan.
 //   6  the PDF: every page 11 x 17 in landscape (1224 x 792 points), its text
 //      real text (read back), each sheet's title and title block on its page;
 //      nothing drawn off its sheet or into the title block.
@@ -240,6 +242,24 @@ try {
       }
     }
     check(wrong.length === 0 && loops > 0, `${language}, ${name}: all ${loops} loops drawn ${N('loopEdgeMin')} to ${N('loopEdgeMax')} in from each lane edge${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+  }
+
+  for (const { name, language, made } of SETS) {
+    const near = [];
+    let controls = 0;
+    for (const sheet of made.sheets.filter((x) => x.key === 'plan')) {
+      const lane = sheet.items.find((i) => i.role === 'lane');
+      const perInch = lane.h / N('laneWidth');
+      const arm = sheet.items.find((i) => i.role === 'arm');
+      // The arm swings up in its own plane across the lane: its sweep, seen from above, is its own width at its line.
+      const sweep = [Math.min(arm.x1, arm.x2) - arm.width / 2, Math.max(arm.x1, arm.x2) + arm.width / 2];
+      for (const c of sheet.items.filter((i) => i.role === 'driver')) {
+        controls += 1;
+        const gap = Math.max(sweep[0] - (c.x + c.w), c.x - sweep[1], 0) / perInch;
+        if (gap < N('controlsFromGate') - 0.01) near.push(`"${sheet.title}" (${sheet.lane}): a driver's control drawn ${gap.toFixed(1)} in from the arm's sweep, under ${N('controlsFromGate')} in`);
+      }
+    }
+    check(near.length === 0 && controls > 0, `${language}, ${name}: all ${controls} drivers' controls drawn at least ${N('controlsFromGate')} in from the arm's sweep${near.length ? `:\n      ${[...new Set(near)].join('\n      ')}` : ''}`);
   }
 
   // ── 6 the PDF ───────────────────────────────────────────────────────────

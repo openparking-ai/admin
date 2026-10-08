@@ -184,6 +184,7 @@ function planSheet(s, t, spec) {
       t('drawings.stop.sized', { stop: say('stopToArm', t) }),
       t('drawings.stop.oneSpot', { distance: pay }),
       t('drawings.stop.shorter'),
+      t('drawings.reach', { distance: say('controlsFromGate', t), here: pay }),
     ];
     if (!spec.reader) stop.push(t('drawings.stop.passOnly', { cable: MARK.N5, outlet: MARK.W3 }));
     column(s, at(1), BELOW, w).heading(t('drawings.box.stop')).bullets(stop);
@@ -191,8 +192,8 @@ function planSheet(s, t, spec) {
     column(s, at(2), BELOW, w).heading(t('drawings.box.third')).bullets([t('drawings.third.everyLane'), t('drawings.third.room', { room }), t('drawings.third.noFit', { room })]);
   } else {
     const how = spec.kind === '2A'
-      ? [t('drawings.how2A.opens'), t('drawings.how2A.atExit'), t('drawings.how2A.pedestal', { distance: pay })]
-      : [t('drawings.how2B.shows'), t('drawings.how2B.pedestal', { distance: pay }), t('drawings.how2B.noReader')];
+      ? [t('drawings.how2A.opens'), t('drawings.how2A.atExit'), t('drawings.how2A.pedestal', { distance: pay }), t('drawings.reach', { distance: say('controlsFromGate', t), here: pay })]
+      : [t('drawings.how2B.shows'), t('drawings.how2B.pedestal', { distance: pay }), t('drawings.how2B.noReader'), t('drawings.reach', { distance: say('controlsFromGate', t), here: pay })];
     column(s, at(1), BELOW, w).heading(t('drawings.box.how')).bullets(how);
     column(s, at(2), BELOW, w).heading(t('drawings.box.sameAsExit')).bullets([t('drawings.same.every'), t('drawings.same.arming', { distance: pay })]);
   }
@@ -212,7 +213,7 @@ function everyLaneSheet(s, t, _spec, { lanes, reader, specs }) {
   left.heading(t('drawings.box.entryType'));
   left.para(t(reader ? 'drawings.entryType.any' : 'drawings.entryType.passOnly'));
   left.heading(t('drawings.box.everyLane'));
-  left.bullets([t('drawings.every.pictures'), t('drawings.every.backCamera'), t('drawings.every.same'), t('drawings.everyWay')]);
+  left.bullets([t('drawings.every.pictures'), t('drawings.every.backCamera'), t('drawings.every.same'), t('drawings.everyWay'), t('drawings.every.reach', { distance: say('controlsFromGate', t) })]);
 
   const right = column(s, RIGHT, FRAME.top, HALF);
   right.heading(t('drawings.box.lanes'));
@@ -287,7 +288,7 @@ function cablingSheet(s, t, _spec, { reader }) {
     [mark(MARK.N7), t('drawings.cable.n7'), cable, t('drawings.cable.n7rule')],
     [mark(MARK.N8), t('drawings.cable.n8'), t('drawings.cable.n8cable'), ''],
     [mark(MARK.S1), t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') }), t('drawings.cable.s1cable', { twist: say('leadTwist', t) }), t('drawings.cable.s1rule', { longest: say('leadLongest', t) })],
-    [mark(MARK.S2), t('drawings.cable.s2', { mark: MARK.L3 }), t('drawings.cable.s2cable'), t('drawings.cable.s2rule')],
+    [mark(MARK.S2), t('drawings.cable.s2', { mark: MARK.L3 }), t('drawings.cable.s2cable'), t('drawings.cable.s2rule', { longest: say('gateLeadLongest', t), twist: say('gateLeadTwist', t) })],
     [mark(MARK.K1), t('drawings.cable.k1'), t('drawings.cable.k1cable'), ''],
     [mark(MARK.K2), t('drawings.cable.k2'), t('drawings.cable.k2cable'), t('drawings.cable.k2rule')],
   );

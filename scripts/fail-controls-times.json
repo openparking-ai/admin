@@ -107,7 +107,8 @@
     "U5 5: an owner's decision on a sheet": 3,
     "U5 5: a person's name on a sheet": 3,
     "U5 6: the sheets on Letter paper": 3,
-    "U5 fix 1: the 6 ft loop drawn back in the 10 ft lane": 3
+    "U5 fix 1: the 6 ft loop drawn back in the 10 ft lane": 3,
+    "U5 fix 3: a driver's control drawn within 6 ft of the arm": 3
   },
   "browser": {
     "6 no request leaves the page": 52,

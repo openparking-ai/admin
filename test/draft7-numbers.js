@@ -73,4 +73,7 @@ export const ADDED = {
   gateDrawLeast: 'the gate\'s draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
   gateDrawMost: 'the gate\'s draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
   gatePeak: 'the gate\'s peak draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
+  gateLeadLongest: 'the closing loop\'s lead to the gate: the Magnetic MHTM manual, p. 57, "must not exceed 49.2 ft (15 m)", written to the inch below it',
+  gateLeadTwist: 'the closing loop\'s lead twist: the Magnetic MHTM manual, p. 57, "ca. 6 twists per feet"',
+  controlsFromGate: 'a driver\'s controls from the gate: the Magnetic MHTM manual, p. 48, "at least 6 ft (1.83 m) away from any moving part of the barrier"',
 };

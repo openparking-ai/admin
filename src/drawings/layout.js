@@ -67,7 +67,7 @@ export function createSheet(fonts) {
   const stroke = (o) => (o.stroke === undefined ? COLOR.ink : o.stroke);
   const s = {
     items,
-    line: (x1, y1, x2, y2, o = {}) => add({ t: 'line', x1, y1, x2, y2, color: o.color ?? COLOR.ink, width: o.width ?? 0.75, dash: o.dash ?? null }),
+    line: (x1, y1, x2, y2, o = {}) => add({ t: 'line', x1, y1, x2, y2, color: o.color ?? COLOR.ink, width: o.width ?? 0.75, dash: o.dash ?? null, role: o.role ?? null }),
     rect: (x, y, w, h, o = {}) => add({ t: 'rect', x, y, w, h, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75, dash: o.dash ?? null, radius: o.radius ?? 0, role: o.role ?? null }),
     poly: (points, o = {}) => add({ t: 'poly', points, closed: o.closed ?? false, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75, dash: o.dash ?? null }),
     circle: (cx, cy, r, o = {}) => add({ t: 'circle', cx, cy, r, stroke: stroke(o), fill: o.fill ?? null, width: o.width ?? 0.75 }),
