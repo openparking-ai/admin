@@ -208,7 +208,7 @@ function everyLaneSheet(s, t, _spec, { lanes, reader, specs }) {
   const left = column(s, FRAME.left, FRAME.top, HALF);
   left.heading(t('drawings.box.about'));
   left.para(t('drawings.about.oneComputer'));
-  if (reader) left.para(t('drawings.about.reader'));
+  if (true) left.para(t('drawings.about.reader'));
   left.para(t('drawings.about.trade'));
   left.heading(t('drawings.box.entryType'));
   left.para(t(reader ? 'drawings.entryType.any' : 'drawings.entryType.passOnly'));
