@@ -45,7 +45,7 @@ jobs:
           b = bytearray(open(p, 'rb').read()); b[o] ^= 0x40; open(p, 'wb').write(b)
           PY
           if .github/scripts/apt-cache.sh install /tmp/a; then echo "MISS: installed"; exit 1; fi
-          dpkg -s figlet > /dev/null 2>&1 && { echo "MISS: figlet got installed"; exit 1; }
+          dpkg-query -W -f="\${Status}" figlet 2> /dev/null | grep -q "install ok installed" && { echo "MISS: figlet got installed"; exit 1; }
           echo "PLANT A REFUSED, figlet not installed"
 
       - name: "plant B: figlet repacked, same name/version/arch, one file's content changed -> refused"
