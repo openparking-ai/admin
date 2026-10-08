@@ -2,9 +2,10 @@ name: The check environment
 description: >-
   Node and the npm packages, Python and the pinned readers the downloaded
   files are read back with, and -- when asked -- LibreOffice reading the Excel
-  files as a spreadsheet app does, or Chromium for the browser checks. Every
-  job that runs checks or fail-controls starts here, so a shard runs in the
-  environment its controls always ran in.
+  files as a spreadsheet app does (its packages from GitHub's cache), or
+  Chromium for the browser checks. Every job that runs checks or
+  fail-controls starts here, so a shard runs in the environment its controls
+  always ran in.
 inputs:
   spreadsheet-app:
     description: Install LibreOffice (headless).
@@ -30,10 +31,50 @@ runs:
     - name: The readers the downloaded files are read back with (pinned, by hash)
       shell: bash
       run: pip install --require-hashes -r scripts/files/readers.txt
+    # LibreOffice's packages come from GitHub's own cache, not the Ubuntu
+    # mirror: the mirror once took 25 minutes to send them, and a job's time
+    # must not be the mirror's. The cache holds exactly the .deb files that
+    # installing libreoffice-calc adds to this runner image, keyed on the
+    # image's version: on a hit they are installed with dpkg and nothing is
+    # downloaded; on a miss (a new image, about weekly) apt fetches only what
+    # the last image's cache does not already hold, and the set is saved.
+    - name: LibreOffice's packages, from the cache
+      if: inputs.spreadsheet-app == 'true'
+      id: libreoffice-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/libreoffice-debs
+        key: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
+        restore-keys: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-
     - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
       if: inputs.spreadsheet-app == 'true'
       shell: bash
+      env:
+        HIT: ${{ steps.libreoffice-cache.outputs.cache-hit }}
       run: |
-        sudo apt-get update -q
-        sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+        set -euo pipefail
+        DEBS="$HOME/libreoffice-debs"
+        mkdir -p "$DEBS"
+        if [ "$HIT" = "true" ] && ls "$DEBS"/*.deb > /dev/null 2>&1; then
+          echo "LibreOffice from the cache: $(ls "$DEBS"/*.deb | wc -l) packages, nothing downloaded"
+          sudo dpkg -i "$DEBS"/*.deb > /dev/null
+        else
+          echo "LibreOffice: no cache for this image; $(ls "$DEBS"/*.deb 2> /dev/null | wc -l) packages kept from the last one"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends -o Dir::Cache::archives="$DEBS" libreoffice-calc
+          sudo rm -rf "$DEBS/partial" "$DEBS/lock"
+          sudo chown -R "$(id -u):$(id -g)" "$DEBS"
+          # Keep only what is installed now, at the version installed: the set a hit installs.
+          for f in "$DEBS"/*.deb; do
+            p=$(dpkg-deb -f "$f" Package); v=$(dpkg-deb -f "$f" Version); a=$(dpkg-deb -f "$f" Architecture)
+            [ "$(dpkg-query -W -f='${Version}' "$p:$a" 2> /dev/null || true)" = "$v" ] || rm -f "$f"
+          done
+          echo "LibreOffice: $(ls "$DEBS"/*.deb | wc -l) packages to save for this image"
+        fi
         soffice --version
+    - name: LibreOffice's packages, saved for the next run on this image
+      if: inputs.spreadsheet-app == 'true' && steps.libreoffice-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/libreoffice-debs
+        key: libreoffice-calc-${{ runner.os }}-${{ env.ImageOS }}-${{ env.ImageVersion }}-v1
