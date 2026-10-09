@@ -33,5 +33,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
         with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
           spreadsheet-app: ${{ matrix.what == 'spreadsheet-app' }}
           browser: ${{ matrix.what == 'browser' }}

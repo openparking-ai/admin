@@ -78,6 +78,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
         with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
           spreadsheet-app: 'true'
           # The install checks' own controls: a changed package, an unlisted
           # one, a changed list, a changed InRelease, each refused by name.
@@ -133,6 +135,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
         with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
           spreadsheet-app: 'true'
       - name: Every check, shown failing first (this shard)
         run: npm run fail-controls -- --shard ${{ matrix.shard }}/6
@@ -195,6 +199,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/check-environment
         with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
           browser: 'true'
           # The install checks' own controls, for Chromium's packages and the
           # browsers: each changed one way, each refused by name.
@@ -253,6 +259,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
         with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
           browser: 'true'
       - name: The browser checks, shown failing first (this shard)
         run: npm run fail-controls-browser -- --shard ${{ matrix.shard }}/8

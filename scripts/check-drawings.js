@@ -4,10 +4,14 @@
 // sheets as built (every text on every sheet) and the PDF read back by pypdf,
 // a reader this project did not write.
 //
-//   0  pinned: the texts these checks lean on (4's exceptions, the "Every
-//      lane" claims, how a number is written) are held approved in
-//      scripts/drawings-pinned.js; each dictionary string equals its pin, or
-//      its key and language are named. The checks read the pins, never t(key).
+//   0  the snapshot: every drawing string, both languages, and every way the
+//      table writes a number, equal byte for byte to the approved snapshot
+//      (scripts/drawings-strings.json); a string added, removed or changed in
+//      any way is named by key and language, and the file must be written
+//      the one way that shows a look-alike character. The texts the other
+//      checks lean on (4's exceptions, the "Every lane" claims, how a number
+//      is written) are read from the snapshot (scripts/drawings-pinned.js),
+//      never from t(key).
 //   1  one table: every number on every sheet is the table's
 //      (src/drawings/numbers.js), written by it; a mark (L1, N5, 2A) is a
 //      label; a scale bar's mark is one of its marks; stored names, the date
@@ -50,8 +54,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DICTIONARIES, translate } from '../src/i18n/index.js';
-import { NUMBERS, SOURCES, everyWriting, scaleMarks } from '../src/drawings/numbers.js';
+import { translate } from '../src/i18n/index.js';
+import { NUMBERS, SOURCES, scaleMarks } from '../src/drawings/numbers.js';
 import { MARK_SHAPE } from '../src/drawings/marks.js';
 import { FRAME, PAGE } from '../src/drawings/layout.js';
 import { madeOn } from '../src/drawings/sheets.js';
@@ -61,7 +65,8 @@ import { ADDED, CHANGED, DRAFT7 } from '../test/draft7-numbers.js';
 import { ANY_DRIVER, LONG_NAMES, MADE_AT, NO_LANES, PASS_ONLY, UNANSWERED } from '../test/drawings-fixtures.js';
 import { MARK } from '../src/drawings/marks.js';
 import { norm, ownWords, runsOf, squash } from './drawings-text.js';
-import { ALIKE, CLAIMS, PINNED, pinnedWords } from './drawings-pinned.js';
+import { CLAIMS, PINNED, pinnedWords, writings as snapshotWritings } from './drawings-pinned.js';
+import { LANGUAGES as SNAPSHOT_LANGUAGES, committed, current, serialise, shown } from './drawings-snapshot.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-'));
@@ -81,6 +86,29 @@ const words = (language) => (key, values) => translate(language, key, values);
 const build = (garage, language) => makeDrawings({ fonts: FONTS, t: words(language), language, ...garage, madeAt: MADE_AT });
 const texts = (sheet) => sheet.items.filter((i) => i.t === 'text' && i.text);
 
+// ── 0 the snapshot ──────────────────────────────────────────────────────
+// First, before any sheet is made: a string removed would stop the making, and this names it.
+console.log('0 the snapshot');
+const { text: snapshotText, snapshot } = committed();
+check(snapshotText === serialise(snapshot), 'the snapshot is written the one way, every look-alike character as \\uXXXX (node scripts/drawings-snapshot.js --write)');
+const now = current();
+for (const language of SNAPSHOT_LANGUAGES) {
+  const was = snapshot[language] ?? {};
+  const is = now[language];
+  const moved = [];
+  for (const key of Object.keys(is)) {
+    if (!Object.hasOwn(was, key)) moved.push(`${language} ${key}: added, ${shown(is[key])}, not in the snapshot`);
+    else if (was[key] !== is[key]) moved.push(`${language} ${key}: ${shown(is[key])}, snapshot ${shown(was[key])}`);
+  }
+  for (const key of Object.keys(was)) if (!Object.hasOwn(is, key)) moved.push(`${language} ${key}: removed, snapshot ${shown(was[key])}`);
+  check(moved.length === 0, `${language}: all ${Object.keys(is).length} drawing strings are the snapshot's, byte for byte${moved.length ? `; changed:\n      ${moved.join('\n      ')}` : ''}`);
+  const wrote = snapshot.writings?.[language] ?? [];
+  const newWritings = now.writings[language].filter((w) => !wrote.includes(w)).map((w) => `${language}: the table now writes ${shown(w)}, not in the snapshot`);
+  const goneWritings = wrote.filter((w) => !now.writings[language].includes(w)).map((w) => `${language}: the snapshot writes ${shown(w)}, the table no longer does`);
+  const writingsMoved = [...newWritings, ...goneWritings];
+  check(writingsMoved.length === 0 && wrote.length === now.writings[language].length, `${language}: all ${now.writings[language].length} ways the table writes a number are the snapshot's${writingsMoved.length ? `; changed:\n      ${writingsMoved.join('\n      ')}` : ''}`);
+}
+
 // Every set, both languages, made once.
 const GARAGES = { 'any driver': ANY_DRIVER, 'pass holders only': PASS_ONLY, 'long names': LONG_NAMES };
 const SETS = [];
@@ -89,24 +117,12 @@ for (const [name, garage] of Object.entries(GARAGES)) {
 }
 
 try {
-  // ── 0 pinned ────────────────────────────────────────────────────────────
-  console.log('0 pinned');
-  for (const language of LANGUAGES) {
-    for (const [group, texts] of Object.entries(PINNED)) {
-      const alike = ALIKE[group];
-      const moved = Object.entries(texts)
-        .filter(([key, pin]) => alike(DICTIONARIES[language][key] ?? '') !== alike(pin[language]))
-        .map(([key, pin]) => `${language} ${key}: "${DICTIONARIES[language][key]}", pinned "${pin[language]}"`);
-      check(moved.length === 0, `${language}: the ${Object.keys(texts).length} ${group} texts are as pinned${moved.length ? `; changed:\n      ${moved.join('\n      ')}` : ''}`);
-    }
-  }
-
   // ── 1 one table ──────────────────────────────────────────────────────────
   console.log('1 one table');
   for (const { name, garage, language, made } of SETS) {
-    // How a number is written, and "3 of 10", from the pins: a digit added to a unit's words is not the table's.
+    // How a number is written, and "3 of 10", from the snapshot: a digit added to a unit's words is not the table's.
     const pinned = pinnedWords(language);
-    const writings = everyWriting(pinned);
+    const writings = snapshotWritings(language);
     const marks = new Set(scaleMarks(pinned).map((m) => m.text));
     const total = made.sheets.length;
     const data = new Set([garage.garage.name, ...garage.lanes.map((l) => l.name), madeOn(MADE_AT, garage.garage, language)]);
@@ -224,17 +240,18 @@ const READER_STEMS = ['reader', 'lector'];
     // However it is worded: on a pass-only set, the card reader is named only to say there is none.
     // Matched as a stem after every non-letter is dropped (squash), so one word, a hyphen, a no-break
     // space, a plural or another ending are all caught. The only texts allowed to hold the stem are
-    // the named exceptions: the four sentences that say there is no card reader, as PINNED (check 0),
-    // never as the dictionary says them now. An exception covers its pinned text only, not its key.
+    // the named exceptions: the four sentences that say there is no card reader, as the snapshot holds
+    // them (check 0), never as the dictionary says them now. An exception covers its snapshot text only, not
+    // its key; and check 0 holds that text byte for byte, so a stop or a dropped "no" is a change too.
     const pinned = pinnedWords(language);
-    const saysNone = new Set(Object.keys(PINNED.saysNone).map((key) => squash(pinned(key, { cable: MARK.N5, outlet: MARK.W3 }))));
+    const saysNone = new Set(PINNED.saysNone.map((key) => squash(pinned(key, { cable: MARK.N5, outlet: MARK.W3 }))));
     const holdsReader = (text) => READER_STEMS.some((stem) => squash(text).includes(stem));
     const named = pass.sheets.flatMap((sheet) => runsOf(sheet).filter((r) => holdsReader(r.text) && !saysNone.has(squash(r.text))).map((r) => `"${sheet.title}": "${r.text}"`));
     check(named.length === 0, `${language}: pass holders only -> the card reader is named only to say there is none${named.length ? `; named:\n      ${named.join('\n      ')}` : ''}`);
   }
 
   // Every lane: each piece of equipment is said to be on exactly the lanes whose plan sheets draw it.
-  // The claims and the equipment words are the pinned ones (check 0): a claim edited to speak of other lanes is not read as its key's.
+  // The claims and the equipment words are the snapshot's (check 0): a claim edited to speak of other lanes is not read as its key's.
   for (const { name, language, made } of SETS) {
     const t = pinnedWords(language);
     const kit = {
@@ -347,7 +364,7 @@ const READER_STEMS = ['reader', 'lector'];
     const own = ownWords({
       language,
       atoms: [
-        ...everyWriting(t),
+        ...snapshotWritings(language),
         ...Object.values(MARK),
         ...scaleMarks(t).map((m) => m.text),
         ...Array.from({ length: total }, (_, i) => String(i + 1)),

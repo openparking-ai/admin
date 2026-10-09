@@ -136,7 +136,25 @@
     "U5 fix 11 sweep: en an equipment word the claims are read for": 3,
     "U5 fix 11 sweep: en a number in a unit's words": 3,
     "U5 fix 11 sweep: es a number in a unit's words": 3,
-    "U5 fix 11 sweep: en a length in the title block's \"3 of 10\"": 3
+    "U5 fix 11 sweep: en a length in the title block's \"3 of 10\"": 3,
+    "U5 fix 13 1: en plan.payReader says \"no card reader\" (re-gate 3)": 3,
+    "U5 fix 13 1: es eq.payReader says \"sin lector\" (re-gate 3)": 3,
+    "U5 fix 13 1: es status \"Aprobado para obra\" (re-gate 3)": 3,
+    "U5 fix 13 1: en status \"Approved for construction\" (re-gate 3)": 3,
+    "U5 fix 13 1: en everyWay says only the main way in (re-gate 3)": 3,
+    "U5 fix 13 1: en entryType.passOnly, punctuation only: \"No. Exit lane here has a card reader.\" (re-gate 3 R3-2)": 3,
+    "U5 fix 13 1: en a no-break space": 3,
+    "U5 fix 13 1: en a Cyrillic \"о\" in an English word": 3,
+    "U5 fix 13 1: es an accent removed": 3,
+    "U5 fix 13 1: en a drawing key added": 3,
+    "U5 fix 13 1: es a drawing key deleted": 3,
+    "U5 fix 13 1: a look-alike written as itself in the snapshot too": 3,
+    "U5 fix 13 1: the table writes a number the snapshot does not": 3,
+    "U5 fix 13 2: a comment after \"jobs:\" and a 6-hour limit (re-gate 3)": 1,
+    "U5 fix 13 2: Windows line ends and no limit (re-gate 3)": 1,
+    "U5 fix 13 2: a limit of \"0360\"": 1,
+    "U5 fix 13 2: a limit that is an expression, not a number": 1,
+    "U5 fix 13 2: a limit given twice, so the file is not YAML": 1
   },
   "browser": {
     "6 no request leaves the page": 52,
@@ -197,6 +215,7 @@
     "U4 fix 6: \"Done\" beside a \"Yes\" that was not pressed": 48,
     "U4 fix 1: refused attempts read among the changes made": 46,
     "U5 7: a set made from the last read, with no session": 60,
-    "U5 7: another owner's garage found": 60
+    "U5 7: another owner's garage found": 60,
+    "U5 fix 13 1: the page says only the main way in, as the dictionary now says (re-gate 3)": 60
   }
 }

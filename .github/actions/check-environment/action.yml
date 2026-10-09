@@ -14,10 +14,18 @@ description: >-
   Nothing is installed unchecked: the npm packages against package-lock.json,
   the readers against the hashes in readers.txt, every system package against
   Ubuntu's signed package lists (.github/scripts/verify-installs.py, gpgv and
-  the image's own Ubuntu keyring), and the browsers against the digests in
-  .github/ci-hashes/playwright-browsers.txt. Every outside fetch has a time
-  limit that stops the job and names the step.
+  the image's own Ubuntu keyring, from the lists of the one Ubuntu release
+  the workflow pins), and the browsers file by file against
+  .github/ci-hashes/playwright-browsers.txt; each cache is walked without
+  following a link, and a link, an extra file or a missing one is refused.
+  Every outside fetch has a time limit that stops the job and names the step.
 inputs:
+  ubuntu-release:
+    description: >-
+      The Ubuntu release (its codename, e.g. noble) whose signed package lists
+      alone vouch for a system package; the runner must be that release. Set
+      by each workflow, never defaulted here.
+    required: true
   spreadsheet-app:
     description: Install LibreOffice (headless).
     default: 'false'
@@ -75,20 +83,23 @@ runs:
       env:
         HIT: ${{ steps.chromium-cache.outputs.cache-hit }}
         CONTROLS: ${{ inputs.controls }}
+        RELEASE: ${{ inputs.ubuntu-release }}
       run: |
         set -euo pipefail
         source .github/scripts/limit.sh
+        # What Playwright installs for Chromium: the set must be whole for these.
+        mapfile -t roots < <(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
         if [ "$HIT" = "true" ]; then
-          .github/scripts/apt-cache.sh install "$HOME/chromium-debs"
+          .github/scripts/apt-cache.sh install "$HOME/chromium-debs" "$RELEASE" "${roots[@]}"
           limit 300 "Playwright's browser install (from the cache)" npx playwright install chromium
         else
           .github/scripts/apt-cache.sh keep "$HOME/chromium-debs"
           limit 900 "Chromium's download (the Ubuntu mirror and Playwright's site)" npx playwright install --with-deps chromium
-          .github/scripts/apt-cache.sh prune "$HOME/chromium-debs"
+          .github/scripts/apt-cache.sh prune "$HOME/chromium-debs" "$RELEASE" "${roots[@]}"
         fi
         python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
         if [ "$CONTROLS" = "true" ]; then
-          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/chromium-debs"
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/chromium-debs" "$RELEASE" .github/ci-hashes/other-release "${roots[@]}"
           python3 -I .github/scripts/verify-installs.py selftest-browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
         fi
     - name: Chromium, saved for the next run on this image
@@ -149,19 +160,20 @@ runs:
       env:
         HIT: ${{ steps.libreoffice-cache.outputs.cache-hit }}
         CONTROLS: ${{ inputs.controls }}
+        RELEASE: ${{ inputs.ubuntu-release }}
       run: |
         set -euo pipefail
         source .github/scripts/limit.sh
         if [ "$HIT" = "true" ]; then
-          .github/scripts/apt-cache.sh install "$HOME/libreoffice-debs"
+          .github/scripts/apt-cache.sh install "$HOME/libreoffice-debs" "$RELEASE" libreoffice-calc
         else
           .github/scripts/apt-cache.sh keep "$HOME/libreoffice-debs"
           limit 300 "the Ubuntu package lists' download" sudo apt-get update -q
           limit 900 "LibreOffice's download (the Ubuntu mirror)" sudo apt-get install -y -q --no-install-recommends libreoffice-calc
-          .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs"
+          .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs" "$RELEASE" libreoffice-calc
         fi
         if [ "$CONTROLS" = "true" ]; then
-          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/libreoffice-debs"
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/libreoffice-debs" "$RELEASE" .github/ci-hashes/other-release libreoffice-calc
         fi
         soffice --version
     - name: LibreOffice's packages, saved for the next run on this image

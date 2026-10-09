@@ -1,0 +1,40 @@
+# The system packages Playwright 1.63.0 installs for Chromium on Ubuntu 24.04
+# (`npx playwright install --with-deps chromium`: its "tools" and "chromium"
+# lists for ubuntu24.04-x64, read from playwright-core). The Chromium package
+# set in CI's cache must be whole for these: each on the runner or in the set,
+# with everything each needs, and nothing else (.github/scripts/verify-installs.py,
+# U5 fix 13). A new Playwright version can change them; the job then refuses
+# until they are read again and committed here.
+xvfb
+fonts-noto-color-emoji
+fonts-unifont
+libfontconfig1
+libfreetype6
+xfonts-cyrillic
+xfonts-scalable
+fonts-liberation
+fonts-ipafont-gothic
+fonts-wqy-zenhei
+fonts-tlwg-loma-otf
+fonts-freefont-ttf
+libasound2t64
+libatk-bridge2.0-0t64
+libatk1.0-0t64
+libatspi2.0-0t64
+libcairo2
+libcups2t64
+libdbus-1-3
+libdrm2
+libgbm1
+libglib2.0-0t64
+libnspr4
+libnss3
+libpango-1.0-0
+libx11-6
+libxcb1
+libxcomposite1
+libxdamage1
+libxext6
+libxfixes3
+libxkbcommon0
+libxrandr2

@@ -29,9 +29,12 @@ import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { readBack } from './files/read-back.js';
 import { startStub } from '../test/stub-platform.js';
+import { committed } from './drawings-snapshot.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const EN = DICTIONARIES.en;
+// The drawing texts this check requires, as approved (U5 fix 13): never the dictionary's, which the page shows.
+const SNAPSHOT_EN = committed().snapshot.en;
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-browser-'));
 const failures = [];
 let passed = 0;
@@ -106,10 +109,10 @@ try {
   const wanted = harborLanes.map((l) => (l.direction === 'exit' ? 'exit' : '2A'));
   check(kinds.slice(0, harborLanes.length).join() === wanted.join() && sheets.length === harborLanes.length + 7, `Harbor Street: ${sheets.length} sheets, one per lane (${kinds.slice(0, harborLanes.length).join(', ')}) then 7 shared`);
   check(harborLanes.every((l, i) => sheets[i].text.includes(l.name)), 'Harbor Street: each lane\'s sheet is named as the owner named the lane');
-  check((await a.page.innerText('[data-notice="every-way"]')) === EN['drawings.everyWay'], 'the page says every way in and out is a lane with this equipment, before download');
+  check((await a.page.innerText('[data-notice="every-way"]')) === SNAPSHOT_EN['drawings.everyWay'], 'the page says every way in and out is a lane with this equipment, before download');
 
   const file = await download(a.page);
-  check(file !== null && file.name.startsWith(EN['drawings.doc']) && file.name.endsWith('.pdf'), `Download PDF saves one file (${file?.name ?? 'none'})`);
+  check(file !== null && file.name.startsWith(SNAPSHOT_EN['drawings.doc']) && file.name.endsWith('.pdf'), `Download PDF saves one file (${file?.name ?? 'none'})`);
   if (file) {
     const pdf = readBack([file.path])[file.path];
     const sizes = [...new Set(pdf.pages.map((p) => `${Math.round(p.width)} x ${Math.round(p.height)}`))];

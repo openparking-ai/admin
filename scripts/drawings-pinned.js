@@ -1,143 +1,53 @@
-// The texts scripts/check-drawings.js leans on, held here as approved and never
-// read back from the dictionary (U5 fix 11, handover 2026-10-08 17:40).
+// The texts scripts/check-drawings.js leans on, read from the snapshot of
+// every drawing string (scripts/drawings-strings.json, U5 fix 13), never
+// from the dictionary.
 //
 // A check that takes an exception, a claim's lanes or a number's writing from
 // t(key) follows whatever that string is edited to say: "No card reader."
 // edited to "A card reader at the window." was still an exception, and stayed
-// green. These texts follow only this file. check-drawings compares each
-// dictionary string to its pin first, made alike as its group says, and names
-// every key and language that differ; the checks then read the pins.
+// green. These texts follow only the snapshot, and check 0 holds the
+// dictionary to the snapshot exactly, every string, so this file names keys
+// and keeps no text of its own: there is no second copy.
 //
 //   saysNone   4: the only texts on a pass-only set that may hold the card
-//              reader's stem, each saying there is none. Read after squash().
-//   everyLane  "Every lane": what each claim says (its lanes are the claim's
-//              own, below), and the equipment words it is read for. Read after norm().
+//              reader's stem, each saying there is none.
+//   everyLane  "Every lane": the claims (their lanes are the claim's own,
+//              below), and the equipment words they are read for.
 //   writing    1 and 3: how a number is written, and the title block's
-//              "3 of 10". Read exactly: a digit is what these checks look for.
-//
-// Changing one of these strings means changing it here too, in the same
-// commit, where a reviewer reads it as a change to what the check allows.
+//              "3 of 10". A digit is what these checks look for.
 
 import { endOnce } from '../src/i18n/index.js';
-import { norm, squash } from './drawings-text.js';
+import { committed } from './drawings-snapshot.js';
 
 export const PINNED = {
-  saysNone: {
-    "drawings.stop.passOnly": {
-      en: "This garage takes pass holders only: the exit pay station carries the scanner and the intercom and has no card reader. Cable {cable} and outlet {outlet} are left out.",
-      es: "Este garaje recibe solo a quienes tienen pase: la estación de pago de salida lleva el escáner y el intercomunicador y no tiene lector de tarjetas. Se omiten el cable {cable} y el tomacorriente {outlet}.",
-    },
-    "drawings.entryType.passOnly": {
-      en: "There are two kinds of entry lane. This garage takes pass holders only, so every entry lane here is type 2B: the driver shows a pass to get in. No exit lane here has a card reader.",
-      es: "Hay dos clases de carril de entrada. Este garaje recibe solo a quienes tienen pase, así que cada carril de entrada aquí es del tipo 2B: el conductor muestra un pase para entrar. Ningún carril de salida aquí tiene lector de tarjetas.",
-    },
-    "drawings.type.exitNoReader": {
-      en: "Exit, no card reader",
-      es: "Salida, sin lector de tarjetas",
-    },
-    "drawings.how2B.noReader": {
-      en: "No card reader.",
-      es: "Sin lector de tarjetas.",
-    },
-  },
-  everyLane: {
-    "drawings.about.oneComputer": {
-      en: "One computer sits in the garage's server room and runs every lane. Each lane has ordinary equipment: a gate, loops, two cameras, a display, an intercom and a small relay box, and one control panel that holds its wiring.",
-      es: "Una computadora en la sala de servidores del garaje maneja todos los carriles. Cada carril tiene equipo común: una barrera, lazos, dos cámaras, una pantalla, un intercomunicador y una pequeña caja de relés, y un panel de control que reúne su cableado.",
-    },
-    "drawings.about.alsoAtExit": {
-      en: "Each exit lane also has a scanner and a card reader.",
-      es: "Cada carril de salida tiene además un escáner y un lector de tarjetas.",
-    },
-    "drawings.about.alsoEveryLane": {
-      en: "Each lane also has a scanner.",
-      es: "Cada carril tiene además un escáner.",
-    },
-    "drawings.wiring.scanner": {
-      en: "{mark}  Scanner",
-      es: "{mark}  Escáner",
-    },
-    "drawings.item.cardReader": {
-      en: "Card reader",
-      es: "Lector de tarjetas",
-    },
-    "drawings.wiring.intercom": {
-      en: "{mark}  Intercom",
-      es: "{mark}  Intercomunicador",
-    },
-  },
-  writing: {
-    "drawings.unit.ft": {
-      en: "{n} ft",
-      es: "{n} pies",
-    },
-    "drawings.unit.in": {
-      en: "{n} in",
-      es: "{n} pulg",
-    },
-    "drawings.unit.m": {
-      en: "{n} m",
-      es: "{n} m",
-    },
-    "drawings.unit.mm": {
-      en: "{n} mm",
-      es: "{n} mm",
-    },
-    "drawings.unit.length": {
-      en: "{imperial} ({metric})",
-      es: "{imperial} ({metric})",
-    },
-    "drawings.unit.turns": {
-      en: "{n} turns",
-      es: "{n} vueltas",
-    },
-    "drawings.unit.twist": {
-      en: "{n} turns per foot",
-      es: "{n} vueltas por pie",
-    },
-    "drawings.unit.category": {
-      en: "Cat{n}",
-      es: "Cat{n}",
-    },
-    "drawings.unit.volts": {
-      en: "{n} V",
-      es: "{n} V",
-    },
-    "drawings.unit.amps": {
-      en: "{n} amps",
-      es: "{n} amperios",
-    },
-    "drawings.unit.degrees": {
-      en: "{n}°",
-      es: "{n}°",
-    },
-    "drawings.tb.sheetOf": {
-      en: "{n} of {of}",
-      es: "{n} de {of}",
-    },
-  },
+  saysNone: ['drawings.stop.passOnly', 'drawings.entryType.passOnly', 'drawings.type.exitNoReader', 'drawings.how2B.noReader'],
+  everyLane: ['drawings.about.oneComputer', 'drawings.about.alsoAtExit', 'drawings.about.alsoEveryLane', 'drawings.wiring.scanner', 'drawings.item.cardReader', 'drawings.wiring.intercom'],
+  writing: ['drawings.unit.ft', 'drawings.unit.in', 'drawings.unit.m', 'drawings.unit.mm', 'drawings.unit.length', 'drawings.unit.turns', 'drawings.unit.twist', 'drawings.unit.category', 'drawings.unit.volts', 'drawings.unit.amps', 'drawings.unit.degrees', 'drawings.tb.sheetOf'],
 };
 
-/** How each group's strings are made alike before they are compared to the pin. */
-export const ALIKE = { saysNone: squash, everyLane: norm, writing: (text) => text };
-
-/** The lanes each "Every lane" claim speaks of. Fixed with its pinned text: an edit to the text cannot move them. */
+/** The lanes each "Every lane" claim speaks of. Fixed here: an edit to the text cannot move them. */
 export const CLAIMS = [
   { key: 'drawings.about.oneComputer', on: () => true },
   { key: 'drawings.about.alsoAtExit', on: (plan) => plan.kind === 'exit' },
   { key: 'drawings.about.alsoEveryLane', on: () => true },
 ];
 
+const { snapshot } = committed();
+
+/** Every way the table writes a number in this language, as the snapshot holds them. */
+export const writings = (language) => snapshot.writings[language];
+
 /**
- * A t() for one language that knows only the pinned keys, filled as the
- * dictionary fills them. Any other key throws: a check given this t reads
- * nothing the dictionary can change under it.
+ * A t() for one language that knows only the keys named above, filled as the
+ * dictionary fills them, with the snapshot's text. Any other key throws: a
+ * check given this t reads nothing the dictionary can change under it.
  */
 export function pinnedWords(language) {
-  const all = Object.assign({}, ...Object.values(PINNED));
+  const known = new Set(Object.values(PINNED).flat());
   return (key, values) => {
-    if (!all[key]) throw new Error(`"${key}" is not pinned: scripts/drawings-pinned.js`);
-    const text = all[key][language];
+    if (!known.has(key)) throw new Error(`"${key}" is not one of the texts the checks lean on: scripts/drawings-pinned.js`);
+    const text = snapshot[language][key];
+    if (text === undefined) throw new Error(`"${key}" is not in the snapshot: scripts/drawings-strings.json`);
     return values ? endOnce(text.replace(/\{(\w+)\}/g, (whole, name) => (name in values ? String(values[name]) : whole))) : text;
   };
 }

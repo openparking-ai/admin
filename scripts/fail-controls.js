@@ -832,8 +832,8 @@ const CONTROLS = [
     check: 'U5 gate 5: a scanner on every lane of a garage that takes any driver',
     plant: { file: 'src/i18n/en.js', anchor: 'a display, an intercom and a small relay box, and one control panel that holds its wiring.",', with: 'a display, a scanner, an intercom and a small relay box, and one control panel that holds its wiring.",' },
     run: CHECK_DRAWINGS,
-    // Since fix 11 the "Every lane" check reads its claims as pinned, so a claim edited in the dictionary is check 0's to name.
-    names: ['en drawings.about.oneComputer: "One computer sits', 'a display, a scanner, an intercom', 'pinned "One computer sits'],
+    // Since fix 11 the "Every lane" check reads its claims as approved (fix 13: from the snapshot), so a claim edited in the dictionary is check 0's to name.
+    names: ['en drawings.about.oneComputer: "One computer sits', 'a display, a scanner, an intercom', 'snapshot "One computer sits'],
   },
   {
     check: 'U5 fix 11 sweep: the two "Every lane" claims swapped in the code',
@@ -851,7 +851,7 @@ const CONTROLS = [
     check: 'U5 gate 3: a job with no time limit',
     plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '' },
     run: ['node', 'scripts/check-job-limits.js'],
-    names: ['FAIL emails.yml: job "emails" has no timeout-minutes'],
+    names: ['FAIL workflows/emails.yml: job "emails" has no timeout-minutes'],
   },
   // ── U5 re-gate (handover 2026-10-08 16:50): stems after every non-letter is removed ──
   {
@@ -902,13 +902,13 @@ const CONTROLS = [
     check: 'U5 fix 11 4: en how2B.noReader edited to "A card reader at the window."',
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.noReader": "No card reader."', with: '"drawings.how2B.noReader": "A card reader at the window."' },
     run: CHECK_DRAWINGS,
-    names: ['en drawings.how2B.noReader: "A card reader at the window.", pinned "No card reader."', 'FAIL en: pass holders only -> the card reader is named only to say there is none', '"A card reader at the window."'],
+    names: ['en drawings.how2B.noReader: "A card reader at the window.", snapshot "No card reader."', 'FAIL en: pass holders only -> the card reader is named only to say there is none', '"A card reader at the window."'],
   },
   {
     check: 'U5 fix 11 4: es type.exitNoReader edited to "Salida, con lector de tarjetas"',
     plant: { file: 'src/i18n/es.js', anchor: '"drawings.type.exitNoReader": "Salida, sin lector de tarjetas"', with: '"drawings.type.exitNoReader": "Salida, con lector de tarjetas"' },
     run: CHECK_DRAWINGS,
-    names: ['es drawings.type.exitNoReader: "Salida, con lector de tarjetas", pinned "Salida, sin lector de tarjetas"', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Salida, con lector de tarjetas"'],
+    names: ['es drawings.type.exitNoReader: "Salida, con lector de tarjetas", snapshot "Salida, sin lector de tarjetas"', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Salida, con lector de tarjetas"'],
   },
   {
     check: 'U5 fix 11 4: en entryType.passOnly with "The exit has a card reader." added',
@@ -920,20 +920,20 @@ const CONTROLS = [
     check: 'U5 fix 11 4: es how2B.noReader edited to "Con lector de tarjetas."',
     plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.noReader": "Sin lector de tarjetas."', with: '"drawings.how2B.noReader": "Con lector de tarjetas."' },
     run: CHECK_DRAWINGS,
-    names: ['es drawings.how2B.noReader: "Con lector de tarjetas.", pinned "Sin lector de tarjetas."', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Con lector de tarjetas."'],
+    names: ['es drawings.how2B.noReader: "Con lector de tarjetas.", snapshot "Sin lector de tarjetas."', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Con lector de tarjetas."'],
   },
   // A limit, but no limit.
   {
     check: 'U5 fix 11 3: a 6-hour job limit',
     plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 360\n' },
     run: ['node', 'scripts/check-job-limits.js'],
-    names: ['FAIL emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
   },
   {
     check: 'U5 fix 11 3: a 31-minute job limit',
     plant: { file: '.github/workflows/ci-caches.yml', anchor: '    timeout-minutes: 25\n', with: '    timeout-minutes: 31\n' },
     run: ['node', 'scripts/check-job-limits.js'],
-    names: ['FAIL ci-caches.yml: job "fill" may run 31 minutes, over the 30-minute ceiling'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" may run 31 minutes, over the 30-minute ceiling'],
   },
   // The sweep: the other texts a check took from t(key). A claim's lanes, a unit's words, "3 of 10".
   {
@@ -952,31 +952,149 @@ const CONTROLS = [
     check: "U5 fix 11 sweep: en an equipment word the claims are read for",
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.wiring.scanner": "{mark}  Scanner"', with: '"drawings.wiring.scanner": "{mark}  QR scanner"' },
     run: CHECK_DRAWINGS,
-    names: ['en drawings.wiring.scanner: "{mark}  QR scanner", pinned "{mark}  Scanner"'],
+    names: ['en drawings.wiring.scanner: "{mark}  QR scanner", snapshot "{mark}  Scanner"'],
   },
   {
     check: "U5 fix 11 sweep: en a number in a unit's words",
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.unit.turns": "{n} turns"', with: '"drawings.unit.turns": "{n} turns, 7 more"' },
     run: CHECK_DRAWINGS,
-    names: ['en drawings.unit.turns: "{n} turns, 7 more", pinned "{n} turns"', "holds a number that is not the table's"],
+    names: ['en drawings.unit.turns: "{n} turns, 7 more", snapshot "{n} turns"', "holds a number that is not the table's"],
   },
   {
     check: "U5 fix 11 sweep: es a number in a unit's words",
     plant: { file: 'src/i18n/es.js', anchor: '"drawings.unit.volts": "{n} V"', with: '"drawings.unit.volts": "{n} V o 240 V"' },
     run: CHECK_DRAWINGS,
-    names: ['es drawings.unit.volts: "{n} V o 240 V", pinned "{n} V"', "holds a number that is not the table's"],
+    names: ['es drawings.unit.volts: "{n} V o 240 V", snapshot "{n} V"', "holds a number that is not the table's"],
   },
   {
     check: 'U5 fix 11 sweep: en a length in the title block\'s "3 of 10"',
     plant: { file: 'src/i18n/en.js', anchor: '"drawings.tb.sheetOf": "{n} of {of}"', with: '"drawings.tb.sheetOf": "{n} of {of}, 12 in"' },
     run: CHECK_DRAWINGS,
-    names: ['en drawings.tb.sheetOf: "{n} of {of}, 12 in", pinned "{n} of {of}"', "is not this garage's data"],
+    names: ['en drawings.tb.sheetOf: "{n} of {of}, 12 in", snapshot "{n} of {of}"', "is not this garage's data"],
   },
   {
     check: 'U5 6: the sheets on Letter paper',
     plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },
     run: CHECK_DRAWINGS,
     names: ['each 11 x 17 in landscape (1224 x 792 points): 792 x 612'],
+  },
+  // ── U5 fix 13 (handover 2026-10-08 20:30): every drawing string held to one snapshot; limits read as YAML ──
+  // The third re-gate's edits: each changed what a required text says, and stayed green.
+  {
+    check: 'U5 fix 13 1: en plan.payReader says "no card reader" (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.plan.payReader": "{mark}  Pay station: card reader, scanner, intercom"', with: '"drawings.plan.payReader": "{mark}  Pay station: no card reader, scanner, intercom"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.plan.payReader: "{mark}  Pay station: no card reader, scanner, intercom", snapshot "{mark}  Pay station: card reader, scanner, intercom"'],
+  },
+  {
+    check: 'U5 fix 13 1: es eq.payReader says "sin lector" (re-gate 3)',
+    plant: { file: 'src/i18n/es.js', anchor: 'del conductor: lector de tarjetas, escáner e intercomunicador."', with: 'del conductor: sin lector de tarjetas, escáner e intercomunicador."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.eq.payReader: "Estación de pago a la ventanilla del conductor: sin lector de tarjetas', 'snapshot "Estación de pago a la ventanilla del conductor: lector de tarjetas'],
+  },
+  {
+    check: 'U5 fix 13 1: es status "Aprobado para obra" (re-gate 3)',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.status": "Borrador",', with: '"drawings.status": "Aprobado para obra",' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.status: "Aprobado para obra", snapshot "Borrador"'],
+  },
+  {
+    check: 'U5 fix 13 1: en status "Approved for construction" (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.status": "Draft",', with: '"drawings.status": "Approved for construction",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.status: "Approved for construction", snapshot "Draft"'],
+  },
+  {
+    check: 'U5 fix 13 1: en everyWay says only the main way in (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.everyWay": "Every way in and every way out of the garage is a lane with this equipment."', with: '"drawings.everyWay": "Only the main way in is a lane with this equipment."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.everyWay: "Only the main way in is a lane with this equipment.", snapshot "Every way in and every way out of the garage is a lane with this equipment."'],
+  },
+  {
+    check: 'U5 fix 13 1: en entryType.passOnly, punctuation only: "No. Exit lane here has a card reader." (re-gate 3 R3-2)',
+    plant: { file: 'src/i18n/en.js', anchor: 'No exit lane here has a card reader.",', with: 'No. Exit lane here has a card reader.",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.entryType.passOnly: "', 'the driver shows a pass to get in. No. Exit lane here has a card reader.", snapshot "', 'No exit lane here has a card reader."'],
+  },
+  // Changes a reader cannot see.
+  {
+    check: 'U5 fix 13 1: en a no-break space',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera,\\u00a0on the control panel."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.frontCamera: "Front camera,\\u00a0on the control panel.", snapshot "Front camera, on the control panel."'],
+  },
+  {
+    check: 'U5 fix 13 1: en a Cyrillic "о" in an English word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Fr\\u043ent camera, on the control panel."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.frontCamera: "Fr\\u043ent camera, on the control panel.", snapshot "Front camera, on the control panel."'],
+  },
+  {
+    check: 'U5 fix 13 1: es an accent removed',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.eq.frontCamera": "Cámara delantera, sobre el panel de control."', with: '"drawings.eq.frontCamera": "Camara delantera, sobre el panel de control."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.eq.frontCamera: "Camara delantera, sobre el panel de control.", snapshot "Cámara delantera, sobre el panel de control."'],
+  },
+  {
+    check: 'U5 fix 13 1: en a drawing key added',
+    plant: { file: 'src/i18n/en.js', anchor: '  "drawings.eq.frontCamera": "Front camera, on the control panel.",\n', with: '  "drawings.eq.frontCamera": "Front camera, on the control panel.",\n  "drawings.eq.note": "Ask before you drill.",\n' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.note: added, "Ask before you drill.", not in the snapshot'],
+  },
+  {
+    check: 'U5 fix 13 1: es a drawing key deleted',
+    plant: { file: 'src/i18n/es.js', anchor: '  "drawings.draftMark": "Borrador, no apto para construcción",\n', with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.draftMark: removed, snapshot "Borrador, no apto para construcción"'],
+  },
+  {
+    check: 'U5 fix 13 1: a look-alike written as itself in the snapshot too',
+    plant: [
+      { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Frоnt camera, on the control panel."' },
+      { file: 'scripts/drawings-strings.json', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Frоnt camera, on the control panel."' },
+    ],
+    run: CHECK_DRAWINGS,
+    names: ['FAIL the snapshot is written the one way'],
+  },
+  {
+    check: 'U5 fix 13 1: the table writes a number the snapshot does not',
+    plant: { file: 'src/drawings/numbers.js', anchor: "truckBack: length(283, '7.2', 'worked'),", with: "truckBack: length(283, '7.3', 'worked')," },
+    run: CHECK_DRAWINGS,
+    names: ['en: the table now writes "23 ft 7 in (7.3 m)", not in the snapshot', 'es: the snapshot writes "23 pies 7 pulg (7.2 m)", the table no longer does'],
+  },
+  // Job limits, read as YAML: what line matching missed (re-gate 3 R3-3), and the forms a limit can take.
+  {
+    check: 'U5 fix 13 2: a comment after "jobs:" and a 6-hour limit (re-gate 3)',
+    plant: [
+      { file: '.github/workflows/emails.yml', anchor: 'jobs:\n  emails:\n', with: 'jobs:  # the mail check\n  emails:\n' },
+      { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 360\n' },
+    ],
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 13 2: Windows line ends and no limit (re-gate 3)',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '', crlf: true },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" has no timeout-minutes'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit of "0360"',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 0360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit that is an expression, not a number',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: ${{ 360 }}\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" has timeout-minutes "${{ 360 }}", not a number of minutes'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit given twice, so the file is not YAML',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 10\n    timeout-minutes: 360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: not readable as YAML (duplicated mapping key)'],
   },
 ];
 
@@ -1589,6 +1707,13 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-drawings-browser.js'],
     names: ['FAIL owner B asking for owner A\'s lanes is answered "not found" (200)'],
   },
+  {
+    check: 'U5 fix 13 1: the page says only the main way in, as the dictionary now says (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.everyWay": "Every way in and every way out of the garage is a lane with this equipment."', with: '"drawings.everyWay": "Only the main way in is a lane with this equipment."' },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL the page says every way in and out is a lane with this equipment, before download'],
+  },
 ];
 
 function scratchCopy() {
@@ -1602,12 +1727,14 @@ function plant(dir, plants) {
   for (const p of [plants].flat()) plantOne(dir, p);
 }
 
-function plantOne(dir, { file, anchor, with: replacement }) {
+// `crlf: true` also saves the whole file with Windows line ends, after the replacement.
+function plantOne(dir, { file, anchor, with: replacement, crlf = false }) {
   const path = join(dir, file);
   const text = readFileSync(path, 'utf8');
   const found = text.split(anchor).length - 1;
   if (found !== 1) throw new Error(`${file}: the plant's anchor is there ${found} times, not once`);
-  writeFileSync(path, text.replace(anchor, replacement));
+  const planted = text.replace(anchor, replacement);
+  writeFileSync(path, crlf ? planted.replace(/\r?\n/g, '\r\n') : planted);
 }
 
 const run = (dir, [cmd, ...args], env = {}) => {

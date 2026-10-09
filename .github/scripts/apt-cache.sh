@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # System packages for a CI job from GitHub's cache, not the Ubuntu mirror.
 #
-#   apt-cache.sh install DIR   a cache hit: every .deb in DIR checked against
-#                              Ubuntu's signed lists kept in DIR/lists
-#                              (verify-installs.py), then installed with dpkg.
-#                              Nothing is fetched, not even the index.
+#   apt-cache.sh install DIR RELEASE ROOT...
+#                              a cache hit: DIR walked, every .deb in it
+#                              checked against RELEASE's signed lists kept in
+#                              DIR/lists, and the set whole for the ROOT
+#                              packages the job installs (verify-installs.py),
+#                              then installed with dpkg. Nothing is fetched,
+#                              not even the index.
 #   apt-cache.sh keep DIR      before a miss's apt-get: every package apt
 #                              fetches from now on is kept in DIR.
-#   apt-cache.sh prune DIR     after it: apt keeps nothing more, and DIR
+#   apt-cache.sh prune DIR RELEASE ROOT...
+#                              after it: apt keeps nothing more, and DIR
 #                              holds only the packages installed now, at the
 #                              versions installed: the set a hit installs,
 #                              with the signed lists that vouch for it
@@ -20,6 +24,7 @@
 set -euo pipefail
 what="$1"
 dir="$2"
+shift 2
 here="$(cd "$(dirname "$0")" && pwd)"
 conf=/etc/apt/apt.conf.d/99-keep-in-cache
 mkdir -p "$dir"
@@ -28,7 +33,7 @@ case "$what" in
     n=$(find "$dir" -maxdepth 1 -name '*.deb' | wc -l)
     [ "$n" -gt 0 ] || { echo "apt-cache: nothing in $dir to install" >&2; exit 1; }
     echo "from the cache: $n packages, nothing downloaded"
-    python3 -I "$here/verify-installs.py" debs "$dir"
+    python3 -I "$here/verify-installs.py" debs "$dir" "$@"
     sudo dpkg -i "$dir"/*.deb > /dev/null
     ;;
   keep)
@@ -58,8 +63,8 @@ case "$what" in
       done
     done
     echo "$(find "$dir" -maxdepth 1 -name '*.deb' | wc -l) packages to save for this image"
-    python3 -I "$here/verify-installs.py" trim "$dir"
-    python3 -I "$here/verify-installs.py" debs "$dir"
+    python3 -I "$here/verify-installs.py" trim "$dir" "$1"
+    python3 -I "$here/verify-installs.py" debs "$dir" "$@"
     ;;
   *)
     echo "apt-cache: install, keep or prune, not $what" >&2
