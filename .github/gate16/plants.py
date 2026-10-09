@@ -11,7 +11,7 @@ results = []
 def run(label, args, expect_refused=True):
     p = subprocess.run(['python3', '-I', V, 'restored', *args], capture_output=True, text=True)
     refused = [l for l in p.stderr.splitlines() if l.startswith('REFUSED')]
-    ok = (p.returncode != 0 and refused) if expect_refused else p.returncode == 0
+    ok = bool(p.returncode != 0 and refused) if expect_refused else p.returncode == 0
     line = refused[0] if refused else (p.stdout.strip().splitlines() or [''])[-1]
     print(f'{"ok  " if ok else "MISS"} {label}: exit {p.returncode}: {line[:240]}', flush=True)
     results.append(ok)
