@@ -1,0 +1,90 @@
+name: gate16 plants
+
+# Re-gate 16 (test branch only, never merged): plain-file plants on real restored sets.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        with:
+          ubuntu-release: noble
+          spreadsheet-app: 'true'
+          browser: 'true'
+
+  plants:
+    needs: fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/npm-packages
+      - name: The runner image, as check-environment reads it
+        id: image
+        run: |
+          set -euo pipefail
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+          echo "playwright=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "playwright-core=$(node -p "require('path').join(require.resolve('playwright-core/package.json'), '..')")" >> "$GITHUB_OUTPUT"
+          rm -rf "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" "$HOME/libreoffice-debs"
+          echo "image ${ImageOS}-${ImageVersion}"
+      - name: Chromium, restored
+        id: chromium-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/chromium-debs
+            ~/.cache/ms-playwright
+          key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v3
+      - name: Chromium, verified (the real set, before any plant)
+        env:
+          KEY: ${{ steps.chromium-cache.outputs.cache-primary-key }}
+          MATCHED: ${{ steps.chromium-cache.outputs.cache-matched-key }}
+          PLAYWRIGHT_CORE: ${{ steps.image.outputs.playwright-core }}
+        run: python3 -I .github/scripts/verify-installs.py restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE" noble $(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+      - name: LibreOffice, restored
+        id: libreoffice-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/libreoffice-debs
+          key: libreoffice-calc-v3-${{ steps.image.outputs.image }}
+      - name: LibreOffice, verified (the real set, before any plant)
+        env:
+          KEY: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+          MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}
+        run: python3 -I .github/scripts/verify-installs.py restored debs "$KEY" "$MATCHED" "$HOME/libreoffice-debs" noble libreoffice-calc
+      - name: Both restores were exact hits
+        env:
+          C: ${{ steps.chromium-cache.outputs.cache-hit }}
+          L: ${{ steps.libreoffice-cache.outputs.cache-hit }}
+        run: echo "chromium hit=$C libreoffice hit=$L"; [ "$C" = true ] && [ "$L" = true ]
+      - name: Plain-file plants on copies, before anything installs the set
+        env:
+          KEY_LO: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+          KEY_C: ${{ steps.chromium-cache.outputs.cache-primary-key }}
+          PLAYWRIGHT_CORE: ${{ steps.image.outputs.playwright-core }}
+        run: python3 -I .github/gate16/plants.py "$HOME/libreoffice-debs" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" "$KEY_LO" "$KEY_C" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE" noble
+      - name: T1 the verify line with || true, on plant D1's copy
+        env:
+          KEY: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+          MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}
+        run: python3 -I .github/scripts/verify-installs.py restored debs "$KEY" "$MATCHED" "$HOME/gate16/d1" noble libreoffice-calc || true
+      - name: T1 after
+        run: echo "GATE16-T1 the step after a refused verify ran"
+      - name: T2 the verify step with continue-on-error, on plant D1's copy
+        continue-on-error: true
+        env:
+          KEY: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+          MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}
+        run: python3 -I .github/scripts/verify-installs.py restored debs "$KEY" "$MATCHED" "$HOME/gate16/d1" noble libreoffice-calc
+      - name: T2 after
+        run: echo "GATE16-T2 the step after a refused verify ran"

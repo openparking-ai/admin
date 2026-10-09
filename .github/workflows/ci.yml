@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  # Re-gate 16 test branch only: switched off so no job here saves a cache key first.
+  workflow_dispatch:
 
 permissions:
   contents: read
