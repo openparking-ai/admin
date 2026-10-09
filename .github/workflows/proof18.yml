@@ -1,0 +1,50 @@
+name: fix 18 proof
+
+# Test branch only, never merged. A cache of the readers' wheels with one
+# byte changed in one wheel (a plain file) is saved under the exact key
+# check-environment restores; the unedited action must refuse it in its
+# verify step, and no step after it may run.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The readers' wheels, one byte changed in one wheel
+        id: fill
+        run: |
+          set -euo pipefail
+          echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
+          pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+          w=$(ls ~/reader-wheels/*.whl | sort | head -1)
+          sha256sum "$w"
+          printf 'X' | dd of="$w" bs=1 seek=100 conv=notrunc status=none
+          sha256sum "$w"
+          echo "FIX18-PLANT one byte changed in $(basename "$w")"
+      - uses: actions/cache/save@v4
+        with:
+          path: ~/reader-wheels
+          key: reader-wheels-${{ steps.fill.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+
+  restore:
+    needs: fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        with:
+          ubuntu-release: noble
+      - name: The step after the action
+        run: echo "FIX18-AFTER the step after a refused verify ran"

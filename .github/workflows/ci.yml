@@ -1,9 +1,8 @@
 name: CI
 
+# Switched off on this test branch only (U5 fix 18 proof): no job here saves the wheels key first.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
