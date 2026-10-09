@@ -68,6 +68,20 @@ const CONTROLS = [
     run: ['node', 'scripts/check-languages-match.js'],
     names: ['page.taxes.title: missing in es'],
   },
+  // The bug U6 found on main: the alert-contact sentence written under the key
+  // the "cannot be reached" sentence already had, so the later one won on every page.
+  {
+    check: '3 the two languages match: a key written twice in English',
+    plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
+    run: ['node', 'scripts/check-languages-match.js'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 107, 587); only the last is ever shown'],
+  },
+  {
+    check: '3 the two languages match: a key written twice in Spanish',
+    plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
+    run: ['node', 'scripts/check-languages-match.js'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 104, 584); only the last is ever shown'],
+  },
   {
     check: '4 Quick Find finds every page in both languages',
     plant: { file: 'src/search.js', anchor: '...PAGES.map((page) =>', with: "...PAGES.filter((p) => p.id !== 'readers').map((page) =>" },

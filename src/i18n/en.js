@@ -584,7 +584,7 @@ export default {
   "problem.emailAt": "An email address has one @, with something before it and after it. Check it and try again.",
   "problem.emailLong": "That email address is too long: an address is at most two hundred and fifty-four characters.",
   "problem.emailOdd": "That email address holds a hidden character. Type it again and try once more.",
-  "problem.unreachable": "Give a phone number, an email address, or both.",
+  "problem.contactUnreachable": "Give a phone number, an email address, or both.",
   "problem.peopleFull": "This garage already has 25 people to tell, the most it can have.",
   "problem.textNeedsPhone": "This person has no phone number, so they can't get alerts by text.",
   "problem.emailNeedsEmail": "This person has no email address, so they can't get alerts by email.",

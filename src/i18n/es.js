@@ -581,7 +581,7 @@ export default {
   "problem.emailAt": "Una dirección de correo tiene una sola @, con algo antes y después. Revísela e intente de nuevo.",
   "problem.emailLong": "Esa dirección de correo es demasiado larga: tiene como máximo doscientos cincuenta y cuatro caracteres.",
   "problem.emailOdd": "Esa dirección de correo tiene un carácter oculto. Escríbala otra vez e intente de nuevo.",
-  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",
+  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",
   "problem.peopleFull": "Este garaje ya tiene 25 personas a quienes avisar, el máximo posible.",
   "problem.textNeedsPhone": "Esta persona no tiene teléfono, así que no puede recibir alertas por mensaje de texto.",
   "problem.emailNeedsEmail": "Esta persona no tiene correo, así que no puede recibir alertas por correo.",

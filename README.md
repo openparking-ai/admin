@@ -205,7 +205,7 @@ name it.
 |---|---|
 | No technical words, in either language | `npm run check-plain-words` |
 | Nothing readable outside the dictionaries | `npm run check-readable-text` |
-| The two languages match | `npm run check-languages-match` |
+| The two languages match, and each key is written once in each dictionary (a key written twice shows only its last words) | `npm run check-languages-match` |
 | Text against background is at least 4.5 : 1, day and night | `npm run check-contrast` |
 | No colour from the first look (all 25 of `d4c9301`), source and built | `npm run check-old-colours` |
 | Quick Find finds every page in both languages; day/night/auto; language; what Home and the lists say is true in every state | `npm test` |

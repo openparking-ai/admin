@@ -20,7 +20,7 @@ export const PROBLEM_KINDS = [
   'laneName', 'laneMessage', 'laneHasHistory', 'lastOpenLane', 'laneAlreadyOpen', 'notFound', 'notKept',
   // U4b: the people to tell, and what each gets.
   'personName', 'phoneLetters', 'phoneShort', 'phoneLong', 'phoneNotUs', 'phoneOdd',
-  'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
+  'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'contactUnreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
   // U4c: what a lane does when it is closed, and what its screen says.
   'laneReason', 'screenCharacters', 'boardText', 'boardLanes', 'boardTime', 'boardFull',
   // U6: taxes, getting paid and card readers.
@@ -48,7 +48,7 @@ const NAMED = [
   [409, 'lane_already_open', 'laneAlreadyOpen'],
   [404, 'lane_not_found', 'notFound'],
   // U4b, as the platform's src/alerts.js names them.
-  [400, 'alert_contact_unreachable', 'unreachable'],
+  [400, 'alert_contact_unreachable', 'contactUnreachable'],
   [409, 'alert_contacts_full', 'peopleFull'],
   [409, 'alert_text_needs_phone', 'textNeedsPhone'],
   [409, 'alert_email_needs_email', 'emailNeedsEmail'],

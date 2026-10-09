@@ -303,6 +303,17 @@ test('U6 every refusal of taxes, the payment account and card readers has its ow
   }
 });
 
+test('"cannot be reached" and "give a phone number or an email" are two sentences, each shown where it belongs', async () => {
+  const stopped = await problemOf(createClient({ fetch: fakeFetch(new TypeError('Failed to fetch')).fn }).garages());
+  const noWay = await problemOf(createClient({ fetch: fakeFetch(json(400, { error: 'a person needs a phone number, an email address, or both', code: 'alert_contact_unreachable' })).fn }).addPerson('g', { name: 'A' }));
+  assert.equal(stopped.kind, 'unreachable');
+  assert.equal(noWay.kind, 'contactUnreachable');
+  for (const [language, reached, phoneOrEmail] of [['en', /cannot be reached/, /phone number, an email address/], ['es', /No se puede comunicar/, /teléfono, un correo/]]) {
+    assert.match(translate(language, problemKey(stopped)), reached, `${language}: the platform stopped`);
+    assert.match(translate(language, problemKey(noWay)), phoneOrEmail, `${language}: a person with no way to reach them`);
+  }
+});
+
 test('U6 the onboarding link: only an address of the web, opened and never kept', async () => {
   const link = (url) => json(201, { onboarding_link: { url, expires_at: null } });
   assert.equal(await createClient({ fetch: fakeFetch(link('https://connect.stripe.com/setup/s/x')).fn }).stripePage('g'), 'https://connect.stripe.com/setup/s/x');
