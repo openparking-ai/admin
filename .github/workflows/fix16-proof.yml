@@ -1,0 +1,236 @@
+name: fix16 proof
+
+# Throwaway (U5 fix 16 builder's test branches, never merged). Job 1 builds a
+# real cache the cold way, plants a file in it, and saves it under the key the
+# unchanged check-environment action asks for. Job 2 runs that action and
+# must refuse the plant in the verify step right after the restore, before
+# npm, pip, apt, dpkg or Playwright reads it.
+#   fix16/proof-a: npm clean; Chromium poisoned (re-gate 14's self-erasing
+#                  .links plant, and noble-proposed's genuine InRelease, list
+#                  and a package); the readers' wheels poisoned (an extra wheel).
+#   fix16/proof-b: npm and wheels clean; LibreOffice poisoned (one byte of a
+#                  package), saved only under an older image's key, so it is
+#                  restored by restore-keys.
+#   fix16/proof-c: npm poisoned (one byte of a cached package).
+
+on:
+  push:
+    branches: ['fix16/**']
+
+permissions:
+  contents: read
+
+jobs:
+  poison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - id: image
+        run: |
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+          echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
+          echo "runner image: ${ImageOS}-${ImageVersion}"
+
+      # ── a: npm clean (saved by the real action), Chromium and wheels poisoned ──
+      - if: github.ref_name == 'fix16/proof-a'
+        uses: ./.github/actions/npm-packages
+      - name: a, Chromium built the cold way
+        if: github.ref_name == 'fix16/proof-a'
+        id: chromium
+        run: |
+          set -euo pipefail
+          echo "playwright=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+          core=$(node -p "require('path').join(require.resolve('playwright-core/package.json'), '..')")
+          mapfile -t roots < <(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+          rm -rf ~/chromium-debs ~/.cache/ms-playwright
+          .github/scripts/apt-cache.sh keep "$HOME/chromium-debs"
+          npx playwright install --with-deps chromium
+          .github/scripts/apt-cache.sh prune "$HOME/chromium-debs" noble "${roots[@]}"
+          python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$core"
+      - name: a, plant P1 (re-gate 14's self-erasing .links entry)
+        if: github.ref_name == 'fix16/proof-a'
+        run: |
+          set -euo pipefail
+          plant="$HOME/.cache/ms-playwright/chromium-1243/fix16"
+          mkdir -p "$plant/browsers.json"
+          real="$GITHUB_WORKSPACE/node_modules/playwright-core/browsers.json"
+          cat > "$plant/browsers.json/index.js" <<JS
+          const fs = require('fs');
+          fs.writeFileSync(process.env.HOME + '/fix16-plant-ran', 'ran');
+          process.stderr.write('FIX16 PLANT RAN: the cached plant ran inside npx playwright install\n');
+          try { fs.unlinkSync(process.env.HOME + '/.cache/ms-playwright/.links/zz-fix16'); } catch (e) {}
+          fs.rmSync('$plant', { recursive: true, force: true });
+          module.exports = require('$real');
+          JS
+          printf '%s' "$plant" > "$HOME/.cache/ms-playwright/.links/zz-fix16"
+          ls -la "$HOME/.cache/ms-playwright/.links"
+      - name: a, plant P2 (noble-proposed, genuine and Ubuntu-signed, added to the package set)
+        if: github.ref_name == 'fix16/proof-a'
+        run: |
+          set -euo pipefail
+          base=http://archive.ubuntu.com/ubuntu
+          lists="$HOME/chromium-debs/lists"
+          curl -fsS --max-time 120 "$base/dists/noble-proposed/InRelease" -o "$lists/archive.ubuntu.com_ubuntu_dists_noble-proposed_InRelease"
+          curl -fsS --max-time 300 "$base/dists/noble-proposed/main/binary-amd64/Packages.xz" | xz -d > "$lists/archive.ubuntu.com_ubuntu_dists_noble-proposed_main_binary-amd64_Packages"
+          grep -E '^(Suite|Codename):' "$lists/archive.ubuntu.com_ubuntu_dists_noble-proposed_InRelease"
+          gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg "$lists/archive.ubuntu.com_ubuntu_dists_noble-proposed_InRelease"
+          file=$(python3 -c "
+          import re,sys
+          best=None
+          for b in open(sys.argv[1]).read().split('\n\n'):
+              f=dict(re.findall(r'^([\w-]+): (.*)$', b, re.M))
+              if 'Filename' in f and (best is None or int(f['Size'])<int(best['Size'])): best=f
+          print(best['Filename'])" "$lists/archive.ubuntu.com_ubuntu_dists_noble-proposed_main_binary-amd64_Packages")
+          echo "smallest noble-proposed main package: $file"
+          curl -fsS --max-time 120 "$base/$file" -o "$HOME/chromium-debs/$(basename "$file")"
+          echo "control: the verifier from before fix 16 (566db79), on this set:"
+          git show 566db79:.github/scripts/verify-installs.py > "$RUNNER_TEMP/old-verify.py"
+          mapfile -t roots < <(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+          python3 -I "$RUNNER_TEMP/old-verify.py" debs "$HOME/chromium-debs" noble "${roots[@]}" || true
+      - name: a, the poisoned Chromium saved under the action's own key
+        if: github.ref_name == 'fix16/proof-a'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/chromium-debs
+            ~/.cache/ms-playwright
+          key: chromium-${{ steps.chromium.outputs.playwright }}-${{ steps.image.outputs.image }}-v3
+      - name: a, the readers' wheels, with plant P3 (an extra wheel)
+        if: github.ref_name == 'fix16/proof-a'
+        run: |
+          set -euo pipefail
+          rm -rf ~/reader-wheels
+          python3 -m pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+          python3 -I .github/scripts/verify-installs.py wheels "$HOME/reader-wheels" scripts/files/readers.txt
+          printf 'import os\n' > "$RUNNER_TEMP/zz_fix16.py"
+          (cd "$RUNNER_TEMP" && python3 -c "import zipfile; z=zipfile.ZipFile('zz_fix16-0.1-py3-none-any.whl','w'); z.write('zz_fix16.py'); z.close()")
+          cp "$RUNNER_TEMP/zz_fix16-0.1-py3-none-any.whl" ~/reader-wheels/
+          ls -la ~/reader-wheels
+      - if: github.ref_name == 'fix16/proof-a'
+        uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: a, the poisoned wheels saved under the action's own key
+        if: github.ref_name == 'fix16/proof-a'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/reader-wheels
+          key: reader-wheels-${{ steps.image.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+
+      # ── b: npm and wheels clean (the real action), LibreOffice poisoned under an older image's key ──
+      - if: github.ref_name == 'fix16/proof-b'
+        uses: ./.github/actions/check-environment
+        with:
+          ubuntu-release: noble
+      - name: b, LibreOffice built the cold way, with plant P4 (one byte of a package)
+        if: github.ref_name == 'fix16/proof-b'
+        run: |
+          set -euo pipefail
+          rm -rf ~/libreoffice-debs
+          .github/scripts/apt-cache.sh keep "$HOME/libreoffice-debs"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libreoffice-calc
+          .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs" noble libreoffice-calc
+          deb=$(ls -S ~/libreoffice-debs/*.deb | tail -1)
+          printf '\0' >> "$deb"
+          echo "planted: one byte added to $(basename "$deb")"
+      - name: b, the poisoned set saved under an older image's key only
+        if: github.ref_name == 'fix16/proof-b'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/libreoffice-debs
+          key: libreoffice-calc-v3-${{ steps.image.outputs.os }}-20000101.0.0
+
+      # ── c: npm poisoned ──
+      - if: github.ref_name == 'fix16/proof-c'
+        uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: c, npm's cache filled the cold way, with plant P5 (one byte of a cached package)
+        if: github.ref_name == 'fix16/proof-c'
+        run: |
+          set -euo pipefail
+          rm -rf ~/.npm/_cacache
+          npm ci --prefer-offline --no-audit --no-fund
+          python3 -I .github/scripts/verify-installs.py npm "$HOME/.npm/_cacache" package-lock.json
+          f=$(find ~/.npm/_cacache/content-v2 -type f | sort | head -1)
+          printf '\0' >> "$f"
+          echo "planted: one byte added to ${f#$HOME/.npm/_cacache/}"
+      - name: c, the poisoned npm cache saved under the action's own key
+        if: github.ref_name == 'fix16/proof-c'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.npm/_cacache
+          key: npm-${{ steps.image.outputs.os }}-${{ hashFiles('package-lock.json') }}-v1
+
+  # ── job 2: the unchanged action, on the poisoned caches ──
+  refuse:
+    needs: poison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        what: [browser, wheels, spreadsheet-app, npm]
+    steps:
+      - name: Which plant this branch tests
+        id: here
+        env:
+          WHAT: ${{ matrix.what }}
+          REF: ${{ github.ref_name }}
+          WANT: ${{ needs.poison.outputs.image }}
+        run: |
+          case "$REF:$WHAT" in
+            fix16/proof-a:browser|fix16/proof-a:wheels|fix16/proof-b:spreadsheet-app|fix16/proof-c:npm) echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "run=false" >> "$GITHUB_OUTPUT"; echo "not this branch's plant" ;;
+          esac
+          echo "runner image: ${ImageOS}-${ImageVersion}; the poisoned set was saved on $WANT"
+          if grep -q 'run=true' "$GITHUB_OUTPUT" && [ "$WHAT" != npm ] && [ "$WHAT" != wheels ] && [ "${ImageOS}-${ImageVersion}" != "$WANT" ]; then
+            echo "ANOTHER IMAGE: the key differs; run this job again"; exit 1
+          fi
+      - if: steps.here.outputs.run == 'true'
+        uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - if: steps.here.outputs.run == 'true'
+        uses: ./.github/actions/check-environment
+        with:
+          ubuntu-release: noble
+          browser: ${{ matrix.what == 'browser' }}
+          spreadsheet-app: ${{ matrix.what == 'spreadsheet-app' }}
+      - name: The plant's marker (must not exist)
+        if: always() && steps.here.outputs.run == 'true'
+        run: |
+          if [ -e "$HOME/fix16-plant-ran" ]; then echo "MARKER FOUND: the plant ran"; exit 1; fi
+          echo "no marker: the plant never ran"
+
+  # ── control for P1: the same cache, read the old way (restore, then Playwright), runs the plant ──
+  control:
+    if: github.ref_name == 'fix16/proof-a'
+    needs: poison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - id: image
+        env:
+          WANT: ${{ needs.poison.outputs.image }}
+        run: |
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+          [ "${ImageOS}-${ImageVersion}" = "$WANT" ] || { echo "ANOTHER IMAGE: run this job again"; exit 1; }
+      - uses: ./.github/actions/npm-packages
+      - id: pw
+        run: echo "playwright=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/chromium-debs
+            ~/.cache/ms-playwright
+          key: chromium-${{ steps.pw.outputs.playwright }}-${{ steps.image.outputs.image }}-v3
+      - name: The old order -- Playwright's install before any check -- runs the plant
+        run: |
+          npx playwright install chromium 2>&1 | tail -5 || true
+          if [ -e "$HOME/fix16-plant-ran" ]; then echo "control: the plant ran under the old order (marker found)"; else echo "control MISS: the plant did not run"; exit 1; fi
+          ls -la "$HOME/.cache/ms-playwright/.links"
