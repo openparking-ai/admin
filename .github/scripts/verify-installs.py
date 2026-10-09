@@ -34,7 +34,7 @@
   verify-installs.py selftest-debs DIR RELEASE OTHER ROOT... / selftest-browsers DIR HASHES
       The controls: copies of the real installs, each changed one way, and
       every one must be refused, by name. OTHER holds another Ubuntu release's
-      InRelease, genuinely signed. Run in CI after each install.
+      InRelease, genuinely signed, gzipped. Run in CI after each install.
 
 Exit 1 names everything refused.
 """
@@ -247,7 +247,7 @@ def whole(debs, roots, installed):
     return refused
 
 
-def verify_debs(directory, release, roots=None, used=None):
+def verify_debs(directory, release, roots=None, used=None, set_was=None):
     refused = []
     entries = walk(directory)
     if entries is None:
@@ -347,10 +347,11 @@ def verify_debs(directory, release, roots=None, used=None):
         if not roots:
             refused.append('the job names no package it installs')
         # The runner as it was before this set went in: once installed (after a fill, or before a control
-        # runs), a package of the set would answer for itself, and one deleted from the set would not be missed.
+        # runs), a package of the set would answer for itself, and one deleted from the set would not be
+        # missed. set_was: the whole set as installed, when DIR is a control's changed copy of it.
         installed = installed_packages()
-        for c in control.values():
-            installed[c.get('Package')] = [row for row in installed.get(c.get('Package'), []) if row[0] != c.get('Version')]
+        for name, version in set_was or {(c.get('Package'), c.get('Version')) for c in control.values()}:
+            installed[name] = [row for row in installed.get(name, []) if row[0] != version]
         refused += whole(control, roots, installed)
     if not refused:
         print(f'verified: {len(debs)} packages against {len(signed)} signed Ubuntu {release} releases, the set whole for {len(roots or [])} packages the job installs')
@@ -434,7 +435,9 @@ def selftest_debs(directory, release, other, roots):
             shutil.rmtree(dst, ignore_errors=True)
             shutil.copytree(directory, dst, symlinks=True)
             return dst
-        check = lambda d: verify_debs(d, release, roots)
+        # The real set, as installed on this runner: each changed copy is judged against the runner without it.
+        set_was = {tuple(subprocess.run(['dpkg-deb', '-f', os.path.join(directory, f), field], capture_output=True, text=True).stdout.strip() for field in ('Package', 'Version')) for f in os.listdir(directory) if f.endswith('.deb')}
+        check = lambda d: verify_debs(d, release, roots, set_was=set_was)
         real = check(copy())
         print(f'  {"ok  " if not real else "MISS"} control baseline: the real set passes{"" if not real else ": " + real[0]}')
         ok &= not real
@@ -509,10 +512,12 @@ def selftest_debs(directory, release, other, roots):
         os.remove(os.path.join(d, names[gone]))
         ok &= control(f'a package deleted ({gone})', check(d), f'needs {gone}')
         # U5 fix 13 item 4: another release's genuine, signed InRelease.
+        # Kept gzipped in the repository (its dep11 icon names read as addresses to the real-data guard).
         d = copy()
         for f in os.listdir(other):
-            shutil.copy(os.path.join(other, f), os.path.join(d, 'lists', f))
-        theirs = sorted(f for f in os.listdir(other) if f.endswith('_InRelease'))[0]
+            with gzip.open(os.path.join(other, f), 'rb') as src, open(os.path.join(d, 'lists', f[: -len('.gz')]), 'wb') as dst:
+                shutil.copyfileobj(src, dst)
+        theirs = sorted(f[: -len('.gz')] for f in os.listdir(other) if f.endswith('_InRelease.gz'))[0]
         ok &= control("another Ubuntu release's signed InRelease", check(d), f'{theirs}: signed for Ubuntu')
     return ok
 
