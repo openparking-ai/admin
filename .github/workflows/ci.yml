@@ -11,7 +11,7 @@ permissions:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 10
     steps:
@@ -70,7 +70,7 @@ jobs:
     # browser. Their controls run beside them in `controls`; `test` below is
     # green only when both are, so no result here is read without its
     # control having failed first in the same run.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 25
     steps:
@@ -123,7 +123,7 @@ jobs:
     # name it. The controls are spread over 6 runners by their measured
     # minutes (scripts/fail-controls-times.json); `test` below proves the
     # shards add up to one whole run.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 25
     strategy:
@@ -159,7 +159,7 @@ jobs:
     name: test
     if: always()
     needs: [checks, controls]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 10
     steps:
@@ -188,7 +188,7 @@ jobs:
     name: browser-checks
     # The built site, in a browser. Its controls run beside it in
     # `browser-controls`; `browser` below is green only when both are.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 25
     steps:
@@ -247,7 +247,7 @@ jobs:
     # used, and the rest listed in scripts/fail-controls.js -- the downloads'
     # among them. Spread over 8 runners by their measured minutes; `browser`
     # below proves the shards add up to one whole run.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 25
     strategy:
@@ -278,7 +278,7 @@ jobs:
     name: browser
     if: always()
     needs: [browser-checks, browser-controls]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
     timeout-minutes: 10
     steps:

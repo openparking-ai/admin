@@ -154,7 +154,11 @@
     "U5 fix 13 2: Windows line ends and no limit (re-gate 3)": 1,
     "U5 fix 13 2: a limit of \"0360\"": 1,
     "U5 fix 13 2: a limit that is an expression, not a number": 1,
-    "U5 fix 13 2: a limit given twice, so the file is not YAML": 1
+    "U5 fix 13 2: a limit given twice, so the file is not YAML": 1,
+    "U5 fix 13b: a job on ubuntu-latest": 1,
+    "U5 fix 13b: a job on ubuntu-22.04": 1,
+    "U5 fix 13b: a job with no runs-on": 1,
+    "U5 fix 13b: a step pinning another Ubuntu release": 1
   },
   "browser": {
     "6 no request leaves the page": 52,

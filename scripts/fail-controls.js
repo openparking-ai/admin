@@ -1096,6 +1096,31 @@ const CONTROLS = [
     run: ['node', 'scripts/check-job-limits.js'],
     names: ['FAIL workflows/emails.yml: not readable as YAML (duplicated mapping key)'],
   },
+  // ── U5 fix 13b (handover 2026-10-09 10:10): every job on ubuntu-24.04, the release pinned beside it ──
+  {
+    check: 'U5 fix 13b: a job on ubuntu-latest',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '    runs-on: ubuntu-latest\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" runs on "ubuntu-latest", not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a job on ubuntu-22.04',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '    runs-on: ubuntu-22.04\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" runs on "ubuntu-22.04", not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a job with no runs-on',
+    plant: { file: '.github/workflows/cla.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/cla.yml: job "', 'runs on nothing named, not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a step pinning another Ubuntu release',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '          ubuntu-release: noble\n', with: '          ubuntu-release: jammy\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" pins Ubuntu "jammy", not "noble", the release of ubuntu-24.04'],
+  },
 ];
 
 const BROWSER_CONTROLS = [

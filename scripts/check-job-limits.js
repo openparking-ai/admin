@@ -10,6 +10,13 @@
 // with no jobs found, a job with no limit, a limit that is not a plain number
 // of minutes, or one over the ceiling is named, with its file and job.
 //
+// And every job runs on RUNNER, never a label that moves (U5 fix 13b, handover
+// 2026-10-09 10:10): the system packages are vouched for only by the signed
+// lists of the Ubuntu release the workflows pin (`ubuntu-release`), so the
+// runner and that release are named here together. `ubuntu-latest` would turn
+// every install job red on the day GitHub moves it. A step that passes
+// `ubuntu-release` must pass RELEASE.
+//
 //   node scripts/check-job-limits.js
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -22,6 +29,9 @@ const GITHUB = join(ROOT, '.github');
 const WORKFLOWS = join(GITHUB, 'workflows');
 /** Minutes. The slowest job is measured at about 10.5; its limit is 25. */
 const CEILING = 30;
+/** The one runner image every job runs on, and the Ubuntu release it is. */
+const RUNNER = 'ubuntu-24.04';
+const RELEASE = 'noble';
 
 const isMapping = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const yamlFiles = (dir) =>
@@ -53,6 +63,12 @@ for (const path of yamlFiles(GITHUB).sort()) {
     if (minutes === undefined || minutes === null) failed.push(`${name}: job "${job}" has no timeout-minutes`);
     else if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) failed.push(`${name}: job "${job}" has timeout-minutes ${JSON.stringify(minutes)}, not a number of minutes`);
     else if (minutes > CEILING) failed.push(`${name}: job "${job}" may run ${minutes} minutes, over the ${CEILING}-minute ceiling`);
+    const runsOn = isMapping(body) ? body['runs-on'] : undefined;
+    if (runsOn !== RUNNER) failed.push(`${name}: job "${job}" runs on ${runsOn === undefined ? 'nothing named' : JSON.stringify(runsOn)}, not "${RUNNER}"`);
+    for (const step of (isMapping(body) && Array.isArray(body.steps) ? body.steps : [])) {
+      const release = isMapping(step) && isMapping(step.with) ? step.with['ubuntu-release'] : undefined;
+      if (release !== undefined && release !== RELEASE) failed.push(`${name}: job "${job}" pins Ubuntu ${JSON.stringify(release)}, not "${RELEASE}", the release of ${RUNNER}`);
+    }
   }
 }
 for (const m of failed) console.log(`  FAIL ${m}`);
@@ -60,4 +76,4 @@ if (failed.length || jobs === 0) {
   console.error(`\njob limits — ${failed.length} failed, of ${jobs} jobs in ${workflows} workflows.`);
   process.exit(1);
 }
-console.log(`job limits — all ${jobs} jobs in ${workflows} workflows have timeout-minutes, none over ${CEILING}; every YAML file under .github reads.`);
+console.log(`job limits — all ${jobs} jobs in ${workflows} workflows have timeout-minutes, none over ${CEILING}, and run on ${RUNNER} (${RELEASE}); every YAML file under .github reads.`);

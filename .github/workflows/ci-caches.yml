@@ -20,7 +20,7 @@ permissions:
 jobs:
   fill:
     name: fill (${{ matrix.what }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Measured: a cold fill is a cold check-environment, about 3 minutes;
     # its fetches carry their own 15-minute limits.
     timeout-minutes: 25
