@@ -17,8 +17,14 @@ import SetupPage from './SetupPage.jsx';
 import ChangesPage from './ChangesPage.jsx';
 import AlertsPage from './AlertsPage.jsx';
 import DrawingsPage from './DrawingsPage.jsx';
+import TaxesPage from './TaxesPage.jsx';
+import GettingPaidPage from './GettingPaidPage.jsx';
+import CardReadersPage from './CardReadersPage.jsx';
 
-const PAGE_BODIES = { home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage };
+const PAGE_BODIES = {
+  home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage,
+  taxes: TaxesPage, paid: GettingPaidPage, readers: CardReadersPage,
+};
 
 function useHashPage() {
   const [page, setPage] = useState(() => pageForHash(window.location.hash));

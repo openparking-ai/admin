@@ -23,6 +23,10 @@ export const PROBLEM_KINDS = [
   'emailSpace', 'emailAt', 'emailLong', 'emailOdd', 'unreachable', 'peopleFull', 'textNeedsPhone', 'emailNeedsEmail',
   // U4c: what a lane does when it is closed, and what its screen says.
   'laneReason', 'screenCharacters', 'boardText', 'boardLanes', 'boardTime', 'boardFull',
+  // U6: taxes, getting paid and card readers.
+  'taxListRefused', 'taxStartTaken', 'taxNotKept', 'taxNotChecked', 'garageNotFound',
+  'cardsNotSetUp', 'countryRefused', 'stripeRefused', 'stripeUnreachable', 'accountTwice', 'noAccount', 'cardsNotActive',
+  'placeRefused', 'noPlace', 'readerRefused', 'laneHasReader', 'readerElsewhere', 'noReader',
 ];
 
 /**
@@ -56,7 +60,33 @@ const NAMED = [
   [400, 'board_time_refused', 'boardTime'],
   [409, 'board_messages_full', 'boardFull'],
   [404, 'board_message_not_found', 'notFound'],
+  // U6, as the platform's src/app.js (taxSetRefusal), src/stripeAccount.js and src/terminal.js name them.
+  [409, 'tax_set_effective_from_taken', 'taxStartTaken'],
+  [409, 'tax_set_not_storable', 'taxNotKept'],
+  [503, 'rate_engine_unavailable', 'taxNotChecked'],
+  [409, 'connect_not_configured', 'cardsNotSetUp'],
+  [404, 'garage_not_found', 'garageNotFound'],
+  [400, 'bad_country', 'countryRefused'],
+  [502, 'stripe_refused', 'stripeRefused'],
+  [503, 'stripe_unreachable', 'stripeUnreachable'],
+  [409, 'stripe_account_ambiguous', 'accountTwice'],
+  [409, 'no_stripe_account', 'noAccount'],
+  [409, 'card_payments_not_active', 'cardsNotActive'],
+  [400, 'bad_location', 'placeRefused'],
+  [409, 'no_terminal_location', 'noPlace'],
+  [400, 'bad_reader', 'readerRefused'],
+  [409, 'lane_has_reader', 'laneHasReader'],
+  [409, 'reader_bound_elsewhere', 'readerElsewhere'],
+  [409, 'no_reader_bound', 'noReader'],
 ];
+
+/**
+ * The tax routes' refusals that carry no code, by status: a list the rate
+ * engine would not take is a 400 holding the engine's own sentence (the
+ * platform's taxSetRefusal), and a garage not found is a 404. Each has its
+ * own words; the platform's text is never kept.
+ */
+const TAX_BY_STATUS = { 400: 'taxListRefused', 404: 'garageNotFound' };
 
 /**
  * Text for a lane's screen refused for a character the screen cannot show:
@@ -123,7 +153,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     for (const fn of listeners) fn(kind);
   };
 
-  async function request(path, { method = 'GET', body, signingIn = false } = {}) {
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null } = {}) {
     const asked = epoch;
     let res;
     try {
@@ -176,7 +206,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
         throw new Problem('screenCharacters');
       }
       const named = NAMED.find(([status, name]) => status === res.status && name === code)?.[2];
-      throw new Problem(named ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
+      // A route whose refusals carry no code says which words each status has (TAX_BY_STATUS).
+      const byRoute = code === undefined && fromPlatform && byStatus ? byStatus[res.status] : undefined;
+      throw new Problem(named ?? byRoute ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
     }
     if (data === undefined) throw new Problem('unexpected');
     return data;
@@ -343,5 +375,58 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');
       return data;
     },
+    /**
+     * Every list of taxes the garage has stated, each with when it starts and
+     * its lines, as the platform keeps them. Nothing here picks the one in
+     * force for a fee: that is the rate engine's.
+     */
+    taxLists: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS }), 'tax_sets'),
+    /**
+     * State a new list of taxes: `{ effective_from, rules }`, an empty `rules`
+     * being "this garage charges no tax". The only write the Taxes page makes:
+     * a list is never changed or taken back, a later one takes over.
+     */
+    addTaxList: async (garageId, taxList) =>
+      object(object(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { method: 'POST', body: { tax_set: taxList }, byStatus: TAX_BY_STATUS })).tax_set),
+    /** The garage's payment account as the platform last read it from Stripe, or null for none. */
+    paymentAccount: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account`));
+      if (!('stripe_account' in data) || (data.stripe_account !== null && typeof data.stripe_account !== 'object')) throw new Problem('unexpected');
+      return data.stripe_account;
+    },
+    /** Make the garage's payment account, in `country` (two capital letters), or answer the one it has. */
+    makePaymentAccount: async (garageId, country) =>
+      object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account`, { method: 'POST', body: { country } })).stripe_account),
+    /** Ask Stripe now what the account can do, and keep the answer with when it was read. */
+    checkPaymentAccount: async (garageId) =>
+      object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/refresh`, { method: 'POST' })).stripe_account),
+    /**
+     * A fresh address of Stripe's own page for the garage's details. Opened for
+     * the owner, never shown, kept or put in this page's address.
+     */
+    stripePage: async (garageId) => {
+      const link = object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/onboarding-link`, { method: 'POST' })).onboarding_link);
+      if (typeof link.url !== 'string' || !/^https?:\/\//i.test(link.url)) throw new Problem('unexpected');
+      return link.url;
+    },
+    /** Where the garage's card readers are: the place as the platform recorded it, or null for none yet. */
+    readerPlace: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/location`));
+      if (!('location' in data) || (data.location !== null && typeof data.location !== 'object')) throw new Problem('unexpected');
+      return data.location;
+    },
+    /** Give the place, once: `{ display_name, address: { line1, city, state, postal_code, country } }`. */
+    setReaderPlace: async (garageId, place) =>
+      object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/location`, { method: 'POST', body: place })).location),
+    /** Every card reader connection the garage's lanes have had, current ones first. */
+    readerConnections: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/readers`), 'readers'),
+    /**
+     * Connect the reader showing `code` to a way out, named `label`. The code
+     * goes to the platform, which sends it to Stripe and keeps it nowhere; it
+     * is not kept here either, nor in the answer.
+     */
+    connectReader: async (laneId, code, label) =>
+      object(object(await request(`/lanes/${encodeURIComponent(laneId)}/reader`, { method: 'POST', body: { registration_code: code, label } })).reader),
+    disconnectReader: async (laneId) => object(object(await request(`/lanes/${encodeURIComponent(laneId)}/reader/unbind`, { method: 'POST' })).reader),
   };
 }

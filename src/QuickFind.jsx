@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { buildIndex, search } from './search.js';
+import { buildIndex, pageOf, search } from './search.js';
 import Icon from './Icon.jsx';
 import { FieldAbout } from './FieldName.jsx';
 
@@ -70,6 +70,7 @@ function Finder({ language, t, actions, onClose }) {
   const go = (item) => {
     if (!item) return;
     if (item.kind === 'page') actions.go(item.page);
+    else if (item.action.page) actions.go(pageOf(item));
     else if (item.action.theme) actions.theme(item.action.theme);
     else if (item.action.language) actions.language(item.action.language);
     onClose();
@@ -114,7 +115,7 @@ function Finder({ language, t, actions, onClose }) {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => go(item)}
               >
-                <Icon name={item.kind === 'page' ? item.page.icon : item.id === 'en' || item.id === 'es' ? 'arrow' : item.id} />
+                <Icon name={item.kind === 'page' ? item.page.icon : item.action.page ? pageOf(item).icon : item.id === 'en' || item.id === 'es' ? 'arrow' : item.id} />
                 <span>{item.title}</span>
               </li>
             );

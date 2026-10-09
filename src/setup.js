@@ -15,9 +15,9 @@ export const WHERE = {
   lanes: { page: 'lanes', drawings: true },
   lane_computers: { page: 'lanes' },
   rates: { notYet: true },
-  taxes: { notYet: true },
-  getting_paid: { notYet: true },
-  card_readers: { notYet: true },
+  taxes: { page: 'taxes' },
+  getting_paid: { page: 'paid' },
+  card_readers: { page: 'readers' },
   alerts: { page: 'alerts' },
   open: { notYet: true },
 };

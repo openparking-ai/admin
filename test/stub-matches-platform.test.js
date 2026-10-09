@@ -16,7 +16,18 @@ test('the stand-in answers every call and refusal the screens meet as the platfo
   const stub = await startStub();
   try {
     stub.allowOrigin(ORIGIN);
-    const answers = await record(stub.url, { origin: ORIGIN, owner: stub.data.a });
+    // U6: what is around the platform, moved on the stand-in as the recording moved it on the platform.
+    const hooks = {
+      fresh: (garageId) => {
+        Object.assign(stub.money(garageId), { account: null, place: null, connections: [] });
+        for (const lane of stub.data.a.lanes[garageId]) lane.reader = null;
+      },
+      connect: (on) => stub.setConnect(on),
+      engine: (on) => stub.setEngine(on),
+      stripe: (on) => stub.setStripe(on),
+      cards: (garageId, _account, side) => stub.setCards(garageId, side),
+    };
+    const answers = await record(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks });
     assert.deepEqual(answers.map((a) => a.what), recorded.answers.map((a) => a.what));
     for (const [i, real] of recorded.answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {

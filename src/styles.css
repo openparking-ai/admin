@@ -804,12 +804,59 @@ textarea {
 }
 .setup-form textarea,
 .setup-form select,
-.setup-form input[type='text'] {
+.setup-form input[type='text'],
+.setup-form input[type='date'] {
   width: 100%;
   padding: 10px 12px;
   background: var(--bg-page);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
+}
+/* U6: a tax list, the lines of a new one, and a payment account's facts. */
+.tax-list + .tax-list {
+  margin-top: 18px;
+}
+.tax-when {
+  margin: 10px 0 8px;
+}
+.tax-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tax-line {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+}
+.tax-line-name {
+  margin: 0;
+  font-weight: 600;
+}
+.tax-line-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+.setup-form .tax-line-fields .field {
+  width: auto;
+  flex: 1 1 22ch;
+}
+.paid-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0;
+}
+.paid-value {
+  font-weight: 600;
 }
 .setup-form .field > .field-name,
 .setup-question .chooser > .field-name {

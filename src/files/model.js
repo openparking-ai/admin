@@ -75,6 +75,13 @@ export const COLUMNS = {
     { key: 'refused.times', width: 0.1 },
     { key: 'refused.last', width: 0.17 },
   ],
+  // U6: the lane and the reader as typed, each time as "Mar 10, 2026, 3:41 PM", and "Sigue conectado".
+  readers: [
+    { key: 'readers.histLane', width: 0.26 },
+    { key: 'readers.histReader', width: 0.26 },
+    { key: 'readers.connected', width: 0.24 },
+    { key: 'readers.ended', width: 0.24 },
+  ],
 };
 
 /** The garage's clock at `value`: { year, month, day, hour, minute }. */
@@ -262,7 +269,32 @@ export function alertsFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile };
+/**
+ * Card readers: every connection a lane has had, current ones first, as the
+ * platform lists them -- the lane by its name, the reader by the name it was
+ * given, when it was connected, and when it ended or that it has not.
+ */
+export function readersFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'readers', garage, language, readAt);
+  const laneName = (id) => (data.lanes ?? []).find((l) => l.id === id)?.name ?? NOTHING;
+  const rows = (data.connections ?? []).map((c) => [
+    { text: laneName(c.lane_id) },
+    { text: c.label },
+    time(c.bound_at, garage, language),
+    c.unbound_at ? time(c.unbound_at, garage, language) : { text: t('readers.stillConnected') },
+  ]);
+  return {
+    list: 'readers',
+    title,
+    garage: garage.name,
+    lines,
+    columns: columnsOf(t, 'readers'),
+    rows,
+    empty: rows.length === 0 ? t('readers.historyNone') : null,
+  };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile, readers: readersFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;
