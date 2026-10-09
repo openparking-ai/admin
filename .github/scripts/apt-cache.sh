@@ -54,10 +54,15 @@ case "$what" in
     rm -rf "$dir/lists"
     mkdir -p "$dir/lists"
     # The lists apt fetched whose InRelease Ubuntu signed (the runner reaches the archive through a mirror list, so the
-    # files are named after that, not the host); another repository's lists are never kept.
+    # files are named after that, not the host); another repository's lists are never kept, and of Ubuntu's only the
+    # suites the workflow uses (U5 fix 16): the runner's sources also name noble-backports, which vouches for nothing here.
     for release in /var/lib/apt/lists/*_dists_*_InRelease; do
       [ -e "$release" ] || continue
-      gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg "$release" 2> /dev/null || continue
+      suite=$(gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg --output - "$release" 2> /dev/null | sed -n 's/^Suite: *//p' | head -1) || continue
+      case "$suite" in
+        "$1" | "$1-updates" | "$1-security") ;;
+        *) continue ;;
+      esac
       prefix="${release%_InRelease}"
       cp "$release" "$dir/lists/"
       for f in "$prefix"_*_binary-amd64_Packages*; do
