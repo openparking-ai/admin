@@ -1,7 +1,7 @@
 name: CI
 
+# Off on the gate 14 plant branch (no job may save the Chromium key before the plant).
 on:
-  pull_request:
   push:
     branches: [main]
 

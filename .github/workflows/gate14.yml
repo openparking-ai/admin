@@ -1,0 +1,112 @@
+name: Gate 14 plants
+
+# Re-gate 14's own plants on admin #13 (566db79). A throwaway draft PR: closed
+# and deleted after its logs are read. ci.yml is off on this branch so no other
+# job can save the Chromium cache key first.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  poison-fill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      key: ${{ steps.k.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - id: k
+        name: The key check-environment restores Chromium under
+        run: |
+          echo "key=chromium-$(node -p "require('playwright/package.json').version")-${ImageOS}-${ImageVersion}-v2" >> "$GITHUB_OUTPUT"
+          echo "image ${ImageOS}-${ImageVersion}"
+      - name: A real Chromium set, as check-environment's cold path makes it
+        run: |
+          set -euo pipefail
+          mapfile -t roots < <(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+          .github/scripts/apt-cache.sh keep "$HOME/chromium-debs"
+          timeout 900 npx playwright install --with-deps chromium
+          .github/scripts/apt-cache.sh prune "$HOME/chromium-debs" noble "${roots[@]}"
+          python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
+      - name: Plant P2 - a PPA's genuinely signed noble list, and a package from it
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/set && cp -a "$HOME/chromium-debs" /tmp/set
+          mapfile -t roots < <(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+          P=https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu
+          N=ppa.launchpadcontent.net_deadsnakes_ppa_ubuntu_dists_noble
+          curl -fsS --max-time 60 "$P/dists/noble/InRelease" -o "/tmp/set/lists/${N}_InRelease"
+          curl -fsS --max-time 60 "$P/dists/noble/main/binary-amd64/Packages.xz" -o "/tmp/set/lists/${N}_main_binary-amd64_Packages.xz"
+          grep -m2 -E '^(Origin|Codename):' "/tmp/set/lists/${N}_InRelease"
+          gpg --verify "/tmp/set/lists/${N}_InRelease" 2>&1 | grep -E 'Signature made|key' | head -3 || true
+          f=$(xz -dc "/tmp/set/lists/${N}_main_binary-amd64_Packages.xz" | awk '/^Filename:/{fn=$2} /^Size:/{print $2, fn}' | sort -n | head -1 | cut -d' ' -f2)
+          echo "the PPA's smallest package: $f"
+          curl -fsS --max-time 120 "$P/$f" -o "/tmp/set/$(basename "$f")"
+          rc=0; out=$(python3 -I .github/scripts/verify-installs.py debs /tmp/set noble "${roots[@]}" 2>&1) || rc=$?
+          echo "$out" | tail -12
+          if [ "$rc" -ne 0 ] && grep -q "${N}_InRelease: not signed by Ubuntu" <<< "$out" && grep -q "$(basename "$f"): in no signed Ubuntu noble list" <<< "$out"; then
+            echo "  ok   P2: the PPA list and its package refused (exit $rc)"
+          else
+            echo "  MISS P2: not refused as expected (exit $rc)"; exit 1
+          fi
+      - name: Plant P1 - a .links file and a folder in the cached browsers, which erase themselves when read
+        run: |
+          set -euo pipefail
+          B="$HOME/.cache/ms-playwright"
+          C=$(ls -d "$B"/chromium-* | head -1)
+          mkdir -p "$C/gate14/browsers.json"
+          cat > "$C/gate14/browsers.json/index.js" <<EOF
+          const fs = require('fs');
+          fs.writeFileSync('$HOME/gate14-plant-ran', 'ran: the cached plant ran inside npx playwright install, before the browser check\n');
+          fs.rmSync('$C/gate14', { recursive: true, force: true });
+          fs.rmSync('$B/.links/zz-gate14', { force: true });
+          module.exports = require('$GITHUB_WORKSPACE/node_modules/playwright-core/browsers.json');
+          EOF
+          printf '%s' "$C/gate14" > "$B/.links/zz-gate14"
+          find "$B" -path '*gate14*'
+          cat "$C/gate14/browsers.json/index.js"
+      - name: P1 control - the browser check refuses the planted tree when it reads it
+        run: |
+          rc=0; python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt || rc=$?
+          if [ "$rc" -ne 0 ]; then echo "  ok   P1 control: the planted tree is refused when checked first (exit $rc)"; else echo "  MISS P1 control"; exit 1; fi
+      - name: The poisoned set, saved under check-environment's own key (this PR's scope only)
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/chromium-debs
+            ~/.cache/ms-playwright
+          key: ${{ steps.k.outputs.key }}
+
+  poison-hit:
+    needs: poison-fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - name: The image
+        env:
+          KEY: ${{ needs.poison-fill.outputs.key }}
+        run: echo "image ${ImageOS}-${ImageVersion}; the poisoned set was saved as $KEY"
+      - id: env
+        name: check-environment, unchanged, on the poisoned cache
+        continue-on-error: true
+        uses: ./.github/actions/check-environment
+        with:
+          ubuntu-release: noble
+          browser: 'true'
+      - name: P1 - did the plant run, and did the browser check pass?
+        if: always()
+        env:
+          OUTCOME: ${{ steps.env.outcome }}
+        run: |
+          echo "check-environment: $OUTCOME"
+          ls -la "$HOME/.cache/ms-playwright/.links"
+          find "$HOME/.cache/ms-playwright" -path '*gate14*' || true
+          if [ -f "$HOME/gate14-plant-ran" ]; then cat "$HOME/gate14-plant-ran"; else echo "the plant did not run"; fi
