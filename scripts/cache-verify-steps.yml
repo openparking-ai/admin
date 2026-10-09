@@ -1,0 +1,60 @@
+# Every verify step, whole (U5 fix 18, handover 2026-10-09 12:10).
+#
+# scripts/check-cache-order.js holds the step right after each cache restore
+# to the entry here for that restore, key for key and byte for byte: a key
+# added (continue-on-error, timeout-minutes, working-directory, an id), a key
+# dropped, or any other text in a value -- `|| true` after the line, `set +e;`
+# before it, `if: false`, `shell: bash {0}` -- names the file, job and step.
+# Re-gate 16 (R16-1) showed why: a check that only recognised the line let
+# `|| true` and `continue-on-error: true` turn a refusal into a log line.
+#
+# Every entry is itself held to: `shell: bash` (GitHub runs it as
+# `bash --noprofile --norc -eo pipefail`, so a failed verify stops the job),
+# the keys name, if, shell, env and run only, and a run that is one line,
+# starts with the verify command and holds no shell operator (; & | < > or a
+# backtick). The keys beyond name and run are the ones a composite action's
+# step cannot do without: `shell` is required there, `env` carries the
+# restore's own key without putting it into the shell text, and `if` is the
+# restore's own condition.
+#
+# Keyed by the file under .github/ and the restore's id ("JOB/ID" in a
+# workflow). An entry changes only in the same pull request as its step, so
+# every change to a verify step is a diff the gate reads; an entry no restore
+# uses is named too.
+
+actions/npm-packages/action.yml:
+  npm-cache:
+    name: The npm packages, verified before npm reads them
+    shell: bash
+    env:
+      KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
+      MATCHED: ${{ steps.npm-cache.outputs.cache-matched-key }}
+    run: python3 -I .github/scripts/verify-installs.py restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json
+
+actions/check-environment/action.yml:
+  chromium-cache:
+    name: Chromium and its system packages, verified before anything reads them
+    if: inputs.browser == 'true'
+    shell: bash
+    env:
+      KEY: ${{ steps.chromium-cache.outputs.cache-primary-key }}
+      MATCHED: ${{ steps.chromium-cache.outputs.cache-matched-key }}
+      RELEASE: ${{ inputs.ubuntu-release }}
+      PLAYWRIGHT_CORE: ${{ steps.image.outputs.playwright-core }}
+    run: python3 -I .github/scripts/verify-installs.py restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE" "$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
+  readers-cache:
+    name: The readers' wheels, verified before pip reads them
+    shell: bash
+    env:
+      KEY: ${{ steps.readers-cache.outputs.cache-primary-key }}
+      MATCHED: ${{ steps.readers-cache.outputs.cache-matched-key }}
+    run: python3 -I .github/scripts/verify-installs.py restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt
+  libreoffice-cache:
+    name: LibreOffice's packages, verified before anything reads them
+    if: inputs.spreadsheet-app == 'true'
+    shell: bash
+    env:
+      KEY: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+      MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}
+      RELEASE: ${{ inputs.ubuntu-release }}
+    run: python3 -I .github/scripts/verify-installs.py restored debs "$KEY" "$MATCHED" "$HOME/libreoffice-debs" "$RELEASE" libreoffice-calc

@@ -134,6 +134,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
+        id: environment
         with:
           # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
           ubuntu-release: noble
@@ -141,7 +142,8 @@ jobs:
       - name: Every check, shown failing first (this shard)
         run: npm run fail-controls -- --shard ${{ matrix.shard }}/6
       - name: This shard's report
-        if: always()
+        # After a failed check too, never after a refused cache (U5 fix 18).
+        if: "!cancelled() && steps.environment.outcome == 'success'"
         uses: actions/upload-artifact@v4
         with:
           name: fail-controls-plain-shard-${{ matrix.shard }}
@@ -258,6 +260,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
       - uses: ./.github/actions/check-environment
+        id: environment
         with:
           # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
           ubuntu-release: noble
@@ -265,7 +268,8 @@ jobs:
       - name: The browser checks, shown failing first (this shard)
         run: npm run fail-controls-browser -- --shard ${{ matrix.shard }}/8
       - name: This shard's report
-        if: always()
+        # After a failed check too, never after a refused cache (U5 fix 18).
+        if: "!cancelled() && steps.environment.outcome == 'success'"
         uses: actions/upload-artifact@v4
         with:
           name: fail-controls-browser-shard-${{ matrix.shard }}

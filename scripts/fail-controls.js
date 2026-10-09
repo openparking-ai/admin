@@ -1169,6 +1169,94 @@ const CONTROLS = [
     run: CHECK_CACHE_ORDER,
     names: ['restore-keys on a wheels cache; only a set of packages may come from another key'],
   },
+  // ── U5 fix 18 (handover 2026-10-09 12:10): the verify step pinned whole; nothing lets a job go on past a refusal ──
+  {
+    check: 'U5 fix 18: || true after the npm verify line (re-gate 16 R16-1)',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, step 4 "The npm packages, verified before npm reads them": run is', 'package-lock.json || true", not'],
+  },
+  {
+    check: 'U5 fix 18: ; true after the Chromium verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: `"$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt)\n`, with: `"$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt); true\n` },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/check-environment/action.yml, step 4 "Chromium and its system packages, verified before anything reads them": run is', 'playwright-deps.txt); true", not'],
+  },
+  {
+    check: 'U5 fix 18: || exit 0 after the wheels verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: 'restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt\n', with: 'restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt || exit 0\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers\' wheels, verified before pip reads them": run is', 'readers.txt || exit 0", not'],
+  },
+  {
+    check: 'U5 fix 18: set +e; in front of the LibreOffice verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '      run: python3 -I .github/scripts/verify-installs.py restored debs', with: '      run: set +e; python3 -I .github/scripts/verify-installs.py restored debs' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"LibreOffice\'s packages, from the cache": the step after it is not the verify step'],
+  },
+  {
+    check: 'U5 fix 18: continue-on-error on the npm verify step (re-gate 16 R16-1)',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: '    - name: The npm packages, verified before npm reads them\n      shell: bash\n', with: '    - name: The npm packages, verified before npm reads them\n      continue-on-error: true\n      shell: bash\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, runs.steps[3]: continue-on-error true', '"The npm packages, verified before npm reads them": has "continue-on-error", which its pinned step has not'],
+  },
+  {
+    check: 'U5 fix 18: continue-on-error on a job',
+    plant: { file: '.github/workflows/ci.yml', anchor: '    name: lint\n', with: '    name: lint\n    continue-on-error: true\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, jobs.lint: continue-on-error true; a failed step must stop its job'],
+  },
+  {
+    check: 'U5 fix 18: if: false on the wheels verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: The readers' wheels, verified before pip reads them\n      shell: bash\n", with: "    - name: The readers' wheels, verified before pip reads them\n      if: false\n      shell: bash\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers\' wheels, verified before pip reads them": has "if", which its pinned step has not'],
+  },
+  {
+    check: 'U5 fix 18: if: always() on the step after the wheels verify',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '    - name: The readers the downloaded files are read back with (pinned, by hash)\n      shell: bash\n', with: '    - name: The readers the downloaded files are read back with (pinned, by hash)\n      if: always()\n      shell: bash\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers the downloaded files are read back with (pinned, by hash)": runs under "always()", so it runs after the verify step'],
+  },
+  {
+    check: 'U5 fix 18: shell: bash {0} on the LibreOffice verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n      shell: bash\n", with: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n      shell: bash {0}\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['"LibreOffice\'s packages, verified before anything reads them": shell is "bash {0}", not "bash"'],
+  },
+  {
+    check: 'U5 fix 18: a job-level defaults.run.shell',
+    plant: { file: '.github/workflows/ci.yml', anchor: '    name: lint\n', with: '    name: lint\n    defaults:\n      run:\n        shell: bash {0}\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, jobs.lint: defaults.run.shell "bash {0}"'],
+  },
+  {
+    check: 'U5 fix 18: a workflow-level defaults.run.shell',
+    plant: { file: '.github/workflows/ci.yml', anchor: 'permissions:\n  contents: read\n', with: 'permissions:\n  contents: read\n\ndefaults:\n  run:\n    shell: bash {0}\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, the workflow: defaults.run.shell "bash {0}"'],
+  },
+  {
+    check: "U5 fix 18: a shard's report back on always(), after check-environment",
+    plant: { file: '.github/workflows/ci.yml', anchor: "if: \"!cancelled() && steps.environment.outcome == 'success'\"\n        uses: actions/upload-artifact@v4\n        with:\n          name: fail-controls-plain-shard", with: "if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: fail-controls-plain-shard" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, job "controls", step 4 "This shard\'s report": runs under "always()"', 'the one form allowed is "!cancelled() && steps.environment.outcome == \'success\'"'],
+  },
+  {
+    check: 'U5 fix 18: || true in the npm verify line and its pinned step both',
+    plant: [
+      { file: '.github/actions/npm-packages/action.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+      { file: 'scripts/cache-verify-steps.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+    ],
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL scripts/cache-verify-steps.yml, actions/npm-packages/action.yml "npm-cache": run holds the shell operator "|"'],
+  },
+  {
+    check: 'U5 fix 18: a pinned verify step no restore uses',
+    plant: { file: 'scripts/cache-verify-steps.yml', anchor: '  npm-cache:\n', with: '  npm-cache-old:\n    name: x\n    shell: bash\n    run: python3 -I .github/scripts/verify-installs.py restored npm x\n  npm-cache:\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL scripts/cache-verify-steps.yml, actions/npm-packages/action.yml "npm-cache-old": pinned, but no cache restore of that id is there'],
+  },
   // The drawn text (check-drawings 10): sheet code that draws another string, drops one or moves rows (re-gate 14 R14-1).
   {
     check: 'U5 fix 16 drawn: the lanes table calls an exit with a reader "no card reader" (re-gate 14 D14)',
