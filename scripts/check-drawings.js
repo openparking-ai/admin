@@ -47,6 +47,11 @@
 //   6  the PDF: every page 11 x 17 in landscape (1224 x 792 points), its text
 //      real text (read back), each sheet's title and title block on its page;
 //      nothing drawn off its sheet or into the title block.
+//  10  the drawn text: what every test garage's sheets draw, in both
+//      languages -- every text on every sheet, in drawing order, with where it
+//      stands -- equal to the approved snapshot (scripts/drawings-drawn.json,
+//      U5 fix 16). Sheet code that draws another string, drops one or moves
+//      rows is named by garage, language, sheet and first line that differs.
 //
 //   node scripts/check-drawings.js        (FILES_PYTHON names the Python with pypdf)
 
@@ -67,6 +72,7 @@ import { MARK } from '../src/drawings/marks.js';
 import { norm, ownWords, runsOf, squash } from './drawings-text.js';
 import { CLAIMS, PINNED, pinnedWords, writings as snapshotWritings } from './drawings-pinned.js';
 import { LANGUAGES as SNAPSHOT_LANGUAGES, committed, current, serialise, shown } from './drawings-snapshot.js';
+import { GARAGES as DRAWN_GARAGES, build as buildDrawn, committed as committedDrawn, current as currentDrawn, differences } from './drawings-drawn.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-drawings-'));
@@ -117,6 +123,22 @@ for (const [name, garage] of Object.entries(GARAGES)) {
 }
 
 try {
+  // ── 10 the drawn text ────────────────────────────────────────────────────
+  // From the sets just made, the ones the PDF below is drawn from.
+  console.log('10 the drawn text');
+  const drawn = committedDrawn();
+  check(drawn.text === serialise(drawn.snapshot), 'the drawn-text snapshot is written the one way, every look-alike character as \\uXXXX (node scripts/drawings-drawn.js --write)');
+  const drawnNow = currentDrawn((name, language) => SETS.find((x) => x.name === name && x.language === language)?.made ?? buildDrawn(DRAWN_GARAGES[name], language));
+  for (const [name, byLanguage] of Object.entries(drawnNow)) {
+    for (const [language, is] of Object.entries(byLanguage)) {
+      const moved = differences(name, language, drawn.snapshot[name]?.[language], is);
+      const what = is.sheets ? `every text drawn on its ${is.sheets.length} sheets` : `no set, asking for ${is.needs}`;
+      check(moved.length === 0, `${name}, ${language}: ${what}, as the snapshot (scripts/drawings-drawn.json)${moved.length ? `; differs:\n      ${moved.join('\n      ')}` : ''}`);
+    }
+  }
+  const stale = Object.keys(drawn.snapshot).filter((name) => !Object.hasOwn(drawnNow, name));
+  check(stale.length === 0, `the snapshot holds no garage the check does not make${stale.length ? `: ${stale.join(', ')}` : ''}`);
+
   // ── 1 one table ──────────────────────────────────────────────────────────
   console.log('1 one table');
   for (const { name, garage, language, made } of SETS) {

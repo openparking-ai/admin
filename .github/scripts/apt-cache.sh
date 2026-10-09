@@ -16,7 +16,10 @@
 #                              versions installed: the set a hit installs,
 #                              with the signed lists that vouch for it
 #                              (InRelease and the amd64 package lists of the
-#                              Ubuntu archive), checked before it is saved.
+#                              Ubuntu archive, uncompressed: apt keeps them
+#                              lz4-compressed, and a hit must hash a list's
+#                              bytes before any tool reads it), checked
+#                              before it is saved.
 #
 # DIR is cached by the caller (.github/actions/check-environment) under a key
 # naming the runner image, so a set is only ever installed on the image it
@@ -30,10 +33,9 @@ conf=/etc/apt/apt.conf.d/99-keep-in-cache
 mkdir -p "$dir"
 case "$what" in
   install)
-    n=$(find "$dir" -maxdepth 1 -name '*.deb' | wc -l)
-    [ "$n" -gt 0 ] || { echo "apt-cache: nothing in $dir to install" >&2; exit 1; }
-    echo "from the cache: $n packages, nothing downloaded"
+    # Verified first: nothing reads the set before (U5 fix 16).
     python3 -I "$here/verify-installs.py" debs "$dir" "$@"
+    echo "from the cache: $(find "$dir" -maxdepth 1 -name '*.deb' | wc -l) packages, nothing downloaded"
     sudo dpkg -i "$dir"/*.deb > /dev/null
     ;;
   keep)
@@ -59,7 +61,14 @@ case "$what" in
       prefix="${release%_InRelease}"
       cp "$release" "$dir/lists/"
       for f in "$prefix"_*_binary-amd64_Packages*; do
-        [ -e "$f" ] && cp "$f" "$dir/lists/"
+        [ -e "$f" ] || continue
+        plain="$(basename "$f")"; plain="${plain%.lz4}"; plain="${plain%.gz}"; plain="${plain%.xz}"
+        case "$f" in
+          *.lz4) lz4 -dc "$f" ;;
+          *.gz) gzip -dc "$f" ;;
+          *.xz) xz -dc "$f" ;;
+          *) cat "$f" ;;
+        esac > "$dir/lists/$plain"
       done
     done
     echo "$(find "$dir" -maxdepth 1 -name '*.deb' | wc -l) packages to save for this image"

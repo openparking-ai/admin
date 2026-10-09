@@ -46,6 +46,7 @@ const LEAVE_OUT = new Set(['node_modules', '.git', 'dist', '.screens', 'test-res
 const CHECK_FILES = ['node', 'scripts/check-files.js'];
 const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
 const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
+const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -1120,6 +1121,115 @@ const CONTROLS = [
     plant: { file: '.github/workflows/ci-caches.yml', anchor: '          ubuntu-release: noble\n', with: '          ubuntu-release: jammy\n' },
     run: ['node', 'scripts/check-job-limits.js'],
     names: ['FAIL workflows/ci-caches.yml: job "fill" pins Ubuntu "jammy", not "noble", the release of ubuntu-24.04'],
+  },
+  // ── U5 fix 16 (handover 2026-10-09 10:55): nothing restored from a cache is read before it is verified ──
+  {
+    check: 'U5 fix 16 cache: setup-node asked to cache npm',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: "    - uses: actions/setup-node@v4\n      with:\n        node-version: '22'\n", with: "    - uses: actions/setup-node@v4\n      with:\n        node-version: '22'\n        cache: npm\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, step 1 (actions/setup-node@v4): actions/setup-node asked to cache restores with no verify step after it'],
+  },
+  {
+    check: 'U5 fix 16 cache: actions/cache, which restores with nothing between it and the first reader',
+    plant: { file: '.github/workflows/emails.yml', anchor: '      - name: Self-test the guard\n', with: "      - uses: actions/cache@v4\n        with: { path: ~/.npm, key: npm-x }\n      - name: Self-test the guard\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/emails.yml, job "emails", step 2 (actions/cache@v4): actions/cache restores with no verify step after it'],
+  },
+  {
+    check: 'U5 fix 16 cache: Playwright run between the browsers restore and its verify (re-gate 14 R14-2)',
+    plant: {
+      file: '.github/actions/check-environment/action.yml',
+      anchor: "-v3\n    - name: Chromium and its system packages, verified before anything reads them\n",
+      with: "-v3\n    - name: Chromium, installed\n      if: inputs.browser == 'true'\n      shell: bash\n      run: npx playwright install chromium\n    - name: Chromium and its system packages, verified before anything reads them\n",
+    },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/check-environment/action.yml, step 3 "Chromium and its system packages, from the cache": the step after it is not the verify step', 'it is step 4 "Chromium, installed"'],
+  },
+  {
+    check: 'U5 fix 16 cache: the browsers left out of their verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: 'restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright"', with: 'restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs"' },
+    run: CHECK_CACHE_ORDER,
+    names: ['does not verify ~/.cache/ms-playwright, which "chromium-cache" restores'],
+  },
+  {
+    check: 'U5 fix 16 cache: a verify step under another condition than its restore',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n", with: "    - name: LibreOffice's packages, verified before anything reads them\n      if: always()\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['LibreOffice\'s packages, verified before anything reads them": runs under "always()", not the restore\'s "inputs.spreadsheet-app == \'true\'"'],
+  },
+  {
+    check: "U5 fix 16 cache: a verify step reading another restore's key",
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '        MATCHED: ${{ steps.readers-cache.outputs.cache-matched-key }}', with: '        MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}' },
+    run: CHECK_CACHE_ORDER,
+    names: ['verifies with KEY and MATCHED other than "readers-cache"\'s own cache-primary-key and cache-matched-key'],
+  },
+  {
+    check: 'U5 fix 16 cache: the wheels restored from another key',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "-v1\n    - name: The readers' wheels, verified before pip reads them\n", with: "-v1\n        restore-keys: reader-wheels-\n    - name: The readers' wheels, verified before pip reads them\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['restore-keys on a wheels cache; only a set of packages may come from another key'],
+  },
+  // The drawn text (check-drawings 10): sheet code that draws another string, drops one or moves rows (re-gate 14 R14-1).
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls an exit with a reader "no card reader" (re-gate 14 D14)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.exitReader' : 'drawings.type.exitNoReader')", with: "t('drawings.type.exitNoReader')" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL any driver, en: every text drawn on its 10 sheets', 'any driver, en, sheet 4 "Every lane", line ', 'any driver, es, sheet 4 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls any-driver entries 2B (re-gate 14 D15)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.entry2A' : 'drawings.type.entry2B')", with: "t('drawings.type.entry2B')" },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 4 "Every lane", line ', 'Entry, type 2B'],
+  },
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls a pass-only entry 2A (re-gate 14 D16)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.entry2A' : 'drawings.type.entry2B')", with: "t('drawings.type.entry2A')" },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 3 "Every lane", line ', 'Entry, type 2A'],
+  },
+  {
+    check: 'U5 fix 16 drawn: a pass-only garage told it takes any driver (re-gate 14 D17)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "left.para(t(reader ? 'drawings.entryType.any' : 'drawings.entryType.passOnly'));", with: "left.para(t('drawings.entryType.any'));" },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 3 "Every lane", line ', 'pass holders only, es, sheet 3 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the 2B "How it works" loses its "no card reader" sentence (re-gate 14 D13)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t('drawings.how2B.pedestal', { distance: pay }), t('drawings.how2B.noReader'), ", with: "t('drawings.how2B.pedestal', { distance: pay }), " },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 1 "Entry lane, plan view: type 2B', 'pass holders only, es, sheet 1 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: two values of the electrical table swapped',
+    plant: [
+      { file: 'src/drawings/sheets.js', anchor: "[mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w1supply', { volts }),", with: "[mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w2supply')," },
+      { file: 'src/drawings/sheets.js', anchor: "[mark(MARK.W2), t('drawings.power.w2'), t('drawings.power.w2supply'), ''],", with: "[mark(MARK.W2), t('drawings.power.w2'), t('drawings.power.w1supply', { volts }), ''],"},
+    ],
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 8 "Electrical", line ', 'pass holders only, es, sheet 7 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: two rows of the server-room table reordered',
+    plant: {
+      file: 'src/drawings/sheets.js',
+      anchor: "      [t('drawings.room.mainSwitch'), t('drawings.inRoom.mainSwitch')],\n      [t('drawings.room.backup'), t('drawings.inRoom.backup')],\n",
+      with: "      [t('drawings.room.backup'), t('drawings.inRoom.backup')],\n      [t('drawings.room.mainSwitch'), t('drawings.inRoom.mainSwitch')],\n",
+    },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 6 "Server room", line ', 'long names, es, sheet 6 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the same text, drawn elsewhere on the sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: '  s.text(FRAME.left, 44, title, { size: SIZE.title, bold: true });', with: '  s.text(FRAME.left + 400, 44, title, { size: SIZE.title, bold: true });' },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 1 "Entry lane, plan view: type 2A, a garage that takes any driver" (North Entry), line 1: drawn "430,44 Entry lane'],
+  },
+  {
+    check: 'U5 fix 16 drawn: a garage that gets a set where it asked for the drivers answer',
+    plant: { file: 'test/drawings-fixtures.js', anchor: "  takesAnyDriver: null,\n", with: "  takesAnyDriver: false,\n" },
+    run: CHECK_DRAWINGS,
+    names: ['no answer, en: asks for "nothing, a set is made", snapshot "drivers"'],
   },
 ];
 

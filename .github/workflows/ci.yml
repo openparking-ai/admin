@@ -21,12 +21,12 @@ jobs:
           # see one synthetic merge commit at depth 1.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci --prefer-offline --no-audit --no-fund
+      # Node 22 and the npm packages: npm's cache verified before npm reads it (U5 fix 16).
+      - uses: ./.github/actions/npm-packages
       - run: npm run lint
+
+      - name: Every cache restored is verified before anything reads it
+        run: npm run check-cache-order
 
       - name: Every job in every workflow has a time limit
         run: npm run check-job-limits

@@ -18,6 +18,11 @@ description: >-
   the workflow pins), and the browsers file by file against
   .github/ci-hashes/playwright-browsers.txt; each cache is walked without
   following a link, and a link, an extra file or a missing one is refused.
+  Nothing restored from a cache is read, loaded or run before it is verified
+  (U5 fix 16): the step right after every restore is
+  `verify-installs.py restored`, and only then does any tool -- npm, pip,
+  apt, dpkg, Playwright -- touch what it restored
+  (scripts/check-cache-order.js holds every workflow to that order).
   Every outside fetch has a time limit that stops the job and names the step.
 inputs:
   ubuntu-release:
@@ -41,16 +46,10 @@ runs:
   using: composite
   steps:
     # Node 22 is in the runner's tool cache; the npm packages are in GitHub's
-    # cache (keyed on package-lock.json). Offline first, and no audit request:
-    # the audit is its own check, in the checks job.
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: npm
-    - shell: bash
-      run: |
-        source .github/scripts/limit.sh
-        limit 600 "npm ci (the npm packages)" npm ci --prefer-offline --no-audit --no-fund
+    # cache (keyed on package-lock.json), verified before npm reads them.
+    # Offline first, and no audit request: the audit is its own check, in the
+    # checks job.
+    - uses: ./.github/actions/npm-packages
 
     # The runner image's name and version, which a composite action's `env`
     # context does not see: read in the shell. Either one missing stops the
@@ -64,6 +63,10 @@ runs:
         echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
         echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
         echo "playwright=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+        # The playwright-core folder, as Playwright names it in its .links entry for this checkout.
+        echo "playwright-core=$(node -p "require('path').join(require.resolve('playwright-core/package.json'), '..')")" >> "$GITHUB_OUTPUT"
+        # Only what a cache restores is in its folders: nothing the image left there is read as the cache's.
+        rm -rf "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" "$HOME/reader-wheels" "$HOME/libreoffice-debs"
 
     # Chromium: the system packages Playwright installs for it (the Ubuntu
     # mirror) and the browser itself (Playwright's download site), both from
@@ -76,7 +79,16 @@ runs:
         path: |
           ~/chromium-debs
           ~/.cache/ms-playwright
-        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v2
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v3
+    - name: Chromium and its system packages, verified before anything reads them
+      if: inputs.browser == 'true'
+      shell: bash
+      env:
+        KEY: ${{ steps.chromium-cache.outputs.cache-primary-key }}
+        MATCHED: ${{ steps.chromium-cache.outputs.cache-matched-key }}
+        RELEASE: ${{ inputs.ubuntu-release }}
+        PLAYWRIGHT_CORE: ${{ steps.image.outputs.playwright-core }}
+      run: python3 -I .github/scripts/verify-installs.py restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE" "$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt)
     - name: Chromium for Playwright
       if: inputs.browser == 'true'
       shell: bash
@@ -84,6 +96,9 @@ runs:
         HIT: ${{ steps.chromium-cache.outputs.cache-hit }}
         CONTROLS: ${{ inputs.controls }}
         RELEASE: ${{ inputs.ubuntu-release }}
+        PLAYWRIGHT_CORE: ${{ steps.image.outputs.playwright-core }}
+        # Playwright's clean-up of old browsers require()s each .links entry's browsers.json: never run (R14-2).
+        PLAYWRIGHT_SKIP_BROWSER_GC: '1'
       run: |
         set -euo pipefail
         source .github/scripts/limit.sh
@@ -97,10 +112,10 @@ runs:
           limit 900 "Chromium's download (the Ubuntu mirror and Playwright's site)" npx playwright install --with-deps chromium
           .github/scripts/apt-cache.sh prune "$HOME/chromium-debs" "$RELEASE" "${roots[@]}"
         fi
-        python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
+        python3 -I .github/scripts/verify-installs.py browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE"
         if [ "$CONTROLS" = "true" ]; then
-          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/chromium-debs" "$RELEASE" .github/ci-hashes/other-release "${roots[@]}"
-          python3 -I .github/scripts/verify-installs.py selftest-browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/chromium-debs" "$RELEASE" .github/ci-hashes/other-release .github/ci-hashes/other-suite "${roots[@]}"
+          python3 -I .github/scripts/verify-installs.py selftest-browsers "$HOME/.cache/ms-playwright" .github/ci-hashes/playwright-browsers.txt "$PLAYWRIGHT_CORE"
         fi
     - name: Chromium, saved for the next run on this image
       if: inputs.browser == 'true' && steps.chromium-cache.outputs.cache-hit != 'true'
@@ -109,7 +124,7 @@ runs:
         path: |
           ~/chromium-debs
           ~/.cache/ms-playwright
-        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v2
+        key: chromium-${{ steps.image.outputs.playwright }}-${{ steps.image.outputs.image }}-v3
 
     # Python 3.12 is the runner's own. The readers are pinned by version and
     # hash (scripts/files/readers.txt); their wheels come from GitHub's cache,
@@ -123,10 +138,17 @@ runs:
       with:
         path: ~/reader-wheels
         key: reader-wheels-${{ steps.image.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+    - name: The readers' wheels, verified before pip reads them
+      shell: bash
+      env:
+        KEY: ${{ steps.readers-cache.outputs.cache-primary-key }}
+        MATCHED: ${{ steps.readers-cache.outputs.cache-matched-key }}
+      run: python3 -I .github/scripts/verify-installs.py restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt
     - name: The readers the downloaded files are read back with (pinned, by hash)
       shell: bash
       env:
         HIT: ${{ steps.readers-cache.outputs.cache-hit }}
+        CONTROLS: ${{ inputs.controls }}
       run: |
         set -euo pipefail
         if [ "$HIT" = "true" ]; then
@@ -134,8 +156,13 @@ runs:
         else
           source .github/scripts/limit.sh
           limit 300 "the readers' download (PyPI)" pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+          python3 -I .github/scripts/verify-installs.py wheels "$HOME/reader-wheels" scripts/files/readers.txt
         fi
         pip install --no-index --find-links ~/reader-wheels --require-hashes -r scripts/files/readers.txt
+        if [ "$CONTROLS" = "true" ]; then
+          python3 -I .github/scripts/verify-installs.py selftest-wheels "$HOME/reader-wheels" scripts/files/readers.txt
+          python3 -I .github/scripts/verify-installs.py selftest-npm "$HOME/.npm/_cacache" package-lock.json
+        fi
     - name: The readers' wheels, saved
       if: steps.readers-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
@@ -152,8 +179,17 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ steps.image.outputs.image }}-v2
-        restore-keys: libreoffice-calc-${{ steps.image.outputs.os }}-
+        key: libreoffice-calc-v3-${{ steps.image.outputs.image }}
+        # An older image's set may seed apt: it too is verified, package by package, before apt reads it.
+        restore-keys: libreoffice-calc-v3-${{ steps.image.outputs.os }}-
+    - name: LibreOffice's packages, verified before anything reads them
+      if: inputs.spreadsheet-app == 'true'
+      shell: bash
+      env:
+        KEY: ${{ steps.libreoffice-cache.outputs.cache-primary-key }}
+        MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}
+        RELEASE: ${{ inputs.ubuntu-release }}
+      run: python3 -I .github/scripts/verify-installs.py restored debs "$KEY" "$MATCHED" "$HOME/libreoffice-debs" "$RELEASE" libreoffice-calc
     - name: A spreadsheet app reading the Excel files back too (LibreOffice, headless)
       if: inputs.spreadsheet-app == 'true'
       shell: bash
@@ -173,7 +209,7 @@ runs:
           .github/scripts/apt-cache.sh prune "$HOME/libreoffice-debs" "$RELEASE" libreoffice-calc
         fi
         if [ "$CONTROLS" = "true" ]; then
-          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/libreoffice-debs" "$RELEASE" .github/ci-hashes/other-release libreoffice-calc
+          python3 -I .github/scripts/verify-installs.py selftest-debs "$HOME/libreoffice-debs" "$RELEASE" .github/ci-hashes/other-release .github/ci-hashes/other-suite libreoffice-calc
         fi
         soffice --version
     - name: LibreOffice's packages, saved for the next run on this image
@@ -181,7 +217,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/libreoffice-debs
-        key: libreoffice-calc-${{ steps.image.outputs.image }}-v2
+        key: libreoffice-calc-v3-${{ steps.image.outputs.image }}
 
     # The time limit's own control: a command that hangs is stopped, and the step is named.
     - name: The time limit stops a hang and names it (control)

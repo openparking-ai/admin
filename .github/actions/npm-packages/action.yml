@@ -1,0 +1,49 @@
+name: The npm packages
+description: >-
+  Node 22 (the runner's tool cache) and the npm packages package-lock.json
+  pins, from GitHub's cache keyed on that file. Nothing restored is read
+  before it is verified (U5 fix 16): the step after the restore checks npm's
+  cache against package-lock.json (.github/scripts/verify-installs.py npm),
+  and only then does npm ci read it. A miss fetches from the registry once,
+  checks what it fetched the same way, and saves it.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: The runner image, for the npm cache's key
+      id: image
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${ImageOS:?the runner does not say its image}"
+        echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
+        # Only what the cache restores is in it: nothing the image left there is read as the cache's.
+        rm -rf "$HOME/.npm/_cacache"
+    - name: The npm packages, from the cache
+      id: npm-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.npm/_cacache
+        key: npm-${{ steps.image.outputs.os }}-${{ hashFiles('package-lock.json') }}-v1
+    - name: The npm packages, verified before npm reads them
+      shell: bash
+      env:
+        KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
+        MATCHED: ${{ steps.npm-cache.outputs.cache-matched-key }}
+      run: python3 -I .github/scripts/verify-installs.py restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json
+    - shell: bash
+      run: |
+        source .github/scripts/limit.sh
+        limit 600 "npm ci (the npm packages)" npm ci --prefer-offline --no-audit --no-fund
+    - name: The npm packages fetched, verified before they are saved
+      if: steps.npm-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: python3 -I .github/scripts/verify-installs.py npm "$HOME/.npm/_cacache" package-lock.json
+    - name: The npm packages, saved
+      if: steps.npm-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.npm/_cacache
+        key: npm-${{ steps.image.outputs.os }}-${{ hashFiles('package-lock.json') }}-v1
