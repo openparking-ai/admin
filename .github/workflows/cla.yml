@@ -11,7 +11,9 @@ permissions:
 jobs:
   cla:
     name: cla
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 10
     steps:
       # Check out the BASE commit, not the merge result. The gate and the
       # signature list therefore come from the branch being merged into, so a

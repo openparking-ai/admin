@@ -43,6 +43,18 @@ const XLSX_NAMES = new Set([
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
 ]);
 
+// U5: the public sources the installer drawings print under "Where the
+// numbers come from" (src/drawings/numbers.js). Printed on a sheet for a
+// person to read; nothing is ever asked of them. Exactly these, in that one
+// file; any other address there is refused.
+const PRINTED_SOURCES = new Set([
+  'https://www.chalmersford.com/blog/how-big-is-the-2025-ford-f150-interior-and-exterior',
+  'https://ipf.msu.edu/sites/default/files/2018-08/CS_TEC_2004_111200_PARKING_CONTROL_EQUIPMENT.PDF',
+  'https://magneticgateopeners.com/store/pdfs/MHTM_Manual.pdf',
+  'https://gatesnfences.com/files/Doorking_Loop_Manual.pdf',
+  'https://docs.stripe.com/terminal/payments/setup-reader',
+]);
+
 const STORAGE_HOMES = { 'src/theme.js': 'THEME_KEY', 'src/i18n/index.js': 'LANGUAGE_KEY' };
 
 const SESSION_RULES = [
@@ -72,7 +84,7 @@ for (const path of scanned) {
     if (setItem && STORAGE_HOMES[name] !== setItem[1]) session.push(`${at}: a storage write that is not one of the two kept choices (${setItem[1]})`);
     if (/localStorage/.test(line) && name !== 'src/main.jsx') session.push(`${at}: localStorage used outside main.jsx`);
     for (const [absolute] of line.matchAll(/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`)]*/gi)) {
-      if (name.endsWith('.css') || (name === 'src/files/excel.js' && XLSX_NAMES.has(absolute))) continue;
+      if (name.endsWith('.css') || (name === 'src/files/excel.js' && XLSX_NAMES.has(absolute)) || (name === 'src/drawings/numbers.js' && PRINTED_SOURCES.has(absolute))) continue;
       address.push(`${at}: an absolute address ${absolute}`);
     }
     if (/\bfetch\s*\(|XMLHttpRequest|\bWebSocket\b|\bEventSource\b|sendBeacon/.test(line) && name !== 'src/api.js') address.push(`${at}: a request made outside src/api.js`);

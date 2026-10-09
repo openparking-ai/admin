@@ -12,7 +12,7 @@ import { alertName } from './alerts.js';
 export const WHERE = {
   garage_details: { notYet: true },
   drivers: { here: true },
-  lanes: { page: 'lanes' },
+  lanes: { page: 'lanes', drawings: true },
   lane_computers: { page: 'lanes' },
   rates: { notYet: true },
   taxes: { notYet: true },

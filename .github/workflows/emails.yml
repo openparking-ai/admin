@@ -11,7 +11,9 @@ permissions:
 jobs:
   emails:
     name: emails
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:

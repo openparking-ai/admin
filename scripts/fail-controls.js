@@ -45,6 +45,8 @@ const LEAVE_OUT = new Set(['node_modules', '.git', 'dist', '.screens', 'test-res
 
 const CHECK_FILES = ['node', 'scripts/check-files.js'];
 const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
+const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
+const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -723,6 +725,600 @@ const CONTROLS = [
     run: ['node', '--test', 'test/change-words.test.js'],
     names: ['6 NO SENTENCE ENDS TWICE', 'a.m..'],
   },
+  // ── U5: the installer drawings (scripts/check-drawings.js) ──────────────
+  {
+    check: 'U5 1: a length typed into a sheet',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.plan.measured": "All distances are measured back from the gate arm."', with: '"drawings.plan.measured": "All distances are measured back from the gate arm, 12 ft apart."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: every number', '"All distances are measured back from the gate arm, 12 ft apart." holds a number that is not the table\'s'],
+  },
+  {
+    check: 'U5 2: a Draft 7 value changed in the table',
+    plant: { file: 'src/drawings/numbers.js', anchor: "truckBack: length(283, '7.2', 'worked'),", with: "truckBack: length(283, '7.3', 'worked')," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL Draft 7 "23 ft 7 in (7.2 m)" -> truckBack is 283 in (7.3), not 283 in (7.2)'],
+  },
+  {
+    check: 'U5 3: a length in metres only',
+    plant: { file: 'src/drawings/numbers.js', anchor: "      return t('drawings.unit.length', { imperial: feetAndInches(n.inches, t), metric: metric(n, t) });", with: '      return metric(n, t);' },
+    run: CHECK_DRAWINGS,
+    names: ['a length in one unit only', 'FAIL en, any driver: all'],
+  },
+  {
+    check: 'U5 4: entry types swapped',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  const entryType = reader ? '2A' : '2B';\n  const plans", with: "  const entryType = reader ? '2B' : '2A';\n  const plans" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: any driver, two ways in and one out -> sheets 2B (North Entry), 2B (South Entry), exit (Main Exit)', 'FAIL en: pass holders only -> sheets 2A, exit'],
+  },
+  {
+    check: 'U5 4: a card reader at every exit',
+    plant: { file: 'src/drawings/sheets.js', anchor: "    reader: lane.direction === 'exit' && reader,", with: "    reader: lane.direction === 'exit'," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> no card reader at the exit, no N5, no W3'],
+  },
+  {
+    check: 'U5 4: a set made with no drivers answer',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  if (takesAnyDriver !== true && takesAnyDriver !== false) needs.push('drivers');", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: no answer to the drivers question -> no set'],
+  },
+  {
+    check: 'U5 5: "gate box" on a sheet',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gatebox" in "Front camera, on the gate box."'],
+  },
+  {
+    check: 'U5 5: "lane computer" on a Spanish sheet',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2A.atExit": "Un conductor con pase, o uno que quiere registrarse, lo hace a la salida."', with: '"drawings.how2A.atExit": "Un conductor con pase lo hace a la salida, en la computadora del carril."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es, any driver: no gate box', '"computadoradelcarril"'],
+  },
+  {
+    check: "U5 5: an owner's decision on a sheet",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.sources.oneTable": "Every number on these sheets comes from one table, listed here with its source."', with: '"drawings.sources.oneTable": "Every number on these sheets comes from one table. The stop distance is the owner\'s decision."' },
+    run: CHECK_DRAWINGS,
+    names: ['"ownersdecision" in'],
+  },
+  {
+    check: "U5 5: a person's name on a sheet",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.sources.worked": "Camera angles are worked out from the distances and the F-150 size."', with: '"drawings.sources.worked": "Camera angles are worked out from the distances by Jane Doe."' },
+    run: CHECK_DRAWINGS,
+    names: ['a name "Jane" in', 'a name "Doe" in'],
+  },
+  {
+    check: 'U5 fix 1: the 6 ft loop drawn back in the 10 ft lane',
+    plant: { file: 'src/drawings/plan.js', anchor: "  const loopL = laneWidth - 2 * U * metres('loopEdgeMax');", with: '  const loopL = U * 1.83;' },
+    run: CHECK_DRAWINGS,
+    names: ['a loop drawn 24.0 in from the lane edge, not 12 to 20 in', 'FAIL en, any driver: all'],
+  },
+  {
+    check: "U5 fix 3: a driver's control drawn within 6 ft of the arm",
+    plant: { file: 'src/drawings/plan.js', anchor: "  const pay = before('payStation');", with: '  const pay = ARM - U * 1.2;' },
+    run: CHECK_DRAWINGS,
+    names: ["a driver's control drawn", "in from the arm's sweep, under 72 in", "FAIL en, any driver: all 3 drivers' controls"],
+  },
+  // ── U5 gate fixes (handover 2026-10-08 14:20) ─────────────────────────────
+  {
+    check: 'U5 gate 4: the card reader in a sentence on a pass-only set',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.every.reach' : 'drawings.every.reachPassOnly',", with: "t('drawings.every.reach'," },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'scanner, card reader, intercom'],
+  },
+  {
+    check: 'U5 gate 4: the card-reader sentence typed into a sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  left.para(t('drawings.about.trade'));", with: "  left.para(t('drawings.about.trade'));\n  left.para('Each exit lane also has a card reader.');" },
+    run: CHECK_DRAWINGS,
+    names: ["FAIL es, pass holders only: every text on 9 sheets is the drawings' own", '"Each exit lane also has a card reader."'],
+  },
+  {
+    check: 'U5 gate 4: a capitalised name typed into a sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: "  left.para(t('drawings.about.trade'));", with: "  left.para(t('drawings.about.trade'));\n  left.para('Jane chose these lanes.');" },
+    run: CHECK_DRAWINGS,
+    names: ["FAIL en, any driver: every text on 10 sheets is the drawings' own", '"Jane chose these lanes."'],
+  },
+  {
+    check: 'U5 gate 4: "gate-box" with a hyphen',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gate-box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gatebox" in "Front camera, on the gate-box."'],
+  },
+  {
+    check: 'U5 gate 4: "Gate Box" in capitals',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the Gate Box."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gatebox" in "Front camera, on the Gate Box."'],
+  },
+  {
+    check: 'U5 gate 5: a scanner on every lane of a garage that takes any driver',
+    plant: { file: 'src/i18n/en.js', anchor: 'a display, an intercom and a small relay box, and one control panel that holds its wiring.",', with: 'a display, a scanner, an intercom and a small relay box, and one control panel that holds its wiring.",' },
+    run: CHECK_DRAWINGS,
+    // Since fix 11 the "Every lane" check reads its claims as approved (fix 13: from the snapshot), so a claim edited in the dictionary is check 0's to name.
+    names: ['en drawings.about.oneComputer: "One computer sits', 'a display, a scanner, an intercom', 'snapshot "One computer sits'],
+  },
+  {
+    check: 'U5 fix 11 sweep: the two "Every lane" claims swapped in the code',
+    plant: { file: 'src/drawings/sheets.js', anchor: "left.para(t(reader ? 'drawings.about.alsoAtExit' : 'drawings.about.alsoEveryLane'));", with: "left.para(t(reader ? 'drawings.about.alsoEveryLane' : 'drawings.about.alsoAtExit'));" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: "Every lane" says what each lane has', 'scanner: the sheet says it is on North Entry (2A), whose plan has none'],
+  },
+  {
+    check: 'U5 gate 6: a label back on a line',
+    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);", with: "  g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en, any driver: no label crossed by a line', '"L2 arming"'],
+  },
+  {
+    check: 'U5 gate 3: a job with no time limit',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" has no timeout-minutes'],
+  },
+  // ── U5 re-gate (handover 2026-10-08 16:50): stems after every non-letter is removed ──
+  {
+    check: 'U5 re-gate 4: "cardreader" as one word on a pass-only set',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.shows": "The driver shows a pass to the scanner to get in."', with: '"drawings.how2B.shows": "The driver shows a pass to the scanner or the cardreader to get in."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'the scanner or the cardreader to get in.'],
+  },
+  {
+    check: 'U5 re-gate 4: "lectores de tarjetas" on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o a los lectores de tarjetas para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'a los lectores de tarjetas para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 4: "lector de tarjeta" on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o al lector de tarjeta para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'al lector de tarjeta para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 4: "Card-Reader" on a pass-only set',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.shows": "The driver shows a pass to the scanner to get in."', with: '"drawings.how2B.shows": "The driver shows a pass to the scanner or the Card-Reader to get in."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL en: pass holders only -> the card reader is named only to say there is none', 'the scanner or the Card-Reader to get in.'],
+  },
+  {
+    check: 'U5 re-gate 4: the card reader with no-break spaces on a pass-only set',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.shows": "El conductor muestra un pase al escáner para entrar."', with: '"drawings.how2B.shows": "El conductor muestra un pase al escáner o al lector\\u00a0de\\u00a0tarjetas para entrar."' },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL es: pass holders only -> the card reader is named only to say there is none', 'tarjetas para entrar.'],
+  },
+  {
+    check: 'U5 re-gate 5: "gatebox" as one word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the gatebox."' },
+    run: CHECK_DRAWINGS,
+    names: ['"gatebox" in "Front camera, on the gatebox."'],
+  },
+  {
+    check: 'U5 re-gate 5: "lanecomputer" as one word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera, on the lanecomputer."' },
+    run: CHECK_DRAWINGS,
+    names: ['"lanecomputer" in "Front camera, on the lanecomputer."'],
+  },
+  // ── U5 fix 11 (handover 2026-10-08 17:40): pinned texts, the limit's ceiling ──
+  // The second re-gate's three edits: each exception edited to name a reader stayed green.
+  {
+    check: 'U5 fix 11 4: en how2B.noReader edited to "A card reader at the window."',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.how2B.noReader": "No card reader."', with: '"drawings.how2B.noReader": "A card reader at the window."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.how2B.noReader: "A card reader at the window.", snapshot "No card reader."', 'FAIL en: pass holders only -> the card reader is named only to say there is none', '"A card reader at the window."'],
+  },
+  {
+    check: 'U5 fix 11 4: es type.exitNoReader edited to "Salida, con lector de tarjetas"',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.type.exitNoReader": "Salida, sin lector de tarjetas"', with: '"drawings.type.exitNoReader": "Salida, con lector de tarjetas"' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.type.exitNoReader: "Salida, con lector de tarjetas", snapshot "Salida, sin lector de tarjetas"', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Salida, con lector de tarjetas"'],
+  },
+  {
+    check: 'U5 fix 11 4: en entryType.passOnly with "The exit has a card reader." added',
+    plant: { file: 'src/i18n/en.js', anchor: 'No exit lane here has a card reader.",', with: 'No exit lane here has a card reader. The exit has a card reader.",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.entryType.passOnly: "', 'FAIL en: pass holders only -> the card reader is named only to say there is none', 'The exit has a card reader."'],
+  },
+  {
+    check: 'U5 fix 11 4: es how2B.noReader edited to "Con lector de tarjetas."',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.how2B.noReader": "Sin lector de tarjetas."', with: '"drawings.how2B.noReader": "Con lector de tarjetas."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.how2B.noReader: "Con lector de tarjetas.", snapshot "Sin lector de tarjetas."', 'FAIL es: pass holders only -> the card reader is named only to say there is none', '"Con lector de tarjetas."'],
+  },
+  // A limit, but no limit.
+  {
+    check: 'U5 fix 11 3: a 6-hour job limit',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 11 3: a 31-minute job limit',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '    timeout-minutes: 25\n', with: '    timeout-minutes: 31\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" may run 31 minutes, over the 30-minute ceiling'],
+  },
+  // The sweep: the other texts a check took from t(key). A claim's lanes, a unit's words, "3 of 10".
+  {
+    check: 'U5 fix 11 sweep: en "Every lane" claim edited to speak of every lane',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.about.alsoAtExit": "Each exit lane also has a scanner and a card reader."', with: '"drawings.about.alsoAtExit": "Each lane also has a scanner and a card reader."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.about.alsoAtExit: "Each lane also has a scanner and a card reader."', 'FAIL en, any driver: "Every lane" says what each lane has'],
+  },
+  {
+    check: 'U5 fix 11 sweep: es "Every lane" claim edited to speak of every lane',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.about.alsoAtExit": "Cada carril de salida tiene además un escáner y un lector de tarjetas."', with: '"drawings.about.alsoAtExit": "Cada carril tiene además un escáner y un lector de tarjetas."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.about.alsoAtExit: "Cada carril tiene además un escáner y un lector de tarjetas."', 'FAIL es, any driver: "Every lane" says what each lane has'],
+  },
+  {
+    check: "U5 fix 11 sweep: en an equipment word the claims are read for",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.wiring.scanner": "{mark}  Scanner"', with: '"drawings.wiring.scanner": "{mark}  QR scanner"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.wiring.scanner: "{mark}  QR scanner", snapshot "{mark}  Scanner"'],
+  },
+  {
+    check: "U5 fix 11 sweep: en a number in a unit's words",
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.unit.turns": "{n} turns"', with: '"drawings.unit.turns": "{n} turns, 7 more"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.unit.turns: "{n} turns, 7 more", snapshot "{n} turns"', "holds a number that is not the table's"],
+  },
+  {
+    check: "U5 fix 11 sweep: es a number in a unit's words",
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.unit.volts": "{n} V"', with: '"drawings.unit.volts": "{n} V o 240 V"' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.unit.volts: "{n} V o 240 V", snapshot "{n} V"', "holds a number that is not the table's"],
+  },
+  {
+    check: 'U5 fix 11 sweep: en a length in the title block\'s "3 of 10"',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.tb.sheetOf": "{n} of {of}"', with: '"drawings.tb.sheetOf": "{n} of {of}, 12 in"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.tb.sheetOf: "{n} of {of}, 12 in", snapshot "{n} of {of}"', "is not this garage's data"],
+  },
+  {
+    check: 'U5 6: the sheets on Letter paper',
+    plant: { file: 'src/drawings/pdf.js', anchor: "export const SHEET = { format: 'tabloid', orientation: 'landscape' };", with: "export const SHEET = { format: 'letter', orientation: 'landscape' };" },
+    run: CHECK_DRAWINGS,
+    names: ['each 11 x 17 in landscape (1224 x 792 points): 792 x 612'],
+  },
+  // ── U5 fix 13 (handover 2026-10-08 20:30): every drawing string held to one snapshot; limits read as YAML ──
+  // The third re-gate's edits: each changed what a required text says, and stayed green.
+  {
+    check: 'U5 fix 13 1: en plan.payReader says "no card reader" (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.plan.payReader": "{mark}  Pay station: card reader, scanner, intercom"', with: '"drawings.plan.payReader": "{mark}  Pay station: no card reader, scanner, intercom"' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.plan.payReader: "{mark}  Pay station: no card reader, scanner, intercom", snapshot "{mark}  Pay station: card reader, scanner, intercom"'],
+  },
+  {
+    check: 'U5 fix 13 1: es eq.payReader says "sin lector" (re-gate 3)',
+    plant: { file: 'src/i18n/es.js', anchor: 'del conductor: lector de tarjetas, escáner e intercomunicador."', with: 'del conductor: sin lector de tarjetas, escáner e intercomunicador."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.eq.payReader: "Estación de pago a la ventanilla del conductor: sin lector de tarjetas', 'snapshot "Estación de pago a la ventanilla del conductor: lector de tarjetas'],
+  },
+  {
+    check: 'U5 fix 13 1: es status "Aprobado para obra" (re-gate 3)',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.status": "Borrador",', with: '"drawings.status": "Aprobado para obra",' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.status: "Aprobado para obra", snapshot "Borrador"'],
+  },
+  {
+    check: 'U5 fix 13 1: en status "Approved for construction" (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.status": "Draft",', with: '"drawings.status": "Approved for construction",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.status: "Approved for construction", snapshot "Draft"'],
+  },
+  {
+    check: 'U5 fix 13 1: en everyWay says only the main way in (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.everyWay": "Every way in and every way out of the garage is a lane with this equipment."', with: '"drawings.everyWay": "Only the main way in is a lane with this equipment."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.everyWay: "Only the main way in is a lane with this equipment.", snapshot "Every way in and every way out of the garage is a lane with this equipment."'],
+  },
+  {
+    check: 'U5 fix 13 1: en entryType.passOnly, punctuation only: "No. Exit lane here has a card reader." (re-gate 3 R3-2)',
+    plant: { file: 'src/i18n/en.js', anchor: 'No exit lane here has a card reader.",', with: 'No. Exit lane here has a card reader.",' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.entryType.passOnly: "', 'the driver shows a pass to get in. No. Exit lane here has a card reader.", snapshot "', 'No exit lane here has a card reader."'],
+  },
+  // Changes a reader cannot see.
+  {
+    check: 'U5 fix 13 1: en a no-break space',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Front camera,\\u00a0on the control panel."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.frontCamera: "Front camera,\\u00a0on the control panel.", snapshot "Front camera, on the control panel."'],
+  },
+  {
+    check: 'U5 fix 13 1: en a Cyrillic "о" in an English word',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Fr\\u043ent camera, on the control panel."' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.frontCamera: "Fr\\u043ent camera, on the control panel.", snapshot "Front camera, on the control panel."'],
+  },
+  {
+    check: 'U5 fix 13 1: es an accent removed',
+    plant: { file: 'src/i18n/es.js', anchor: '"drawings.eq.frontCamera": "Cámara delantera, sobre el panel de control."', with: '"drawings.eq.frontCamera": "Camara delantera, sobre el panel de control."' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.eq.frontCamera: "Camara delantera, sobre el panel de control.", snapshot "Cámara delantera, sobre el panel de control."'],
+  },
+  {
+    check: 'U5 fix 13 1: en a drawing key added',
+    plant: { file: 'src/i18n/en.js', anchor: '  "drawings.eq.frontCamera": "Front camera, on the control panel.",\n', with: '  "drawings.eq.frontCamera": "Front camera, on the control panel.",\n  "drawings.eq.note": "Ask before you drill.",\n' },
+    run: CHECK_DRAWINGS,
+    names: ['en drawings.eq.note: added, "Ask before you drill.", not in the snapshot'],
+  },
+  {
+    check: 'U5 fix 13 1: es a drawing key deleted',
+    plant: { file: 'src/i18n/es.js', anchor: '  "drawings.draftMark": "Borrador, no apto para construcción",\n', with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['es drawings.draftMark: removed, snapshot "Borrador, no apto para construcción"'],
+  },
+  {
+    check: 'U5 fix 13 1: a look-alike written as itself in the snapshot too',
+    plant: [
+      { file: 'src/i18n/en.js', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Frоnt camera, on the control panel."' },
+      { file: 'scripts/drawings-strings.json', anchor: '"drawings.eq.frontCamera": "Front camera, on the control panel."', with: '"drawings.eq.frontCamera": "Frоnt camera, on the control panel."' },
+    ],
+    run: CHECK_DRAWINGS,
+    names: ['FAIL the snapshot is written the one way'],
+  },
+  {
+    check: 'U5 fix 13 1: the table writes a number the snapshot does not',
+    plant: { file: 'src/drawings/numbers.js', anchor: "truckBack: length(283, '7.2', 'worked'),", with: "truckBack: length(283, '7.3', 'worked')," },
+    run: CHECK_DRAWINGS,
+    names: ['en: the table now writes "23 ft 7 in (7.3 m)", not in the snapshot', 'es: the snapshot writes "23 pies 7 pulg (7.2 m)", the table no longer does'],
+  },
+  // Job limits, read as YAML: what line matching missed (re-gate 3 R3-3), and the forms a limit can take.
+  {
+    check: 'U5 fix 13 2: a comment after "jobs:" and a 6-hour limit (re-gate 3)',
+    plant: [
+      { file: '.github/workflows/emails.yml', anchor: 'jobs:\n  emails:\n', with: 'jobs:  # the mail check\n  emails:\n' },
+      { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 360\n' },
+    ],
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 13 2: Windows line ends and no limit (re-gate 3)',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '', crlf: true },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" has no timeout-minutes'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit of "0360"',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 0360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" may run 360 minutes, over the 30-minute ceiling'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit that is an expression, not a number',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: ${{ 360 }}\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" has timeout-minutes "${{ 360 }}", not a number of minutes'],
+  },
+  {
+    check: 'U5 fix 13 2: a limit given twice, so the file is not YAML',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    timeout-minutes: 10\n', with: '    timeout-minutes: 10\n    timeout-minutes: 360\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: not readable as YAML (duplicated mapping key)'],
+  },
+  // ── U5 fix 13b (handover 2026-10-09 10:10): every job on ubuntu-24.04, the release pinned beside it ──
+  {
+    check: 'U5 fix 13b: a job on ubuntu-latest',
+    plant: { file: '.github/workflows/emails.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '    runs-on: ubuntu-latest\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/emails.yml: job "emails" runs on "ubuntu-latest", not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a job on ubuntu-22.04',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '    runs-on: ubuntu-22.04\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" runs on "ubuntu-22.04", not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a job with no runs-on',
+    plant: { file: '.github/workflows/cla.yml', anchor: '    runs-on: ubuntu-24.04\n', with: '' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/cla.yml: job "', 'runs on nothing named, not "ubuntu-24.04"'],
+  },
+  {
+    check: 'U5 fix 13b: a step pinning another Ubuntu release',
+    plant: { file: '.github/workflows/ci-caches.yml', anchor: '          ubuntu-release: noble\n', with: '          ubuntu-release: jammy\n' },
+    run: ['node', 'scripts/check-job-limits.js'],
+    names: ['FAIL workflows/ci-caches.yml: job "fill" pins Ubuntu "jammy", not "noble", the release of ubuntu-24.04'],
+  },
+  // ── U5 fix 16 (handover 2026-10-09 10:55): nothing restored from a cache is read before it is verified ──
+  {
+    check: 'U5 fix 16 cache: setup-node asked to cache npm',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: "    - uses: actions/setup-node@v4\n      with:\n        node-version: '22'\n", with: "    - uses: actions/setup-node@v4\n      with:\n        node-version: '22'\n        cache: npm\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, step 1 (actions/setup-node@v4): actions/setup-node asked to cache restores with no verify step after it'],
+  },
+  {
+    check: 'U5 fix 16 cache: actions/cache, which restores with nothing between it and the first reader',
+    plant: { file: '.github/workflows/emails.yml', anchor: '      - name: Self-test the guard\n', with: "      - uses: actions/cache@v4\n        with: { path: ~/.npm, key: npm-x }\n      - name: Self-test the guard\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/emails.yml, job "emails", step 2 (actions/cache@v4): actions/cache restores with no verify step after it'],
+  },
+  {
+    check: 'U5 fix 16 cache: Playwright run between the browsers restore and its verify (re-gate 14 R14-2)',
+    plant: {
+      file: '.github/actions/check-environment/action.yml',
+      anchor: "-v3\n    - name: Chromium and its system packages, verified before anything reads them\n",
+      with: "-v3\n    - name: Chromium, installed\n      if: inputs.browser == 'true'\n      shell: bash\n      run: npx playwright install chromium\n    - name: Chromium and its system packages, verified before anything reads them\n",
+    },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/check-environment/action.yml, step 3 "Chromium and its system packages, from the cache": the step after it is not the verify step', 'it is step 4 "Chromium, installed"'],
+  },
+  {
+    check: 'U5 fix 16 cache: the browsers left out of their verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: 'restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs" "$HOME/.cache/ms-playwright"', with: 'restored chromium "$KEY" "$MATCHED" "$HOME/chromium-debs"' },
+    run: CHECK_CACHE_ORDER,
+    names: ['does not verify ~/.cache/ms-playwright, which "chromium-cache" restores'],
+  },
+  {
+    check: 'U5 fix 16 cache: a verify step under another condition than its restore',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n", with: "    - name: LibreOffice's packages, verified before anything reads them\n      if: always()\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['LibreOffice\'s packages, verified before anything reads them": runs under "always()", not the restore\'s "inputs.spreadsheet-app == \'true\'"'],
+  },
+  {
+    check: "U5 fix 16 cache: a verify step reading another restore's key",
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '        MATCHED: ${{ steps.readers-cache.outputs.cache-matched-key }}', with: '        MATCHED: ${{ steps.libreoffice-cache.outputs.cache-matched-key }}' },
+    run: CHECK_CACHE_ORDER,
+    names: ['verifies with KEY and MATCHED other than "readers-cache"\'s own cache-primary-key and cache-matched-key'],
+  },
+  {
+    check: 'U5 fix 16 cache: the wheels restored from another key',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "-v1\n    - name: The readers' wheels, verified before pip reads them\n", with: "-v1\n        restore-keys: reader-wheels-\n    - name: The readers' wheels, verified before pip reads them\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['restore-keys on a wheels cache; only a set of packages may come from another key'],
+  },
+  // ── U5 fix 18 (handover 2026-10-09 12:10): the verify step pinned whole; nothing lets a job go on past a refusal ──
+  {
+    check: 'U5 fix 18: || true after the npm verify line (re-gate 16 R16-1)',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, step 4 "The npm packages, verified before npm reads them": run is', 'package-lock.json || true", not'],
+  },
+  {
+    check: 'U5 fix 18: ; true after the Chromium verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: `"$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt)\n`, with: `"$RELEASE" $(grep -v '^#' .github/ci-hashes/playwright-deps.txt); true\n` },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/check-environment/action.yml, step 4 "Chromium and its system packages, verified before anything reads them": run is', 'playwright-deps.txt); true", not'],
+  },
+  {
+    check: 'U5 fix 18: || exit 0 after the wheels verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: 'restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt\n', with: 'restored wheels "$KEY" "$MATCHED" "$HOME/reader-wheels" scripts/files/readers.txt || exit 0\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers\' wheels, verified before pip reads them": run is', 'readers.txt || exit 0", not'],
+  },
+  {
+    check: 'U5 fix 18: set +e; in front of the LibreOffice verify line',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '      run: python3 -I .github/scripts/verify-installs.py restored debs', with: '      run: set +e; python3 -I .github/scripts/verify-installs.py restored debs' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"LibreOffice\'s packages, from the cache": the step after it is not the verify step'],
+  },
+  {
+    check: 'U5 fix 18: continue-on-error on the npm verify step (re-gate 16 R16-1)',
+    plant: { file: '.github/actions/npm-packages/action.yml', anchor: '    - name: The npm packages, verified before npm reads them\n      shell: bash\n', with: '    - name: The npm packages, verified before npm reads them\n      continue-on-error: true\n      shell: bash\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL actions/npm-packages/action.yml, runs.steps[3]: continue-on-error true', '"The npm packages, verified before npm reads them": has "continue-on-error", which its pinned step has not'],
+  },
+  {
+    check: 'U5 fix 18: continue-on-error on a job',
+    plant: { file: '.github/workflows/ci.yml', anchor: '    name: lint\n', with: '    name: lint\n    continue-on-error: true\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, jobs.lint: continue-on-error true; a failed step must stop its job'],
+  },
+  {
+    check: 'U5 fix 18: if: false on the wheels verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: The readers' wheels, verified before pip reads them\n      shell: bash\n", with: "    - name: The readers' wheels, verified before pip reads them\n      if: false\n      shell: bash\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers\' wheels, verified before pip reads them": has "if", which its pinned step has not'],
+  },
+  {
+    check: 'U5 fix 18: if: always() on the step after the wheels verify',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: '    - name: The readers the downloaded files are read back with (pinned, by hash)\n      shell: bash\n', with: '    - name: The readers the downloaded files are read back with (pinned, by hash)\n      if: always()\n      shell: bash\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['"The readers the downloaded files are read back with (pinned, by hash)": runs under "always()", so it runs after the verify step'],
+  },
+  {
+    check: 'U5 fix 18: shell: bash {0} on the LibreOffice verify step',
+    plant: { file: '.github/actions/check-environment/action.yml', anchor: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n      shell: bash\n", with: "    - name: LibreOffice's packages, verified before anything reads them\n      if: inputs.spreadsheet-app == 'true'\n      shell: bash {0}\n" },
+    run: CHECK_CACHE_ORDER,
+    names: ['"LibreOffice\'s packages, verified before anything reads them": shell is "bash {0}", not "bash"'],
+  },
+  {
+    check: 'U5 fix 18: a job-level defaults.run.shell',
+    plant: { file: '.github/workflows/ci.yml', anchor: '    name: lint\n', with: '    name: lint\n    defaults:\n      run:\n        shell: bash {0}\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, jobs.lint: defaults.run.shell "bash {0}"'],
+  },
+  {
+    check: 'U5 fix 18: a workflow-level defaults.run.shell',
+    plant: { file: '.github/workflows/ci.yml', anchor: 'permissions:\n  contents: read\n', with: 'permissions:\n  contents: read\n\ndefaults:\n  run:\n    shell: bash {0}\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, the workflow: defaults.run.shell "bash {0}"'],
+  },
+  {
+    check: "U5 fix 18: a shard's report back on always(), after check-environment",
+    plant: { file: '.github/workflows/ci.yml', anchor: "if: \"!cancelled() && steps.environment.outcome == 'success'\"\n        uses: actions/upload-artifact@v4\n        with:\n          name: fail-controls-plain-shard", with: "if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: fail-controls-plain-shard" },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL workflows/ci.yml, job "controls", step 4 "This shard\'s report": runs under "always()"', 'the one form allowed is "!cancelled() && steps.environment.outcome == \'success\'"'],
+  },
+  {
+    check: 'U5 fix 18: || true in the npm verify line and its pinned step both',
+    plant: [
+      { file: '.github/actions/npm-packages/action.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+      { file: 'scripts/cache-verify-steps.yml', anchor: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json\n', with: 'restored npm "$KEY" "$MATCHED" "$HOME/.npm/_cacache" package-lock.json || true\n' },
+    ],
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL scripts/cache-verify-steps.yml, actions/npm-packages/action.yml "npm-cache": run holds the shell operator "|"'],
+  },
+  {
+    check: 'U5 fix 18: a pinned verify step no restore uses',
+    plant: { file: 'scripts/cache-verify-steps.yml', anchor: '  npm-cache:\n', with: '  npm-cache-old:\n    name: x\n    shell: bash\n    run: python3 -I .github/scripts/verify-installs.py restored npm x\n  npm-cache:\n' },
+    run: CHECK_CACHE_ORDER,
+    names: ['FAIL scripts/cache-verify-steps.yml, actions/npm-packages/action.yml "npm-cache-old": pinned, but no cache restore of that id is there'],
+  },
+  // The drawn text (check-drawings 10): sheet code that draws another string, drops one or moves rows (re-gate 14 R14-1).
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls an exit with a reader "no card reader" (re-gate 14 D14)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.exitReader' : 'drawings.type.exitNoReader')", with: "t('drawings.type.exitNoReader')" },
+    run: CHECK_DRAWINGS,
+    names: ['FAIL any driver, en: every text drawn on its 10 sheets', 'any driver, en, sheet 4 "Every lane", line ', 'any driver, es, sheet 4 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls any-driver entries 2B (re-gate 14 D15)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.entry2A' : 'drawings.type.entry2B')", with: "t('drawings.type.entry2B')" },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 4 "Every lane", line ', 'Entry, type 2B'],
+  },
+  {
+    check: 'U5 fix 16 drawn: the lanes table calls a pass-only entry 2A (re-gate 14 D16)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t(reader ? 'drawings.type.entry2A' : 'drawings.type.entry2B')", with: "t('drawings.type.entry2A')" },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 3 "Every lane", line ', 'Entry, type 2A'],
+  },
+  {
+    check: 'U5 fix 16 drawn: a pass-only garage told it takes any driver (re-gate 14 D17)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "left.para(t(reader ? 'drawings.entryType.any' : 'drawings.entryType.passOnly'));", with: "left.para(t('drawings.entryType.any'));" },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 3 "Every lane", line ', 'pass holders only, es, sheet 3 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the 2B "How it works" loses its "no card reader" sentence (re-gate 14 D13)',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t('drawings.how2B.pedestal', { distance: pay }), t('drawings.how2B.noReader'), ", with: "t('drawings.how2B.pedestal', { distance: pay }), " },
+    run: CHECK_DRAWINGS,
+    names: ['pass holders only, en, sheet 1 "Entry lane, plan view: type 2B', 'pass holders only, es, sheet 1 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: two values of the electrical table swapped',
+    plant: [
+      { file: 'src/drawings/sheets.js', anchor: "[mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w1supply', { volts }),", with: "[mark(MARK.W1), t('drawings.power.w1'), t('drawings.power.w2supply')," },
+      { file: 'src/drawings/sheets.js', anchor: "[mark(MARK.W2), t('drawings.power.w2'), t('drawings.power.w2supply'), ''],", with: "[mark(MARK.W2), t('drawings.power.w2'), t('drawings.power.w1supply', { volts }), ''],"},
+    ],
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 8 "Electrical", line ', 'pass holders only, es, sheet 7 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: two rows of the server-room table reordered',
+    plant: {
+      file: 'src/drawings/sheets.js',
+      anchor: "      [t('drawings.room.mainSwitch'), t('drawings.inRoom.mainSwitch')],\n      [t('drawings.room.backup'), t('drawings.inRoom.backup')],\n",
+      with: "      [t('drawings.room.backup'), t('drawings.inRoom.backup')],\n      [t('drawings.room.mainSwitch'), t('drawings.inRoom.mainSwitch')],\n",
+    },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 6 "Server room", line ', 'long names, es, sheet 6 '],
+  },
+  {
+    check: 'U5 fix 16 drawn: the same text, drawn elsewhere on the sheet',
+    plant: { file: 'src/drawings/sheets.js', anchor: '  s.text(FRAME.left, 44, title, { size: SIZE.title, bold: true });', with: '  s.text(FRAME.left + 400, 44, title, { size: SIZE.title, bold: true });' },
+    run: CHECK_DRAWINGS,
+    names: ['any driver, en, sheet 1 "Entry lane, plan view: type 2A, a garage that takes any driver" (North Entry), line 1: drawn "430,44 Entry lane'],
+  },
+  {
+    check: 'U5 fix 16 drawn: a garage that gets a set where it asked for the drivers answer',
+    plant: { file: 'test/drawings-fixtures.js', anchor: "  takesAnyDriver: null,\n", with: "  takesAnyDriver: false,\n" },
+    run: CHECK_DRAWINGS,
+    names: ['no answer, en: asks for "nothing, a set is made", snapshot "drivers"'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -1315,6 +1911,32 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL Change log: no refused attempt among the changes made'],
   },
+  // ── U5: the installer drawings, in a browser (scripts/check-drawings-browser.js) ──
+  {
+    check: 'U5 7: a set made from the last read, with no session',
+    plant: { file: 'src/DrawingsPage.jsx', anchor: '      const { data, readAt } = await drawings.refresh();', with: '      const { data, readAt } = { data: drawings.data, readAt: new Date() };' },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL session ended: Download PDF saves no file'],
+  },
+  {
+    check: "U5 7: another owner's garage found",
+    plant: {
+      file: 'test/stub-platform.js',
+      anchor: "      const garage = who.garages.find((g) => g.id === m[1]);\n      // The platform's open-stays read",
+      with: "      const garage = Object.values(data).flatMap((o) => o.garages).find((g) => g.id === m[1]);\n      // The platform's open-stays read",
+    },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL owner B asking for owner A\'s lanes is answered "not found" (200)'],
+  },
+  {
+    check: 'U5 fix 13 1: the page says only the main way in, as the dictionary now says (re-gate 3)',
+    plant: { file: 'src/i18n/en.js', anchor: '"drawings.everyWay": "Every way in and every way out of the garage is a lane with this equipment."', with: '"drawings.everyWay": "Only the main way in is a lane with this equipment."' },
+    before: BUILD,
+    run: ['node', 'scripts/check-drawings-browser.js'],
+    names: ['FAIL the page says every way in and out is a lane with this equipment, before download'],
+  },
 ];
 
 function scratchCopy() {
@@ -1328,12 +1950,14 @@ function plant(dir, plants) {
   for (const p of [plants].flat()) plantOne(dir, p);
 }
 
-function plantOne(dir, { file, anchor, with: replacement }) {
+// `crlf: true` also saves the whole file with Windows line ends, after the replacement.
+function plantOne(dir, { file, anchor, with: replacement, crlf = false }) {
   const path = join(dir, file);
   const text = readFileSync(path, 'utf8');
   const found = text.split(anchor).length - 1;
   if (found !== 1) throw new Error(`${file}: the plant's anchor is there ${found} times, not once`);
-  writeFileSync(path, text.replace(anchor, replacement));
+  const planted = text.replace(anchor, replacement);
+  writeFileSync(path, crlf ? planted.replace(/\r?\n/g, '\r\n') : planted);
 }
 
 const run = (dir, [cmd, ...args], env = {}) => {

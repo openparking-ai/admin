@@ -28,6 +28,10 @@
     "check-downloads": "node scripts/check-downloads.js",
     "check-pdf-words": "node scripts/check-pdf-words.js",
     "check-print": "node scripts/check-print.js",
+    "check-drawings": "node scripts/check-drawings.js",
+    "check-drawings-browser": "node scripts/check-drawings-browser.js",
+    "check-job-limits": "node scripts/check-job-limits.js",
+    "check-cache-order": "node scripts/check-cache-order.js",
     "check-removed-person": "node scripts/check-removed-person.js",
     "check-first-load": "node scripts/check-first-load.js",
     "fail-controls": "node scripts/fail-controls.js",
@@ -40,6 +44,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
+    "js-yaml": "4.3.2",
     "playwright": "^1.63.0",
     "vite": "^6.4.3"
   },
