@@ -62,7 +62,7 @@ export default function CardReadersPage({ t, language, client, garage }) {
       <section className="panel" data-readers="unanswered">
         <p>{t('readers.unanswered')}</p>
         <p>
-          <a href={hashFor(PAGES.find((p) => p.id === 'setup'))} data-go="setup">
+          <a className="page-link" href={hashFor(PAGES.find((p) => p.id === 'setup'))} data-go="setup">
             {t('paid.toSetup')}
           </a>
         </p>
@@ -88,7 +88,7 @@ export default function CardReadersPage({ t, language, client, garage }) {
         <section className="panel" data-readers="first">
           <p data-notice="readers-first">{t(account ? 'readers.cannotYet' : 'readers.noAccount')}</p>
           <p>
-            <a href={hashFor(PAGES.find((p) => p.id === 'paid'))} data-go="paid">
+            <a className="page-link" href={hashFor(PAGES.find((p) => p.id === 'paid'))} data-go="paid">
               {t('readers.toPaid')}
             </a>
           </p>

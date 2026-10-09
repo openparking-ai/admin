@@ -40,6 +40,10 @@ export const REFUSALS = [
   'alert_email_needs_email', 'alert_choice_refused',
   'board_message_not_found', 'board_text_refused', 'board_lanes_refused', 'board_time_refused', 'board_messages_full',
   'board_prices_refused', 'board_message_refused',
+  // U6: a tax list, the payment account and card readers (the platform logs its 4xx refusals only).
+  'tax_set_effective_from_taken', 'tax_set_not_storable', 'bad_country', 'stripe_account_ambiguous', 'no_stripe_account',
+  'card_payments_not_active', 'bad_location', 'no_terminal_location', 'bad_reader', 'lane_has_reader', 'reader_bound_elsewhere',
+  'no_reader_bound',
 ];
 
 /**

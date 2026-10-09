@@ -79,7 +79,7 @@ export default function GettingPaidPage({ t, language, client, garage }) {
       <section className="panel" data-paid="unanswered">
         <p>{t('paid.unanswered')}</p>
         <p>
-          <a href={hashFor(setup)} data-go="setup">
+          <a className="page-link" href={hashFor(setup)} data-go="setup">
             {t('paid.toSetup')}
           </a>
         </p>
@@ -185,7 +185,7 @@ function StripeLink({ t, url, onUsed }) {
   return (
     <p className="warning" data-notice="not-opened">
       {t('paid.notOpened')}{' '}
-      <a href={url} target="_blank" rel="noopener noreferrer" data-action="open-stripe" onClick={onUsed}>
+      <a className="page-link" href={url} target="_blank" rel="noopener noreferrer" data-action="open-stripe" onClick={onUsed}>
         {t('paid.openPage')}
       </a>
     </p>

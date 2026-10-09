@@ -109,8 +109,8 @@ The build publishes no source maps.
   nothing on it yet says so under its line.
 - **Setup** is the garage's checklist, as the platform works it out
   (`GET /garages/:id/setup`): each step's name and what it is, done or not yet,
-  its facts in plain words and where it is done -- or "This can't be set from
-  here yet." Nothing here decides a step (`src/setup.js` only words it). The
+  its facts in plain words and where it is done (the page that does it) -- or
+  "This can't be set from here yet." Nothing here decides a step (`src/setup.js` only words it). The
   question "Does this garage take drivers without a pass?" is answered there;
   once answered it can be changed, never taken back to unanswered.
 - **Lanes and equipment** also sets lanes up: add, rename, remove (a used lane is
@@ -130,6 +130,39 @@ The build publishes no source maps.
   time, added, changed and removed on the page; and, per lane, a switch to show
   the price, which the lane works out itself. The same character rule and
   preview as a closing message.
+- **Taxes and fees** (`GET`/`POST /garages/:id/tax-sets`): the list in force now,
+  the ones that start later and the ones before it, each with when it starts in
+  the garage's own time, and each line's name, percent ("18.5%") and rounding, in
+  order; "This garage hasn't said yet." with no list, "This garage charges no
+  tax." for a list with no lines. "Change taxes" starts as a copy of the list in
+  force: add, remove and reorder lines (percent only, up to two decimals, sent in
+  hundredths: 18.5 is 1850), or the single choice that the garage charges no tax;
+  it starts now or from the start of a day in the garage's time (the first moment
+  of that day there; the computer's own zone decides nothing). Nothing is changed
+  in place: the page says so before saving, and its only write is a new list.
+  `src/taxes.js`, `src/TaxesPage.jsx`.
+- **Getting paid** (`/garages/:id/stripe-account`, its `onboarding-link` and
+  `refresh`): a garage that takes pass holders only needs nothing here. With no
+  account, a country and "Set up getting paid", which makes the account and
+  opens Stripe's page in a new tab. With one, what it can do now in plain words,
+  each fact with when it was checked, "Check again", and "Continue on Stripe"
+  while the details are not finished. No account id or Stripe code is shown.
+  `src/payments.js`, `src/GettingPaidPage.jsx`.
+- **Card readers** (`/stripe-account/location`, `/readers`, `/lanes/:id/reader`):
+  offered only when the account can take cards, as the setup checklist counts
+  it; otherwise what to do first, with the way to Getting paid. The readers'
+  address is entered once and then shown: it is sent as the address and, as the
+  place's name, the same address on one line (Stripe's limit for that name is
+  1,000 characters), which the platform's read gives back. Each way out with its
+  reader or "No card reader"; connect one with the code its screen shows and a
+  name, or disconnect it, confirmed on the page. The code is kept nowhere: not
+  in browser storage, the address, a log line or a file; it is let go after
+  every try. Every connection there has been, current first, prints and
+  downloads like the other lists. `src/CardReadersPage.jsx`.
+- **Every refusal** these three pages can meet is one plain sentence from the
+  dictionaries, never the platform's, the engine's or Stripe's own words; the
+  setup checklist's taxes, getting paid and card readers steps lead to them, and
+  Quick Find finds each page and its settings.
 - **Change log**: who changed what, before and after, when, in the garage's time.
   Below it and apart, the **refused attempts**, with how many there are: who
   tried what, why it was refused (true in whichever account's log it is read),
@@ -186,6 +219,7 @@ name it.
 | Download Excel, Download PDF and Print in a browser, against the stand-in, both languages, day and night, every file read back: the file is the list on screen, garage time, a fresh read for each click, a failed read and a 401 make no file, one click one file, the page policy unchanged and never broken; the same odd stored text through the screen, Print, both files, the file names and the notice, nothing in a name turning the words around it | `npm run build && npm run check-downloads` |
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
+| Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

@@ -786,7 +786,8 @@ textarea {
 .setup-where {
   margin-top: 6px;
 }
-.setup-where a {
+.setup-where a,
+.page-link {
   color: var(--text-primary);
   text-underline-offset: 3px;
 }

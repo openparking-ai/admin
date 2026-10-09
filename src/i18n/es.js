@@ -1211,7 +1211,7 @@ export default {
   "problem.cardsNotActive": "Stripe todavía no activó los pagos con tarjeta para este garaje. Termine los cobros e intente de nuevo.",
   "problem.placeRefused": "Revise la dirección: hacen falta la calle y el país.",
   "problem.noPlace": "Primero ingrese la dirección de los lectores de tarjetas.",
-  "problem.readerRefused": "Ingrese el código que muestra el lector y un nombre para él.",
+  "problem.readerRefused": "Ingrese el código de la pantalla del lector, y un nombre para el lector.",
   "problem.laneHasReader": "Esta salida ya tiene un lector de tarjetas. Desconéctelo primero.",
   "problem.readerElsewhere": "Ese lector está conectado a otro carril. Desconéctelo allí primero.",
   "problem.noReader": "Esta salida no tiene ningún lector de tarjetas para desconectar.",

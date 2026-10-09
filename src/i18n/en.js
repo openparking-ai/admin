@@ -1214,7 +1214,7 @@ export default {
   "problem.cardsNotActive": "Stripe hasn't turned card payments on for this garage yet. Finish getting paid, then try again.",
   "problem.placeRefused": "Check the address: a street and a country are needed.",
   "problem.noPlace": "Enter the address of the card readers first.",
-  "problem.readerRefused": "Enter the code the reader shows and a name for it.",
+  "problem.readerRefused": "Enter the code on the reader's screen, and a name for the reader.",
   "problem.laneHasReader": "This way out already has a card reader. Disconnect it first.",
   "problem.readerElsewhere": "That reader is connected to another lane. Disconnect it there first.",
   "problem.noReader": "This way out has no card reader to disconnect.",

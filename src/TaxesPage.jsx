@@ -13,13 +13,16 @@ import FieldName from './FieldName.jsx';
  * stay on record. Percents only.
  */
 export default function TaxesPage({ t, language, client, garage }) {
-  const now = useNow();
+  const ticking = useNow();
   const lists = useGarageRead(useCallback((id) => client.taxLists(id), [client]), garage.id);
   const [changing, setChanging] = useState(false);
   const reread = useCallback(() => lists.refresh().catch(() => lists.retry()), [lists]);
 
   if (lists.problem) return <ProblemNote t={t} kind={lists.problem} onRetry={lists.retry} />;
   if (!lists.data) return <p className="quiet">{t('loading')}</p>;
+  // Which list is in force is judged at the later of the clock and the read: a
+  // list saved "now" is in force the moment the page reads it back.
+  const now = new Date(Math.max(ticking.getTime(), lists.readAt?.getTime() ?? 0));
   const { current, later, earlier } = arrange(lists.data, now);
   const at = (iso) => garageDateTime(iso, garage.timezone, language);
   const zone = zoneSaid(garage.timezone, language, now);

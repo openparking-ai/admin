@@ -85,7 +85,7 @@ export function owners(now = Date.now()) {
             id: 'la100000-0000-4000-8000-000000000001',
             name: 'North Entry',
             direction: 'entry',
-            reader: { reader_id: 'tmr_standinNorthEntry', label: 'North Entry reader', bound_at: ago(60 * 24 * 60 * MINUTE) },
+            reader: { reader_id: 'tmr_stubNorthEntry', label: 'North Entry reader', bound_at: ago(60 * 24 * 60 * MINUTE) },
             devices: [{ id: 'dv100000-0000-4000-8000-000000000001', name: 'Harbor entry computer', last_seen_at: ago(MINUTE + 5000), revoked_at: null }],
           },
           {
@@ -173,12 +173,12 @@ function moneyData() {
         { id: 'ts100000-0000-4000-8000-000000000001', garage_id: 'a1000000-0000-4000-8000-000000000001', effective_from: '2025-12-01T05:00:00.000000Z', rule_count: 2, created_at: '2025-11-28T15:00:00.000Z', rules: [rule('city', 'City parking tax', 1850, 'nearest', 1), rule('state', 'State surcharge', 600, 'up', 2)] },
       ],
       account: {
-        garage_id: 'a1000000-0000-4000-8000-000000000001', account_id: 'acct_standinHarbor', create_requested_at: '2025-12-20T15:00:00.000Z', account_recorded_at: '2025-12-20T15:00:01.000Z',
+        garage_id: 'a1000000-0000-4000-8000-000000000001', account_id: 'acct_stubHarbor', create_requested_at: '2025-12-20T15:00:00.000Z', account_recorded_at: '2025-12-20T15:00:01.000Z',
         card_payments: 'active', card_payments_read_at: '2026-01-02T14:00:00.000Z', charges_enabled: true, charges_enabled_read_at: '2026-01-02T14:00:00.000Z', details_submitted: true, details_submitted_read_at: '2026-01-02T14:00:00.000Z',
       },
-      place: { garage_id: 'a1000000-0000-4000-8000-000000000001', location_id: 'tml_standinHarbor', display_name: '200 Harbor Street, Springfield, IL 62701, US', created_at: '2025-12-21T16:00:00.000Z' },
+      place: { garage_id: 'a1000000-0000-4000-8000-000000000001', location_id: 'tml_stubHarbor', display_name: '200 Harbor Street, Springfield, IL 62701, US', created_at: '2025-12-21T16:00:00.000Z' },
       connections: [
-        { lane_id: 'la100000-0000-4000-8000-000000000002', reader_id: 'tmr_standinOldExit', label: 'Old exit reader', location_id: 'tml_standinHarbor', bound_at: '2026-01-10T15:00:00.000Z', unbound_at: '2026-02-01T16:30:00.000Z' },
+        { lane_id: 'la100000-0000-4000-8000-000000000002', reader_id: 'tmr_stubOldExit', label: 'Old exit reader', location_id: 'tml_stubHarbor', bound_at: '2026-01-10T15:00:00.000Z', unbound_at: '2026-02-01T16:30:00.000Z' },
       ],
     },
     'a2000000-0000-4000-8000-000000000002': { taxSets: [], account: null, place: null, connections: [] },
@@ -506,7 +506,7 @@ export async function startStub({ port = 0 } = {}) {
     for (const [garageId, lanes] of Object.entries(o.lanes)) {
       const held = moneyOf(garageId);
       for (const l of lanes.filter((x) => x.reader)) {
-        held.connections.unshift({ lane_id: l.id, reader_id: l.reader.reader_id, label: l.reader.label, location_id: held.place?.location_id ?? 'tml_standinHarbor', bound_at: l.reader.bound_at, unbound_at: null });
+        held.connections.unshift({ lane_id: l.id, reader_id: l.reader.reader_id, label: l.reader.label, location_id: held.place?.location_id ?? 'tml_stubHarbor', bound_at: l.reader.bound_at, unbound_at: null });
       }
     }
   }
@@ -1116,14 +1116,14 @@ export async function startStub({ port = 0 } = {}) {
     bad_country: [400, BAD_COUNTRY],
     stripe_refused: [502, CODE_REFUSED],
     stripe_unreachable: [503, STRIPE_AWAY],
-    stripe_account_ambiguous: [409, { error: 'Stripe holds 2 accounts naming this garage (acct_standinOne, acct_standinTwo); one garage has one account, so none is attached and none is made. A person decides which is the garage\'s.', code: 'stripe_account_ambiguous' }],
+    stripe_account_ambiguous: [409, { error: 'Stripe holds 2 accounts naming this garage (acct_stubOne, acct_stubTwo); one garage has one account, so none is attached and none is made. A person decides which is the garage\'s.', code: 'stripe_account_ambiguous' }],
     no_stripe_account: [409, NO_ACCOUNT],
     card_payments_not_active: [409, cardsNotActive('inactive')],
     bad_location: [400, placeRefused('address.line1 and address.country are required')],
     no_terminal_location: [409, NO_PLACE],
     bad_reader: [400, readerRefused('registration_code is required: the code the reader shows')],
-    lane_has_reader: [409, { error: 'this lane already has reader tmr_standinNorthEntry bound; unbind it first', code: 'lane_has_reader' }],
-    reader_bound_elsewhere: [409, { error: 'reader tmr_standinNorthEntry is bound to another lane; unbind it there first', code: 'reader_bound_elsewhere' }],
+    lane_has_reader: [409, { error: 'this lane already has reader tmr_stubNorthEntry bound; unbind it first', code: 'lane_has_reader' }],
+    reader_bound_elsewhere: [409, { error: 'reader tmr_stubNorthEntry is bound to another lane; unbind it there first', code: 'reader_bound_elsewhere' }],
     no_reader_bound: [409, NO_READER],
     lane_not_found: [404, LANE_NOT_FOUND_NAMED],
     garage_not_found: [404, GARAGE_NOT_FOUND_NAMED],
@@ -1211,7 +1211,7 @@ export async function startStub({ port = 0 } = {}) {
       made += 1;
       const now = new Date().toISOString();
       held.account = {
-        garage_id: garage.id, account_id: `acct_standin${made}`, create_requested_at: now, account_recorded_at: now,
+        garage_id: garage.id, account_id: `acct_stub${made}`, create_requested_at: now, account_recorded_at: now,
         card_payments: null, card_payments_read_at: null, charges_enabled: null, charges_enabled_read_at: null, details_submitted: null, details_submitted_read_at: null,
       };
       stripeSide.set(held.account.account_id, { card_payments: 'inactive', charges_enabled: false, details_submitted: false });
@@ -1250,7 +1250,7 @@ export async function startStub({ port = 0 } = {}) {
       if (!address.line1 || !address.country) return no(400, placeRefused('address.line1 and address.country are required'));
       const cannot = takesCardsNow();
       if (cannot) return no(...cannot);
-      held.place = { garage_id: garage.id, location_id: `tml_standin${(made += 1)}`, display_name: body.display_name.trim(), created_at: new Date().toISOString() };
+      held.place = { garage_id: garage.id, location_id: `tml_stub${(made += 1)}`, display_name: body.display_name.trim(), created_at: new Date().toISOString() };
       line(who, { garageId: garage.id, action: 'payment_account.reader_place', subject: { kind: 'payment_account', id: null, name: null }, before: null, after: { place_name: held.place.display_name } });
       return answer(res, 201, { location: held.place });
     }
@@ -1265,7 +1265,7 @@ export async function startStub({ port = 0 } = {}) {
       if (cannot) return no(...cannot);
       // The stand-in's Stripe takes the codes its test readers show, as Stripe's simulated reader's does.
       if (!code.trim().startsWith('simulated')) return no(...MONEY_REFUSALS.stripe_refused);
-      const connection = { lane_id: lane.id, reader_id: `tmr_standin${(made += 1)}`, label, location_id: held.place.location_id, bound_at: new Date().toISOString(), unbound_at: null };
+      const connection = { lane_id: lane.id, reader_id: `tmr_stub${(made += 1)}`, label, location_id: held.place.location_id, bound_at: new Date().toISOString(), unbound_at: null };
       held.connections.push(connection);
       lane.reader = { reader_id: connection.reader_id, label, bound_at: connection.bound_at };
       line(who, { garageId: garage.id, action: 'lane.card_reader_connect', subject: { kind: 'reader', id: connection.reader_id, name: label }, before: null, after: { lane: lane.name, label } });
