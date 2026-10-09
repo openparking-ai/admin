@@ -1,9 +1,8 @@
 name: CI
 
+# Re-gate 18 test branch only: switched off.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,0 +1,115 @@
+name: gate18
+
+# Re-gate 18 (admin #13, bce21f7): does a step whose `if:` the order check
+# lets through run after a refused cache? The readers' wheels are saved with
+# one byte changed in one wheel (a plain file, no code), under the exact key
+# check-environment restores; the unedited action then refuses them. Every
+# step after the action is an artifact upload of a file that does not exist:
+# nothing planted runs, and the job's step list shows which ran.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  fill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The runner image
+        id: image
+        run: echo "os=${ImageOS}" >> "$GITHUB_OUTPUT"
+      - name: The readers' wheels by hash, one byte changed in et_xmlfile's
+        run: |
+          set -euo pipefail
+          pip download --require-hashes -r scripts/files/readers.txt -d ~/reader-wheels
+          f=$(ls ~/reader-wheels/et_xmlfile-2.0.0-*.whl)
+          printf 'X' | dd of="$f" bs=1 seek=200 conv=notrunc
+          sha256sum ~/reader-wheels/*
+      - uses: actions/cache/save@v4
+        with:
+          path: ~/reader-wheels
+          key: reader-wheels-${{ steps.image.outputs.os }}-py3.12-${{ hashFiles('scripts/files/readers.txt') }}-v1
+
+  status:
+    needs: fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        id: environment
+        with:
+          ubuntu-release: noble
+      - name: G18 no if - control, must be skipped
+        uses: actions/upload-artifact@v4
+        with: { name: g18-plain, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 always() - control, the check refuses it, must run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: g18-always, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B4 !success()
+        if: "!success()"
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b4, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B5 success() || !success()
+        if: "success() || !success()"
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b5, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B6 expression-wrapped !success()
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b6, path: no-such-file, if-no-files-found: ignore }
+
+  case:
+    needs: fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        id: environment
+        with:
+          ubuntu-release: noble
+      - name: G18 no if - control, must be skipped
+        uses: actions/upload-artifact@v4
+        with: { name: g18-case-plain, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B2 Always()
+        if: Always()
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b2, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B3 ALWAYS()
+        if: ALWAYS()
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b3, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B10 Failure()
+        if: Failure()
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b10, path: no-such-file, if-no-files-found: ignore }
+
+  slash:
+    needs: fill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment/
+        id: environment
+        with:
+          ubuntu-release: noble
+      - name: G18 no if - control, must be skipped
+        uses: actions/upload-artifact@v4
+        with: { name: g18-slash-plain, path: no-such-file, if-no-files-found: ignore }
+      - name: G18 B11 always() after the action named with a trailing slash
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: g18-b11, path: no-such-file, if-no-files-found: ignore }
