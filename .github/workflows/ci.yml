@@ -243,6 +243,9 @@ jobs:
       - name: The change log sorted and chosen from, in every page, file and print; one drawing at a time; refused attempts one line a row; who gets which alert 20 rows a page; Getting paid's Cancel
         run: npm run check-choices
 
+      - name: The Garages page and adding a garage -- each row opening its own Setup, 20 a page; exactly name, time zone and currency sent, once; blank fields and a refusal said plainly; a new account starting there; the refused attempts counted as chosen
+        run: npm run check-garages
+
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,
         # and every commit message. Plants its own controls -- a word in a

@@ -29,6 +29,9 @@ export function ownerReducer(state, action) {
       const only = action.garages.length === 1 ? action.garages[0].id : null;
       return { ...state, garages: action.garages, garagesProblem: null, garageId: only };
     }
+    // U7c: a garage was added: the list as read after it, and the new one chosen.
+    case 'added':
+      return { ...state, garages: action.garages, garagesProblem: null, garageId: action.garageId };
     case 'garagesProblem':
       return { ...state, garagesProblem: action.kind };
     case 'choose':

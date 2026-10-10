@@ -10,6 +10,10 @@
 //   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }
 //   PUT  /api/v1/auth/language   { language } -> the signed-in owner's own language, 'en' or 'es'; { language }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
+//   POST /api/v1/garages         { name, timezone, currency } -> 201 { garage } (U7c), the garage's whole row,
+//                                not open, nothing stated; one with no name, time zone or currency is 400
+//                                with no code; a currency that is not three capitals is the database's
+//                                refusal, a 500 "internal error", with no line in the log
 //   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader, closed, reopened }], quiet_minutes }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
 // U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
@@ -66,7 +70,7 @@ import { randomBytes } from 'node:crypto';
 
 const MINUTE = 60_000;
 
-/** Two owners. A has two garages, so the list to pick from shows; B has one. */
+/** Three owners. A has two garages, so the list to pick from shows; B has one; C, a new account, has none (U7c). */
 export function owners(now = Date.now()) {
   const ago = (ms) => new Date(now - ms).toISOString();
   return {
@@ -144,6 +148,16 @@ export function owners(now = Date.now()) {
       },
       people: { 'b1000000-0000-4000-8000-000000000001': [] },
       open: { 'b1000000-0000-4000-8000-000000000001': [] },
+    },
+    c: {
+      email: 'owner-c@example.com',
+      password: 'new-account-test-password',
+      tenant_id: 'cccccccc-0000-4000-8000-000000000003',
+      language: 'en',
+      garages: [],
+      lanes: {},
+      people: {},
+      open: {},
     },
   };
 }
@@ -229,6 +243,9 @@ const LANE_MESSAGE_REFUSED = { error: 'message must be text of 1 to 160 characte
 const LANE_REASON_REFUSED = { error: 'reason must be one of full, everyone: full lets pass and monthly holders in; everyone closes it to all', code: 'lane_reason_refused' };
 const LANE_ALREADY_OPEN = { error: 'this lane is already open', code: 'lane_already_open' };
 const ADD_LANE_REFUSED = { error: "name and direction ('entry' or 'exit') are required" };
+// U7c, as the platform's src/app.js answers POST /garages.
+const ADD_GARAGE_REFUSED = { error: 'name, timezone and currency are required' };
+const INTERNAL_ERROR = { error: 'internal error' };
 const COMPUTER_NAME_REQUIRED = { error: 'name is required' };
 const DRIVERS_REFUSED = (v) => ({ error: `transient_available is true or false, not ${JSON.stringify(v)}; unstated is the absence of the field, never a value` });
 const lastOpen = (direction) => {
@@ -498,6 +515,8 @@ export async function startStub({ port = 0 } = {}) {
   const used = new Set(); // lanes with a stay or an event: never removable
   let quiet = 5; // the platform's LANE_QUIET_MINUTES, which its lanes and setup reads return
   let flipped = false; // a checklist whose `done` says the opposite of its facts, for the checks
+  let refuseGarage = false; // U7c: the next garage added is refused, as the platform refuses one
+  const garageBodies = []; // U7c: every body sent to POST /garages, as sent
   for (const o of Object.values(data)) {
     for (const lanes of Object.values(o.lanes)) for (const l of lanes) Object.assign(l, { closed: l.closed ?? null, reopened: l.reopened ?? null });
   }
@@ -647,6 +666,45 @@ export async function startStub({ port = 0 } = {}) {
   const stateOf = (lane) => (lane.closed ? { state: 'closed', reason: lane.closed.reason, message: lane.closed.message } : { state: 'open' });
   const nameOk = (raw, max) => typeof raw === 'string' && raw.trim() !== '' && raw.trim().length <= max && !CONTROL.test(raw.trim());
 
+  /**
+   * U7c: a garage made on `who`'s account, as the platform makes one: not
+   * open, nothing stated, no lanes, nobody to tell. Its whole row, as
+   * POST /garages answers it.
+   */
+  let garageN = 0;
+  function makeGarage(who, { name, timezone, currency, live = false }) {
+    garageN += 1;
+    const id = `c7${String(garageN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`;
+    who.garages.push({ id, name, timezone, currency, live });
+    setups[id] = { transient_available: null, opened_at: live ? new Date().toISOString() : null, rates: { stored: 0, in_force: 0, earliest: null } };
+    who.lanes[id] = [];
+    (who.people ??= {})[id] = [];
+    who.open[id] = [];
+    return {
+      id, tenant_id: who.tenant_id, name, timezone, currency, created_at: new Date().toISOString(), default_action: 'allow', space_class: 'standard',
+      transient_available: null, activated_at: setups[id].opened_at, garage_pass_link: null, monthly_billing_link: null, validations_link: null,
+    };
+  }
+
+  /** POST /garages: exactly as the platform takes it, a refusal written in the log; an id, a row and a line for a garage made. */
+  async function addGarage(req, res, who) {
+    const body = (await readBody(req)) ?? {};
+    garageBodies.push(body);
+    const at = { action: 'garage.create', subject: { kind: 'unknown', id: null, name: null } };
+    if (refuseGarage || !body.name || !body.timezone || !body.currency) {
+      refuseGarage = false;
+      return refuse(res, who, 400, ADD_GARAGE_REFUSED, at);
+    }
+    // The database's own check on the currency: the platform answers it as an internal error, and logs nothing.
+    if (typeof body.currency !== 'string' || !/^[A-Z]{3}$/.test(body.currency)) return answer(res, 500, INTERNAL_ERROR);
+    const garage = makeGarage(who, { name: body.name, timezone: body.timezone, currency: body.currency });
+    line(who, {
+      garageId: garage.id, action: 'garage.create', subject: { kind: 'garage', id: garage.id, name: garage.name }, before: null,
+      after: { name: garage.name, timezone: garage.timezone, currency: garage.currency, default_action: garage.default_action, space_class: garage.space_class, transient_available: null },
+    });
+    return answer(res, 201, { garage });
+  }
+
   function checklist(who, garage) {
     const extra = setups[garage.id] ?? setupData()['a2000000-0000-4000-8000-000000000002'];
     const lanes = who.lanes[garage.id] ?? [];
@@ -666,7 +724,7 @@ export async function startStub({ port = 0 } = {}) {
     const exit = lanes.filter((l) => l.direction === 'exit');
     const computers = lanes.map((l) => ({ ...laneLine(l), ...computer(l) }));
     const steps = [
-      { key: 'garage_details', done: true, facts: { name: garage.name, timezone: garage.timezone, currency: garage.currency } },
+      { key: 'garage_details', done: Boolean(garage.name && garage.timezone && garage.currency), facts: { name: garage.name, timezone: garage.timezone, currency: garage.currency } },
       { key: 'drivers', done: extra.transient_available !== null, facts: { transient_available: extra.transient_available } },
       { key: 'lanes', done: entry.length > 0 && exit.length > 0, facts: { entry_lanes: entry.length, exit_lanes: exit.length, closed_lanes: lanes.filter((l) => l.closed).map(laneLine) } },
       { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: quiet, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
@@ -1337,6 +1395,7 @@ export async function startStub({ port = 0 } = {}) {
       return send(res, 200, { language });
     }
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
+    if (path === '/api/v1/garages' && req.method === 'POST') return addGarage(req, res, who);
 
     const u6 = await moneyRoutes(req, res, path, who);
     if (u6 !== undefined) return u6;
@@ -1383,6 +1442,15 @@ export async function startStub({ port = 0 } = {}) {
     setQuietMinutes: (minutes) => {
       quiet = minutes;
     },
+    // ── U7c ──
+    /** A garage on `owner`'s account, made as the platform makes one: `{ name, timezone, currency, live }`. */
+    addGarage: (owner, garage) => makeGarage(owner, garage),
+    /** The next garage added is refused (400), as the platform refuses one. */
+    refuseNextGarage: () => {
+      refuseGarage = true;
+    },
+    /** Every body sent to POST /garages, as sent, oldest first. */
+    garageBodies: () => structuredClone(garageBodies),
     /** Every step of every checklist answered with `done` reversed (true), or as worked out (false). */
     flipSetup: (on) => {
       flipped = Boolean(on);

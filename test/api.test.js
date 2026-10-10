@@ -321,3 +321,31 @@ test('U6 the onboarding link: only an address of the web, opened and never kept'
     assert.equal((await problemOf(createClient({ fetch: fakeFetch(link(bad)).fn }).stripePage('g'))).kind, 'unexpected', String(bad));
   }
 });
+
+test('U7c a garage is added with exactly its name, time zone and currency; every refusal the platform gave is a plain sentence', async () => {
+  const row = { id: 'g-new', name: 'Maple Avenue Garage', timezone: 'America/Chicago', currency: 'USD', activated_at: null };
+  const { fn, asked } = fakeFetch(json(201, { garage: row }));
+  assert.deepEqual(await createClient({ fetch: fn }).addGarage({ name: 'Maple Avenue Garage', timezone: 'America/Chicago', currency: 'USD' }), row);
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].url, '/api/v1/garages');
+  assert.equal(asked[0].init.method, 'POST');
+  assert.equal(asked[0].init.credentials, 'same-origin');
+  assert.deepEqual(Object.keys(JSON.parse(asked[0].init.body)).sort(), ['currency', 'name', 'timezone']);
+  // An answer with no garage, or a garage with no id, is not taken: there would be nothing to choose.
+  for (const body of [{}, { garage: null }, { garage: { name: 'x' } }]) {
+    assert.equal((await problemOf(createClient({ fetch: fakeFetch(json(201, body)).fn }).addGarage(row))).kind, 'unexpected', JSON.stringify(body));
+  }
+  const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).add_garage_answers;
+  const want = { 400: 'garageRefused', 403: 'wrongPlace', 500: 'unexpected' };
+  const refusals = recorded.filter((a) => a.what.startsWith('a garage, added') && a.status >= 400);
+  assert.equal(refusals.length, 4, 'the recording holds the four refusals of a garage added');
+  for (const a of refusals) {
+    const problem = await problemOf(createClient({ fetch: fakeFetch(json(a.status, a.body)).fn }).addGarage(row));
+    assert.equal(problem.kind, want[a.status], a.what);
+    for (const language of ['en', 'es']) {
+      const words = translate(language, problemKey(problem));
+      assert.doesNotMatch(words, RAW, `${a.what} (${language}): "${words}"`);
+      assert.ok(!words.includes(a.body.error), `${a.what} (${language}): the platform's own words`);
+    }
+  }
+});

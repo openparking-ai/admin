@@ -37,6 +37,11 @@ export const SAME_ON_PURPOSE = {
   'drawings.unit.category': 'the network cable\'s category, as printed on the cable',
   'drawings.unit.volts': 'the volt\'s symbol, the same in both languages',
   'drawings.unit.degrees': 'the degree sign, the same in both languages',
+  // U7c: a time zone's words and the place it is named for, joined the same way in both languages.
+  'zone.said': 'a time zone, a dash, then the place it is named for, in both languages',
+  'zone.alaska': 'Alaska and Anchorage are written the same in both languages',
+  'zone.guam': 'Chamorro and Guam are written the same in both languages',
+  'zone.samoa': 'Samoa and Pago Pago are written the same in both languages',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');

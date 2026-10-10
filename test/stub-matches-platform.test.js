@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { record, signInAnswer } from './platform-shapes.js';
+import { record, recordAddGarage, signInAnswer } from './platform-shapes.js';
 import { startStub } from './stub-platform.js';
 
 // The stand-in the checks run against answers as the real platform does: the
@@ -30,6 +30,19 @@ test('the stand-in answers every call and refusal the screens meet as the platfo
     const answers = await record(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks });
     assert.deepEqual(answers.map((a) => a.what), recorded.answers.map((a) => a.what));
     for (const [i, real] of recorded.answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
+  } finally {
+    await stub.close();
+  }
+});
+
+// U7c: a garage added, recorded from the platform apart from the answers above.
+test('the stand-in adds a garage, and refuses one, as the platform does', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const answers = await recordAddGarage(stub.url, { origin: ORIGIN, owner: stub.data.a });
+    assert.deepEqual(answers.map((a) => a.what), recorded.add_garage_answers.map((a) => a.what));
+    for (const [i, real] of recorded.add_garage_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

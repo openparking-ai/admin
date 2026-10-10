@@ -19,8 +19,9 @@ import DrawingsPage from './DrawingsPage.jsx';
 import TaxesPage from './TaxesPage.jsx';
 import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
+import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 
-// Home and Settings are drawn apart: Home lists every garage, and Settings is about these pages, not a garage.
+// Home, Garages and Settings are drawn apart: Home and Garages list every garage, and Settings is about these pages, not a garage.
 const PAGE_BODIES = {
   setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage,
   taxes: TaxesPage, paid: GettingPaidPage, readers: CardReadersPage,
@@ -197,6 +198,21 @@ export default function App({ theme, storage, client }) {
 
   const Body = PAGE_BODIES[page.id];
   const choose = (garageId) => dispatch({ type: 'choose', garageId });
+  const setupPage = PAGES.find((p) => p.id === 'setup');
+  // U7c: a garage pressed on the Garages page is chosen, and its Setup opened.
+  const open = (garageId) => {
+    choose(garageId);
+    actions.go(setupPage);
+  };
+  // U7c: a garage just added is chosen and its Setup opened. The list is the
+  // platform's as read after it; if that read failed, the new one is added to
+  // the list held, as the platform shows a garage.
+  const added = (made, garages) => {
+    const presented = { id: made.id, name: made.name, timezone: made.timezone, currency: made.currency, live: Boolean(made.activated_at) };
+    const list = garages ?? [...(owner.garages ?? []).filter((g) => g.id !== made.id), presented];
+    dispatch({ type: 'added', garages: list, garageId: made.id });
+    actions.go(setupPage);
+  };
   let content;
   if (page.id === 'settings') {
     content = <SettingsPage t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} />;
@@ -204,8 +220,11 @@ export default function App({ theme, storage, client }) {
     content = <ProblemNote t={t} kind={owner.garagesProblem} onRetry={loadGarages} />;
   } else if (!owner.garages) {
     content = <p className="quiet">{t('loading')}</p>;
+  } else if (page.id === 'garages') {
+    content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} />;
   } else if (owner.garages.length === 0) {
-    content = <p className="quiet">{t('garage.none')}</p>;
+    // U7c: an account with no garage starts by adding one, from whichever page it is on.
+    content = <NoGarages t={t} language={language} client={client} onAdded={added} />;
   } else if (page.id === 'home') {
     content = <Home t={t} language={language} client={client} garages={owner.garages} garage={garage} onChoose={choose} />;
   } else if (!garage) {

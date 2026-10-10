@@ -49,6 +49,7 @@ const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
 const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
 const TIDY = ['node', 'scripts/check-tidy.js'];
 const CHOICES = ['node', 'scripts/check-choices.js'];
+const GARAGES = ['node', 'scripts/check-garages.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -240,7 +241,8 @@ const CONTROLS = [
   },
   {
     check: 'U2c-6 no technical words: "goes live"',
-    plant: { file: 'src/i18n/en.js', anchor: 'and the day it opens.', with: 'and when it goes live.' },
+    // U7c: the Garages page's line now ends on its Setup; the same break, at its new end.
+    plant: { file: 'src/i18n/en.js', anchor: 'and how much of its setup is done.', with: 'and when it goes live.' },
     run: ['node', 'scripts/check-plain-words.js'],
     names: ['en: page.garages.purpose: "goes live"'],
   },
@@ -1385,6 +1387,19 @@ const CONTROLS = [
     run: ['node', '--test', 'test/search.test.js'],
     names: ['en "connect a card reader"'],
   },
+  // U7c: the stand-in adds a garage as the platform does (test/stub-matches-platform.test.js).
+  {
+    check: 'U7c the stand-in refuses a garage in words the platform does not use',
+    plant: { file: 'test/stub-platform.js', anchor: "const ADD_GARAGE_REFUSED = { error: 'name, timezone and currency are required' };", with: "const ADD_GARAGE_REFUSED = { error: 'a garage needs a name' };" },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "a garage, added with no time zone"'],
+  },
+  {
+    check: 'U7c a refused garage said as "something went wrong"',
+    plant: { file: 'src/api.js', anchor: "const GARAGE_BY_STATUS = { 400: 'garageRefused' };", with: 'const GARAGE_BY_STATUS = {};' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['U7c a garage is added with exactly its name', 'a garage, added with no time zone'],
+  },
   // U7b: the change log sorted and chosen from (test/choose.test.js).
   {
     check: 'U7b an action about no kind of thing',
@@ -2245,6 +2260,77 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: CHOICES,
     names: ['FAIL 7 Getting paid (en): Cancel at the right of its form', 'FAIL 7 Getting paid (es)'],
+  },
+  // ── U7c: the Garages page and adding a garage (scripts/check-garages.js) ──
+  {
+    check: 'U7c-1 a row that opens the first garage, whichever is pressed',
+    plant: { file: 'src/App.jsx', anchor: '  const open = (garageId) => {\n    choose(garageId);', with: '  const open = () => {\n    choose(owner.garages[0].id);' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 1 Riverside Deck (en): pressed, it is chosen and its own Setup opens', 'FAIL 1 Riverside Deck (es)'],
+  },
+  {
+    check: 'U7c-1 every garage on one page',
+    plant: { file: 'src/GaragesPage.jsx', anchor: '{garages.slice(paging.from, paging.to).map((g) => (', with: '{garages.map((g) => (' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 1 45 garages (en): 20 a page over 3 pages', 'FAIL 1 45 garages (es)'],
+  },
+  {
+    check: 'U7c-1 a time zone shown as the platform keeps it',
+    plant: { file: 'src/GaragesPage.jsx', anchor: "<td data-zone={garage.timezone}>{zoneWords(t, garage.timezone, language) ?? t('changes.value.anotherZone')}</td>", with: '<td data-zone={garage.timezone}>{garage.timezone}</td>' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 1 two garages (en): both listed', 'Harbor Street Garage zone: "America/New_York", not "Eastern — New York"'],
+  },
+  {
+    check: 'U7c-2 an optional field sent with the three',
+    plant: { file: 'src/api.js', anchor: "{ method: 'POST', body: { name, timezone, currency }, byStatus: GARAGE_BY_STATUS }", with: "{ method: 'POST', body: { name, timezone, currency, transient_available: false }, byStatus: GARAGE_BY_STATUS }" },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 2 it holds exactly name, timezone and currency, as chosen', 'FAIL 2 (es) it holds exactly name, timezone and currency'],
+  },
+  {
+    check: 'U7c-2 a double click that makes two garages',
+    plant: [
+      { file: 'src/GaragesPage.jsx', anchor: '    if (sending.current) return;\n', with: '' },
+      { file: 'src/GaragesPage.jsx', anchor: 'data-action="create-garage" disabled={busy}', with: 'data-action="create-garage"' },
+    ],
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 2 Create garage pressed twice: exactly one POST /garages (2 sent)', 'FAIL 2 (es) Create pressed twice: exactly one POST /garages (2 sent)'],
+  },
+  {
+    check: 'U7c-3 a blank time zone let through and sent',
+    plant: { file: 'src/GaragesPage.jsx', anchor: '  const complete = !missing.name && !missing.zone && !missing.money;', with: '  const complete = !missing.name && !missing.money;' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 3 no time zone (en): nothing sent', 'FAIL 3 no time zone (es): nothing sent'],
+  },
+  {
+    check: 'U7c-4 a refused garage shown anyway',
+    plant: {
+      file: 'src/GaragesPage.jsx',
+      anchor: "      sending.current = false;\n      setBusy(false);\n      if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');\n      return;",
+      with: "      void p;\n      onAdded({ id: 'refused-0000-4000-8000-000000000000', name: name.trim(), timezone: zone, currency: money, activated_at: null }, null);\n      return;",
+    },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 4 refused (en): one attempt, and it says', 'FAIL 4 refused (en): no garage chosen, still on Home'],
+  },
+  {
+    check: 'U7c-5 an account with no garage: the old sentence alone',
+    plant: { file: 'src/GaragesPage.jsx', anchor: '      <AddGarage t={t} language={language} client={client} onAdded={onAdded} />\n    </div>', with: '    </div>' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 5 no garages (en): every page offers "Add a garage"; not on Home, Setup, Garages'],
+  },
+  {
+    check: 'U7c-6 the refused count "in all" over a choice',
+    plant: { file: 'src/ChangesPage.jsx', anchor: '  if (choice.kinds.length > 0 || choice.whys.length > 0) {', with: '  if (choice === null) {' },
+    before: BUILD,
+    run: GARAGES,
+    names: ['FAIL 6 lanes ticked (en): "24 of 120 refused attempts. They changed nothing."', 'FAIL 6 lanes ticked (es)'],
   },
 ];
 
