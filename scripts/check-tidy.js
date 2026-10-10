@@ -134,7 +134,15 @@ async function pagesThrough(page, { list, keys, columns, language, label }) {
     const rows = await shownRows(page, list);
     if (!says || rows.length !== to - from + 1) wrongPages.push(`page ${i + 1}: ${rows.length} rows, says "${await page.textContent(`[data-pager="${list}"] .pager-where`).catch(() => 'nothing')}"`);
     for (const row of rows) seen.push(keys.find((k) => row.includes(k)) ?? `(a row holding none: ${row.slice(0, 40)})`);
-    if (i < pages - 1) await page.click(`[data-pager="${list}"] [data-action="next"]`);
+    if (i < pages - 1) {
+      // A list shorter than it should be ends early: its Next is off, and the rows it lacks are reported below.
+      const next = `[data-pager="${list}"] [data-action="next"]`;
+      if (!(await page.$(next)) || (await page.$eval(next, (b) => b.disabled))) {
+        wrongPages.push(`no page after page ${i + 1}`);
+        break;
+      }
+      await page.click(next);
+    }
   }
   const missed = keys.filter((k) => !seen.includes(k));
   const twice = seen.filter((k, i) => seen.indexOf(k) !== i);
@@ -142,8 +150,8 @@ async function pagesThrough(page, { list, keys, columns, language, label }) {
   check(wrongPages.length === 0 && seen.length === count && missed.length === 0 && twice.length === 0 && stray.length === 0,
     `3 ${label} (${language}): ${count} rows, ${PER_PAGE} a page over ${pages} pages, each saying where it is; ${seen.length} seen, none missed, none twice` +
       `${wrongPages.length ? `; ${wrongPages.slice(0, 3).join('; ')}` : ''}${missed.length ? `; missed ${missed.slice(0, 3).join(', ')}` : ''}${twice.length ? `; twice ${twice.slice(0, 3).join(', ')}` : ''}${stray.length ? `; ${stray[0]}` : ''}`);
-  const nextOff = await page.$eval(`[data-pager="${list}"] [data-action="next"]`, (b) => b.disabled);
-  await page.click(`[data-pager="${list}"] [data-action="previous"]`);
+  const nextOff = await page.$eval(`[data-pager="${list}"] [data-action="next"]`, (b) => b.disabled).catch(() => false);
+  await page.click(`[data-pager="${list}"] [data-action="previous"]`, { timeout: 5000 }).catch(() => {});
   const back = await settles(page, ([l, w]) => document.querySelector(`[data-pager="${l}"] .pager-where`)?.textContent === w, [list, where(language, (pages - 2) * PER_PAGE + 1, (pages - 1) * PER_PAGE, count)]);
   check(nextOff && back, `3 ${label} (${language}): Next stops at the last page, and Previous goes back one`);
 
@@ -389,13 +397,14 @@ try {
     const name = `Confirm ${language}`;
     await page.fill(`${form} label:has([data-about="alerts.person"]) input`, name);
     await page.fill(`${form} [data-field="email"]`, `confirm.${language}@example.com`);
-    await page.fill(`${form} [data-field="confirm-email"]`, `confirm.${language}@example.org`);
+    const confirmAdd = `${form} [data-field="confirm-email"]`;
+    if (await page.$(confirmAdd)) await page.fill(confirmAdd, `confirm.${language}@example.org`);
     await page.click(`${form} button[type="submit"]`);
     const said = await settles(page, (w) => document.querySelector('[data-form="add-person"] [data-notice="emails-differ"]')?.textContent === w, words['alerts.emailsDiffer']);
     await page.waitForTimeout(500);
     check(said && contactWrites(from).length === 0 && !(await platformPeople()).some((p) => p.name === name), `5 adding a person (${language}): two different addresses are not saved, and it says "${words['alerts.emailsDiffer']}"`);
-    await page.fill(`${form} [data-field="confirm-email"]`, `confirm.${language}@example.com`);
-    await page.click(`${form} button[type="submit"]`);
+    if (await page.$(confirmAdd)) await page.fill(confirmAdd, `confirm.${language}@example.com`);
+    if (await page.$(form)) await page.click(`${form} button[type="submit"]`);
     check(await settles(page, (nm) => [...document.querySelectorAll('[data-list="alerts"] tbody bdi')].some((b) => b.textContent === nm), name), `5 control (${language}): the same address twice is saved`);
     // Changing a person's address: a new one is typed twice too.
     const row = `[data-list="alerts"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
@@ -406,13 +415,15 @@ try {
     const changeFields = await page.$$eval(`${panel} input[inputmode="email"], ${panel} input[type="email"]`, (inputs) => inputs.map((i) => i.dataset.field));
     check(JSON.stringify(changeFields) === JSON.stringify(['email', 'confirm-email']), `5 changing a person's address (${language}): Confirm email under the new one (${changeFields.join(', ')})`);
     const changeFrom = requests.length;
-    await page.fill(`${panel} [data-field="confirm-email"]`, `new.${language}@example.net`);
+    // With no Confirm email to type in, it is sent as it is: the check below then sees what is saved.
+    const confirmField = `${panel} [data-field="confirm-email"]`;
+    if (await page.$(confirmField)) await page.fill(confirmField, `new.${language}@example.net`);
     await page.click(`${panel} button[type="submit"]`);
     const saidChange = await settles(page, (w) => document.querySelector('[data-panel="change-person"] [data-notice="emails-differ"]')?.textContent === w, words['alerts.emailsDiffer']);
     await page.waitForTimeout(500);
     check(saidChange && contactWrites(changeFrom).length === 0 && (await platformPeople()).find((p) => p.name === name)?.email === `confirm.${language}@example.com`, `5 changing a person's address (${language}): two different addresses are not saved, and it says so`);
-    await page.fill(`${panel} [data-field="confirm-email"]`, `new.${language}@example.com`);
-    await page.click(`${panel} button[type="submit"]`);
+    if (await page.$(confirmField)) await page.fill(confirmField, `new.${language}@example.com`);
+    if (await page.$(panel)) await page.click(`${panel} button[type="submit"]`);
     check(await settles(page, () => !document.querySelector('[data-panel="change-person"]')) && (await platformPeople()).find((p) => p.name === name)?.email === `new.${language}@example.com`, `5 control (${language}): the new address typed twice the same is saved`);
     if (language === 'en') await screenshot(page, 'alerts-confirm');
   }

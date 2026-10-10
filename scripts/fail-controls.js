@@ -1826,7 +1826,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '  tr {\n    break-inside: avoid;\n  }\n', with: '' },
     before: BUILD,
     run: ['node', 'scripts/check-removed-person.js'],
-    names: ['FAIL es print: "Una persona que fue quitada" for each'],
+    names: ['FAIL en print: every row of the log is kept whole on one sheet (0 of', 'FAIL es print: every row of the log is kept whole on one sheet (0 of'],
   },
   {
     check: 'U4b fix F1 both answers print, the chosen one only shaded',

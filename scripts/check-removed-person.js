@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global document, window */
+/* global document, window, getComputedStyle */
 // Removing a person removes their name from every view of the change log
 // (U4b fix round 2, check 2).
 //
@@ -142,6 +142,14 @@ for (const language of ['en', 'es']) {
   const printed = join(DIR, `print-${language}.pdf`);
   await page.pdf({ path: printed, format: 'Letter' });
   judge(where('print'), squeeze(fileText(readBack([printed])[printed])), words);
+  // A printed row is never split across two sheets: every row of both lists
+  // is held whole by the print's own rule (U7a: with compact rows, no row of
+  // this log happens to fall across a sheet, so the rule is read as well as
+  // the paper).
+  await page.emulateMedia({ media: 'print' });
+  const loose = await page.$$eval('[data-list="changes"] tbody tr, [data-list="refused"] tbody tr', (trs) => ({ rows: trs.length, loose: trs.filter((tr) => getComputedStyle(tr).breakInside !== 'avoid').length }));
+  await page.emulateMedia({ media: 'screen' });
+  check(loose.rows > 0 && loose.loose === 0, `${where('print')}: every row of the log is kept whole on one sheet (${loose.rows - loose.loose} of ${loose.rows} rows held)`);
 }
 
 await browser.close();
