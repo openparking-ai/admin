@@ -48,6 +48,7 @@ const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
 const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
 const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
 const TIDY = ['node', 'scripts/check-tidy.js'];
+const CHOICES = ['node', 'scripts/check-choices.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -615,7 +616,7 @@ const CONTROLS = [
   },
   {
     check: "U4 fix 5: another account's attempt on this garage said as \"not there\"",
-    plant: { file: 'src/changes.js', anchor: "  const why = line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)", with: "  const why = false && NOT_FOUND.includes(line.refusal)" },
+    plant: { file: 'src/changes.js', anchor: "  if (line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)) return 'notTheirs';", with: "  if (false && NOT_FOUND.includes(line.refusal)) return 'notTheirs';" },
     run: ['node', '--test', 'test/change-words.test.js'],
     names: ['5 EVERY LINE IS TRUE', "in the aimed-at garage's log"],
   },
@@ -1383,6 +1384,13 @@ const CONTROLS = [
     plant: { file: 'src/search.js', anchor: "  { id: 'connectReader', action: { page: 'readers' } },\n", with: '' },
     run: ['node', '--test', 'test/search.test.js'],
     names: ['en "connect a card reader"'],
+  },
+  // U7b: the change log sorted and chosen from (test/choose.test.js).
+  {
+    check: 'U7b an action about no kind of thing',
+    plant: { file: 'src/changes.js', anchor: "  lanes: ['lane.add', 'lane.rename', 'lane.remove', 'lane.close', 'lane.close_again', 'lane.reopen'],", with: "  lanes: ['lane.add', 'lane.rename', 'lane.remove', 'lane.close', 'lane.close_again'],"},
+    run: ['node', '--test', 'test/choose.test.js'],
+    names: ['lane.reopen: no kind'],
   },
 ];
 
@@ -2159,6 +2167,84 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: TIDY,
     names: ['FAIL 6 Home, Riverside Deck chosen: its own garage below the list'],
+  },
+  // ── U7b: the change log sorted and chosen from, one drawing at a time (scripts/check-choices.js) ──
+  {
+    check: 'U7b-1 the sort done to each page on screen alone',
+    plant: { file: 'src/changes.js', anchor: '  return shown.sort(sort).map((x) => x.line);', with: '  for (let k = 0; k < shown.length; k += 20) shown.splice(k, 20, ...shown.slice(k, k + 20).sort(sort));\n  return shown.map((x) => x.line);' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 1 changes sorted by oldest (en): all 312 in that order across every page', 'FAIL 1 changes sorted by who (en): all 312 in that order across every page'],
+  },
+  {
+    check: 'U7b-2 a download that ignores the choice',
+    plant: { file: 'src/ListActions.jsx', anchor: 'data: shape ? shape(data) : data,', with: 'data,' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 2 changes, two kinds ticked (en): Download Excel holds exactly the 95 lines', 'FAIL 2 changes, two kinds ticked (en): Download PDF holds exactly the 95 lines', 'FAIL 1 changes sorted by oldest (en): Download Excel holds exactly the 312 lines, in the order on screen'],
+  },
+  {
+    check: "U7b-2 the files' head without the choice",
+    plant: { file: 'src/files/model.js', anchor: 'const withChosen = (lines, data) => (data.chosen ? [...lines, data.chosen] : lines);', with: 'const withChosen = (lines) => lines;' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 2 changes, two kinds ticked (en): Download Excel holds exactly the 95 lines, and its head says "Only: lanes, taxes and fees"', 'FAIL 3 refused attempts, two reasons ticked (es): Download PDF'],
+  },
+  {
+    check: 'U7b-2 a tick for a kind of thing the log does not hold',
+    plant: { file: 'src/changes.js', anchor: 'export const kindsIn = (lines) => KIND_ORDER.filter((kind) => lines.some((line) => kindOf(line) === kind));', with: 'export const kindsIn = () => KIND_ORDER;' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 2 changes (en): a tick for each kind of thing the log holds, and no other', 'FAIL 2 changes (es): a tick for each kind'],
+  },
+  {
+    check: 'U7b-3 a reason listed that appears on no line',
+    plant: { file: 'src/changes.js', anchor: '  const keys = [...new Set(lines.map(whyKey))];', with: "  const keys = [...new Set([...lines.map(whyKey), 'not_signed_in'])];" },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 3 refused attempts (en): a tick for each reason the attempts were refused for, and no other', 'FAIL 3 refused attempts (es): a tick for each reason'],
+  },
+  {
+    check: "U7b-4 a single sheet's PDF holding two pages",
+    plant: { file: 'src/drawings/pdf.js', anchor: '  drawSheets(doc, sheets);', with: '  drawSheets(doc, only === null ? sheets : set.sheets.slice(only, only + 2));' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 4 Entry lane, plan view: type 2A, a garage that takes any driver · North Entry (en): Download PDF holds that sheet only', 'FAIL 4 Exit lane, plan view · North Exit (en): Download PDF holds that sheet only'],
+  },
+  {
+    check: 'U7b-5 the refused attempts not cut on screen',
+    plant: { file: 'src/styles.css', anchor: '.cut-text {\n  display: block;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n}', with: '.cut-text {\n  display: block;\n}' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 5 refused attempts at 1280 px (en, first page): each of 20 rows one line high', 'FAIL 5 refused attempts at 1280 px (es, first page)'],
+  },
+  {
+    check: 'U7b-5 the refused attempts cut in print',
+    plant: { file: 'src/styles.css', anchor: '@media print {\n  .cut-text {\n    overflow: visible;\n    white-space: normal;\n  }\n}', with: '' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 5 refused attempts printed (en): who, what and why whole', 'FAIL 5 refused attempts printed (es)'],
+  },
+  {
+    check: 'U7b-6 who gets which alert paged by person again',
+    plant: [
+      { file: 'src/AlertsPage.jsx', anchor: '  const paging = usePaging(every.length);', with: '  const paging = usePaging(contacts.length);' },
+      {
+        file: 'src/AlertsPage.jsx',
+        anchor: '<tbody className="no-print">{rows(every.slice(paging.from, paging.to))}</tbody>',
+        with: '<tbody className="no-print">{rows(every.filter((row) => contacts.indexOf(row.person) >= paging.from && contacts.indexOf(row.person) < paging.to))}</tbody>',
+      },
+    ],
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 6 who gets which alert: at most 20 rows a page'],
+  },
+  {
+    check: "U7b-7 Getting paid's Cancel beside its heading again",
+    plant: { file: 'src/styles.css', anchor: '.setup-form > .lane-panel-head {\n  align-self: stretch;\n}', with: '' },
+    before: BUILD,
+    run: CHOICES,
+    names: ['FAIL 7 Getting paid (en): Cancel at the right of its form', 'FAIL 7 Getting paid (es)'],
   },
 ];
 

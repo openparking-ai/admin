@@ -16,7 +16,7 @@
 //      its Download Excel, Download PDF and Print each hold all 312 -- for
 //      Garage View, the change log (312, read across the platform's pages of
 //      50) and its refused attempts (45), and Alerts (25 people; who gets
-//      which alert, 125 rows, prints whole);
+//      which alert, 125 rows, 20 a page since U7b, prints whole);
 //   4  an empty list shows no Download and no Print: Garage View, Lanes, the
 //      change log and its refused attempts, Alerts, Card readers;
 //   5  Confirm email: under every email typed on these screens (adding a
@@ -370,21 +370,29 @@ try {
   await chooseOnSettings(page, 'language', 'en');
   await go(page, 'alerts');
   await pagesThrough(page, { list: 'alerts', keys: names, columns: ['alerts.person', 'alerts.phone', 'alerts.email', 'alerts.language', 'alerts.confirmed', 'file.byText', 'file.byEmail'], language: 'en', label: 'Alerts, the people' });
-  // Who gets which alert: 20 people at a time under each alert on screen; every person under each, printed.
+  // Who gets which alert: 20 rows a page on screen, a row being one person under one alert (U7b); every row printed.
   {
     const alertsCount = (await page.evaluate(async (g) => (await (await fetch(`/api/v1/garages/${g}/alerts`)).json()).alerts.length, HARBOR.id));
-    const rowsOn = () => page.evaluate(() => [...document.querySelectorAll('[data-list="alert-choices"] tbody')].filter((b) => getComputedStyle(b).display !== 'none').flatMap((b) => [...b.rows]).map((r) => r.dataset.person));
+    const rowsOn = () => page.evaluate(() => [...document.querySelectorAll('[data-list="alert-choices"] tbody')].filter((b) => getComputedStyle(b).display !== 'none').flatMap((b) => [...b.rows]).map((r) => `${r.dataset.alert}|${r.dataset.person}`));
+    const count = 25 * alertsCount;
+    const pages = Math.ceil(count / PER_PAGE);
     await page.click('[data-pager="alert-choices"] [data-action="previous"]').catch(() => {});
-    const first20 = await rowsOn();
-    await page.click('[data-pager="alert-choices"] [data-action="next"]');
-    await settles(page, (w) => document.querySelector('[data-pager="alert-choices"] .pager-where')?.textContent === w, where('en', 21, 25, 25));
-    const last5 = await rowsOn();
+    const seen = [];
+    const sizes = [];
+    for (let i = 0; i < pages; i += 1) {
+      const from = i * PER_PAGE + 1;
+      await settles(page, (w) => document.querySelector('[data-pager="alert-choices"] .pager-where')?.textContent === w, where('en', from, Math.min(count, from + PER_PAGE - 1), count));
+      const rows = await rowsOn();
+      sizes.push(rows.length);
+      seen.push(...rows);
+      if (i < pages - 1) await page.click('[data-pager="alert-choices"] [data-action="next"]');
+    }
     await page.emulateMedia({ media: 'print' });
     const onPaper = await rowsOn();
     await page.emulateMedia({ media: 'screen' });
-    const everyone = new Set([...first20, ...last5]);
-    check(first20.length === 20 * alertsCount && last5.length === 5 * alertsCount && everyone.size === 25 && onPaper.length === 25 * alertsCount && new Set(onPaper).size === 25,
-      `3 Alerts, who gets which alert: ${first20.length / alertsCount} people under each alert, then ${last5.length / alertsCount}; ${everyone.size} people in all, none twice; printed, all ${onPaper.length / alertsCount} under each of the ${alertsCount} alerts`);
+    const everyone = new Set(seen.map((r) => r.split('|')[1]));
+    check(sizes.every((x) => x <= PER_PAGE) && seen.length === count && new Set(seen).size === count && everyone.size === 25 && onPaper.length === count && new Set(onPaper).size === count,
+      `3 Alerts, who gets which alert: ${PER_PAGE} rows a page over ${pages} pages (${sizes.join(', ')}); ${new Set(seen).size} rows, ${everyone.size} people, none twice; printed, all ${onPaper.length} rows`);
   }
   await screenshot(page, 'alerts-25');
 

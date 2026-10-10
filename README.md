@@ -123,6 +123,15 @@ The build publishes no source maps.
   `npm run check-descriptions` fails a field without one, and that is the rule
   for every later screen.
 
+- **Installer drawings, one sheet at a time** (U7b): each sheet in the list has
+  its own View (that sheet over the page, drawn by the same code the print
+  uses, with a Close), Download PDF and Print. Each reads the lanes again,
+  makes the whole set and gives that one sheet of it -- its "1 of 11" and all
+  -- its file named for the sheet and its lane. The whole set's Download PDF
+  and Print stay above the list. `src/DrawingsPage.jsx`, `src/drawings/pdf.js`.
+- **Who gets which alert** pages at 20 rows like every list (U7b), a row being
+  one person under one alert; an alert running on to the next page is named
+  again at its top. The print holds every row.
 - **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
   readers, Rates, Taxes and fees, Getting paid, Garage View, Alerts, Change log,
   Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
@@ -196,6 +205,21 @@ The build publishes no source maps.
   anything else typed about a person in its log. Each list prints and
   downloads like the others. A panel's own button says what it does: "No, keep
   it" beside a "Yes", "Cancel" on a form, "Done" once a code is shown.
+- **The change log sorted and chosen from** (U7b): above each list, small, on
+  one line, Sort by (When, newest first or oldest first; Who; What) and What
+  (ticks of the kinds of thing its lines are about: the garage, lanes, taxes
+  and fees, card readers, people to tell …), and over the refused attempts
+  Why (ticks of the reasons they were refused for, in the words the list
+  uses). Only kinds and reasons the garage's log holds are offered; nothing
+  ticked is everything; "Show everything" puts every choice back. Done on the
+  screen, on the whole log as read: the pages ("21–40 of 57, of 312 in all"),
+  Download Excel, Download PDF and Print all follow the choices and hold every
+  line that matches, and the head of each file and of the print says what was
+  chosen ("Only: lanes, taxes and fees · oldest first"), or "Everything".
+  `src/changes.js` (`chosenLines`, `choiceWords`), `src/ChangesPage.jsx`.
+- **A refused attempt is one line a row** on screen (U7b): who, what was tried
+  and why are cut short with "…", and shown whole over the row while pointed
+  at or with the keyboard's focus; the print and the files hold them whole.
 - **Settings** (U7a): the Language and Look choosers, small, on a page of their
   own in the side list; the top of every other page keeps the garage's name,
   Change garage and Sign out. The sign-in screen keeps its own. `src/SettingsPage.jsx`.
@@ -245,6 +269,7 @@ name it.
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
 | Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
 | The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
+| The change log sorted and chosen from (U7b), in a browser against the stand-in, both languages, with 312 changes and 57 refused attempts of many kinds: sorted each way, every line in that order across every page, none missed or repeated, and Excel, PDF and Print in that order; ticks only for kinds and reasons the log holds; two ticked, every line shown one of them, the count saying so, and Excel, PDF and Print holding exactly those and naming the choice; one drawing at a time, View, PDF and Print each that sheet only and the same as in the whole set; refused attempts one line a row at 1280 px, whole when pointed at, focused and printed; who gets which alert at most 20 rows a page, printed whole; Getting paid's Cancel at the right | `npm run build && npm run check-choices` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

@@ -240,6 +240,9 @@ jobs:
       - name: The owner's screens tidied -- the choosers on Settings only, Garage View's name, lists of 312 paged and downloaded and printed whole, no Download or Print on an empty list, Confirm email, Home's garages
         run: npm run check-tidy
 
+      - name: The change log sorted and chosen from, in every page, file and print; one drawing at a time; refused attempts one line a row; who gets which alert 20 rows a page; Getting paid's Cancel
+        run: npm run check-choices
+
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,
         # and every commit message. Plants its own controls -- a word in a
