@@ -2448,6 +2448,43 @@ const BROWSER_CONTROLS = [
     run: INVITES,
     names: ['FAIL 8 Garages (es, 1280 px)', 'wrapped: Harbor Street Garage'],
   },
+  // U7d-2 fix round: the four the gate measured.
+  {
+    check: "U7d2-1 an invite opened while signed in leaves the owner in the invite's language",
+    plant: { file: 'src/App.jsx', anchor: 'onLanguage={(next) => knownLanguage(next) && setInviteLanguage({ token, language: next })}', with: 'onLanguage={(next) => knownLanguage(next) && setLanguage(next)}' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 1 signed in, an English owner, a Spanish invite, left', 'FAIL 1 signed in, a Spanish owner, an English invite, left'],
+  },
+  {
+    check: 'U7d2-9 the link-status title on its box',
+    plant: { file: 'src/styles.css', anchor: "  /* The title's gap to its next line, as on every signed-out screen (.page-purpose). */\n  margin-top: 8px;\n", with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 9 the 8 link-status screens', 'invite used (en) 0 px', 'reset invalid (es) 0 px'],
+  },
+  {
+    check: 'U7d2-10 the signed-out card wider than a phone',
+    plant: { file: 'src/styles.css', anchor: '  max-width: calc(100% - 32px);\n', with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 10 a phone', 'Sign-in (en, 360 px)', 'the invite, ready (es, 390 px)'],
+  },
+  // Found looking at the screens at 360 px: the choosers above the card ran off the left edge, where nothing scrolls.
+  {
+    check: 'U7d2-10 the choosers above the card off the left edge of a phone',
+    plant: { file: 'src/styles.css', anchor: '.signin-top .choosers {\n  flex-wrap: wrap;\n', with: '.signin-top .choosers {\n' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 10 a phone', 'Sign-in (es, 360 px): 360 px wide', 'off the edge: language'],
+  },
+  {
+    check: 'U7d2-7 a Setup line in Spanish saying "estacionamiento" again',
+    plant: { file: 'src/i18n/es.js', anchor: '"setup.isOpen": "Este garaje está abierto;', with: '"setup.isOpen": "Este estacionamiento está abierto;' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 7 Setup (es), an open garage and one not', 'Harbor Street Garage, screen: "Este estacionamiento está abierto', 'in the dictionary: setup.isOpen'],
+  },
 ];
 
 function scratchCopy() {

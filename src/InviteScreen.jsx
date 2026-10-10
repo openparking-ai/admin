@@ -29,8 +29,10 @@ const SIGN_IN_INSTEAD = ['used', 'taken', 'emailTaken'];
  *
  * The token came from the address and was taken out of it before the page
  * was drawn (src/links.js); it is sent only in a POST body.
+ *
+ * Opened while an owner is signed in, its way out says where it goes: Home.
  */
-export default function InviteScreen({ t, client, token, language, onLanguage, controls, onSignedIn, onSignIn }) {
+export default function InviteScreen({ t, client, token, language, signedIn, onLanguage, controls, onSignedIn, onLeave }) {
   // { step: 'reading' } | { step: 'ready', email } | { step: 'status', status } | { step: 'problem', kind }
   const [state, setState] = useState(() => (couldBeToken(token) ? { step: 'reading' } : { step: 'status', status: 'invalid' }));
   const [chosen, setChosen] = useState(language);
@@ -115,8 +117,8 @@ export default function InviteScreen({ t, client, token, language, onLanguage, c
           {t(`invite.${state.status}.do`)}
         </p>
         {signIn ? (
-          <button type="button" className="primary-button" data-action="go-sign-in" onClick={onSignIn}>
-            {t('links.signIn')}
+          <button type="button" className="primary-button" data-action={signedIn ? 'go-home' : 'go-sign-in'} onClick={onLeave}>
+            {signedIn ? t('links.backHome') : t('links.signIn')}
           </button>
         ) : null}
       </div>
@@ -156,8 +158,8 @@ export default function InviteScreen({ t, client, token, language, onLanguage, c
       {body}
       {state.step === 'status' && SIGN_IN_INSTEAD.includes(state.status) ? null : (
         <p className="signin-more">
-          <button type="button" className="link-button" data-action="back-to-sign-in" onClick={onSignIn}>
-            {t('links.backToSignIn')}
+          <button type="button" className="link-button" data-action={signedIn ? 'back-home' : 'back-to-sign-in'} onClick={onLeave}>
+            {signedIn ? t('links.backHome') : t('links.backToSignIn')}
           </button>
         </p>
       )}

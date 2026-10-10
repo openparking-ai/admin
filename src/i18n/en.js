@@ -1376,6 +1376,7 @@ export default {
   // U7d-2: accepting an invite, a forgotten password, a new one chosen.
   "links.backToSignIn": "Back to sign in",
   "links.signIn": "Sign in",
+  "links.backHome": "Back to Home",
   "password.new": "New password",
   "password.new.about": "At least 12 characters. A few words in a row are easy to remember.",
   "password.again": "New password again",

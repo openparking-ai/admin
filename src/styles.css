@@ -470,8 +470,16 @@ ul {
   justify-content: flex-end;
   padding: 16px 28px;
 }
+/* U7d-2: on a phone the two choosers go one under the other, never off the screen's edge. */
+.signin-top .choosers {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+}
 .signin-card {
   width: 420px;
+  /* U7d-2: never wider than the screen, less its margins: invite and reset emails are opened on phones. */
+  max-width: calc(100% - 32px);
   margin: 48px 16px;
   padding: 32px;
   background: var(--bg-raised);
@@ -513,6 +521,8 @@ ul {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  /* The title's gap to its next line, as on every signed-out screen (.page-purpose). */
+  margin-top: 8px;
 }
 .link-status .signin-problem {
   align-self: stretch;

@@ -84,7 +84,13 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   // Saves to the profile go one after another, so the last choice is the one kept.
   const saving = useRef(Promise.resolve());
 
-  const t = useCallback((key, values) => translate(language, key, values), [language]);
+  // U7d-2: an invite's screen speaks the invite's language, or the one picked on it: { token, language }.
+  // It is the screen's only, and goes with it: left without accepting, a
+  // signed-in owner's pages speak the account's language again.
+  const [inviteLanguage, setInviteLanguage] = useState(null);
+  const speaking = link?.kind === 'invite' && inviteLanguage?.token === link.token ? inviteLanguage.language : language;
+
+  const t = useCallback((key, values) => translate(speaking, key, values), [speaking]);
 
   /** This visit and this computer: the screens, and the copy the next sign-in screen reads. */
   const show = useCallback(
@@ -190,11 +196,11 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   const garage = owner.garages?.find((g) => g.id === owner.garageId) ?? null;
 
   useEffect(() => {
-    document.documentElement.lang = language;
+    document.documentElement.lang = speaking;
     const linkTitle = { invite: 'invite.title', reset: 'reset.title' }[link?.kind];
     const title = linkTitle ? t(linkTitle) : signedIn ? t(`page.${page.id}.title`) : forgot ? t('forgot.title') : t('signIn.title');
     document.title = `${title} · ${t('app.name')}`;
-  }, [language, page, t, signedIn, link, forgot]);
+  }, [speaking, page, t, signedIn, link, forgot]);
 
   const actions = useMemo(
     () => ({
@@ -216,22 +222,33 @@ export default function App({ theme, storage, client, link: startLink = null }) 
     setForgot(false);
   };
   if (link?.kind === 'invite') {
+    const { token } = link;
+    // Left without accepting: signed in, back to Home in the account's own
+    // language; signed out, the sign-in screen goes on in the invite's.
+    const leave = () => {
+      if (!signedIn && inviteLanguage?.token === token) setLanguage(inviteLanguage.language);
+      setInviteLanguage(null);
+      if (signedIn) actions.go(PAGES.find((p) => p.id === 'home'));
+      toSignIn();
+    };
     return (
       <InviteScreen
-        key={link.token}
+        key={token}
         t={t}
         client={client}
-        token={link.token}
-        language={language}
+        token={token}
+        language={speaking}
+        signedIn={signedIn}
         // The screens speak the language picked for the account; this computer keeps it once the account is made.
-        onLanguage={(next) => knownLanguage(next) && setLanguage(next)}
-        controls={<Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} withLanguage={false} />}
+        onLanguage={(next) => knownLanguage(next) && setInviteLanguage({ token, language: next })}
+        controls={<Choosers t={t} language={speaking} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} withLanguage={false} />}
         onSignedIn={(who) => {
           setLink(null);
+          setInviteLanguage(null);
           signedInAs(who, { fromSignInScreen: false });
           actions.go(PAGES.find((p) => p.id === 'garages'));
         }}
-        onSignIn={toSignIn}
+        onLeave={leave}
       />
     );
   }
