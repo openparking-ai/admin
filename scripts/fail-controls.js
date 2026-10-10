@@ -1564,7 +1564,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.chooser > .field-about {\n  max-width: 28ch;', with: '.chooser > .field-about {\n  display: none;\n  max-width: 28ch;' },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Home (es)', '"Language": its description is not shown'],
+    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Settings (es)', '"Language": its description is not shown'],
   },
   {
     check: 'U2c-fix O2 Quick Find described, on screen',
