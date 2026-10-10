@@ -50,6 +50,7 @@ const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
 const TIDY = ['node', 'scripts/check-tidy.js'];
 const CHOICES = ['node', 'scripts/check-choices.js'];
 const GARAGES = ['node', 'scripts/check-garages.js'];
+const INVITES = ['node', 'scripts/check-invites.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -77,13 +78,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 107, 584); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 110, 588); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 104, 581); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 107, 585); only the last is ever shown'],
   },
   {
     check: '4 Quick Find finds every page in both languages',
@@ -1400,6 +1401,38 @@ const CONTROLS = [
     run: ['node', '--test', 'test/api.test.js'],
     names: ['U7c a garage is added with exactly its name', 'a garage, added with no time zone'],
   },
+  // U7d-2: the stand-in answers the four doors as the platform does (test/stub-matches-platform.test.js),
+  // and the client says each of their refusals in its own words (test/api.test.js).
+  {
+    check: 'U7d2 the stand-in says a used invite in words the platform does not use',
+    plant: { file: 'test/stub-platform.js', anchor: "  used: 'This invite was already used. Sign in instead.',", with: "  used: 'This invite has been used.'," },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "invite status, used"'],
+  },
+  {
+    check: 'U7d2 the stand-in takes a password of 11 characters',
+    plant: { file: 'test/stub-platform.js', anchor: 'const passwordOk = (p) => [...p].length >= 12', with: 'const passwordOk = (p) => [...p].length >= 11' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "invite accept, a password of 11 characters"'],
+  },
+  {
+    check: 'U7d2 the stand-in ends no session on a reset',
+    plant: { file: 'test/stub-platform.js', anchor: '    for (const sn of sessions.values()) if (sn.owner === who) sn.ended = true;\n', with: '' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "who is signed in, with the session from before the reset"'],
+  },
+  {
+    check: 'U7d2 an invite used, said as "something went wrong"',
+    plant: { file: 'src/api.js', anchor: "  [409, 'invite_used', 'inviteUsed'],\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['U7d-2 the four doors', 'invite accept, used'],
+  },
+  {
+    check: 'U7d2 a garage refused for its money, said as "something went wrong"',
+    plant: { file: 'src/api.js', anchor: "  [400, 'garage_currency_refused', 'garageRefused'],\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['U7c a garage is added with exactly its name', 'a garage, added with its money in small letters'],
+  },
   // U7b: the change log sorted and chosen from (test/choose.test.js).
   {
     check: 'U7b an action about no kind of thing',
@@ -2331,6 +2364,126 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: GARAGES,
     names: ['FAIL 6 lanes ticked (en): "24 of 120 refused attempts. They changed nothing."', 'FAIL 6 lanes ticked (es)'],
+  },
+  // ── U7d-2: accepting an invite, a forgotten password, a new one chosen (scripts/check-invites.js) ──
+  {
+    check: 'U7d2-1 the form shown for a used invite',
+    plant: {
+      file: 'src/InviteScreen.jsx',
+      anchor: "        if (found.status !== 'ready') return setState({ step: 'status', status: found.status });",
+      with: "        if (found.status !== 'ready' && found.status !== 'used') return setState({ step: 'status', status: found.status });",
+    },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 1 used (en): "This invite was already used. If you made your account with it, sign in.", and no form', 'FAIL 1 used (es)'],
+  },
+  // Found walking the screens against the real platform: its doors answer at a floor of 500 ms,
+  // after the first load's "not signed in", which began a new sign-in and threw the answer away.
+  {
+    check: "U7d2-1 an invite's status thrown away when the first load's \"not signed in\" comes back first",
+    plant: { file: 'src/api.js', anchor: "request('/auth/invite/status', { method: 'POST', body: { token }, sessionless: true })", with: "request('/auth/invite/status', { method: 'POST', body: { token } })" },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 1 ready (en): "Accept your invite", with its form', 'FAIL 1 ready (en): the email the invite was sent to, read only (null)'],
+  },
+  {
+    check: 'U7d2-2 the token left in the address',
+    plant: { file: 'src/links.js', anchor: "  history.replaceState(null, '', `${location.pathname}${location.search}`);\n", with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 2 ready (en): the address holds no token once it is read', 'FAIL 2 a link opened into an open page'],
+  },
+  {
+    check: 'U7d2-3 sent on a mismatch',
+    plant: { file: 'src/links.js', anchor: "  if (first !== second) problems.push('password.differ');\n", with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 3 invite, two that differ (en): nothing sent'],
+  },
+  {
+    check: 'U7d2-4 a different sentence for an email with no account',
+    plant: { file: 'src/ForgotScreen.jsx', anchor: "            {t('forgot.sent')}", with: "            {t(typed.includes('nobody') ? 'forgot.intro' : 'forgot.sent')}" },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 4 an email with none (en)', 'FAIL 4 (en): the screen is the same for an email with an account and one with none', 'FAIL 4 (es): the screen is the same'],
+  },
+  {
+    check: 'U7d2-5 a reset that leaves the owner signed out with no word',
+    plant: { file: 'src/App.jsx', anchor: "          dispatch({ type: 'drop', notice: 'passwordChanged' });", with: "          dispatch({ type: 'drop', notice: null });" },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 5 changed (en): the sign-in screen, saying "Your password is changed', 'FAIL 5 changed (es): the sign-in screen'],
+  },
+  // Found walking the screens against the real platform: a reset link pasted where Forgot was asked.
+  {
+    check: 'U7d2-5 a reset link opened where Forgot was asked lands on Forgot again',
+    plant: { file: 'src/App.jsx', anchor: '          setForgot(false);\n          signedInNow.current = false;', with: '          signedInNow.current = false;' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 5 changed, the link opened where Forgot was asked (en): the sign-in screen, saying so (on: "Forgot your password?")'],
+  },
+  {
+    check: "U7d2-6 the old names a browser gives, kept",
+    plant: { file: 'src/garages.js', anchor: 'export const ZONE_RENAMED = {\n', with: 'export const ZONE_RENAMED = {};\nexport const ZONE_RENAMED_NOT_USED = {\n' },
+    before: BUILD,
+    run: INVITES,
+    names: [
+      'FAIL 6 the browser\'s own list (en): no US zone under "Everywhere else", and Indianapolis once',
+      'FAIL 6 the browser\'s own list (en): the browser gives',
+      'FAIL 6 a list holding the old and the new names (es)',
+      'FAIL 6 a garage kept as Asia/Calcutta',
+    ],
+  },
+  {
+    check: "U7d2-7 Setup's garage details still \"can't be set from here yet\"",
+    plant: { file: 'src/setup.js', anchor: '  garage_details: { fixed: true },', with: '  garage_details: { notYet: true },' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 7 Setup (en): "Garage details" says', 'FAIL 7 Setup (es)'],
+  },
+  {
+    check: 'U7d2-8 Spanish names squeezed beside a long zone',
+    plant: { file: 'src/styles.css', anchor: '.list.garages th:first-child,\n.list.garages td:first-child {\n  min-width: 15em;\n}\n.list.garages td[data-zone] {\n  white-space: normal;\n  min-width: 12em;\n}\n', with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 8 Garages (es, 1280 px)', 'wrapped: Harbor Street Garage'],
+  },
+  // U7d-2 fix round: the four the gate measured.
+  {
+    check: "U7d2-1 an invite opened while signed in leaves the owner in the invite's language",
+    plant: { file: 'src/App.jsx', anchor: 'onLanguage={(next) => knownLanguage(next) && setInviteLanguage({ token, language: next })}', with: 'onLanguage={(next) => knownLanguage(next) && setLanguage(next)}' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 1 signed in, an English owner, a Spanish invite, left', 'FAIL 1 signed in, a Spanish owner, an English invite, left'],
+  },
+  {
+    check: 'U7d2-9 the link-status title on its box',
+    plant: { file: 'src/styles.css', anchor: "  /* The title's gap to its next line, as on every signed-out screen (.page-purpose). */\n  margin-top: 8px;\n", with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 9 the 8 link-status screens', 'invite used (en) 0 px', 'reset invalid (es) 0 px'],
+  },
+  {
+    check: 'U7d2-10 the signed-out card wider than a phone',
+    plant: { file: 'src/styles.css', anchor: '  max-width: calc(100% - 32px);\n', with: '' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 10 a phone', 'Sign-in (en, 360 px)', 'the invite, ready (es, 390 px)'],
+  },
+  // Found looking at the screens at 360 px: the choosers above the card ran off the left edge, where nothing scrolls.
+  {
+    check: 'U7d2-10 the choosers above the card off the left edge of a phone',
+    plant: { file: 'src/styles.css', anchor: '.signin-top .choosers {\n  flex-wrap: wrap;\n', with: '.signin-top .choosers {\n' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 10 a phone', 'Sign-in (es, 360 px): 360 px wide', 'off the edge: language'],
+  },
+  {
+    check: 'U7d2-7 a Setup line in Spanish saying "estacionamiento" again',
+    plant: { file: 'src/i18n/es.js', anchor: '"setup.isOpen": "Este garaje está abierto;', with: '"setup.isOpen": "Este estacionamiento está abierto;' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 7 Setup (es), an open garage and one not', 'Harbor Street Garage, screen: "Este estacionamiento está abierto', 'in the dictionary: setup.isOpen'],
   },
 ];
 

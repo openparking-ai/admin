@@ -90,6 +90,14 @@ function Where({ t, step }) {
   }
   // Answered here: the step's own button opens its question (U7a).
   if (where.here) return null;
+  // U7d-2: set when the garage was created, and never changed after.
+  if (where.fixed) {
+    return (
+      <p className="setup-where quiet" data-notice="set-at-creation">
+        {t('setup.setAtCreation')}
+      </p>
+    );
+  }
   return (
     <p className="setup-where quiet" data-notice="not-from-here">
       {t('setup.notFromHere')}

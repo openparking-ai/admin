@@ -49,12 +49,17 @@ const PAGE_OF = {
   'CardReadersPage.jsx': 'page.readers.title',
   'SettingsPage.jsx': 'page.settings.title',
   'GaragesPage.jsx': 'page.garages.title',
+  // U7d-2: the screens an emailed link or a forgotten password opens.
+  'InviteScreen.jsx': 'invite.title',
+  'ForgotScreen.jsx': 'forgot.title',
+  'ResetScreen.jsx': 'reset.title',
 };
 // Files drawn on more than one page: where on screen their fields are.
 const PLACE_OF = {
   'App.jsx': 'the top of every page',
   'QuickFind.jsx': 'Quick Find',
   'parts.jsx': 'choosing a garage',
+  'NewPassword.jsx': 'choosing a new password',
 };
 const pageName = (file) => (PAGE_OF[file] ? DICTIONARIES.en[PAGE_OF[file]] : (PLACE_OF[file] ?? file));
 

@@ -8,19 +8,22 @@ import FieldName from './FieldName.jsx';
  * under it, then its choices. On the Settings page, and on the sign-in screen
  * (which keeps its language choice); nowhere else (U7a).
  */
-export function Choosers({ t, language, themeChoice, onLanguage, onTheme }) {
+export function Choosers({ t, language, themeChoice, onLanguage, onTheme, withLanguage = true }) {
   return (
     <div className="choosers">
-      <div className="chooser" data-chooser="language">
-        <FieldName t={t} name="language.label" />
-        <Segmented
-          label={t('language.label')}
-          value={language}
-          options={['en', 'es'].map((l) => ({ value: l, text: t(`language.${l}`) }))}
-          onChange={onLanguage}
-          name="language"
-        />
-      </div>
+      {/* U7d-2: accepting an invite asks the language in its form, for the account: no second chooser above it. */}
+      {withLanguage ? (
+        <div className="chooser" data-chooser="language">
+          <FieldName t={t} name="language.label" />
+          <Segmented
+            label={t('language.label')}
+            value={language}
+            options={['en', 'es'].map((l) => ({ value: l, text: t(`language.${l}`) }))}
+            onChange={onLanguage}
+            name="language"
+          />
+        </div>
+      ) : null}
       <div className="chooser" data-chooser="theme">
         <FieldName t={t} name="theme.label" />
         <Segmented

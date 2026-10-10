@@ -336,12 +336,66 @@ test('U7c a garage is added with exactly its name, time zone and currency; every
     assert.equal((await problemOf(createClient({ fetch: fakeFetch(json(201, body)).fn }).addGarage(row))).kind, 'unexpected', JSON.stringify(body));
   }
   const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).add_garage_answers;
-  const want = { 400: 'garageRefused', 403: 'wrongPlace', 500: 'unexpected' };
+  // U7d-2: since platform 130d38d each refusal is a 400 (its name, money or time zone by its own code), never a 500.
+  const want = { 400: 'garageRefused', 403: 'wrongPlace' };
   const refusals = recorded.filter((a) => a.what.startsWith('a garage, added') && a.status >= 400);
-  assert.equal(refusals.length, 4, 'the recording holds the four refusals of a garage added');
+  assert.equal(refusals.length, 7, 'the recording holds the seven refusals of a garage added');
   for (const a of refusals) {
     const problem = await problemOf(createClient({ fetch: fakeFetch(json(a.status, a.body)).fn }).addGarage(row));
     assert.equal(problem.kind, want[a.status], a.what);
+    for (const language of ['en', 'es']) {
+      const words = translate(language, problemKey(problem));
+      assert.doesNotMatch(words, RAW, `${a.what} (${language}): "${words}"`);
+      assert.ok(!words.includes(a.body.error), `${a.what} (${language}): the platform's own words`);
+    }
+  }
+});
+
+test('U7d-2 the four doors: a token only ever in a POST body; every answer the platform gave, its own kind and plain words', async () => {
+  // What a link is: asked by POST, the token in the body, nothing in the address.
+  const ready = { status: 'ready', message: 'x', email: 'invited@example.com', language: 'es', expires_at: '2026-10-17T12:00:00.000Z' };
+  let fake = fakeFetch(json(200, ready));
+  assert.deepEqual(await createClient({ fetch: fake.fn }).inviteStatus('opi_token-in-the-body'), { status: 'ready', email: 'invited@example.com', language: 'es' });
+  assert.equal(fake.asked[0].url, '/api/v1/auth/invite/status');
+  assert.equal(fake.asked[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(fake.asked[0].init.body), { token: 'opi_token-in-the-body' });
+  for (const status of ['used', 'expired', 'replaced', 'invalid']) {
+    assert.deepEqual(await createClient({ fetch: fakeFetch(json(200, { status, message: 'x' })).fn }).inviteStatus('opi_x'), { status }, status);
+  }
+  // A status, or a ready answer, the screens could not show truly is not taken.
+  for (const body of [{ status: 'pending', message: 'x' }, { status: 'ready', message: 'x' }, { ...ready, language: 'fr' }]) {
+    assert.equal((await problemOf(createClient({ fetch: fakeFetch(json(200, body)).fn }).inviteStatus('opi_x'))).kind, 'unexpected', JSON.stringify(body));
+  }
+  // Accept, forgot and reset: each by POST to its door, exactly what it needs in the body.
+  const calls = [
+    ['/api/v1/auth/invite/accept', (c) => c.acceptInvite('opi_t', 'a-good-long-password', 'en'), { token: 'opi_t', password: 'a-good-long-password', language: 'en' }, { email: 'e@example.com', tenant_id: 't', session_ends_at: 'x', language: 'en' }],
+    ['/api/v1/auth/forgot', (c) => c.forgot('e@example.com'), { email: 'e@example.com' }, { message: 'x' }],
+    ['/api/v1/auth/reset', (c) => c.resetPassword('opr_t', 'a-good-long-password'), { token: 'opr_t', password: 'a-good-long-password' }, { email: 'e@example.com', message: 'x' }],
+  ];
+  for (const [url, call, body, answer] of calls) {
+    fake = fakeFetch(json(200, answer));
+    await call(createClient({ fetch: fake.fn }));
+    assert.equal(fake.asked[0].url, url);
+    assert.equal(fake.asked[0].init.method, 'POST');
+    assert.deepEqual(JSON.parse(fake.asked[0].init.body), body, url);
+  }
+  // Every refusal of the four doors the platform gave (test/platform-shapes.json), and those only a platform set up for them gives.
+  const shapes = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8'));
+  const door = (what) => (what.startsWith('invite status') ? (c) => c.inviteStatus('opi_x') : what.startsWith('invite accept') ? (c) => c.acceptInvite('opi_x', 'a-good-long-password', 'en') : what.startsWith('forgot') ? (c) => c.forgot('e@example.com') : what.startsWith('reset') ? (c) => c.resetPassword('opr_x', 'a-good-long-password') : null);
+  const want = {
+    origin_refused: 'wrongPlace', invite_unreadable: 'unexpected', forgot_unreadable: 'unexpected', reset_unreadable: 'unexpected', password_refused: 'passwordRule',
+    invite_used: 'inviteUsed', invite_expired: 'inviteExpired', invite_replaced: 'inviteReplaced', invite_invalid: 'inviteInvalid', invite_has_admin: 'inviteTaken', invite_email_taken: 'inviteEmailTaken',
+    reset_used: 'resetUsed', reset_expired: 'resetExpired', reset_replaced: 'resetReplaced', reset_invalid: 'resetInvalid',
+    link_rate_limited: 'linkTooMany', link_busy: 'linkBusy', sign_in_not_configured: 'notSetUp',
+  };
+  const refusals = [
+    ...shapes.account_links_answers.filter((a) => a.status >= 400 && door(a.what)),
+    ...Object.entries(shapes.link_answers).map(([what, a]) => ({ what: `forgot, ${what}`, ...a })),
+  ];
+  assert.equal(refusals.length, 21, 'the recording holds the 18 refusals of the four doors, and the 3 only a platform set up for them gives');
+  for (const a of refusals) {
+    const problem = await problemOf(door(a.what)(createClient({ fetch: fakeFetch(json(a.status, a.body)).fn })));
+    assert.equal(problem.kind, want[a.body.code], a.what);
     for (const language of ['en', 'es']) {
       const words = translate(language, problemKey(problem));
       assert.doesNotMatch(words, RAW, `${a.what} (${language}): "${words}"`);

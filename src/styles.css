@@ -470,8 +470,16 @@ ul {
   justify-content: flex-end;
   padding: 16px 28px;
 }
+/* U7d-2: on a phone the two choosers go one under the other, never off the screen's edge. */
+.signin-top .choosers {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+}
 .signin-card {
   width: 420px;
+  /* U7d-2: never wider than the screen, less its margins: invite and reset emails are opened on phones. */
+  max-width: calc(100% - 32px);
   margin: 48px 16px;
   padding: 32px;
   background: var(--bg-raised);
@@ -494,6 +502,42 @@ ul {
   flex-direction: column;
   gap: 16px;
   margin-top: 24px;
+}
+/* U7d-2: good news on a signed-out screen (a password changed, a link on its way), and the small links under a form. */
+.signin-said {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+}
+.signin-more {
+  margin-top: 18px;
+  font-size: 14px;
+}
+/* U7d-2: a link that no longer works: its sentence, the one thing to do, and the button for it. */
+.link-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  /* The title's gap to its next line, as on every signed-out screen (.page-purpose). */
+  margin-top: 8px;
+}
+.link-status .signin-problem {
+  align-self: stretch;
+  margin-top: 0;
+}
+.link-do {
+  margin: 0;
+}
+/* U7d-2: the invited email, shown and not typed: no fill, a dashed edge. */
+.field input[readonly] {
+  background: transparent;
+  border-style: dashed;
+}
+.signin-form .warning {
+  margin: 0;
 }
 .field {
   display: flex;
@@ -1401,6 +1445,18 @@ textarea {
 }
 .list.garages td:not(:first-child) {
   white-space: nowrap;
+}
+/*
+ * U7d-2: the name keeps room for a few words on one line, in Spanish too; a
+ * long time zone wraps in its own column instead of squeezing the name.
+ */
+.list.garages th:first-child,
+.list.garages td:first-child {
+  min-width: 15em;
+}
+.list.garages td[data-zone] {
+  white-space: normal;
+  min-width: 12em;
 }
 .garage-open {
   font-weight: 600;
