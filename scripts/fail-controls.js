@@ -1645,8 +1645,8 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/App.jsx', anchor: "        {t('page.notYet')}", with: '' },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    // Getting paid has something on it since U6; Garages and Rates still have nothing.
-    names: ['FAIL "Garages": nothing on it yet', 'FAIL "Rates": nothing on it yet'],
+    // Getting paid has something on it since U6, Garages since U7c; Rates still has nothing.
+    names: ['FAIL "Rates": nothing on it yet'],
   },
   {
     check: 'U3-2 garage time in a downloaded file, in the browser',
