@@ -23,6 +23,9 @@
 //   An invite lasts seven days and a reset link one hour; each works once. A
 //   link that is not ready is 409 invite_<status> or reset_<status>. A reset
 //   ends every session of the owner. No door reads a cookie or the query.
+//   As on the platform, no door answers sooner than the floor (500 ms) after
+//   the request arrived: so a page's first "who is signed in?" is answered
+//   first, as it is in life.
 //   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader, closed, reopened }], quiet_minutes }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
 // U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
@@ -273,6 +276,8 @@ const INVITE_TOKEN = /^opi_[A-Za-z0-9_-]{43}$/;
 const RESET_TOKEN = /^opr_[A-Za-z0-9_-]{43}$/;
 const DAY = 24 * 60 * MINUTE;
 const DOORS = { '/api/v1/auth/invite/status': 'status', '/api/v1/auth/invite/accept': 'accept', '/api/v1/auth/forgot': 'forgot', '/api/v1/auth/reset': 'reset' };
+// The platform's SIGN_IN_REFUSAL_FLOOR_MS, which holds every answer of the four doors.
+const DOOR_FLOOR_MS = 500;
 
 /** The body, when it has exactly these keys, each a string; or null. As the platform reads a door's body. */
 function exactly(body, keys) {
@@ -700,6 +705,7 @@ export async function startStub({ port = 0 } = {}) {
   const sent = []; // every email the stand-in "sent": { to, kind, token }
   const doorRequests = []; // every request to a door: { door, method, url, body }, as it arrived
   let failLink = null;
+  let doorFloor = DOOR_FLOOR_MS;
   let tenantN = 0;
   const newLink = (prefix) => `${prefix}${randomBytes(32).toString('base64url')}`;
   const ownerByEmail = (email) => Object.values(data).find((o) => o.email === email) ?? null;
@@ -731,7 +737,10 @@ export async function startStub({ port = 0 } = {}) {
     return data[key];
   }
 
-  async function door(req, res, which) {
+  async function door(req, res, answerNow, which) {
+    const arrived = Date.now();
+    // Every answer held to the floor, as the platform holds it.
+    const send = (...args) => setTimeout(() => answerNow(...args), Math.max(0, arrived + doorFloor - Date.now()));
     const raw = await new Promise((resolve) => {
       let text = '';
       req.on('data', (c) => (text += c));
@@ -769,9 +778,9 @@ export async function startStub({ port = 0 } = {}) {
       const token = randomBytes(32).toString('base64url');
       issued.push(token);
       sessions.set(token, { owner: who, ended: false });
-      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language }, {
-        'Set-Cookie': `${COOKIE}=${token}; ${COOKIE_ATTRIBUTES}; Max-Age=${SESSION_SECONDS}; Secure`,
-      });
+      // Signed in as sign-in signs in: the same answer, and the same cookie.
+      const signedIn = { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language };
+      return send(res, 200, signedIn, { 'Set-Cookie': `${COOKIE}=${token}; ${COOKIE_ATTRIBUTES}; Max-Age=${SESSION_SECONDS}; Secure` });
     }
     if (which === 'forgot') {
       const who = ownerByEmail(body.email);
@@ -1556,7 +1565,7 @@ export async function startStub({ port = 0 } = {}) {
 
     if (path === '/api/v1/auth/sign-in' && req.method === 'POST') return signIn(req, res);
     // U7d-2: the four doors read no cookie, and no query.
-    if (DOORS[path] && req.method === 'POST') return door(req, res, DOORS[path]);
+    if (DOORS[path] && req.method === 'POST') return door(req, res, send, DOORS[path]);
 
     // Who the cookie names: the auth routes and the reads answer "not signed in" differently.
     const onAuth = path.startsWith('/api/v1/auth/');
@@ -1655,6 +1664,10 @@ export async function startStub({ port = 0 } = {}) {
     sent: () => sent.slice(),
     /** Every request that reached one of the four doors, as it arrived: `{ door, method, url, body }`. */
     doorRequests: () => doorRequests.slice(),
+    /** How long the doors hold every answer, in ms (the platform's floor, 500, unless set). */
+    setDoorFloor: (ms) => {
+      doorFloor = ms;
+    },
     /** The next door answers as a platform set up to give it would: tooMany, busy or notSetUp. */
     failLink: (kind) => {
       if (!LINK_ANSWERS[kind]) throw new Error(`no such door answer: ${kind}`);

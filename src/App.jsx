@@ -246,6 +246,8 @@ export default function App({ theme, storage, client, link: startLink = null }) 
         // A reset signs nobody in and signs the account out everywhere: the sign-in screen, saying so.
         onChanged={() => {
           setLink(null);
+          // Opened where "Forgot your password?" was asked, it is the sign-in screen that says so, not Forgot again.
+          setForgot(false);
           signedInNow.current = false;
           dispatch({ type: 'drop', notice: 'passwordChanged' });
         }}

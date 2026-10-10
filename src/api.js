@@ -188,8 +188,16 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     for (const fn of listeners) fn(kind);
   };
 
-  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null } = {}) {
+  /**
+   * `sessionless`: a door that reads no session (U7d-2: an invite's status
+   * and accepting it, forgot, reset). Its answer belongs to no owner, so a
+   * sign-out or a 401 while it is on its way -- the "not signed in" of the
+   * first load, as the platform holds every door's answer to its floor --
+   * does not throw it away.
+   */
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false } = {}) {
     const asked = epoch;
+    const stale = (at) => (sessionless ? null : staleSince(at));
     let res;
     try {
       res = await fetchFn(`${BASE}${path}`, {
@@ -250,7 +258,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
   }
 
   // An answer that arrived after a sign-out belongs to nobody on screen now.
-  const stale = (asked) => (asked === epoch ? null : new Problem(STALE));
+  const staleSince = (asked) => (asked === epoch ? null : new Problem(STALE));
 
   const object = (data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Problem('unexpected');
@@ -292,7 +300,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      * token goes in the body, never in an address.
      */
     inviteStatus: async (token) => {
-      const data = object(await request('/auth/invite/status', { method: 'POST', body: { token } }));
+      const data = object(await request('/auth/invite/status', { method: 'POST', body: { token }, sessionless: true }));
       if (!LINK_STATUSES.includes(data.status)) throw new Problem('unexpected');
       if (data.status !== 'ready') return { status: data.status };
       if (typeof data.email !== 'string' || !['en', 'es'].includes(data.language)) throw new Problem('unexpected');
@@ -305,16 +313,16 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      */
     async acceptInvite(token, password, language) {
       epoch += 1;
-      const who = object(await request('/auth/invite/accept', { method: 'POST', body: { token, password, language } }));
+      const who = object(await request('/auth/invite/accept', { method: 'POST', body: { token, password, language }, sessionless: true }));
       signedIn = true;
       return who;
     },
     /** U7d-2: ask for a link to choose a new password. The platform's answer is the same whoever the email names. */
     forgot: async (email) => {
-      object(await request('/auth/forgot', { method: 'POST', body: { email } }));
+      object(await request('/auth/forgot', { method: 'POST', body: { email }, sessionless: true }));
     },
     /** U7d-2: the new password, with the link's token. It signs nobody in, and signs the account out everywhere. */
-    resetPassword: async (token, password) => object(await request('/auth/reset', { method: 'POST', body: { token, password } })),
+    resetPassword: async (token, password) => object(await request('/auth/reset', { method: 'POST', body: { token, password }, sessionless: true })),
     async signOut() {
       try {
         await request('/auth/sign-out', { method: 'POST' });

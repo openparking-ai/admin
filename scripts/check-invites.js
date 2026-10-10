@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global document, window, getComputedStyle, location, history, Intl */
+/* global document, window, getComputedStyle, location, Intl */
 // Accepting an invite, a forgotten password, a new one chosen (U7d-2), in a
 // real browser.
 //
@@ -104,6 +104,8 @@ const NEVER_MADE_RESET = `opr_${'Q'.repeat(43)}`;
 async function openAt(hash = '', { language = 'en', width = 1360, init = null } = {}) {
   const context = await browser.newContext({ locale: 'en-US', timezoneId: 'Asia/Tokyo', viewport: { width, height: 900 } });
   context.on('request', (r) => requests.push({ method: r.method(), url: r.url(), body: r.postData() }));
+  // A break planted by a control fails at once, not after a long wait for something that is not there.
+  context.setDefaultTimeout(8000);
   if (init) await context.addInitScript(init);
   if (language === 'es') await context.addInitScript((key) => window.localStorage.setItem(key, 'es'), LANGUAGE_KEY);
   const page = await context.newPage();
@@ -243,8 +245,9 @@ try {
       if (token === '') check(posts('/auth/invite/status').length === before, `1 empty (${language}): nothing is asked of the platform for a link with no token`);
       else check(await addressClean(page, token), `2 ${what} (${language}): the address holds no token once it is read`);
       if (status === 'used') {
-        await page.click('[data-action="go-sign-in"]');
-        check(await showsHeading(page, w['signIn.title']), `1 used (${language}): "${w['links.signIn']}" opens the sign-in screen`);
+        const button = await page.$('[data-action="go-sign-in"]');
+        if (button) await button.click();
+        check(Boolean(button) && (await showsHeading(page, w['signIn.title'])), `1 used (${language}): "${w['links.signIn']}" opens the sign-in screen`);
       }
       if (SCREENS && (status === 'expired' || status === 'used')) await screenshot(page, `invite-${status}-${language}-day`);
       await context.close();
@@ -359,6 +362,26 @@ try {
     await elsewhere.context.close();
     who.password = newPassword;
     await context.close();
+
+    // A reset link opened into the very page where "Forgot your password?" was asked (pasted, not a new tab).
+    {
+      const { context: c, page: p } = await openAt('', { language });
+      await p.click('[data-action="forgot"]');
+      await p.fill('[data-form="forgot"] [data-field="email"]', who.email);
+      await p.click('[data-action="send-link"]');
+      await settles(p, () => Boolean(document.querySelector('[data-notice="forgot-sent"]')));
+      const link = stub.sent().filter((m) => m.kind === 'reset' && m.to === who.email).at(-1).token;
+      await p.evaluate((tk) => (window.location.hash = `reset=${tk}`), link);
+      await settles(p, () => Boolean(document.querySelector('[data-form="reset"]')));
+      const pasted = `${newPassword}-2`;
+      await fillPasswords(p, pasted, pasted);
+      await p.click('[data-action="change-password"]');
+      const there = await showsHeading(p, w['signIn.title']);
+      check(there && (await textOf(p, '[data-notice="password-changed"]')) === w['signIn.passwordChanged'] && (await addressClean(p, link)),
+        `5 changed, the link opened where Forgot was asked (${language}): the sign-in screen, saying so (on: "${await heading(p)}")`);
+      who.password = pasted;
+      await c.close();
+    }
 
     // The same link again, one that ended, one replaced, one that never was.
     // Asked for again, a link still waiting is replaced -- an ended one too, as on the platform -- so the one ended is the newest.
