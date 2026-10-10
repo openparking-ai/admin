@@ -5,7 +5,7 @@ one owner, at a computer, in English or Spanish, by day or by night.
 
 This repository is the interface only. It holds no data of its own; everything it
 shows comes from the platform, through the platform's own doors: the owner signs
-in, picks a garage, and sees its lanes and the cars inside.
+in, sees their garages, and for each its lanes and the cars inside.
 
 ## Running it
 
@@ -58,14 +58,18 @@ The build publishes no source maps.
 - **One place talks to the platform**, `src/api.js`. A body that is not JSON, a
   dropped connection or a code it does not know each become words from the
   dictionaries; no code, status number or error text reaches a screen.
-- **Home, Lanes and equipment, Cars inside** show the chosen garage's lanes (in or
+- **Home** lists the owner's garages first (one garage is a list of one), each
+  with one line: how many of its lanes are working and how many cars are inside.
+  Choosing one shows that garage below the list, as Home showed it before (U7a).
+- **Home, Lanes and equipment, Garage View** (once "Cars inside"; its old
+  address still opens it) show the chosen garage's lanes (in or
   out, and when each lane computer was last heard from) and the cars inside, with
   every time in the garage's own time zone. Every line is true in every state the
   platform can return: "No lane computer yet" only for a lane that never had one;
   a lane whose computers all had their access cancelled says so, and when; "No
   cars confirmed inside", never "No cars inside", when some were let in that the
   lane could not confirm (`src/lanes.js`, `src/inside.js`,
-  `test/words-in-every-state.test.js`). Cars inside lists every car a lane let
+  `test/words-in-every-state.test.js`). Garage View lists every car a lane let
   in that has not left, some of them not confirmed, so no line there or in its
   Quick Find entry says every car listed is parked or came in: its time column is
   "Let in" (`npm run check-browser` reads every line with a car not confirmed on
@@ -95,6 +99,21 @@ The build publishes no source maps.
   read that fails says so and makes no file; signed out meanwhile, no file is
   saved. Lanes and equipment's file has one row per lane computer, its state
   worded with a time ("Working, last heard from 10:41 AM"), never "a minute ago".
+- **Lists** (U7a) are compact: small type, tight rows, a date and time on one
+  line. A list of more than 20 shows 20 at a time, with Previous, Next and where
+  you are ("21–40 of 312"); the rows off the page stay in the page, left out
+  only on screen, so Print holds the whole list, and every file is made from the
+  list as read, never the page on screen. The change log is read whole, every
+  page the platform gives (`src/parts.jsx` `usePaging`, `Pager`). A list with
+  nothing in it shows no Download and no Print.
+- **Less on each page** (U7a): at most one short notice at the top; a form stays
+  closed behind its button ("Add a person", "Add a lane", "Add a message", "Change
+  taxes", "Enter the address", "Set up getting paid", the drivers question) until
+  pressed, and a note about how a form works is in that form.
+- **Confirm email** (U7a): every email typed on these screens to be kept (adding a
+  person to tell, or changing their address) has a Confirm email under it, and is
+  not saved, said in plain words, until the two are the same. The sign-in
+  screen's email signs in and keeps nothing.
 - **Every field says what it is.** Anything a person reads, fills or uses has one
   short sentence under its name (at most 15 words, both languages), always
   visible: each form field, each figure on Home, each column of a list (printed
@@ -104,9 +123,9 @@ The build publishes no source maps.
   `npm run check-descriptions` fails a field without one, and that is the rule
   for every later screen.
 
-- **Pages**: Home, Setup, Garages, Lanes and equipment, Card readers, Rates, Taxes
-  and fees, Getting paid, Cars inside, Change log. `src/pages.js`. A page with
-  nothing on it yet says so under its line.
+- **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
+  readers, Rates, Taxes and fees, Getting paid, Garage View, Alerts, Change log,
+  Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
 - **Setup** is the garage's checklist, as the platform works it out
   (`GET /garages/:id/setup`): each step's name and what it is, done or not yet,
   its facts in plain words and where it is done (the page that does it) -- or
@@ -137,9 +156,11 @@ The build publishes no source maps.
   tax." for a list with no lines. "Change taxes" starts as a copy of the list in
   force: add, remove and reorder lines (percent only, up to two decimals, sent in
   hundredths: 18.5 is 1850), or the single choice that the garage charges no tax;
-  it starts now or from the start of a day in the garage's time (the first moment
-  of that day there; the computer's own zone decides nothing). Nothing is changed
-  in place: the page says so before saving, and its only write is a new list.
+  it starts now or "Starting on a date (at midnight)" in the garage's time (the
+  first moment of that day there; the computer's own zone decides nothing).
+  Nothing is changed in place: the form says the current taxes keep being charged
+  until the new ones start and the old list stays on record, and the page's only
+  write is a new list.
   `src/taxes.js`, `src/TaxesPage.jsx`.
 - **Getting paid** (`/garages/:id/stripe-account`, its `onboarding-link` and
   `refresh`): a garage that takes pass holders only needs nothing here. With no
@@ -175,6 +196,9 @@ The build publishes no source maps.
   anything else typed about a person in its log. Each list prints and
   downloads like the others. A panel's own button says what it does: "No, keep
   it" beside a "Yes", "Cancel" on a form, "Done" once a code is shown.
+- **Settings** (U7a): the Language and Look choosers, small, on a page of their
+  own in the side list; the top of every other page keeps the garage's name,
+  Change garage and Sign out. The sign-in screen keeps its own. `src/SettingsPage.jsx`.
 - **Two languages**, English and Spanish. Every word on the screen is in
   `src/i18n/en.js` and `src/i18n/es.js`, and nowhere else. **English unless the
   owner chose Spanish**: the browser's own language decides nothing. Signed in,
@@ -220,6 +244,7 @@ name it.
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
 | Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
+| The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

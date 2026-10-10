@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // No word of ours is split inside the word, in any PDF (U4b fix round, F2).
 //
-// For every list that downloads as a PDF -- Cars inside, Lanes and equipment,
+// For every list that downloads as a PDF -- Garage View, Lanes and equipment,
 // the change log, the refused attempts, Alerts and Card readers -- in English and Spanish,
 // makes the PDF as the browser does from a list that holds every word these
 // pages can put in each column (scripts/files/our-words.js: every action,

@@ -14,17 +14,20 @@ export const PAGES = [
   { id: 'rates', path: '/rates', icon: 'rate' },
   { id: 'taxes', path: '/taxes', icon: 'tax' },
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
-  { id: 'inside', path: '/cars-inside', icon: 'car' },
+  // U7a: Garage View, once "Cars inside": its old address still opens it.
+  { id: 'inside', path: '/garage-view', was: ['/cars-inside'], icon: 'car' },
   { id: 'alerts', path: '/alerts', icon: 'bell' },
   { id: 'changes', path: '/change-log', icon: 'log' },
+  // U7a: the language and the look, once at the top of every page.
+  { id: 'settings', path: '/settings', icon: 'settings' },
 ];
 
 export const HOME = PAGES[0];
 
-/** The page a location hash points at, or Home for anything unknown. */
+/** The page a location hash points at (by its address, or one it had before), or Home for anything unknown. */
 export function pageForHash(hash) {
   const path = String(hash ?? '').replace(/^#/, '') || '/';
-  return PAGES.find((p) => p.path === path) ?? HOME;
+  return PAGES.find((p) => p.path === path || p.was?.includes(path)) ?? HOME;
 }
 
 export const hashFor = (page) => `#${page.path}`;

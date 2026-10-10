@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
+import { Opens, Pager, PrintHead, ProblemNote, useGarageRead, usePaging, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
 import { ADDRESS_MAX, PLACE_MAX, driversAnswer, placeLine, takesCards } from './payments.js';
 import { countryChoices, firstCountry } from './countries.js';
@@ -45,6 +45,8 @@ export default function CardReadersPage({ t, language, client, garage }) {
   const readers = useGarageRead(useCallback((id) => readReaders(client, id), [client]), garage.id);
   const reread = useCallback(() => readers.refresh().catch(() => readers.retry()), [readers]);
   const [panel, setPanel] = useState(null); // { kind: 'connect' | 'disconnect', lane }
+  const waysOutPaging = usePaging((readers.data?.lanes ?? []).filter((l) => l.direction === 'exit').length);
+  const historyPaging = usePaging(readers.data?.connections?.length ?? 0);
 
   if (readers.problem) return <ProblemNote t={t} kind={readers.problem} onRetry={readers.retry} />;
   if (!readers.data) return <p className="quiet">{t('loading')}</p>;
@@ -106,7 +108,9 @@ export default function CardReadersPage({ t, language, client, garage }) {
             </p>
           </section>
         ) : (
-          <PlaceForm t={t} language={language} client={client} garage={garage} onSaved={reread} />
+          <Opens t={t} opener="readers.placeOpen" action="open-place">
+            {(close) => <PlaceForm t={t} language={language} client={client} garage={garage} onSaved={reread} onClose={close} />}
+          </Opens>
         )
       ) : null}
 
@@ -135,13 +139,13 @@ export default function CardReadersPage({ t, language, client, garage }) {
               </tr>
             </thead>
             <tbody>
-              {waysOut.map((lane) => (
-                <tr key={lane.id} data-lane={lane.id} data-reader={lane.reader ? 'yes' : 'no'}>
+              {waysOut.map((lane, i) => (
+                <tr key={lane.id} data-lane={lane.id} data-reader={lane.reader ? 'yes' : 'no'} className={waysOutPaging.row(i)}>
                   <td>
                     <bdi>{lane.name}</bdi>
                   </td>
                   <td>{lane.reader ? <bdi>{lane.reader.label}</bdi> : <span className="quiet">{t('readers.none')}</span>}</td>
-                  <td>{lane.reader ? at(lane.reader.bound_at) : NOTHING}</td>
+                  <td data-time={lane.reader?.bound_at}>{lane.reader ? at(lane.reader.bound_at) : NOTHING}</td>
                   {can ? (
                     <td>
                       {lane.reader ? (
@@ -164,6 +168,7 @@ export default function CardReadersPage({ t, language, client, garage }) {
             </tbody>
           </table>
         )}
+        <Pager t={t} language={language} paging={waysOutPaging} list="ways-out" />
       </section>
 
       {can && panel ? (
@@ -181,7 +186,7 @@ export default function CardReadersPage({ t, language, client, garage }) {
         <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={readers.readAt} />
         <div className="list-head">
           <h2 className="section-title">{t('readers.history')}</h2>
-          <ListActions t={t} list="readers" language={language} client={client} garage={garage} refresh={readers.refresh} print={print} />
+          {connections.length ? <ListActions t={t} list="readers" language={language} client={client} garage={garage} refresh={readers.refresh} print={print} /> : null}
         </div>
         {connections.length === 0 ? (
           <p className="quiet">{t('readers.historyNone')}</p>
@@ -204,19 +209,20 @@ export default function CardReadersPage({ t, language, client, garage }) {
               </tr>
             </thead>
             <tbody>
-              {connections.map((c) => (
-                <tr key={`${c.reader_id}:${c.bound_at}`} data-connection={c.unbound_at ? 'ended' : 'current'}>
+              {connections.map((c, i) => (
+                <tr key={`${c.reader_id}:${c.bound_at}`} data-connection={c.unbound_at ? 'ended' : 'current'} className={historyPaging.row(i)}>
                   <td>{laneName(c.lane_id) ? <bdi>{laneName(c.lane_id)}</bdi> : NOTHING}</td>
                   <td>
                     <bdi>{c.label}</bdi>
                   </td>
-                  <td>{at(c.bound_at)}</td>
-                  <td>{c.unbound_at ? at(c.unbound_at) : t('readers.stillConnected')}</td>
+                  <td data-time={c.bound_at}>{at(c.bound_at)}</td>
+                  <td data-time={c.unbound_at ?? undefined}>{c.unbound_at ? at(c.unbound_at) : t('readers.stillConnected')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+        <Pager t={t} language={language} paging={historyPaging} list="readers" />
       </section>
     </>
   );
@@ -238,7 +244,7 @@ const EMPTY_PLACE = { line1: '', city: '', state: '', postal_code: '' };
  * state, ZIP code and country. Sent as the address, and as the place's name
  * the same address on one line, which is what the page shows afterwards.
  */
-function PlaceForm({ t, language, client, garage, onSaved }) {
+function PlaceForm({ t, language, client, garage, onSaved, onClose }) {
   const [place, setPlace] = useState({ ...EMPTY_PLACE, country: firstCountry(garage) });
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -270,8 +276,12 @@ function PlaceForm({ t, language, client, garage, onSaved }) {
 
   return (
     <section className="panel no-print" data-form="reader-place">
-      <h2 className="section-title">{t('readers.place')}</h2>
-      <p className="quiet">{t('readers.placeSays')}</p>
+      <div className="lane-panel-head">
+        <h2 className="section-title">{t('readers.place')}</h2>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('readers.panelCancel')}
+        </button>
+      </div>
       <form
         className="setup-form"
         onSubmit={(e) => {
@@ -279,6 +289,7 @@ function PlaceForm({ t, language, client, garage, onSaved }) {
           save();
         }}
       >
+        <p className="quiet">{t('readers.placeSays')}</p>
         <label className="field">
           <FieldName t={t} name="readers.street" />
           <input type="text" data-field="street" value={place.line1} maxLength={ADDRESS_MAX.line1} autoComplete="off" onChange={set('line1')} />

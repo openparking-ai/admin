@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { PAGES, hashFor, pageForHash } from './pages.js';
 import { knownLanguage, readLanguage, saveLanguage, translate } from './i18n/index.js';
-import { THEME_CHOICES } from './theme.js';
 import { EMPTY_OWNER, ownerReducer } from './owner.js';
 import { STALE } from './api.js';
 import QuickFind from './QuickFind.jsx';
 import Icon from './Icon.jsx';
 import Logo from './Logo.jsx';
 import SignIn from './SignIn.jsx';
-import { GaragePicker, ProblemNote, Segmented } from './parts.jsx';
+import { GaragePicker, ProblemNote } from './parts.jsx';
 import Home from './Home.jsx';
-import FieldName from './FieldName.jsx';
+import SettingsPage, { Choosers } from './SettingsPage.jsx';
 import LanesPage from './LanesPage.jsx';
 import InsidePage from './InsidePage.jsx';
 import SetupPage from './SetupPage.jsx';
@@ -21,15 +20,22 @@ import TaxesPage from './TaxesPage.jsx';
 import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 
+// Home and Settings are drawn apart: Home lists every garage, and Settings is about these pages, not a garage.
 const PAGE_BODIES = {
-  home: Home, setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage,
+  setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage,
   taxes: TaxesPage, paid: GettingPaidPage, readers: CardReadersPage,
 };
 
+/** The page in the address; a page's old address is put right, in place (U7a: Garage View). */
 function useHashPage() {
   const [page, setPage] = useState(() => pageForHash(window.location.hash));
   useEffect(() => {
-    const onHash = () => setPage(pageForHash(window.location.hash));
+    const onHash = () => {
+      const now = pageForHash(window.location.hash);
+      if (now.was?.includes(window.location.hash.replace(/^#/, ''))) window.history.replaceState(null, '', hashFor(now));
+      setPage(now);
+    };
+    onHash();
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -173,35 +179,8 @@ export default function App({ theme, storage, client }) {
     [chooseTheme, chooseLanguage],
   );
 
-  const controls = (
-    <div className="topbar-controls">
-      <div className="chooser" data-chooser="language">
-        <FieldName t={t} name="language.label" />
-        <Segmented
-          label={t('language.label')}
-          value={language}
-          options={['en', 'es'].map((l) => ({ value: l, text: t(`language.${l}`) }))}
-          onChange={chooseLanguage}
-          name="language"
-        />
-      </div>
-      <div className="chooser" data-chooser="theme">
-        <FieldName t={t} name="theme.label" />
-        <Segmented
-          label={t('theme.label')}
-          value={themeChoice}
-          options={THEME_CHOICES.map((c) => ({
-            value: c,
-            text: t(`theme.${c}`),
-            icon: c,
-            hint: c === 'auto' ? t('theme.autoHint') : undefined,
-          }))}
-          onChange={chooseTheme}
-          name="theme"
-        />
-      </div>
-    </div>
-  );
+  // The language and the look: on the Settings page, and on the sign-in screen.
+  const choosers = <Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} />;
 
   if (owner.status === 'checking') return <div className="checking" aria-busy="true" />;
   if (!signedIn) {
@@ -210,22 +189,27 @@ export default function App({ theme, storage, client }) {
         t={t}
         client={client}
         notice={owner.notice}
-        controls={controls}
+        controls={choosers}
         onSignedIn={(who) => signedInAs(who, { fromSignInScreen: true })}
       />
     );
   }
 
   const Body = PAGE_BODIES[page.id];
+  const choose = (garageId) => dispatch({ type: 'choose', garageId });
   let content;
-  if (owner.garagesProblem) {
+  if (page.id === 'settings') {
+    content = <SettingsPage t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} />;
+  } else if (owner.garagesProblem) {
     content = <ProblemNote t={t} kind={owner.garagesProblem} onRetry={loadGarages} />;
   } else if (!owner.garages) {
     content = <p className="quiet">{t('loading')}</p>;
   } else if (owner.garages.length === 0) {
     content = <p className="quiet">{t('garage.none')}</p>;
+  } else if (page.id === 'home') {
+    content = <Home t={t} language={language} client={client} garages={owner.garages} garage={garage} onChoose={choose} />;
   } else if (!garage) {
-    content = <GaragePicker t={t} garages={owner.garages} onChoose={(garageId) => dispatch({ type: 'choose', garageId })} />;
+    content = <GaragePicker t={t} language={language} garages={owner.garages} onChoose={choose} />;
   } else if (Body) {
     content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} />;
   } else {
@@ -290,7 +274,6 @@ export default function App({ theme, storage, client }) {
               {t('signOut')}
             </button>
           </div>
-          {controls}
         </header>
 
         <main className="content" id="content">

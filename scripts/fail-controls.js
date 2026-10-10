@@ -47,6 +47,7 @@ const CHECK_FILES = ['node', 'scripts/check-files.js'];
 const CHECK_DOWNLOADS = ['node', 'scripts/check-downloads.js'];
 const CHECK_DRAWINGS = ['node', 'scripts/check-drawings.js'];
 const CHECK_CACHE_ORDER = ['node', 'scripts/check-cache-order.js'];
+const TIDY = ['node', 'scripts/check-tidy.js'];
 const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 
 const CONTROLS = [
@@ -74,13 +75,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 107, 587); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 107, 584); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 104, 584); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 104, 581); only the last is ever shown'],
   },
   {
     check: '4 Quick Find finds every page in both languages',
@@ -162,7 +163,7 @@ const CONTROLS = [
     // U1's four-kind sentence, put back.
     plant: {
       file: 'src/i18n/en.js',
-      anchor: "    'See at a glance whether each lane is working, and how many cars are inside right now.',",
+      anchor: "    'Your garages at a glance: whether their lanes are working, and how many cars are inside.',",
       with:
         "    'See at a glance which lanes are working, whether everything is running as it should, and how many cars are inside right now: garage pass, monthly, transient and registered transient.',",
     },
@@ -246,13 +247,13 @@ const CONTROLS = [
     check: 'U2c-7 every field described: one description removed',
     plant: { file: 'src/i18n/es.js', anchor: "  'inside.ticket.about': 'El número de boleto, si se sacó un boleto en el carril.',\n", with: '' },
     run: ['node', 'scripts/check-descriptions.js'],
-    names: ['es: inside.ticket.about (Cars inside): missing'],
+    names: ['es: inside.ticket.about (Garage View): missing'],
   },
   {
     check: 'U2c-7 every field described: a column named without one',
     plant: { file: 'src/InsidePage.jsx', anchor: '                <FieldName t={t} name="inside.ticket" />', with: "                {t('inside.ticket')}" },
     run: ['node', 'scripts/check-descriptions.js'],
-    names: ['Cars inside (src/InsidePage.jsx:', 'a list column with no description'],
+    names: ['Garage View (src/InsidePage.jsx:', 'a list column with no description'],
   },
   {
     check: 'U2c-7 every field described: a description over 15 words',
@@ -331,15 +332,16 @@ const CONTROLS = [
   },
   {
     check: 'U2c-fix O2 a chooser without its description',
-    plant: { file: 'src/App.jsx', anchor: '        <FieldName t={t} name="theme.label" />\n', with: '' },
+    // U7a: the choosers are on the Settings page (and the sign-in screen, which draws the same ones).
+    plant: { file: 'src/SettingsPage.jsx', anchor: '        <FieldName t={t} name="theme.label" />\n', with: '' },
     run: ['node', 'scripts/check-descriptions.js'],
-    names: ['the top of every page (src/App.jsx:', 'a chooser with no description'],
+    names: ['Settings (src/SettingsPage.jsx:', 'a chooser with no description'],
   },
   {
     check: 'U2c-fix O2 a chooser\'s description missing in one language',
     plant: { file: 'src/i18n/es.js', anchor: "  'language.label.about': 'El idioma de estas páginas. Si ya entró, se guarda para la próxima vez.',\n", with: '' },
     run: ['node', 'scripts/check-descriptions.js'],
-    names: ['es: language.label.about (the top of every page): missing'],
+    names: ['es: language.label.about (Settings): missing'],
   },
   {
     check: 'U2c-fix O2 Quick Find without its description',
@@ -1445,7 +1447,7 @@ const BROWSER_CONTROLS = [
     },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL garage time, not browser time', 'FAIL Cars inside: came in at'],
+    names: ['FAIL garage time, not browser time', 'FAIL Garage View: came in at'],
   },
   {
     check: 'U2b-7 garage time on the printed page',
@@ -1458,8 +1460,8 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: [
-      'FAIL print (Cars inside): the time it was printed is garage time',
-      'FAIL print (Cars inside): the time it was printed is not browser time',
+      'FAIL print (Garage View): the time it was printed is garage time',
+      'FAIL print (Garage View): the time it was printed is not browser time',
       'FAIL print (Lanes and equipment): the time it was printed is garage time',
       'FAIL print (Lanes and equipment): the time it was printed is not browser time',
     ],
@@ -1528,11 +1530,11 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U2c-7 every field described, on screen',
-    // A column of Cars inside named without its description.
+    // A column of Garage View named without its description.
     plant: { file: 'src/InsidePage.jsx', anchor: '                <FieldName t={t} name="inside.ticket" />', with: "                {t('inside.ticket')}" },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL descriptions, Cars inside (en)', '"Ticket": no description under it'],
+    names: ['FAIL descriptions, Garage View (en)', '"Ticket": no description under it'],
   },
   {
     check: 'U2c-7 every field described, on the print view',
@@ -1540,7 +1542,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '  .print-head {\n    display: block;', with: '  .field-about {\n    display: none;\n  }\n  .print-head {\n    display: block;' },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL descriptions, print (Cars inside) (en)', 'FAIL descriptions, print (Lanes and equipment) (en)'],
+    names: ['FAIL descriptions, print (Garage View) (en)', 'FAIL descriptions, print (Lanes and equipment) (en)'],
   },
   {
     check: 'U2c-fix F2 a cancelled computer is not "no lane computer yet", on screen',
@@ -1562,7 +1564,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.chooser > .field-about {\n  max-width: 28ch;', with: '.chooser > .field-about {\n  display: none;\n  max-width: 28ch;' },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Home (es)', '"Language": its description is not shown'],
+    names: ['FAIL descriptions, the choosers, sign-in (en)', 'FAIL descriptions, the choosers, Settings (es)', '"Language": its description is not shown'],
   },
   {
     check: 'U2c-fix O2 Quick Find described, on screen',
@@ -1597,9 +1599,9 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     names: [
-      'FAIL Cars inside, with a car not confirmed (en)',
+      'FAIL Garage View, with a car not confirmed (en)',
       '"The cars parked in your garage right now."',
-      'FAIL Cars inside, with a car not confirmed (es)',
+      'FAIL Garage View, with a car not confirmed (es)',
       '"Los carros que están estacionados en su garaje ahora mismo."',
     ],
   },
@@ -1613,7 +1615,7 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
     // The column names are drawn in capitals; the check reports what is on screen.
-    names: ['FAIL Cars inside, with a car not confirmed (en)', '"CAME IN"', 'FAIL Cars inside, with a car not confirmed (es)', '"ENTRÓ"'],
+    names: ['FAIL Garage View, with a car not confirmed (en)', '"CAME IN"', 'FAIL Garage View, with a car not confirmed (es)', '"ENTRÓ"'],
   },
   {
     check: 'U2c-fix2 a page with nothing on it yet says so',
@@ -1824,7 +1826,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '  tr {\n    break-inside: avoid;\n  }\n', with: '' },
     before: BUILD,
     run: ['node', 'scripts/check-removed-person.js'],
-    names: ['FAIL es print: "Una persona que fue quitada" for each'],
+    names: ['FAIL en print: every row of the log is kept whole on one sheet (0 of', 'FAIL es print: every row of the log is kept whole on one sheet (0 of'],
   },
   {
     check: 'U4b fix F1 both answers print, the chosen one only shaded',
@@ -1880,7 +1882,7 @@ const BROWSER_CONTROLS = [
     check: 'U4-4 the connection code left on the page after the panel closes',
     plant: [
       { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: '          setCode(made.code);\n          window.__code = made.code;\n' },
-      { file: 'src/LanesPage.jsx', anchor: "      <AddLane t={t} client={client} garage={garage} onAdded={() => reread()} />\n", with: "      <AddLane t={t} client={client} garage={garage} onAdded={() => reread()} />\n      <span hidden>{window.__code}</span>\n" },
+      { file: 'src/LanesPage.jsx', anchor: '      <BoardSection t={t} language={language} client={client} garage={garage} lanes={lanes.data.lanes} />\n', with: '      <BoardSection t={t} language={language} client={client} garage={garage} lanes={lanes.data.lanes} />\n      <span hidden>{window.__code}</span>\n' },
     ],
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
@@ -2075,6 +2077,88 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-money-pages.js'],
     names: ['FAIL Setup: the card_readers step says where it is done'],
+  },
+  // ── U7a: the owner's screens tidied (scripts/check-tidy.js) ─────────────
+  {
+    check: 'U7a-1 the Language and Look choosers put back in the top bar',
+    plant: { file: 'src/App.jsx', anchor: '          </div>\n        </header>', with: '          </div>\n          {choosers}\n        </header>' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 1 Home (en): no Language or Look chooser', 'FAIL 1 Garage View (en): no Language or Look chooser', 'in the top bar)'],
+  },
+  {
+    check: 'U7a-2 the old name back: "Cars inside" as the page\'s English name',
+    plant: { file: 'src/i18n/en.js', anchor: "  'page.inside.title': 'Garage View',", with: "  'page.inside.title': 'Cars inside'," },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 2 no shown entry of either dictionary says "Cars inside" or "Carros adentro": en page.inside.title', 'FAIL 2 Garage View printed (en)', "FAIL 2 Garage View's Excel file (en)", 'FAIL 2 Quick Find (en)'],
+  },
+  {
+    check: 'U7a-2 the old name in the files only, in both languages',
+    plant: { file: 'src/files/model.js', anchor: '      titleOf(t, list),\n', with: "      list === 'inside' ? (language === 'es' ? 'Carros adentro' : 'Cars inside') : titleOf(t, list),\n" },
+    before: BUILD,
+    run: TIDY,
+    names: ["FAIL 2 Garage View's Excel file (en)", "FAIL 2 Garage View's PDF file (en)", "FAIL 2 Garage View's Excel file (es)", "FAIL 2 Garage View's PDF file (es)"],
+  },
+  {
+    check: 'U7a-3 a download that takes the page on screen',
+    plant: { file: 'src/files/model.js', anchor: '  const rows = data.sessions.map((s) => [', with: '  const rows = data.sessions.slice(0, 20).map((s) => [' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 3 Garage View (en): Download Excel holds all 312, not the page on screen (20 rows', 'FAIL 3 Garage View (en): Download PDF holds all 312'],
+  },
+  {
+    check: 'U7a-3 a print that holds only the page on screen',
+    plant: { file: 'src/styles.css', anchor: '@media screen {\n  .off-page,\n  .print-only {\n    display: none !important;\n  }\n}', with: '.off-page,\n.print-only {\n  display: none !important;\n}' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 3 Garage View (en): Print holds all 312', 'FAIL 3 the change log (en): Print holds all 312', 'FAIL 3 Alerts, who gets which alert'],
+  },
+  {
+    check: 'U7a-3 a page that skips a row',
+    plant: { file: 'src/parts.jsx', anchor: '  const from = at * PAGE_ROWS;', with: '  const from = at * (PAGE_ROWS + 1);' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 3 Garage View (en): 312 rows, 20 a page over 16 pages', 'missed PG0020'],
+  },
+  {
+    check: "U7a-3 the change log read no further than the platform's first page",
+    plant: { file: 'src/ChangesPage.jsx', anchor: '  } while (next !== null);', with: '  } while (false);' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 3 the change log (en): 312 rows', 'FAIL 3 the change log (en): Download Excel holds all 312'],
+  },
+  {
+    check: 'U7a-4 Download and Print on an empty list',
+    plant: {
+      file: 'src/InsidePage.jsx',
+      anchor: '        {stays.length ? <ListActions t={t} list="inside" language={language} client={client} garage={garage} refresh={inside.refresh} print={print} /> : null}',
+      with: '        <ListActions t={t} list="inside" language={language} client={client} garage={garage} refresh={inside.refresh} print={print} />',
+    },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 4 an empty list shows no Download or Print: inside, empty (download-excel, download-pdf, print)'],
+  },
+  {
+    check: "U7a-5 a person's new address with no Confirm email",
+    plant: { file: 'src/AlertsPage.jsx', anchor: "  const confirming = value.email.trim() !== was.email && value.email.trim() !== '';", with: '  const confirming = false;' },
+    before: BUILD,
+    run: TIDY,
+    names: ["FAIL 5 changing a person's address (en): Confirm email under the new one", "FAIL 5 changing a person's address (en): two different addresses are not saved"],
+  },
+  {
+    check: 'U7a-5 two different addresses saved when a person is added',
+    plant: { file: 'src/AlertsPage.jsx', anchor: '    setTried(true);\n    if (!same) return;\n    setBusy(true);', with: '    setTried(true);\n    setBusy(true);' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 5 adding a person (en): two different addresses are not saved', 'FAIL 5 adding a person (es): two different addresses are not saved'],
+  },
+  {
+    check: 'U7a-6 Home shows the first garage whichever is chosen',
+    plant: { file: 'src/Home.jsx', anchor: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garage} /> : null}', with: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garages[0]} /> : null}' },
+    before: BUILD,
+    run: TIDY,
+    names: ['FAIL 6 Home, Riverside Deck chosen: its own garage below the list'],
   },
 ];
 

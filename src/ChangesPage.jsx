@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useState } from 'react';
-import { PrintHead, ProblemNote, useGarageRead, usePrint } from './parts.jsx';
+import { Fragment, useCallback } from 'react';
+import { Pager, PrintHead, ProblemNote, useGarageRead, usePaging, usePrint } from './parts.jsx';
 import { changedFields, lastWords, timesWords, whatPieces, whenWords, whoPieces, whyWords } from './changes.js';
 import FieldName from './FieldName.jsx';
 import ListActions from './ListActions.jsx';
@@ -10,42 +10,45 @@ function Pieces({ pieces }) {
 }
 
 /**
- * `pages` pages of one of the garage's two lists -- `read` is the client's
- * changes or refused read -- newest first, and whether there are more.
+ * The whole of one of the garage's two lists -- `what` is the client's
+ * changes or refused read -- newest first: every page the platform gives,
+ * one after another, until it says there is no next. So the screen can say
+ * where in the whole list it is ("21–40 of 312"), and Download and Print
+ * always hold all of it (U7a). A page that names a next line already asked
+ * for ends the read, so a platform that answered in a circle cannot hold it.
  */
-function usePages(client, garageId, what) {
-  const [pages, setPages] = useState(1);
-  const read = useCallback(
-    async (id) => {
-      const lines = [];
-      let next = null;
-      let count = null;
-      for (let page = 0; page < pages; page += 1) {
-        const got = await client[what](id, next);
-        lines.push(...got[what]);
-        count = got.count ?? count;
-        next = got.next;
-        if (!next) break;
-      }
-      return { [what]: lines, more: Boolean(next), count };
-    },
-    [client, pages, what],
-  );
-  return { log: useGarageRead(read, garageId), older: () => setPages((n) => n + 1) };
+export async function readWhole(client, garageId, what) {
+  const lines = [];
+  const asked = new Set();
+  let next = null;
+  let count = null;
+  do {
+    const got = await client[what](garageId, next);
+    lines.push(...got[what]);
+    count = got.count ?? count;
+    next = got.next;
+    if (next !== null && asked.has(next)) break;
+    asked.add(next);
+  } while (next !== null);
+  return { [what]: lines, count };
+}
+
+function useWhole(client, garageId, what) {
+  return useGarageRead(useCallback((id) => readWhole(client, id, what), [client, what]), garageId);
 }
 
 /**
  * The garage's change log: every change made to it and its account -- who,
  * what, before and after, when, in the garage's own time -- newest first,
- * older ones a page at a time. Below it and apart, every refused attempt,
+ * twenty at a time on screen. Below it and apart, every refused attempt,
  * with how many there are: so no number of refused attempts can push a
- * change out of sight. Each list prints and downloads as the other lists do,
- * reading itself again first, as far back as the screen shows.
+ * change out of sight. Each list prints and downloads whole, as the other
+ * lists do, reading itself again first.
  */
 export default function ChangesPage({ t, language, client, garage }) {
   const { printedAt, print } = usePrint();
-  const changes = usePages(client, garage.id, 'changes');
-  const refused = usePages(client, garage.id, 'refused');
+  const changes = useWhole(client, garage.id, 'changes');
+  const refused = useWhole(client, garage.id, 'refused');
 
   return (
     <>
@@ -55,8 +58,8 @@ export default function ChangesPage({ t, language, client, garage }) {
   );
 }
 
-function ChangesList({ t, language, client, garage, pages, printedAt, print }) {
-  const { log, older } = pages;
+function ChangesList({ t, language, client, garage, pages: log, printedAt, print }) {
+  const paging = usePaging(log.data?.changes.length ?? 0);
   if (log.problem) return <ProblemNote t={t} kind={log.problem} onRetry={log.retry} />;
   if (!log.data) return <p className="quiet">{t('loading')}</p>;
   const lines = log.data.changes;
@@ -65,7 +68,7 @@ function ChangesList({ t, language, client, garage, pages, printedAt, print }) {
       <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={log.readAt} />
       <div className="list-head">
         <h2 className="section-title">{t('page.changes.title')}</h2>
-        <ListActions t={t} list="changes" language={language} client={client} garage={garage} refresh={log.refresh} print={print} />
+        {lines.length ? <ListActions t={t} list="changes" language={language} client={client} garage={garage} refresh={log.refresh} print={print} /> : null}
       </div>
       {lines.length === 0 ? (
         <p className="quiet">{t('changes.none')}</p>
@@ -91,10 +94,10 @@ function ChangesList({ t, language, client, garage, pages, printedAt, print }) {
             </tr>
           </thead>
           <tbody>
-            {lines.map((line) => {
+            {lines.map((line, i) => {
               const fields = changedFields(t, line, garage, language);
               return (
-                <tr key={line.id} data-change={line.id} data-outcome={line.outcome}>
+                <tr key={line.id} data-change={line.id} data-outcome={line.outcome} className={paging.row(i)}>
                   <td data-time={line.at}>{whenWords(line, garage, language)}</td>
                   <td>
                     <Pieces pieces={whoPieces(t, line)} />
@@ -120,19 +123,13 @@ function ChangesList({ t, language, client, garage, pages, printedAt, print }) {
           </tbody>
         </table>
       )}
-      {log.data.more ? (
-        <p className="no-print">
-          <button type="button" className="link-button" data-action="older" onClick={older}>
-            {t('changes.older')}
-          </button>
-        </p>
-      ) : null}
+      <Pager t={t} language={language} paging={paging} list="changes" />
     </section>
   );
 }
 
-function RefusedList({ t, language, client, garage, pages, printedAt, print }) {
-  const { log, older } = pages;
+function RefusedList({ t, language, client, garage, pages: log, printedAt, print }) {
+  const paging = usePaging(log.data?.refused.length ?? 0);
   if (log.problem) return <ProblemNote t={t} kind={log.problem} onRetry={log.retry} />;
   if (!log.data) return <p className="quiet">{t('loading')}</p>;
   const lines = log.data.refused;
@@ -142,7 +139,7 @@ function RefusedList({ t, language, client, garage, pages, printedAt, print }) {
       <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={log.readAt} />
       <div className="list-head">
         <h2 className="section-title">{t('refused.title')}</h2>
-        <ListActions t={t} list="refused" language={language} client={client} garage={garage} refresh={log.refresh} print={print} />
+        {lines.length ? <ListActions t={t} list="refused" language={language} client={client} garage={garage} refresh={log.refresh} print={print} /> : null}
       </div>
       {lines.length === 0 ? (
         <p className="quiet">{t('refused.none')}</p>
@@ -175,8 +172,8 @@ function RefusedList({ t, language, client, garage, pages, printedAt, print }) {
               </tr>
             </thead>
             <tbody>
-              {lines.map((line) => (
-                <tr key={line.id} data-change={line.id} data-outcome="refused" className="is-refused">
+              {lines.map((line, i) => (
+                <tr key={line.id} data-change={line.id} data-outcome="refused" className={paging.row(i) ? `is-refused ${paging.row(i)}` : 'is-refused'}>
                   <td data-time={line.at}>{whenWords(line, garage, language)}</td>
                   <td>
                     <Pieces pieces={whoPieces(t, line)} />
@@ -193,13 +190,7 @@ function RefusedList({ t, language, client, garage, pages, printedAt, print }) {
           </table>
         </>
       )}
-      {log.data.more ? (
-        <p className="no-print">
-          <button type="button" className="link-button" data-action="older-refused" onClick={older}>
-            {t('refused.older')}
-          </button>
-        </p>
-      ) : null}
+      <Pager t={t} language={language} paging={paging} list="refused" />
     </section>
   );
 }

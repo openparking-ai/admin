@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { FONT, cellOf, classFiles, judge, listOf } from './odd-text-files.js';
 import { CASES, FILE_SECONDS, invisibleIn, pdfExpect, plain } from './odd-text.js';
 import { readBack } from './read-back.js';
+import { chooseOnSettings } from '../on-settings.js';
 
 const garageId = (n) => `f3000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -142,18 +143,22 @@ export async function oddTextWalk({ browser, base, A, dir, cell, check, policyBr
     await page.fill('input[name="email"]', A.email);
     await page.fill('input[name="password"]', A.password);
     await page.click('button[type="submit"]');
-    await page.waitForSelector(`.garage-choice[data-garage="${g.id}"]`);
+    // U7a: Home lists the garages twenty at a time; page on to this one.
+    const choice = `.garage-choice[data-garage="${g.id}"]`;
+    await page.waitForSelector(choice, { state: 'attached' });
+    for (let turn = 0; turn < 50 && !(await page.isVisible(choice)); turn += 1) await page.click('[data-pager="garages"] [data-action="next"]');
+    await page.waitForSelector(choice);
     const picker = await page.evaluate((id) => {
       const b = document.querySelector(`.garage-choice[data-garage="${id}"] .garage-choice-name`);
       return { text: b.textContent, isolated: b.firstElementChild?.tagName === 'BDI' && b.firstElementChild.textContent === b.textContent };
     }, g.id);
     await page.click(`.garage-choice[data-garage="${g.id}"]`);
     await page.waitForSelector('.page-title');
-    await page.click(`[data-control="language"] [data-value="${language}"]`);
+    await chooseOnSettings(page, 'language', language);
     return { context, page, picker };
   }
   const goTo = async (page, list) => {
-    await page.click(`.nav-item[href="#/${list === 'inside' ? 'cars-inside' : 'lanes'}"]`);
+    await page.click(`.nav-item[href="#/${list === 'inside' ? 'garage-view' : 'lanes'}"]`);
     await page.waitForSelector(`[data-list="${list}"] [data-action="download-excel"]`);
   };
 

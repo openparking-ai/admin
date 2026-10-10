@@ -9,7 +9,7 @@
 // A file is:
 //   { list, title, garage, lines, columns, rows, empty }
 //   lines    the lines above the table: the garage, the list, when it was
-//            downloaded, the time zone, and for Cars inside its two counts
+//            downloaded, the time zone, and for Garage View its two counts
 //   columns  [{ key, name, about, width }]: each column, and what it means
 //   rows     one array of cells per row; a cell is { text } or, for a time,
 //            { text, wall } where `wall` is the garage's clock at that time
@@ -127,7 +127,7 @@ function head(t, list, garage, language, readAt) {
 
 const columnsOf = (t, list) => COLUMNS[list].map((c) => ({ ...c, name: t(c.key), about: t(`${c.key}.about`) }));
 
-/** Cars inside: the two counts, then one row per open stay, in the platform's order. */
+/** Garage View: the two counts, then one row per open stay, in the platform's order. */
 export function insideFile({ t, language, garage, data, readAt }) {
   const { title, lines } = head(t, 'inside', garage, language, readAt);
   const { figure, more } = insideWords(t, data);

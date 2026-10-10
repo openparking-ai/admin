@@ -106,7 +106,7 @@ const zoneSaid = (language) => zoneIn(GARAGE.timezone, language, READ_AT);
 
 const words = (language) => (key, values) => translate(language, key, values);
 
-/** What each row of Cars inside says, worked out here from the list. */
+/** What each row of Garage View says, worked out here from the list. */
 const insideRows = (data) =>
   data.sessions.map((s) => [
     ['text', [s.plate, s.plate_region].filter(Boolean).join(' · ') || '–'],
@@ -263,7 +263,7 @@ try {
     check(!refused.test(name.slice(0, -format.length - 1)) && name === `Lanes and equipment - 2026-03-10 1141 - ABCDEFGH.${format}`, `10 the file name (${format}): "${name}" holds none of / \\ : * ? " < > | or a control character`);
   }
   const { name: longName } = build('inside', 'pdf', { language: 'es', garage: { ...GARAGE, name: 'Ñ'.repeat(400) }, data: insideData() });
-  check(longName.length <= 125 && longName.startsWith('Carros adentro - 2026-03-10 1141 - Ñ') && longName.endsWith('Ñ.pdf'), `10 the file name: a 400-letter garage name is cut, the list and the time kept (${longName.length} characters)`);
+  check(longName.length <= 125 && longName.startsWith(`${translate('es', 'page.inside.title')} - 2026-03-10 1141 - Ñ`) && longName.endsWith('Ñ.pdf'), `10 the file name: a 400-letter garage name is cut, the list and the time kept (${longName.length} characters)`);
 
   // ── F1-F3: the gate's cases, each read back from the PDF ───────────────────
   const shown = (s) => JSON.stringify(s).slice(1, -1).replace(/\\t/g, '<TAB>');
@@ -342,7 +342,7 @@ try {
     const read = readBack(ready);
     const others = readSpreadsheets(ready);
     for (const m of made) {
-      const where = `R2 ${m.c.label}, ${m.list === 'lanes' ? 'Lanes' : 'Cars inside'}, ${m.format === 'xlsx' ? 'Excel' : 'PDF'}`;
+      const where = `R2 ${m.c.label}, ${m.list === 'lanes' ? 'Lanes' : 'Garage View'}, ${m.format === 'xlsx' ? 'Excel' : 'PDF'}`;
       if (m.timedOut) {
         check(false, `${where}: not made${m.error ? `: ${m.error}` : ''}`);
         continue;

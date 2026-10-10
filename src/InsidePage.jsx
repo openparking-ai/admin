@@ -1,14 +1,18 @@
 import { useCallback } from 'react';
-import { PrintHead, ProblemNote, Stored, useGarageRead, usePrint } from './parts.jsx';
+import { Pager, PrintHead, ProblemNote, Stored, useGarageRead, usePaging, usePrint } from './parts.jsx';
 import { InsideCounts } from './Home.jsx';
 import { garageTime } from './time.js';
 import FieldName from './FieldName.jsx';
 import ListActions from './ListActions.jsx';
 
-/** The open stays, oldest first, as the platform returns them. Read only. */
+/**
+ * Garage View: the open stays, oldest first, as the platform returns them,
+ * twenty at a time. Read only. (Its garage map comes in a later round.)
+ */
 export default function InsidePage({ t, language, client, garage }) {
   const { printedAt, print } = usePrint();
   const inside = useGarageRead(useCallback((id) => client.carsInside(id), [client]), garage.id);
+  const paging = usePaging(inside.data?.sessions.length ?? 0);
 
   if (inside.problem) return <ProblemNote t={t} kind={inside.problem} onRetry={inside.retry} />;
   if (!inside.data) return <p className="quiet">{t('loading')}</p>;
@@ -19,7 +23,7 @@ export default function InsidePage({ t, language, client, garage }) {
       <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={inside.readAt} />
       <div className="list-head">
         <h2 className="section-title">{t('page.inside.title')}</h2>
-        <ListActions t={t} list="inside" language={language} client={client} garage={garage} refresh={inside.refresh} print={print} />
+        {stays.length ? <ListActions t={t} list="inside" language={language} client={client} garage={garage} refresh={inside.refresh} print={print} /> : null}
       </div>
       <InsideCounts t={t} data={inside.data} />
       {stays.length === 0 ? (
@@ -46,8 +50,8 @@ export default function InsidePage({ t, language, client, garage }) {
             </tr>
           </thead>
           <tbody>
-            {stays.map((s) => (
-              <tr key={s.id} data-stay={s.id}>
+            {stays.map((s, i) => (
+              <tr key={s.id} data-stay={s.id} className={paging.row(i)}>
                 <td>
                   <Stored parts={[s.plate, s.plate_region]} />
                 </td>
@@ -64,6 +68,7 @@ export default function InsidePage({ t, language, client, garage }) {
           </tbody>
         </table>
       )}
+      <Pager t={t} language={language} paging={paging} list="inside" />
     </section>
   );
 }

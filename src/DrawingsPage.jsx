@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Problem, STALE } from './api.js';
-import { ProblemNote, useGarageRead } from './parts.jsx';
+import { Pager, ProblemNote, useGarageRead, usePaging } from './parts.jsx';
 import { save } from './ListActions.jsx';
 import { PAGES, hashFor } from './pages.js';
 import { invisible, shownLetter } from './files/text.js';
@@ -35,6 +35,7 @@ export default function DrawingsPage({ t, language, client, garage }) {
   const [printing, setPrinting] = useState(null);
   const here = useRef(true);
   const working = useRef(false);
+  const paging = usePaging(drawings.data && needsOf(drawings.data).length === 0 ? specsOf(drawings.data).length : 0);
   useEffect(() => {
     here.current = true;
     return () => {
@@ -128,7 +129,6 @@ export default function DrawingsPage({ t, language, client, garage }) {
   return (
     <>
       <section className="panel no-print" data-list="drawings">
-        <p>{t('drawings.about')}</p>
         <p className="drawings-every-way" data-notice="every-way">
           {t('drawings.everyWay')}
         </p>
@@ -143,7 +143,7 @@ export default function DrawingsPage({ t, language, client, garage }) {
         <h3 className="drawings-list-title">{t('drawings.listTitle')}</h3>
         <ol className="drawings-list" data-count={specs.length}>
           {specs.map((spec, i) => (
-            <li key={i} data-sheet={spec.key} data-kind={spec.kind}>
+            <li key={i} data-sheet={spec.key} data-kind={spec.kind} className={paging.row(i)}>
               {titleOf(t, spec)}
               {spec.lane ? (
                 <>
@@ -154,6 +154,9 @@ export default function DrawingsPage({ t, language, client, garage }) {
             </li>
           ))}
         </ol>
+        <Pager t={t} language={language} paging={paging} list="drawings" />
+        {/* How the set is made and printed: under the list, not above it (U7a). */}
+        <p className="quiet drawings-about">{t('drawings.about')}</p>
       </section>
       {printing ? <Sheets sheets={printing} /> : null}
     </>

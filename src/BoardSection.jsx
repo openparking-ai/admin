@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ProblemNote, useGarageRead } from './parts.jsx';
+import { Pager, ProblemNote, useGarageRead, usePaging } from './parts.jsx';
 import { STALE } from './api.js';
 import { localSaid } from './time.js';
 import { charactersSaid, messageLanes, screenLines, undrawable } from './screen.js';
@@ -29,6 +29,7 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
   const [busy, setBusy] = useState(null);
   const [problem, setProblem] = useState(null);
   const reread = useCallback(() => board.refresh().catch(() => board.retry()), [board]);
+  const paging = usePaging(board.data?.messages.length ?? 0);
   // The lanes changed (one added, renamed or removed): read the board again, so it shows what the platform now keeps.
   const lanesNow = lanes.map((l) => `${l.id}:${l.name}`).join('|');
   const lanesBefore = useRef(lanesNow);
@@ -118,8 +119,8 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
             </tr>
           </thead>
           <tbody>
-            {messages.map((m) => (
-              <tr key={m.id} data-message={m.id}>
+            {messages.map((m, i) => (
+              <tr key={m.id} data-message={m.id} className={paging.row(i)}>
                 <td>
                   <bdi>{m.text}</bdi>
                 </td>
@@ -147,11 +148,15 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
           </tbody>
         </table>
       )}
-      <p className="quiet" data-notice="board-count">
-        {t('board.count', { count: messages.length, max: messagesMax })}
-      </p>
+      <Pager t={t} language={language} paging={paging} list="board" />
 
-      {editing?.kind === 'remove' ? (
+      {editing === null ? (
+        <p className="opens">
+          <button type="button" className="primary-button" data-action="open-add-message" onClick={() => setEditing({ kind: 'add' })}>
+            {t('board.add')}
+          </button>
+        </p>
+      ) : editing.kind === 'remove' ? (
         <RemoveMessage
           key={`remove:${editing.message.id}`}
           t={t}
@@ -169,16 +174,17 @@ export default function BoardSection({ t, language, client, garage, lanes }) {
         />
       ) : (
         <MessageForm
-          key={editing?.kind === 'change' ? `change:${editing.message.id}` : 'add'}
+          key={editing.kind === 'change' ? `change:${editing.message.id}` : 'add'}
           t={t}
           lanes={board.data.lanes}
           screen={screen}
-          message={editing?.kind === 'change' ? editing.message : null}
-          onCancel={editing ? () => setEditing(null) : null}
+          message={editing.kind === 'change' ? editing.message : null}
+          count={t('board.count', { count: messages.length, max: messagesMax })}
+          onCancel={() => setEditing(null)}
           onSave={async (fields) => {
             setProblem(null);
             try {
-              if (editing?.kind === 'change') await client.changeBoardMessage(garage.id, editing.message.id, fields);
+              if (editing.kind === 'change') await client.changeBoardMessage(garage.id, editing.message.id, fields);
               else await client.addBoardMessage(garage.id, fields);
               setEditing(null);
               await reread();
@@ -210,9 +216,10 @@ function RemoveMessage({ t, onYes, onNo }) {
 
 /**
  * Add a message, or change one: its words, the lanes it shows at, and when.
- * Only what changed is sent on a change.
+ * Only what changed is sent on a change. How messages work is said here, in
+ * the form, not above the list (U7a).
  */
-function MessageForm({ t, lanes, screen, message, onSave, onCancel }) {
+function MessageForm({ t, lanes, screen, message, count, onSave, onCancel }) {
   const [text, setText] = useState(message?.text ?? '');
   const [chosen, setChosen] = useState(message?.lanes ?? []);
   const [starts, setStarts] = useState(message?.starts ?? '');
@@ -252,6 +259,14 @@ function MessageForm({ t, lanes, screen, message, onSave, onCancel }) {
       }}
     >
       <h3 className="section-title">{t(message ? 'board.changeTitle' : 'board.add')}</h3>
+      <p className="quiet" data-notice="board-form">
+        {t('board.formNote')}
+      </p>
+      {message ? null : (
+        <p className="quiet" data-notice="board-count">
+          {count}
+        </p>
+      )}
       <label className="field">
         <FieldName t={t} name="board.text" />
         <textarea data-field="board-text" value={text} maxLength={screen.messageMax} rows={2} onChange={(e) => setText(e.target.value)} />
@@ -296,11 +311,9 @@ function MessageForm({ t, lanes, screen, message, onSave, onCancel }) {
       <button type="submit" className="primary-button" disabled={!ready}>
         {t(message ? 'board.saveButton' : 'board.addButton')}
       </button>
-      {onCancel ? (
-        <button type="button" className="link-button" data-action="cancel-message" onClick={onCancel}>
-          {t('board.cancel')}
-        </button>
-      ) : null}
+      <button type="button" className="link-button" data-action="cancel-message" onClick={onCancel}>
+        {t('board.cancel')}
+      </button>
     </form>
   );
 }

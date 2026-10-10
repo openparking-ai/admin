@@ -73,9 +73,33 @@ const policyBroken = [];
 const builtPage = readFileSync(join(ROOT, 'dist', 'index.html'), 'utf8');
 check(/http-equiv="Content-Security-Policy"/.test(builtPage), 'the built page carries its page policy');
 
+// Requests to the platform sent and not yet answered, for each browser context.
+const inFlight = new WeakMap();
+const toPlatform = (r) => new URL(r.url()).pathname.startsWith('/api/');
+
+/**
+ * Wait, up to five seconds, until the page has no request to the platform
+ * still unanswered. A failure the stand-in is told to give next then goes to
+ * the request the check makes, never to one of the page's own reads still on
+ * its way (U7a: Home reads every garage's line at once).
+ */
+async function noneInFlight(page) {
+  const context = page.context();
+  for (let i = 0; i < 100 && inFlight.get(context) > 0; i += 1) await new Promise((resolve) => setTimeout(resolve, 50));
+}
+
 async function open({ locale = 'en-US', colorScheme = 'light', at = base } = {}) {
   const context = await browser.newContext({ locale, colorScheme, timezoneId: BROWSER_ZONE, viewport: { width: 1360, height: 860 } });
-  context.on('request', (r) => requests.push(r.url()));
+  inFlight.set(context, 0);
+  context.on('request', (r) => {
+    requests.push(r.url());
+    if (toPlatform(r)) inFlight.set(context, inFlight.get(context) + 1);
+  });
+  const answered = (r) => {
+    if (toPlatform(r)) inFlight.set(context, inFlight.get(context) - 1);
+  };
+  context.on('requestfinished', answered);
+  context.on('requestfailed', answered);
   context.on('console', (m) => {
     if (/Content Security Policy/i.test(m.text())) policyBroken.push(m.text());
   });
@@ -170,7 +194,7 @@ async function checkPrint(page, list, garage) {
   check(printed.ink === 'rgb(0, 0, 0)', `print (${list}): black text (${printed.ink})`);
   // The change log prints both its lists: the changes made (5 columns) and the refused attempts (6).
   // Alerts prints its people (5 columns: changing them is not printed) and who gets which alert (4).
-  await checkDescribed(page, `print (${list})`, 'en', { 'Cars inside': 5, [EN['page.changes.title']]: 11, [EN['page.alerts.title']]: 9 }[list] ?? 5);
+  await checkDescribed(page, `print (${list})`, 'en', { [INSIDE_TITLE]: 5, [EN['page.changes.title']]: 11, [EN['page.alerts.title']]: 9 }[list] ?? 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, `print-${list.toLowerCase().replace(/ /g, '-')}.png`), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
 }
@@ -210,7 +234,30 @@ const onlyTheTwoKeys = ({ local, session }) =>
   session.length === 0 && local.every((k) => k === THEME_KEY || k === LANGUAGE_KEY);
 
 const aTextIn = (text) => A_TEXT.filter((s) => text.includes(s));
+
+/**
+ * U7a: Home's garage below the list, read: its count and its lanes. The
+ * garage's own line in the list says the same count, so a wait for the
+ * count's words alone can end before the garage below has its lanes.
+ */
+const detailRead = (page, loading) =>
+  settles(page, (words) => {
+    const detail = document.querySelector('[data-detail]');
+    return Boolean(detail?.querySelector('[data-figure="inside"]')) && !detail.querySelector('[data-section="lanes"]').textContent.includes(words);
+  }, loading);
+/** Every read on the page answered: nothing on it still says it is loading. */
+const allRead = (page, loading) => settles(page, (words) => !document.body.innerText.includes(words), loading);
+const detailCount = (page) => page.evaluate(() => document.querySelector('[data-detail] [data-figure="inside"]')?.textContent ?? '');
 const LANES_TITLE = EN['page.lanes.title'];
+// U7a: "Cars inside" is Garage View, at its own address.
+const INSIDE_TITLE = EN['page.inside.title'];
+const INSIDE_NAV = `.nav-item[href="#${PAGES.find((p) => p.id === 'inside').path}"]`;
+
+/** U7a: the language and the look are chosen on the Settings page, and nowhere else once signed in. */
+async function onSettings(page, control, value) {
+  await page.click('.nav-item[href="#/settings"]');
+  await page.click(`[data-control="${control}"] [data-value="${value}"]`);
+}
 
 /** Wait, in this process, for the stand-in to hold what a check expects: up to five seconds. */
 async function until(fn) {
@@ -272,7 +319,7 @@ async function checkChoosers(page, where, language) {
   check(wrong.length === 0, `descriptions, the choosers, ${where} (${language}): Language and Look each described under its name${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
 }
 
-// A line that says every car on Cars inside is parked, or came in. The list
+// A line that says every car on Garage View is parked, or came in. The list
 // holds every car a lane let in that has not left, some of them not
 // confirmed inside, so no line may say that of all of them. A line that
 // itself says some are not confirmed is not such a claim. (No \b after an
@@ -287,13 +334,13 @@ const SAYS_NOT_ALL_CONFIRMED = {
 };
 
 /**
- * Cars inside, with a car on it the lane let in but could not confirm: every
+ * Garage View, with a car on it the lane let in but could not confirm: every
  * line on the page, and its entry in Quick Find, read as an owner reads
  * them. Fails any line that says every car listed is parked or came in.
  */
 async function checkNoEveryCarClaim(page, language) {
   const words = language === 'es' ? ES : EN;
-  const where = `Cars inside, with a car not confirmed (${language})`;
+  const where = `${INSIDE_TITLE}, with a car not confirmed (${language})`;
   await page.waitForSelector('.content [data-list="inside"] tbody tr');
   const notConfirmed = await page.$$eval('.content [data-list="inside"] tbody tr', (rows, no) => rows.filter((r) => r.lastElementChild?.textContent === no).length, words.no);
   const onPage = (await page.innerText('.content')).split('\n');
@@ -425,12 +472,16 @@ try {
 
   // ── Signing in, picking a garage, Home ──────────────────────────────────
   await signIn(page, A);
-  check(await showsText(page, EN['garage.choose']), 'an owner with two garages is asked which one');
-  await checkDescribed(page, 'choosing a garage', 'en', 1);
-  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'choose-a-garage-english.png') });
+  // U7a: Home lists the owner's garages first, each with its one line, and shows none below until one is chosen.
+  check(await showsText(page, EN['home.garages']), 'an owner with two garages: Home lists them first');
+  check(await settles(page, () => document.querySelectorAll('.garage-choice[data-garage] [data-read="read"]').length === 4), 'Home: each garage\'s line read from the platform');
+  check((await page.$('[data-detail]')) === null, 'Home: no garage shown below the list until one is chosen');
+  await checkDescribed(page, 'Home, the garages', 'en', 1);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-garages-english.png') });
   check((await page.inputValue('input[name="password"]').catch(() => '')) === '', 'and the password is gone with the form');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
-  check(await showsText(page, EN['inside.countMany'].replace('{count}', '2')), 'Home: the cars-inside count the platform returned (2)');
+  check(await settles(page, (id) => document.querySelector('[data-detail]')?.dataset.detail === id, A.garages[0].id), 'Home: the garage chosen is shown below the list');
+  check((await detailRead(page, EN.loading)) && (await detailCount(page)) === EN['inside.countMany'].replace('{count}', '2'), 'Home: the cars-inside count the platform returned (2)');
   const home = await bodyText(page);
   check(home.includes(EN['inside.unconfirmedOne']), 'Home: the one it could not confirm, in words');
   check(home.includes(EN['lane.workingOne']), 'Home: "Working, heard from a minute ago"');
@@ -443,27 +494,35 @@ try {
   const southSaysEn = await laneSays(page, 'South Exit');
   check(southSaysEn === southEn, `Home: a lane whose only computer had its access cancelled says "${southEn}" (it says "${southSaysEn}")`);
   check(await laneSays(page, 'Service Lane') === EN['lane.noComputer'], `Home: "${EN['lane.noComputer']}" only for the lane that never had one`);
-  await checkChoosers(page, 'Home', 'en');
+  // U7a: the language and the look are on Settings, described as before; Home has neither.
+  check((await page.$$('[data-chooser="language"], [data-chooser="theme"]')).length === 0, 'Home: no Language or Look chooser (they are on Settings)');
+  await page.click('.nav-item[href="#/settings"]');
+  check(await showsHeading(page, EN['page.settings.title']), 'Settings is in the navigation');
+  await checkChoosers(page, 'Settings', 'en');
+  await checkDescribed(page, 'Settings', 'en', 2);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'settings-english.png') });
+  await page.click('.nav-item[href="#/"]');
+  await settles(page, () => document.querySelectorAll('.lane-row').length > 0);
   const homeLower = home.toLowerCase();
   check(homeLower.includes(EN['lane.in'].toLowerCase()) && homeLower.includes(EN['lane.out'].toLowerCase()), 'Home: each lane is in or out');
   const kinds = ['garage pass', 'monthly', 'transient'];
   check(kinds.every((k) => !home.toLowerCase().includes(k)), 'Home: no breakdown by kind of customer, since the platform returns none');
-  await checkDescribed(page, 'Home', 'en', 2);
+  await checkDescribed(page, 'Home', 'en', 3);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'home-english-day.png') });
 
   // ── Garage time, not browser time ───────────────────────────────────────
-  await page.click('.nav-item[href="#/cars-inside"]');
+  await page.click(INSIDE_NAV);
   await showsText(page, 'HRB4410');
   const inside = await bodyText(page);
   const garageClock = inZone('2026-03-10T15:05:00Z', 'America/New_York', 'en', false);
   const garageDay = inZone('2026-03-10T15:05:00Z', 'America/New_York', 'en');
   const tokyoClock = inZone('2026-03-10T15:05:00Z', BROWSER_ZONE, 'en', false);
-  check(inside.includes(garageDay) || inside.includes(garageClock), `Cars inside: came in at ${garageDay}, garage time`);
+  check(inside.includes(garageDay) || inside.includes(garageClock), `${INSIDE_TITLE}: came in at ${garageDay}, garage time`);
   check(!inside.includes(tokyoClock), `garage time, not browser time: ${tokyoClock} (Tokyo) is not shown`);
-  check(inside.includes('HT-0042') && inside.includes('HRB7731'), 'Cars inside: every open stay is listed');
-  await checkDescribed(page, 'Cars inside', 'en', 5);
-  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-english.png'), fullPage: true });
-  await checkPrint(page, 'Cars inside', A.garages[0]);
+  check(inside.includes('HT-0042') && inside.includes('HRB7731'), `${INSIDE_TITLE}: every open stay is listed`);
+  await checkDescribed(page, INSIDE_TITLE, 'en', 5);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'garage-view-english.png'), fullPage: true });
+  await checkPrint(page, INSIDE_TITLE, A.garages[0]);
   await checkNoEveryCarClaim(page, 'en');
 
   await page.click('.nav-item[href="#/lanes"]');
@@ -477,7 +536,8 @@ try {
   check(lanes.includes('Harbor south exit computer') && lanes.includes(southCancelled), `${LANES_TITLE}: the lane whose only computer was cancelled lists it, "${southCancelled}"`);
   // The lanes, and under them what their screens show (U4c): five more described fields.
   await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
-  await checkDescribed(page, LANES_TITLE, 'en', 13);
+  // The lanes (6), and the price switch of what their screens show (1); every form is closed behind its button (U7a).
+  await checkDescribed(page, LANES_TITLE, 'en', 7);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-english.png'), fullPage: true });
   await checkPrint(page, LANES_TITLE, A.garages[0]);
 
@@ -488,10 +548,12 @@ try {
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     const purpose = await page.textContent('.page-purpose');
     check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
-    // U4b: there is no computer at a lane, and no page says so.
+    // U4b: there is no computer at a lane, and no page says so. Read once the page holds what it reads
+    // (U7a: Home reads every garage's line besides the garage below).
+    await allRead(page, EN.loading);
     const said = await bodyText(page);
     check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
-    if (!['home', 'setup', 'lanes', 'inside', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers'].includes(p.id)) {
+    if (!['home', 'setup', 'lanes', 'inside', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
@@ -521,7 +583,8 @@ try {
   check(setupText.includes(EN['setup.notFromHere']) && setupText.includes(EN['setup.goTo'].replace('{page}', LANES_TITLE)), 'Setup: where each step is done, or that it cannot be set from here yet');
   check(setupText.includes('Service Lane') && setupText.includes(EN['setup.fact.noComputer']), 'Setup: the facts in plain words, naming the lane with no computer');
   check(rawIn(setupText).length === 0, `Setup: nothing raw on screen${rawIn(setupText).length ? `: ${rawIn(setupText).join(', ')}` : ''}`);
-  await checkDescribed(page, SETUP_TITLE, 'en', 11);
+  // The ten steps; the drivers question is closed behind its button (U7a).
+  await checkDescribed(page, SETUP_TITLE, 'en', 10);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'setup-english.png'), fullPage: true });
   // A platform whose answer contradicts its own facts: the page follows the answer.
   stub.flipSetup(true);
@@ -533,18 +596,23 @@ try {
   await page.click('.nav-item[href="#/setup"]');
   await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
 
-  // The drivers answer: changed and saved; never offered back to unanswered.
+  // The drivers answer: changed and saved; never offered back to unanswered. Its button says what it does (U7a).
+  check((await page.$('[data-chooser="drivers"]')) === null && (await page.textContent('[data-action="open-drivers"]')) === EN['setup.drivers.change'], `Setup: the answered question is closed behind "${EN['setup.drivers.change']}"`);
+  await page.click('[data-action="open-drivers"]');
   check((await page.$$('[data-chooser="drivers"] [role="radio"]')).length === 2, 'Setup: the drivers question offers yes, any driver, and no, pass holders only -- and no "unanswered"');
   check((await page.$('[data-notice="drivers-once"]')) === null, 'Setup: an answered question does not say "once you answer" again');
   await page.click('[data-chooser="drivers"] [data-value="false"]');
   await page.click('[data-question="drivers"] button[type="submit"]');
   check(await settles(page, () => !document.querySelector('[data-step="getting_paid"]') && document.querySelector('[data-step="drivers"]')), 'Setup: answered "no, pass holders only": saved, and getting paid and card readers are no longer steps');
+  await page.click('[data-action="open-drivers"]');
   await page.click('[data-chooser="drivers"] [data-value="true"]');
   await page.click('[data-question="drivers"] button[type="submit"]');
   check(await settles(page, () => Boolean(document.querySelector('[data-step="getting_paid"]'))), 'Setup: changed back to "yes, any driver", and getting paid is a step again');
   await page.click('[data-action="change-garage"]');
   await page.click(`.garage-choice[data-garage="${A.garages[1].id}"]`);
   await page.click('.nav-item[href="#/setup"]');
+  check(await settles(page, (t) => document.querySelector('[data-action="open-drivers"]')?.textContent === t, EN['setup.drivers.answer']), `Setup, a garage not answered yet: the question is behind "${EN['setup.drivers.answer']}"`);
+  await page.click('[data-action="open-drivers"]');
   check(await settles(page, (t) => document.querySelector('[data-notice="drivers-once"]')?.textContent === t, EN['setup.drivers.once']), `Setup, a garage not answered yet: "${EN['setup.drivers.once']}" before the first save`);
   await page.click('[data-action="change-garage"]');
   await page.click(`.garage-choice[data-garage="${HARBOR.id}"]`);
@@ -594,10 +662,13 @@ try {
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
   await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
-  await checkDescribed(page, LANES_TITLE, 'en', 13);
+  await checkDescribed(page, LANES_TITLE, 'en', 7);
   check(!(await bodyText(page)).includes('does not act on it yet'), `${LANES_TITLE}: no longer says the lane does not act on a closing (U4c: it does)`);
   const laneRow = (name) => `[data-list="lanes"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
-  // Add, rename.
+  // Add, rename. U7a: the form is closed behind "Add a lane", and has the lane's two fields when open.
+  check((await page.$('[data-form="add-lane"]')) === null && (await page.textContent('[data-action="open-add-lane"]')) === EN['lanes.add'], `${LANES_TITLE}: the form to add a lane is closed behind "${EN['lanes.add']}"`);
+  await page.click('[data-action="open-add-lane"]');
+  await checkDescribed(page, `${LANES_TITLE}, adding a lane`, 'en', 9);
   await page.fill('[data-form="add-lane"] input[type="text"]', 'West Gate');
   await page.click('[data-form="add-lane"] [data-chooser="direction"] [data-value="entry"]');
   await page.click('[data-form="add-lane"] button[type="submit"]');
@@ -665,6 +736,14 @@ try {
 
   // ── U4c: what the lanes' screens show ──────────────────────────────────
   const boardRead = () => page.evaluate(async (id) => (await fetch(`/api/v1/garages/${id}/board`, { credentials: 'same-origin' })).json(), HARBOR.id);
+  // U7a: the form is closed behind "Add a message"; how messages work is said in it.
+  const openMessageForm = async () => {
+    if (!(await page.$('[data-panel="add-message"]'))) await page.click('[data-action="open-add-message"]');
+    return settles(page, () => Boolean(document.querySelector('[data-panel="add-message"]')));
+  };
+  check((await page.$('[data-panel="add-message"]')) === null, 'Lane screens: the form to add a message is closed behind its button');
+  await openMessageForm();
+  check((await page.textContent('[data-panel="add-message"] [data-notice="board-form"]')) === EN['board.formNote'], `Lane screens: how messages work is said in the form: "${EN['board.formNote']}"`);
   await page.fill('[data-panel="add-message"] textarea', 'Event tonight € 20');
   {
     const notice = await page.evaluate(() => document.querySelector('[data-panel="add-message"] [data-notice="screen-characters"]')?.textContent ?? '');
@@ -701,14 +780,17 @@ try {
   await untilRead(async () => (await boardRead()).lanes.every((l) => !l.prices));
   // F1: nothing on the board outlives its lane. A message on a lane alone goes with the lane; one on two loses only it.
   {
+    await page.click('[data-action="open-add-lane"]');
     await page.fill('[data-form="add-lane"] input[type="text"]', 'Spare Gate');
     await page.click('[data-form="add-lane"] [data-chooser="direction"] [data-value="entry"]');
     await page.click('[data-form="add-lane"] button[type="submit"]');
     await settles(page, () => [...document.querySelectorAll('[data-list="lanes"] tbody tr')].some((tr) => tr.cells[0].textContent === 'Spare Gate'));
     const spare = (await boardRead()).lanes.find((l) => l.name === 'Spare Gate');
+    await openMessageForm();
     const offered = await settles(page, (id) => Boolean(document.querySelector(`[data-panel="add-message"] [data-pick="${id}"]`)), spare.id);
     check(offered, 'Lane screens: a lane added is offered for a message at once (the board read again)');
     for (const [text, ids] of offered ? [['Spare only', [spare.id]], ['Both doors', [northEntry.id, spare.id]]] : []) {
+      await openMessageForm();
       await page.fill('[data-panel="add-message"] textarea', text);
       for (const id of ids) await page.click(`[data-panel="add-message"] [data-pick="${id}"]`);
       await page.click('[data-panel="add-message"] button[type="submit"]');
@@ -800,7 +882,10 @@ try {
   await settles(page, () => document.querySelectorAll('[data-list="alerts"] tbody tr').length > 0);
   const top = await page.evaluate(() => document.querySelector('main section.panel')?.querySelector('[data-notice]')?.textContent);
   check(top === EN['alerts.notSentYet'], `Alerts: the first thing it says is "${EN['alerts.notSentYet']}" (it says "${top}")`);
-  check((await page.textContent('[data-notice="confirm-first"]')) === EN['alerts.confirmFirst'], 'Alerts: before the first alert, each person is asked to confirm, and the page says so');
+  // U7a: one line at the top; how adding a person works is said in the form, closed behind "Add a person".
+  check((await page.$$('main [data-notice]')).length === 1 && (await page.$('[data-form="add-person"]')) === null, 'Alerts: one notice at the top, and the form to add a person closed');
+  await page.click('[data-action="open-add-person"]');
+  check((await page.textContent('[data-form="add-person"] [data-notice="confirm-first"]')) === EN['alerts.confirmFirst'], 'Alerts: before the first alert, each person is asked to confirm, and the form to add one says so');
   const people = await page.evaluate(() => [...document.querySelectorAll('[data-list="alerts"] tbody tr')].map((tr) => [...tr.cells].slice(0, 5).map((c) => c.textContent)));
   check(JSON.stringify(people) === JSON.stringify([
     ['Night manager', '+15550100001', EN['alerts.none'], EN['language.en'], EN['alerts.notConfirmed']],
@@ -816,8 +901,8 @@ try {
   check((await page.getAttribute(tickOf('lane_problem', 'Night manager', 'text'), 'aria-checked')) === 'true' && (await page.getAttribute(tickOf('card_payments_stopped', 'Night manager', 'text'), 'aria-checked')) === 'false', 'Alerts: each tick as the platform holds it');
   const alertsText = await bodyText(page);
   check(rawIn(alertsText).length === 0, `Alerts: nothing raw on screen${rawIn(alertsText).length ? `: ${rawIn(alertsText).join(', ')}` : ''}`);
-  await checkDescribed(page, ALERTS_TITLE, 'en', 14);
-  await checkChoosers(page, ALERTS_TITLE, 'en');
+  // The people (6), the form to add one, Confirm email under the email (5), who gets which alert (4).
+  await checkDescribed(page, ALERTS_TITLE, 'en', 15);
   // A bad phone number: refused in plain words, and nobody added.
   const addForm = '[data-form="add-person"]';
   await page.fill(`${addForm} label:has([data-about="alerts.person"]) input`, 'Weekend lead');
@@ -829,13 +914,16 @@ try {
   check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.phoneShort']), `Alerts: a phone too short is refused: "${EN['problem.phoneShort']}"`);
   await page.fill(`${addForm} [data-field="phone"]`, '');
   await page.fill(`${addForm} [data-field="email"]`, 'weekend@@example.com');
+  await page.fill(`${addForm} [data-field="confirm-email"]`, 'weekend@@example.com');
   await page.click(`${addForm} button[type="submit"]`);
   check(await settles(page, (t) => document.querySelector('[data-form="add-person"] [data-problem]')?.textContent === t, EN['problem.emailAt']), `Alerts: an address with two @ is refused: "${EN['problem.emailAt']}"`);
   // U4b fix round 2: what a name holds is the owner's; it is never written into a log (scripts/check-removed-person.js).
   await page.fill(`${addForm} [data-field="email"]`, '');
+  await page.fill(`${addForm} [data-field="confirm-email"]`, '');
   check((await platformAlerts(page, HARBOR.id)).contacts.length === 2, 'Alerts: ...and nobody was added');
   await page.fill(`${addForm} [data-field="phone"]`, '(555) 010-0144');
   await page.fill(`${addForm} [data-field="email"]`, 'weekend.lead@example.com');
+  await page.fill(`${addForm} [data-field="confirm-email"]`, 'weekend.lead@example.com');
   await page.click(`${addForm} button[type="submit"]`);
   const appears = (sel) => page.waitForSelector(sel, { timeout: 5000 }).then(() => true, () => false);
   const goes = (sel) => page.waitForSelector(sel, { state: 'detached', timeout: 5000 }).then(() => true, () => false);
@@ -882,8 +970,8 @@ try {
   check(rawIn(logText).length === 0, `${CHANGES_TITLE}: nothing raw after the alerts changes${rawIn(logText).length ? `: ${rawIn(logText).join(', ')}` : ''}`);
 
   // ── U4, in Spanish ─────────────────────────────────────────────────────
-  await page.click('[data-control="language"] [data-value="es"]');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 14], ['#/lanes', 'page.lanes.title', 13]]) {
+  await onSettings(page, 'language', 'es');
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);
@@ -894,25 +982,27 @@ try {
     if (SCREENS) await page.screenshot({ path: join(SCREENS, `${hash.slice(2)}-spanish.png`), fullPage: true });
   }
   check((await page.textContent('[data-form="board"] .section-title')) === ES['board.title'] && !(await bodyText(page)).includes('todavía no actúa'), `en español: what the lane screens show ("${ES['board.title']}"), and no word that the lane does not act on a closing`);
-  await page.click('[data-control="language"] [data-value="en"]');
+  await onSettings(page, 'language', 'en');
 
   // ── Day / night / auto ───────────────────────────────────────────────────
   await page.click('.nav-item[href="#/"]');
   check(await showsLook(page, 'day'), 'auto on a light computer is day');
-  await page.click('[data-control="theme"] [data-value="night"]');
+  await onSettings(page, 'theme', 'night');
   check(await showsLook(page, 'night'), 'choosing night turns it to night');
   if (SCREENS) {
+    await page.click('.nav-item[href="#/"]');
     await showsText(page, EN['home.inside']);
     await page.screenshot({ path: join(SCREENS, 'home-english-night.png') });
   }
   await page.reload();
   await page.waitForSelector('.page-title');
   check(await showsLook(page, 'night'), 'night is still night after a reload');
-  check(await showsText(page, EN['garage.choose']), 'after a reload the owner is still signed in');
+  check(await showsText(page, EN['signOut']), 'after a reload the owner is still signed in');
+  await page.click('.nav-item[href="#/"]');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   await page.emulateMedia({ colorScheme: 'light' });
   check(await showsLook(page, 'night'), 'night stays night when the computer is light');
-  await page.click('[data-control="theme"] [data-value="auto"]');
+  await onSettings(page, 'theme', 'auto');
   check(await showsLook(page, 'day'), 'auto on a light computer is day again');
   await page.emulateMedia({ colorScheme: 'dark' });
   check(await showsLook(page, 'night'), 'auto turns to night the moment the computer turns dark, with no reload');
@@ -924,13 +1014,15 @@ try {
     (await page.getAttribute('[data-control="theme"] [data-value="auto"]', 'aria-checked')) === 'true',
     'auto is still the choice after a reload',
   );
+  await page.click('.nav-item[href="#/"]');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
-  await page.click('[data-control="theme"] [data-value="day"]');
+  await onSettings(page, 'theme', 'day');
   await page.emulateMedia({ colorScheme: 'dark' });
   check(await showsLook(page, 'day'), 'day stays day when the computer turns dark');
   await page.emulateMedia({ colorScheme: 'light' });
 
   // ── The garage can be changed from the frame ────────────────────────────
+  await page.click('.nav-item[href="#/lanes"]');
   await page.click('[data-action="change-garage"]');
   check(await showsText(page, EN['garage.choose']), 'the garage can be changed from the frame');
   await page.click(`.garage-choice[data-garage="${A.garages[1].id}"]`);
@@ -941,12 +1033,13 @@ try {
   // ── No car confirmed inside, but one let in: never "no cars" ────────────
   // The platform's answer for that state, once, from the stand-in's own stay.
   const letInOnly = A.open[A.garages[0].id].filter((s) => s.entry_confirmation !== 'confirmed');
-  await page.click('.nav-item[href="#/cars-inside"]');
+  await page.click(INSIDE_NAV);
   await showsText(page, 'HRB4410');
+  // Home reads it twice for this garage: its line in the list, and the garage shown below (U7a).
   await page.route(
-    '**/api/v1/garages/*/sessions/open',
+    `**/api/v1/garages/${A.garages[0].id}/sessions/open`,
     (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ inside_count: 0, unconfirmable_count: letInOnly.length, open_count: letInOnly.length, sessions: letInOnly }) }),
-    { times: 1 },
+    { times: 2 },
   );
   await page.click('.nav-item[href="#/"]');
   const noneConfirmed = await settles(
@@ -989,20 +1082,23 @@ try {
   await page.keyboard.type('dark');
   await page.keyboard.press('Enter');
   check(await showsLook(page, 'night'), 'Quick Find reaches a setting too: "dark" turns it to night');
-  await page.click('[data-control="theme"] [data-value="day"]');
+  await onSettings(page, 'theme', 'day');
 
   // ── Spanish ──────────────────────────────────────────────────────────────
+  await onSettings(page, 'language', 'es');
+  check(await showsHeading(page, ES['page.settings.title']), 'choosing Español turns the page to Spanish');
+  await checkChoosers(page, 'Settings', 'es');
+  await checkDescribed(page, ES['page.settings.title'], 'es', 2);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'settings-spanish.png') });
   await page.click('.nav-item[href="#/"]');
-  await page.click('[data-control="language"] [data-value="es"]');
-  check(await showsHeading(page, ES['page.home.title']), 'choosing Español turns the page to Spanish');
+  check(await showsHeading(page, ES['page.home.title']), 'Home in Spanish');
   check((await page.getAttribute('html', 'lang')) === 'es', 'and tells the browser so');
-  check(await showsText(page, ES['inside.countMany'].replace('{count}', '2')), 'Home in Spanish: the count');
+  check((await detailRead(page, ES.loading)) && (await detailCount(page)) === ES['inside.countMany'].replace('{count}', '2'), 'Home in Spanish: the count');
   const homeEs = (await bodyText(page)).toLowerCase();
   check(['pase de garaje', 'mensual', 'visitante'].every((k) => !homeEs.includes(k)), 'Home in Spanish: no breakdown by kind of customer');
   check(homeEs.includes(ES['lane.quiet'].replace('{time}', inZone('2026-03-10T19:40:00Z', 'America/New_York', 'es')).toLowerCase()), 'Home in Spanish: the quiet lane, in garage time');
   check(await until(() => A.language === 'es'), `choosing Español while signed in keeps it on the owner's profile (the stand-in holds "${A.language}")`);
-  await checkDescribed(page, 'Home', 'es', 2);
-  await checkChoosers(page, 'Home', 'es');
+  await checkDescribed(page, 'Home', 'es', 3);
   const southEs = ES['lane.cancelledOne'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'));
   const southSaysEs = await laneSays(page, 'South Exit');
   check(southSaysEs === southEs, `Home in Spanish: the lane whose only computer was cancelled says "${southEs}" (it says "${southSaysEs}")`);
@@ -1014,15 +1110,15 @@ try {
   await page.click('.nav-item[href="#/lanes"]');
   await showsText(page, 'Harbor exit computer');
   await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
-  await checkDescribed(page, ES['page.lanes.title'], 'es', 13);
+  await checkDescribed(page, ES['page.lanes.title'], 'es', 7);
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-01-05T13:55:00Z', 'America/New_York', 'es'))), 'Carriles y equipos: the cancelled computer, in Spanish');
   check((await bodyText(page)).includes(ES['device.off'].replace('{time}', inZone('2026-03-10T14:30:00Z', 'America/New_York', 'es'))), "Carriles y equipos: the lane whose only computer was cancelled, in Spanish");
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'lanes-spanish.png'), fullPage: true });
-  await page.click('.nav-item[href="#/cars-inside"]');
+  await page.click(INSIDE_NAV);
   await showsText(page, 'HRB4410');
   await checkDescribed(page, ES['page.inside.title'], 'es', 5);
   await checkNoEveryCarClaim(page, 'es');
-  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'cars-inside-spanish.png'), fullPage: true });
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'garage-view-spanish.png'), fullPage: true });
   await page.click('.nav-item[href="#/"]');
   await page.reload();
   await page.waitForSelector('.page-title');
@@ -1032,6 +1128,7 @@ try {
     await page.click(`.nav-item[href="#${p.path}"]`);
     const title = ES[`page.${p.id}.title`];
     check(await showsHeading(page, title), `la navegación llega a "${title}"`);
+    await allRead(page, ES.loading);
     const dice = await bodyText(page);
     check(!LANE_COMPUTER.test(dice), `"${title}": nunca "computadora de carril"${LANE_COMPUTER.test(dice) ? ` (dice "${dice.match(LANE_COMPUTER)[0]}")` : ''}`);
   }
@@ -1043,12 +1140,12 @@ try {
   // A Quick Find that found nothing stays open over the page; close it, so one
   // failure above does not stop the walk before the checks below are run.
   if (await page.isVisible('.find-dialog')) await page.keyboard.press('Escape');
-  await page.click('[data-control="language"] [data-value="en"]');
+  await onSettings(page, 'language', 'en');
   // The save of English lands before a failure is asked of the stand-in, or the save would meet it.
   check(await until(() => A.language === 'en'), 'and English chosen again is kept on the profile');
 
   // ── Nothing raw reaches the screen ──────────────────────────────────────
-  // Each failure is met by a read: the Cars inside page asks again on arrival.
+  // Each failure is met by a read: Garage View asks again on arrival.
   const failuresMet = [
     ['nonJson', 'a body that is not JSON', 'problem.unexpected'],
     ['gateway', 'a gateway answering 502 with a page of its own', 'problem.unreachable'],
@@ -1060,10 +1157,11 @@ try {
     await page.click('.nav-item[href="#/"]');
     await showsText(page, EN['inside.countMany'].replace('{count}', '2'));
     await showsText(page, 'North Exit');
+    await noneInFlight(page);
     if (kind === 'drop') {
       await page.route('**/api/v1/garages/*/sessions/open', (route) => route.abort('connectionreset'), { times: 1 });
     } else stub.failNext(kind);
-    await page.click('.nav-item[href="#/cars-inside"]');
+    await page.click(INSIDE_NAV);
     const shown = await showsText(page, EN[key]);
     const raw = rawIn(await bodyText(page));
     check(shown && raw.length === 0, `${what}: the screen says "${EN[key]}"${raw.length ? `; RAW on screen: ${raw.join(', ')}` : ''}`);
@@ -1072,6 +1170,7 @@ try {
   }
 
   // ── A session that ended ────────────────────────────────────────────────
+  await noneInFlight(page);
   stub.failNext('ended');
   await page.click('.nav-item[href="#/lanes"]');
   check(await showsHeading(page, EN['signIn.title']), 'session ended: the sign-in screen');
@@ -1098,8 +1197,9 @@ try {
   await signIn(page, A);
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   await showsText(page, 'North Exit');
+  await noneInFlight(page);
   stub.failNext('plain401');
-  await page.click('.nav-item[href="#/cars-inside"]');
+  await page.click(INSIDE_NAV);
   check(await showsHeading(page, EN['signIn.title']), 'a 401 from a read: the sign-in screen');
   check(await showsText(page, EN['problem.ended']), 'a 401 from a read: the signed-out message');
   text = await page.evaluate(() => document.documentElement.innerText + document.documentElement.innerHTML);
@@ -1130,15 +1230,15 @@ try {
   // ── Kept on the profile: Spanish follows the owner to another browser ──
   // Signed-in words that differ between the languages: none may be drawn,
   // not for one frame, before the Spanish ones.
-  const englishSignedIn = [EN['garage.choose'], EN.signOut, ...PAGES.map((p) => EN[`page.${p.id}.title`])].filter(
+  const englishSignedIn = [EN['home.garages'], EN.signOut, ...PAGES.map((p) => EN[`page.${p.id}.title`])].filter(
     (w) => !Object.values(ES).includes(w),
   );
   A.language = 'en';
   const first = await open();
   await signIn(first.page, A);
   await first.page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
-  await first.page.click('[data-control="language"] [data-value="es"]');
-  await showsHeading(first.page, ES['page.home.title']);
+  await onSettings(first.page, 'language', 'es');
+  await showsHeading(first.page, ES['page.settings.title']);
   check(await until(() => A.language === 'es'), `kept on the profile: Español chosen while signed in is saved to the profile (the stand-in holds "${A.language}")`);
   await first.page.click('[data-action="sign-out"]');
   await showsHeading(first.page, ES['signIn.title']);
@@ -1149,7 +1249,7 @@ try {
     window.__seen.length = 0;
   });
   await signIn(second.page, A);
-  check(await showsText(second.page, ES['garage.choose']), 'kept on the profile: signed in on a different browser, the owner sees Spanish');
+  check(await showsText(second.page, ES['home.garages']), 'kept on the profile: signed in on a different browser, the owner sees Spanish');
   check((await second.page.getAttribute('html', 'lang')) === 'es', 'kept on the profile: and the page says it is Spanish');
   const seenOnSecond = await second.page.evaluate(() => window.__seen.join('\n'));
   const englishFrames = englishSignedIn.filter((w) => seenOnSecond.includes(w));
@@ -1191,12 +1291,13 @@ try {
   ];
   for (const [what, next, fail] of saveFailures) {
     const words = next === 'es' ? ES : EN;
+    await noneInFlight(failing.page);
     await fail();
-    await failing.page.click(`[data-control="language"] [data-value="${next}"]`);
+    await onSettings(failing.page, 'language', next);
     const said = await showsText(failing.page, words['language.notKept']);
     const raw = rawIn(await bodyText(failing.page));
     check(
-      said && raw.length === 0 && (await showsHeading(failing.page, words['page.home.title'])),
+      said && raw.length === 0 && (await showsHeading(failing.page, words['page.settings.title'])),
       `a failed save, ${what}: the screen changed language and says "${words['language.notKept']}"${raw.length ? `; RAW on screen: ${raw.join(', ')}` : ''}`,
     );
     check(A.language === 'en', `a failed save, ${what}: the profile was not changed (the stand-in holds "${A.language}")`);
@@ -1204,6 +1305,7 @@ try {
   await failing.page.click('[data-control="language"] [data-value="en"]');
   check(await settles(failing.page, () => !document.querySelector('[data-notice="language-not-kept"]')), 'a save that works takes the sentence away');
   check(await until(() => A.language === 'en'), 'and that save reached the profile');
+  await noneInFlight(failing.page);
   stub.failNext('ended');
   await failing.page.click('[data-control="language"] [data-value="es"]');
   check(await showsText(failing.page, ES['problem.ended']), 'a 401 during the save: the signed-out screen, in plain words');

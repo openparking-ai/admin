@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ProblemNote, Segmented, useGarageRead, useNow } from './parts.jsx';
+import { Opens, ProblemNote, Segmented, useGarageRead, useNow } from './parts.jsx';
 import { STALE } from './api.js';
 import { WHERE, factLines } from './setup.js';
 import { PAGES, hashFor } from './pages.js';
@@ -55,7 +55,9 @@ export default function SetupPage({ t, language, client, garage }) {
             </ul>
             <Where t={t} step={step} />
             {step.key === 'drivers' ? (
-              <DriversQuestion t={t} client={client} garage={garage} answered={step.facts?.transient_available ?? null} onSaved={setup.retry} />
+              <Opens t={t} opener={step.facts?.transient_available === undefined || step.facts?.transient_available === null ? 'setup.drivers.answer' : 'setup.drivers.change'} action="open-drivers">
+                {(close) => <DriversQuestion t={t} client={client} garage={garage} answered={step.facts?.transient_available ?? null} onSaved={setup.retry} onClose={close} />}
+              </Opens>
             ) : null}
           </li>
         ))}
@@ -86,7 +88,8 @@ function Where({ t, step }) {
       </>
     );
   }
-  if (where.here) return <p className="setup-where quiet">{t('setup.here')}</p>;
+  // Answered here: the step's own button opens its question (U7a).
+  if (where.here) return null;
   return (
     <p className="setup-where quiet" data-notice="not-from-here">
       {t('setup.notFromHere')}
@@ -99,7 +102,7 @@ function Where({ t, step }) {
  * holders only. Once answered it can be changed, never taken back to
  * unanswered -- and the page says so before the first save.
  */
-function DriversQuestion({ t, client, garage, answered, onSaved }) {
+function DriversQuestion({ t, client, garage, answered, onSaved, onClose }) {
   const [choice, setChoice] = useState(answered);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -144,9 +147,14 @@ function DriversQuestion({ t, client, garage, answered, onSaved }) {
           {t('setup.drivers.once')}
         </p>
       ) : null}
-      <button type="submit" className="primary-button" disabled={!changed || saving}>
-        {saving ? t('setup.saving') : t('setup.save')}
-      </button>
+      <div className="lane-actions">
+        <button type="submit" className="primary-button" disabled={!changed || saving}>
+          {saving ? t('setup.saving') : t('setup.save')}
+        </button>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('setup.cancel')}
+        </button>
+      </div>
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
     </form>
   );

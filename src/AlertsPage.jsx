@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useState } from 'react';
-import { PrintHead, ProblemNote, Segmented, useGarageRead, usePrint } from './parts.jsx';
+import { Opens, PAGE_ROWS, Pager, PrintHead, ProblemNote, Segmented, useGarageRead, usePaging, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
 import { alertName, alertNames, alertSays, canEmail, canText, languageWords } from './alerts.js';
 import FieldName from './FieldName.jsx';
@@ -10,7 +10,8 @@ import ListActions from './ListActions.jsx';
  * (a name, a phone number and/or an email address, a language), and for
  * each alert, whether each person gets it by text, by email, or both.
  *
- * Nothing is sent yet, and the page says so first. Which alerts there are,
+ * Nothing is sent yet, and the page says so first, in one line: how adding
+ * a person works is said in the form that adds one. Which alerts there are,
  * and in what order, is the platform's one list, read here; whether the
  * Setup step is done is the platform's too. Every confirmation is on the
  * page; nothing opens a browser dialog. A tick that cannot apply -- a text
@@ -24,6 +25,7 @@ export default function AlertsPage({ t, language, client, garage }) {
   // What the last change turned off, said once: { name, by_text, by_email }.
   const [turnedOff, setTurnedOff] = useState(null);
   const reread = useCallback(() => read.refresh().catch(() => read.retry()), [read]);
+  const paging = usePaging(read.data?.contacts.length ?? 0);
 
   if (read.problem) return <ProblemNote t={t} kind={read.problem} onRetry={read.retry} />;
   if (!read.data) return <p className="quiet">{t('loading')}</p>;
@@ -37,12 +39,9 @@ export default function AlertsPage({ t, language, client, garage }) {
         <p className="warning" data-notice="not-sent-yet">
           {t('alerts.notSentYet')}
         </p>
-        <p className="quiet" data-notice="confirm-first">
-          {t('alerts.confirmFirst')}
-        </p>
         <div className="list-head">
           <h2 className="section-title">{t('alerts.people')}</h2>
-          <ListActions t={t} list="alerts" language={language} client={client} garage={garage} refresh={read.refresh} print={print} />
+          {contacts.length ? <ListActions t={t} list="alerts" language={language} client={client} garage={garage} refresh={read.refresh} print={print} /> : null}
         </div>
         {contacts.length === 0 ? (
           <p className="quiet">{t('alerts.nobody')}</p>
@@ -71,8 +70,8 @@ export default function AlertsPage({ t, language, client, garage }) {
               </tr>
             </thead>
             <tbody>
-              {contacts.map((person) => (
-                <tr key={person.id} data-person={person.id}>
+              {contacts.map((person, i) => (
+                <tr key={person.id} data-person={person.id} className={paging.row(i)}>
                   <td>
                     <bdi>{person.name}</bdi>
                   </td>
@@ -95,7 +94,7 @@ export default function AlertsPage({ t, language, client, garage }) {
             </tbody>
           </table>
         )}
-        <p className="quiet no-print">{t('alerts.most', { max: maxContacts })}</p>
+        <Pager t={t} language={language} paging={paging} list="alerts" />
       </section>
 
       {turnedOff ? <TurnedOff t={t} language={language} order={order} said={turnedOff} /> : null}
@@ -115,17 +114,24 @@ export default function AlertsPage({ t, language, client, garage }) {
         />
       ) : null}
 
-      <AddPerson
-        t={t}
-        client={client}
-        garage={garage}
-        onAdded={() => {
-          setTurnedOff(null);
-          reread();
-        }}
-      />
+      <Opens t={t} opener="alerts.add" action="open-add-person">
+        {(close) => (
+          <AddPerson
+            t={t}
+            client={client}
+            garage={garage}
+            maxContacts={maxContacts}
+            onAdded={() => {
+              setTurnedOff(null);
+              close();
+              reread();
+            }}
+            onClose={close}
+          />
+        )}
+      </Opens>
 
-      <Choices t={t} client={client} garage={garage} alerts={alerts} contacts={contacts} quietMinutes={quietMinutes} onSaved={reread} />
+      <Choices t={t} language={language} client={client} garage={garage} alerts={alerts} contacts={contacts} quietMinutes={quietMinutes} onSaved={reread} />
     </>
   );
 }
@@ -163,8 +169,12 @@ function TurnedOff({ t, language, order, said }) {
   );
 }
 
-/** The fields of a person: name, phone, email and language. Shared by adding and changing. */
-function PersonFields({ t, value, onChange }) {
+/**
+ * The fields of a person: name, phone, email and language. Shared by adding
+ * and changing. Under the email, its Confirm email (U7a) when `confirming`:
+ * nothing is saved until the two are the same (`emailsDiffer`).
+ */
+function PersonFields({ t, value, onChange, confirming, differ }) {
   const set = (field) => (e) => onChange({ ...value, [field]: e.target.value });
   return (
     <>
@@ -180,6 +190,17 @@ function PersonFields({ t, value, onChange }) {
         <FieldName t={t} name="alerts.email" />
         <input type="text" inputMode="email" value={value.email} maxLength={254} onChange={set('email')} autoComplete="off" data-field="email" />
       </label>
+      {confirming ? (
+        <label className="field">
+          <FieldName t={t} name="alerts.confirmEmail" />
+          <input type="text" inputMode="email" value={value.confirm} maxLength={254} onChange={set('confirm')} autoComplete="off" data-field="confirm-email" />
+        </label>
+      ) : null}
+      {confirming && differ ? (
+        <p className="warning" role="alert" data-notice="emails-differ">
+          {t('alerts.emailsDiffer')}
+        </p>
+      ) : null}
       <div className="chooser" data-chooser="person-language">
         <FieldName t={t} name="alerts.language" />
         <Segmented
@@ -194,14 +215,21 @@ function PersonFields({ t, value, onChange }) {
   );
 }
 
-const blank = { name: '', phone: '', email: '', language: 'en' };
+const blank = { name: '', phone: '', email: '', confirm: '', language: 'en' };
 
-function AddPerson({ t, client, garage, onAdded }) {
+/** An email address and its Confirm email are the same, as typed (spaces at the ends aside). */
+export const emailsMatch = (email, confirm) => email.trim() === confirm.trim();
+
+function AddPerson({ t, client, garage, maxContacts, onAdded, onClose }) {
   const [value, setValue] = useState(blank);
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState(false);
   const [problem, setProblem, fail] = useProblem();
   const ready = value.name.trim() !== '' && (value.phone.trim() !== '' || value.email.trim() !== '');
+  const same = emailsMatch(value.email, value.confirm);
   const add = async () => {
+    setTried(true);
+    if (!same) return;
     setBusy(true);
     setProblem(null);
     try {
@@ -221,7 +249,12 @@ function AddPerson({ t, client, garage, onAdded }) {
   };
   return (
     <section className="panel no-print" data-form="add-person">
-      <h2 className="section-title">{t('alerts.add')}</h2>
+      <div className="lane-panel-head">
+        <h2 className="section-title">{t('alerts.add')}</h2>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('alerts.panelCancel')}
+        </button>
+      </div>
       <form
         className="setup-form"
         noValidate
@@ -230,8 +263,12 @@ function AddPerson({ t, client, garage, onAdded }) {
           if (ready && !busy) add();
         }}
       >
-        <PersonFields t={t} value={value} onChange={setValue} />
+        <PersonFields t={t} value={value} onChange={setValue} confirming differ={tried && !same} />
         <p className="quiet">{t('alerts.phoneOrEmail')}</p>
+        <p className="quiet" data-notice="confirm-first">
+          {t('alerts.confirmFirst')}
+        </p>
+        <p className="quiet">{t('alerts.most', { max: maxContacts })}</p>
         <button type="submit" className="primary-button" disabled={!ready || busy}>
           {busy ? t('setup.saving') : t('alerts.addButton')}
         </button>
@@ -266,9 +303,13 @@ function PersonPanel({ t, client, garage, panel, onDone, onClose }) {
  * alerts that way stop with it.
  */
 function ChangePerson({ t, client, garage, person, onDone, onClose }) {
-  const was = { name: person.name, phone: person.phone ?? '', email: person.email ?? '', language: person.language };
+  const was = { name: person.name, phone: person.phone ?? '', email: person.email ?? '', confirm: '', language: person.language };
   const [value, setValue] = useState(was);
+  const [tried, setTried] = useState(false);
   const [problem, setProblem, fail] = useProblem();
+  // A new address is typed twice; one taken away, or left as it was, is not.
+  const confirming = value.email.trim() !== was.email && value.email.trim() !== '';
+  const same = !confirming || emailsMatch(value.email, value.confirm);
   const changes = {};
   if (value.name.trim() !== was.name) changes.name = value.name.trim();
   if (value.phone.trim() !== was.phone) changes.phone = value.phone.trim() === '' ? null : value.phone;
@@ -282,6 +323,8 @@ function ChangePerson({ t, client, garage, person, onDone, onClose }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (!changed) return;
+        setTried(true);
+        if (!same) return;
         setProblem(null);
         try {
           const out = await client.changePerson(garage.id, person.id, changes);
@@ -293,7 +336,7 @@ function ChangePerson({ t, client, garage, person, onDone, onClose }) {
         }
       }}
     >
-      <PersonFields t={t} value={value} onChange={setValue} />
+      <PersonFields t={t} value={value} onChange={setValue} confirming={confirming} differ={tried && !same} />
       {changes.phone === null && person.by_text.length ? (
         <p className="warning" data-notice="phone-goes">
           {t('alerts.phoneGoes')}
@@ -346,8 +389,10 @@ function RemovePerson({ t, client, garage, person, onDone, onClose }) {
  * with no phone number, or an email for someone with no address, is not
  * offered: the cell says what is missing.
  */
-function Choices({ t, client, garage, alerts, contacts, quietMinutes, onSaved }) {
+function Choices({ t, language, client, garage, alerts, contacts, quietMinutes, onSaved }) {
   const [busy, setBusy] = useState(null);
+  // Twenty people at a time, each under every alert. A print holds them all.
+  const paging = usePaging(contacts.length);
   const [problem, setProblem, fail] = useProblem();
   const toggle = async (person, way, key) => {
     const field = way === 'text' ? 'by_text' : 'by_email';
@@ -393,6 +438,28 @@ function Choices({ t, client, garage, alerts, contacts, quietMinutes, onSaved })
     );
   };
 
+  /** Every alert, in the platform's order, with `people` under it. */
+  const rows = (people) =>
+    alerts.map((alert) => (
+      <Fragment key={alert.key}>
+        {people.map((person, i) => (
+          <tr key={person.id} data-alert={alert.key} data-person={person.id}>
+            {i === 0 ? (
+              <td rowSpan={people.length} className="alert-cell">
+                <span className="alert-name">{alertName(t, alert.key)}</span>
+                <span className="alert-says">{alertSays(t, alert.key, quietMinutes)}</span>
+              </td>
+            ) : null}
+            <td>
+              <bdi>{person.name}</bdi>
+            </td>
+            <td>{tick(alert, person, 'text')}</td>
+            <td>{tick(alert, person, 'email')}</td>
+          </tr>
+        ))}
+      </Fragment>
+    ));
+
   return (
     <section className="panel" data-list="alert-choices">
       <h2 className="section-title">{t('alerts.choices')}</h2>
@@ -417,29 +484,18 @@ function Choices({ t, client, garage, alerts, contacts, quietMinutes, onSaved })
               </th>
             </tr>
           </thead>
-          <tbody>
-            {alerts.map((alert) => (
-              <Fragment key={alert.key}>
-                {contacts.map((person, i) => (
-                  <tr key={person.id} data-alert={alert.key} data-person={person.id}>
-                    {i === 0 ? (
-                      <td rowSpan={contacts.length} className="alert-cell">
-                        <span className="alert-name">{alertName(t, alert.key)}</span>
-                        <span className="alert-says">{alertSays(t, alert.key, quietMinutes)}</span>
-                      </td>
-                    ) : null}
-                    <td>
-                      <bdi>{person.name}</bdi>
-                    </td>
-                    <td>{tick(alert, person, 'text')}</td>
-                    <td>{tick(alert, person, 'email')}</td>
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-          </tbody>
+          {contacts.length <= PAGE_ROWS ? (
+            <tbody>{rows(contacts)}</tbody>
+          ) : (
+            <>
+              {/* On screen, this page's people under each alert; on paper, every person. */}
+              <tbody className="no-print">{rows(contacts.slice(paging.from, paging.to))}</tbody>
+              <tbody className="print-only">{rows(contacts)}</tbody>
+            </>
+          )}
         </table>
       )}
+      <Pager t={t} language={language} paging={paging} list="alert-choices" />
     </section>
   );
 }

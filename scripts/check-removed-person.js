@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global document, window */
+/* global document, window, getComputedStyle */
 // Removing a person removes their name from every view of the change log
 // (U4b fix round 2, check 2).
 //
@@ -31,6 +31,7 @@ import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { startStub } from '../test/stub-platform.js';
 import { readBack } from './files/read-back.js';
+import { chooseOnSettings } from './on-settings.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-removed-'));
@@ -121,7 +122,7 @@ const fileText = (read) => (read.kind === 'pdf'
 console.log('Removing a person removes their name from every view of the change log:');
 for (const language of ['en', 'es']) {
   const words = DICTIONARIES[language];
-  await page.click(`[data-control="language"] [data-value="${language}"]`);
+  await chooseOnSettings(page, 'language', language);
   await page.evaluate(() => { window.location.hash = '#/alerts'; });
   await page.evaluate(() => { window.location.hash = '#/change-log'; });
   await page.waitForFunction((title) => document.querySelector('.page-title')?.textContent.includes(title), words['page.changes.title']);
@@ -141,6 +142,14 @@ for (const language of ['en', 'es']) {
   const printed = join(DIR, `print-${language}.pdf`);
   await page.pdf({ path: printed, format: 'Letter' });
   judge(where('print'), squeeze(fileText(readBack([printed])[printed])), words);
+  // A printed row is never split across two sheets: every row of both lists
+  // is held whole by the print's own rule (U7a: with compact rows, no row of
+  // this log happens to fall across a sheet, so the rule is read as well as
+  // the paper).
+  await page.emulateMedia({ media: 'print' });
+  const loose = await page.$$eval('[data-list="changes"] tbody tr, [data-list="refused"] tbody tr', (trs) => ({ rows: trs.length, loose: trs.filter((tr) => getComputedStyle(tr).breakInside !== 'avoid').length }));
+  await page.emulateMedia({ media: 'screen' });
+  check(loose.rows > 0 && loose.loose === 0, `${where('print')}: every row of the log is kept whole on one sheet (${loose.rows - loose.loose} of ${loose.rows} rows held)`);
 }
 
 await browser.close();

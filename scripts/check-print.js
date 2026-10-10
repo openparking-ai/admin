@@ -9,7 +9,7 @@
 //
 // In a real browser, signed in against the stand-in platform
 // (test/stub-platform.js), in English and in Spanish, each printable page --
-// Cars inside, Lanes and equipment, Setup, the change log with its refused
+// Garage View, Lanes and equipment, Setup, the change log with its refused
 // attempts, Alerts, and Card readers' connections (U6) -- is printed to PDF by headless Chromium with its
 // defaults (backgrounds off), and the PDF is read back with pypdf. Every
 // state mark the screen shows is read from the screen by what it IS (a tick's
@@ -38,6 +38,8 @@ import { DICTIONARIES } from '../src/i18n/index.js';
 import { startStub } from '../test/stub-platform.js';
 import { changesData, lanesData, refusedData } from '../test/files-fixtures.js';
 import { readBack } from './files/read-back.js';
+import { chooseOnSettings } from './on-settings.js';
+
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-print-'));
@@ -155,9 +157,10 @@ const MARKS = ({ words }) => {
 };
 
 const PAGES = [
-  { id: 'inside', title: 'page.inside.title', hash: '#/cars-inside', ready: '[data-list="inside"] tbody tr' },
+  { id: 'inside', title: 'page.inside.title', hash: '#/garage-view', ready: '[data-list="inside"] tbody tr' },
   { id: 'lanes', title: 'page.lanes.title', hash: '#/lanes', ready: '[data-list="lanes"] td[data-open]' },
-  { id: 'setup', title: 'page.setup.title', hash: '#/setup', ready: '[data-step] [data-state]' },
+  // U7a: the drivers question is closed behind its button; opened, its answer prints as the one chosen.
+  { id: 'setup', title: 'page.setup.title', hash: '#/setup', ready: '[data-step] [data-state]', open: '[data-action="open-drivers"]', opened: '[data-chooser="drivers"]' },
   { id: 'changes', title: 'page.changes.title', hash: '#/change-log', ready: '[data-list="refused"] tbody tr' },
   { id: 'alerts', title: 'page.alerts.title', hash: '#/alerts', ready: '[data-list="alert-choices"] [data-tick]' },
   { id: 'readers', title: 'page.readers.title', hash: '#/card-readers', ready: '[data-list="readers"] tbody tr[data-connection]' },
@@ -178,12 +181,16 @@ await page.waitForSelector('.page-title');
 for (const language of ['en', 'es']) {
   const words = DICTIONARIES[language];
   if (language === 'es') {
-    await page.click('[data-control="language"] [data-value="es"]');
+    await chooseOnSettings(page, 'language', 'es');
     await page.waitForFunction((title) => document.querySelector('.page-title')?.textContent.includes(title), words[PAGES[0].title]).catch(() => {});
   }
   for (const p of PAGES) {
     await page.evaluate((hash) => { window.location.hash = hash; }, p.hash);
     await page.waitForSelector(p.ready, { timeout: 15000 });
+    if (p.open) {
+      await page.click(p.open);
+      await page.waitForSelector(p.opened, { timeout: 15000 });
+    }
     const where = `${language} ${words[p.title]}`;
     const marks = await page.evaluate(MARKS, { words });
     // Paper: Chromium's own print, with its defaults -- backgrounds off.
