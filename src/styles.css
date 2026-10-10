@@ -1119,6 +1119,9 @@ textarea {
 .board-prices .tick-box {
   flex-shrink: 0;
 }
+[data-list='board-prices'] {
+  margin-top: 14px;
+}
 
 .screen-preview {
   display: inline-block;
