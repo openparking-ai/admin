@@ -73,9 +73,33 @@ const policyBroken = [];
 const builtPage = readFileSync(join(ROOT, 'dist', 'index.html'), 'utf8');
 check(/http-equiv="Content-Security-Policy"/.test(builtPage), 'the built page carries its page policy');
 
+// Requests to the platform sent and not yet answered, for each browser context.
+const inFlight = new WeakMap();
+const toPlatform = (r) => new URL(r.url()).pathname.startsWith('/api/');
+
+/**
+ * Wait, up to five seconds, until the page has no request to the platform
+ * still unanswered. A failure the stand-in is told to give next then goes to
+ * the request the check makes, never to one of the page's own reads still on
+ * its way (U7a: Home reads every garage's line at once).
+ */
+async function noneInFlight(page) {
+  const context = page.context();
+  for (let i = 0; i < 100 && inFlight.get(context) > 0; i += 1) await new Promise((resolve) => setTimeout(resolve, 50));
+}
+
 async function open({ locale = 'en-US', colorScheme = 'light', at = base } = {}) {
   const context = await browser.newContext({ locale, colorScheme, timezoneId: BROWSER_ZONE, viewport: { width: 1360, height: 860 } });
-  context.on('request', (r) => requests.push(r.url()));
+  inFlight.set(context, 0);
+  context.on('request', (r) => {
+    requests.push(r.url());
+    if (toPlatform(r)) inFlight.set(context, inFlight.get(context) + 1);
+  });
+  const answered = (r) => {
+    if (toPlatform(r)) inFlight.set(context, inFlight.get(context) - 1);
+  };
+  context.on('requestfinished', answered);
+  context.on('requestfailed', answered);
   context.on('console', (m) => {
     if (/Content Security Policy/i.test(m.text())) policyBroken.push(m.text());
   });
@@ -1116,6 +1140,7 @@ try {
     await page.click('.nav-item[href="#/"]');
     await showsText(page, EN['inside.countMany'].replace('{count}', '2'));
     await showsText(page, 'North Exit');
+    await noneInFlight(page);
     if (kind === 'drop') {
       await page.route('**/api/v1/garages/*/sessions/open', (route) => route.abort('connectionreset'), { times: 1 });
     } else stub.failNext(kind);
@@ -1128,6 +1153,7 @@ try {
   }
 
   // ── A session that ended ────────────────────────────────────────────────
+  await noneInFlight(page);
   stub.failNext('ended');
   await page.click('.nav-item[href="#/lanes"]');
   check(await showsHeading(page, EN['signIn.title']), 'session ended: the sign-in screen');
@@ -1154,6 +1180,7 @@ try {
   await signIn(page, A);
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   await showsText(page, 'North Exit');
+  await noneInFlight(page);
   stub.failNext('plain401');
   await page.click(INSIDE_NAV);
   check(await showsHeading(page, EN['signIn.title']), 'a 401 from a read: the sign-in screen');
@@ -1247,6 +1274,7 @@ try {
   ];
   for (const [what, next, fail] of saveFailures) {
     const words = next === 'es' ? ES : EN;
+    await noneInFlight(failing.page);
     await fail();
     await onSettings(failing.page, 'language', next);
     const said = await showsText(failing.page, words['language.notKept']);
@@ -1260,6 +1288,7 @@ try {
   await failing.page.click('[data-control="language"] [data-value="en"]');
   check(await settles(failing.page, () => !document.querySelector('[data-notice="language-not-kept"]')), 'a save that works takes the sentence away');
   check(await until(() => A.language === 'en'), 'and that save reached the profile');
+  await noneInFlight(failing.page);
   stub.failNext('ended');
   await failing.page.click('[data-control="language"] [data-value="es"]');
   check(await showsText(failing.page, ES['problem.ended']), 'a 401 during the save: the signed-out screen, in plain words');
