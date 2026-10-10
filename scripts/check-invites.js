@@ -465,8 +465,10 @@ try {
     await signIn(page, A);
     await page.waitForSelector('.nav');
     await go(page, 'garages');
-    await page.waitForSelector(`[data-garage-row="${kept.id}"]`);
-    const zone = await textOf(page, `[data-garage-row="${kept.id}"] td[data-zone]`);
+    // The Garages page's own row: Home's list of garages carries the same mark, and is on screen until the page changes.
+    const cell = `[data-list="garages-page"] [data-garage-row="${kept.id}"] td[data-zone]`;
+    await page.waitForSelector(cell);
+    const zone = await textOf(page, cell);
     check(/Kolkata/.test(zone ?? '') && !/Calcutta/.test(zone ?? ''), `6 a garage kept as Asia/Calcutta: shown as "${zone}"`);
     await context.close();
   }
@@ -477,7 +479,7 @@ try {
     await signIn(page, A);
     await page.waitForSelector('.nav');
     await go(page, 'garages');
-    await page.click(`[data-garage-row="${A.garages[0].id}"]`);
+    await page.click(`[data-list="garages-page"] [data-garage-row="${A.garages[0].id}"]`);
     for (const language of LANGUAGES) {
       const w = WORDS[language];
       await speak(page, language);
