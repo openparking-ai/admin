@@ -191,9 +191,17 @@ export function lanesFile({ t, language, garage, data, readAt }) {
   };
 }
 
-/** The change log: one row per line, newest first, as many as the screen shows. */
+/**
+ * The choices a sorted and chosen list was made with, in words (U7b): said
+ * under the time zone. A list made from the page always says them, if only
+ * "Everything" (src/ChangesPage.jsx).
+ */
+const withChosen = (lines, data) => (data.chosen ? [...lines, data.chosen] : lines);
+
+/** The change log: one row per line, in the order and of the lines chosen on screen (newest first, all of them, unless chosen). */
 export function changesFile({ t, language, garage, data, readAt }) {
-  const { title, lines } = head(t, 'changes', garage, language, readAt);
+  const { title, lines: top } = head(t, 'changes', garage, language, readAt);
+  const lines = withChosen(top, data);
   const rows = data.changes.map((line) => {
     const { before, after } = changeText(t, line, garage, language);
     return [
@@ -215,9 +223,10 @@ export function changesFile({ t, language, garage, data, readAt }) {
   };
 }
 
-/** The refused attempts: one row per line, newest first, as many as the screen shows; their count above. */
+/** The refused attempts: one row per line, in the order and of the lines chosen on screen; their count in all above. */
 export function refusedFile({ t, language, garage, data, readAt }) {
-  const { title, lines } = head(t, 'refused', garage, language, readAt);
+  const { title, lines: top } = head(t, 'refused', garage, language, readAt);
+  const lines = withChosen(top, data);
   const attempts = data.count?.attempts ?? 0;
   if (data.refused.length) {
     lines.push(attempts === 1 ? t('refused.countOne') : t('refused.countMany', { attempts: attempts.toLocaleString(locale(language)) }));

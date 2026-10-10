@@ -766,6 +766,156 @@ ul {
   color: var(--text-secondary);
   font-size: 12px;
 }
+/* U7b: the choices above a list that can be sorted and chosen from: small,
+   on one line, each with its description; the ticks open under their button. */
+.list-choose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 24px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.choose-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.choose-field > .field-name {
+  font-weight: 600;
+}
+.choose-field > .field-about {
+  font-size: 11px;
+  max-width: 30ch;
+}
+.choose-field select,
+.choose-open {
+  margin-top: 4px;
+  max-width: 30ch;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.choose-open {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+.choose-ticks {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: min(60ch, 80vw);
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hover);
+}
+.choose-tick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.choose-tick:hover {
+  background: var(--accent-soft);
+}
+.choose-tick .tick-box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.choose-open:focus-visible,
+.choose-tick:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.choose-clear {
+  padding-bottom: 4px;
+  font-size: 13px;
+}
+/* U7b: a refused attempt is one line a row on screen. Who, what was tried
+   and why are cut short with "…", and shown whole over the row while the
+   pointer is on them or they have the keyboard's focus. On paper, whole. */
+/* The two times as wide as the longest ("Dec 12, 2026, 12:56 PM"), the count
+   as its heading; who a little less than what and why, which share the rest. */
+.list.refused {
+  table-layout: fixed;
+}
+.list.refused th:nth-child(1),
+.list.refused th:nth-child(6) {
+  width: 172px;
+}
+.list.refused th:nth-child(2) {
+  width: 15%;
+}
+.list.refused th:nth-child(5) {
+  width: 84px;
+}
+.list .cut {
+  position: relative;
+}
+.cut-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.list .cut:focus {
+  outline: none;
+}
+@media screen {
+  .list .cut:hover > .cut-text,
+  .list .cut:focus > .cut-text {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    left: -7px;
+    width: max-content;
+    min-width: calc(100% + 7px);
+    max-width: min(56ch, 80vw);
+    padding: 3px 6px;
+    white-space: normal;
+    overflow: visible;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    box-shadow: var(--shadow-hover);
+  }
+  .list .cut:focus-visible > .cut-text {
+    outline: 2px solid var(--focus);
+  }
+}
+@media print {
+  .cut-text {
+    overflow: visible;
+    white-space: normal;
+  }
+}
+/* U7b: a form's Cancel at its right, as on every form: Getting paid's head
+   is inside its form's column, which would hold it to its words' width. */
+.setup-form > .lane-panel-head {
+  align-self: stretch;
+}
 .opens {
   margin-top: 16px;
 }
@@ -1158,6 +1308,65 @@ textarea {
 .drawings-about {
   margin-top: 14px;
   font-size: 14px;
+}
+/* U7b: each sheet in the list with its own View, Download PDF and Print,
+   at the end of its line; one sheet viewed over the page, as it prints. */
+.drawings-list li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-1);
+}
+.drawing-name {
+  margin-right: 18px;
+}
+.drawing-actions {
+  float: right;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-left: 12px;
+  font-size: 14px;
+}
+.drawings-list li::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+.drawing-actions .link-button:disabled {
+  cursor: progress;
+}
+.sheet-view-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3vh 16px;
+  overflow: auto;
+  background: var(--backdrop);
+}
+.sheet-view {
+  width: min(1400px, 100%);
+  padding: 14px 16px 16px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-hover);
+}
+.sheet-view-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.drawing-viewed {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(94vh - 70px);
+  font-family: 'DM Sans', sans-serif;
+  border: 1px solid var(--border-2);
 }
 .drawings-print {
   display: none;

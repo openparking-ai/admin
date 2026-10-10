@@ -210,11 +210,17 @@ export function changedFields(t, line, garage, language) {
  * thing is this owner's and not theirs; in the asker's own log, it named
  * something that is not this account's.
  */
-export function whyWords(t, line) {
-  const why = line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)
-    ? t('changes.refusal.notTheirs')
-    : t(REFUSALS.includes(line.refusal) ? `changes.refusal.${line.refusal}` : 'changes.refusal.other');
-  // A column of its own: said as a sentence, from its first letter.
+export const whyWords = (t, line) => whySaid(t, whyKey(line));
+
+/** Which reason an attempt was refused for: a refusal the platform names, 'notTheirs', or 'other'. */
+export function whyKey(line) {
+  if (line.who?.kind === 'outside' && NOT_FOUND.includes(line.refusal)) return 'notTheirs';
+  return REFUSALS.includes(line.refusal) ? line.refusal : 'other';
+}
+
+/** A reason in words. A column, or a list of ticks, of its own: said as a sentence, from its first letter. */
+export function whySaid(t, key) {
+  const why = t(`changes.refusal.${key}`);
   return why.charAt(0).toLocaleUpperCase() + why.slice(1);
 }
 
@@ -236,4 +242,96 @@ export function changeText(t, line, garage, language) {
     before: fields.length ? fields.map((f) => `${f.field}: ${piecesText([f.before])}`).join('; ') : NOTHING,
     after: fields.length ? fields.map((f) => `${f.field}: ${piecesText([f.after])}`).join('; ') : NOTHING,
   };
+}
+
+// ── U7b: the log sorted, and only the lines chosen ─────────────────────────
+//
+// Done on the screen, on the whole log as read (src/ChangesPage.jsx
+// `readWhole`): so the pages on screen, Download and Print all follow the
+// same choices, and hold every line that matches, never only one page.
+
+/** The kinds of thing a line can be about, each with the actions about it, in the order the ticks list them. */
+export const KINDS = {
+  garage: ['garage.create', 'garage.update', 'garage.open', 'garage.pass_links', 'garage.validations_link'],
+  lanes: ['lane.add', 'lane.rename', 'lane.remove', 'lane.close', 'lane.close_again', 'lane.reopen'],
+  connections: ['computer.connect', 'computer.cancel'],
+  screens: ['board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices'],
+  rates: ['rate_plan.add', 'rates.retired'],
+  taxes: ['tax_set.add'],
+  paid: ['payment_account.create', 'payment_account.setup_link', 'payment_account.read'],
+  readers: ['payment_account.reader_place', 'lane.card_reader_connect', 'lane.card_reader_disconnect'],
+  people: ['alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices'],
+  keys: ['key.cancel'],
+  language: ['language.change'],
+};
+// Then the attempts counted together on one line, and any action these pages do not know yet.
+const KIND_ORDER = [...Object.keys(KINDS), 'many', 'other'];
+
+/** What a line is about: one of KIND_ORDER, as its What column says it. */
+export function kindOf(line) {
+  if (line.outcome === 'refused' && line.refusal === 'too_many_refused') return 'many';
+  return Object.keys(KINDS).find((kind) => KINDS[kind].includes(line.action)) ?? 'other';
+}
+
+/** The ways a list can be sorted; the first is the platform's own, newest first. */
+export const SORTS = ['newest', 'oldest', 'who', 'what'];
+
+/** Nothing chosen: every line, newest first. */
+export const NO_CHOICE = { sort: 'newest', kinds: [], whys: [] };
+
+export const isChosen = (choice) => choice.sort !== SORTS[0] || choice.kinds.length > 0 || choice.whys.length > 0;
+
+const LOCALES = { en: 'en-US', es: 'es-US' };
+const collator = (language) => new Intl.Collator(LOCALES[language] ?? LOCALES.en, { sensitivity: 'base', numeric: true });
+
+/** The kinds of thing the lines are about, each once, in the ticks' order: only kinds that appear. */
+export const kindsIn = (lines) => KIND_ORDER.filter((kind) => lines.some((line) => kindOf(line) === kind));
+
+/** The reasons the lines were refused for, each once, in the order of their words: only reasons that appear. */
+export function whysIn(t, lines, language) {
+  const keys = [...new Set(lines.map(whyKey))];
+  const compare = collator(language);
+  return keys.sort((a, b) => compare.compare(whySaid(t, a), whySaid(t, b)));
+}
+
+/**
+ * The lines chosen, in the order chosen: only those about the kinds ticked
+ * and refused for the reasons ticked (nothing ticked is everything), sorted
+ * by When (newest or oldest first), Who or What. Lines that sort the same are
+ * kept newest first; lines of the same moment, in the platform's order.
+ */
+export function chosenLines(t, lines, choice, language) {
+  const shown = lines
+    .map((line, i) => ({ line, i, at: Date.parse(line.at) }))
+    .filter(({ line }) => (choice.kinds.length === 0 || choice.kinds.includes(kindOf(line))) && (choice.whys.length === 0 || choice.whys.includes(whyKey(line))));
+  const newest = (a, b) => b.at - a.at || a.i - b.i;
+  const compare = collator(language);
+  const byWords = (words) => {
+    for (const x of shown) x.words = piecesText(words(t, x.line));
+    return (a, b) => compare.compare(a.words, b.words) || newest(a, b);
+  };
+  const order = {
+    newest,
+    oldest: (a, b) => a.at - b.at || b.i - a.i,
+    who: () => byWords(whoPieces),
+    what: () => byWords(whatPieces),
+  };
+  const sort = choice.sort === 'who' || choice.sort === 'what' ? order[choice.sort]() : (order[choice.sort] ?? newest);
+  return shown.sort(sort).map((x) => x.line);
+}
+
+/**
+ * The choices in words, for the head of a printed list and of its files:
+ * "Only: lanes, taxes and fees · oldest first", or "Everything".
+ */
+export function choiceWords(t, choice, language) {
+  const locale = LOCALES[language] ?? LOCALES.en;
+  const lower = (text) => text.charAt(0).toLocaleLowerCase(locale) + text.slice(1);
+  const parts = [];
+  const kinds = KIND_ORDER.filter((kind) => choice.kinds.includes(kind));
+  if (kinds.length) parts.push(t('choose.only', { list: kinds.map((kind) => lower(t(`choose.kind.${kind}`))).join(', ') }));
+  if (choice.whys.length) parts.push(t('choose.onlyWhy', { list: choice.whys.map((key) => t(`changes.refusal.${key}`)).join('; ') }));
+  if (parts.length === 0) parts.push(t('choose.everything'));
+  if (choice.sort !== SORTS[0]) parts.push(t(`choose.sorted.${choice.sort}`));
+  return parts.join(' · ');
 }

@@ -60,7 +60,9 @@ export function titleOf(t, spec) {
  * each sheet { key, kind, lane, reader, title, items }.
  *   takesAnyDriver: true, false, or null for not answered yet
  *   lanes: [{ name, direction: 'entry' | 'exit' }] as the platform lists them
- *   fonts: { measure(text, size, bold), clean(text) }
+ *   fonts: { measure(text, size, bold), clean(text), sheet?(i) }: `sheet` is
+ *   told each sheet's place as it starts, so what each one left out can be
+ *   said of it alone (one sheet downloaded or printed, U7b)
  */
 export function buildSet({ t, language, garage, lanes, takesAnyDriver, madeAt, fonts }) {
   const needs = needsOf({ lanes, takesAnyDriver });
@@ -74,6 +76,7 @@ export function buildSet({ t, language, garage, lanes, takesAnyDriver, madeAt, f
   const ctx = { t, garage, lanes, reader, entryType, specs };
 
   const sheets = specs.map((spec, i) => {
+    fonts.sheet?.(i);
     const s = createSheet(fonts);
     const title = titleOf(t, spec);
     frame(s, t, { title, garage, lane: spec.lane, number: i + 1, total, date });

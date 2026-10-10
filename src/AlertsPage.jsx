@@ -388,11 +388,15 @@ function RemovePerson({ t, client, garage, person, onDone, onClose }) {
  * it is pressed, as the person's whole set of choices. A text for someone
  * with no phone number, or an email for someone with no address, is not
  * offered: the cell says what is missing.
+ *
+ * Twenty rows a page, like every list (U7b): a row is one person under one
+ * alert, and an alert whose people run on to the next page is named again at
+ * its top. A print holds every row.
  */
 function Choices({ t, language, client, garage, alerts, contacts, quietMinutes, onSaved }) {
   const [busy, setBusy] = useState(null);
-  // Twenty people at a time, each under every alert. A print holds them all.
-  const paging = usePaging(contacts.length);
+  const every = alerts.flatMap((alert) => contacts.map((person) => ({ alert, person })));
+  const paging = usePaging(every.length);
   const [problem, setProblem, fail] = useProblem();
   const toggle = async (person, way, key) => {
     const field = way === 'text' ? 'by_text' : 'by_email';
@@ -438,27 +442,30 @@ function Choices({ t, language, client, garage, alerts, contacts, quietMinutes, 
     );
   };
 
-  /** Every alert, in the platform's order, with `people` under it. */
-  const rows = (people) =>
-    alerts.map((alert) => (
-      <Fragment key={alert.key}>
-        {people.map((person, i) => (
-          <tr key={person.id} data-alert={alert.key} data-person={person.id}>
-            {i === 0 ? (
-              <td rowSpan={people.length} className="alert-cell">
-                <span className="alert-name">{alertName(t, alert.key)}</span>
-                <span className="alert-says">{alertSays(t, alert.key, quietMinutes)}</span>
+  /** The rows given, each alert named once over its people among them, in the platform's order. */
+  const rows = (given) =>
+    alerts.map((alert) => {
+      const people = given.filter((row) => row.alert === alert).map((row) => row.person);
+      return (
+        <Fragment key={alert.key}>
+          {people.map((person, i) => (
+            <tr key={person.id} data-alert={alert.key} data-person={person.id}>
+              {i === 0 ? (
+                <td rowSpan={people.length} className="alert-cell">
+                  <span className="alert-name">{alertName(t, alert.key)}</span>
+                  <span className="alert-says">{alertSays(t, alert.key, quietMinutes)}</span>
+                </td>
+              ) : null}
+              <td>
+                <bdi>{person.name}</bdi>
               </td>
-            ) : null}
-            <td>
-              <bdi>{person.name}</bdi>
-            </td>
-            <td>{tick(alert, person, 'text')}</td>
-            <td>{tick(alert, person, 'email')}</td>
-          </tr>
-        ))}
-      </Fragment>
-    ));
+              <td>{tick(alert, person, 'text')}</td>
+              <td>{tick(alert, person, 'email')}</td>
+            </tr>
+          ))}
+        </Fragment>
+      );
+    });
 
   return (
     <section className="panel" data-list="alert-choices">
@@ -484,13 +491,13 @@ function Choices({ t, language, client, garage, alerts, contacts, quietMinutes, 
               </th>
             </tr>
           </thead>
-          {contacts.length <= PAGE_ROWS ? (
-            <tbody>{rows(contacts)}</tbody>
+          {every.length <= PAGE_ROWS ? (
+            <tbody>{rows(every)}</tbody>
           ) : (
             <>
-              {/* On screen, this page's people under each alert; on paper, every person. */}
-              <tbody className="no-print">{rows(contacts.slice(paging.from, paging.to))}</tbody>
-              <tbody className="print-only">{rows(contacts)}</tbody>
+              {/* On screen, this page's rows; on paper, every row. */}
+              <tbody className="no-print">{rows(every.slice(paging.from, paging.to))}</tbody>
+              <tbody className="print-only">{rows(every)}</tbody>
             </>
           )}
         </table>
