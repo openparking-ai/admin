@@ -42,6 +42,12 @@ export const SAME_ON_PURPOSE = {
   'zone.alaska': 'Alaska and Anchorage are written the same in both languages',
   'zone.guam': 'Chamorro and Guam are written the same in both languages',
   'zone.samoa': 'Samoa and Pago Pago are written the same in both languages',
+  // U7d-2: Alaska and its places, written the same in both languages.
+  'zone.juneau': 'Alaska and Juneau are written the same in both languages',
+  'zone.sitka': 'Alaska and Sitka are written the same in both languages',
+  'zone.metlakatla': 'Alaska and Metlakatla are written the same in both languages',
+  'zone.yakutat': 'Alaska and Yakutat are written the same in both languages',
+  'zone.nome': 'Alaska and Nome are written the same in both languages',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');

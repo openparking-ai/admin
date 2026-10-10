@@ -12,8 +12,17 @@
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
 //   POST /api/v1/garages         { name, timezone, currency } -> 201 { garage } (U7c), the garage's whole row,
 //                                not open, nothing stated; one with no name, time zone or currency is 400
-//                                with no code; a currency that is not three capitals is the database's
-//                                refusal, a 500 "internal error", with no line in the log
+//                                with no code; since platform 130d38d (U7d-2) a name of more than 100
+//                                characters, money not on the list and a time zone the platform does not
+//                                know are each a 400 with its own sentence and code (its src/garageFields.js)
+// U7d-2, the four doors behind an emailed link, as the platform's src/accountDoors.js answers them:
+//   POST /api/v1/auth/invite/status  { token }                     -> { status, message[, email, language, expires_at] }
+//   POST /api/v1/auth/invite/accept  { token, password, language } -> { email, tenant_id, session_ends_at, language } and the cookie
+//   POST /api/v1/auth/forgot         { email }                     -> { message }, the same whoever it names
+//   POST /api/v1/auth/reset          { token, password }           -> { email, message }
+//   An invite lasts seven days and a reset link one hour; each works once. A
+//   link that is not ready is 409 invite_<status> or reset_<status>. A reset
+//   ends every session of the owner. No door reads a cookie or the query.
 //   GET  /api/v1/garages/:id/lanes          { lanes: [{ id, name, direction, devices, reader, closed, reopened }], quiet_minutes }
 //   GET  /api/v1/garages/:id/sessions/open  { inside_count, unconfirmable_count, open_count, sessions }
 // U4, as the platform's src/setup.js, src/lanes.js and src/changes.js answer:
@@ -67,6 +76,7 @@
 
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { CURRENCY_CODES } from '../src/garages.js';
 
 const MINUTE = 60_000;
 
@@ -228,6 +238,62 @@ const SIGN_IN_ANSWERS = {
   wrongPlace: [403, ORIGIN_REFUSED],
 };
 
+// U7d-2: the four doors' own words, as the platform's src/accountDoors.js says them.
+const INVITE_SENTENCES = {
+  ready: 'This invite is ready. Choose a password to finish.',
+  used: 'This invite was already used. Sign in instead.',
+  expired: 'This invite has ended. Ask for a new one.',
+  replaced: 'A newer invite was sent. Use the link in the latest email.',
+  invalid: 'This link is not an invite. Check that the whole link was used.',
+};
+const RESET_SENTENCES = {
+  used: 'This reset link was already used. Ask for a new one if you need it.',
+  expired: 'This reset link has ended. Ask for a new one.',
+  replaced: 'A newer reset link was sent. Use the link in the latest email.',
+  invalid: 'This link is not a reset link. Check that the whole link was used.',
+};
+const FORGOT_SENT = { message: 'If that email names an account, a link to choose a new password is on its way. It works once, for one hour.' };
+const PASSWORD_REFUSED = { error: 'The password must be 12 to 1024 characters.', code: 'password_refused' };
+const INVITE_HAS_ADMIN = { error: 'This account already has its admin. Sign in instead.', code: 'invite_has_admin' };
+const INVITE_EMAIL_TAKEN = { error: 'That email already names an admin. Sign in instead.', code: 'invite_email_taken' };
+const RESET_DONE = 'The password is changed, and every session of the account is signed out. Sign in with the new password.';
+const DOOR_UNREADABLE = {
+  status: { error: 'The request could not be read. Send JSON: {"token"}.', code: 'invite_unreadable' },
+  accept: { error: 'The request could not be read. Send JSON: {"token", "password", "language"}.', code: 'invite_unreadable' },
+  forgot: { error: 'The request could not be read. Send JSON: {"email"}.', code: 'forgot_unreadable' },
+  reset: { error: 'The request could not be read. Send JSON: {"token", "password"}.', code: 'reset_unreadable' },
+};
+/** The doors' answers a check can ask for, which only a platform set up for them gives (link_answers). */
+const LINK_ANSWERS = {
+  tooMany: [429, { error: 'Too many attempts from here. Try again later.', code: 'link_rate_limited' }],
+  busy: [503, { error: 'Busy. Try again in a moment.', code: 'link_busy' }],
+  notSetUp: [409, { error: 'This deployment has no admin origin configured, so owner sign-in is off.', code: 'sign_in_not_configured' }],
+};
+const INVITE_TOKEN = /^opi_[A-Za-z0-9_-]{43}$/;
+const RESET_TOKEN = /^opr_[A-Za-z0-9_-]{43}$/;
+const DAY = 24 * 60 * MINUTE;
+const DOORS = { '/api/v1/auth/invite/status': 'status', '/api/v1/auth/invite/accept': 'accept', '/api/v1/auth/forgot': 'forgot', '/api/v1/auth/reset': 'reset' };
+
+/** The body, when it has exactly these keys, each a string; or null. As the platform reads a door's body. */
+function exactly(body, keys) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const has = Object.keys(body);
+  return has.length === keys.length && keys.every((k) => has.includes(k) && typeof body[k] === 'string') ? body : null;
+}
+const DOOR_SHAPES = {
+  status: (b) => (exactly(b, ['token']) && b.token.length <= 128 ? b : null),
+  accept: (b) => (exactly(b, ['token', 'password', 'language']) && b.token.length <= 128 && LANGUAGES.includes(b.language) ? b : null),
+  forgot: (b) => {
+    if (!exactly(b, ['email'])) return null;
+    const email = b.email.trim().toLowerCase();
+    return email.length >= 3 && email.length <= 254 ? { email } : null;
+  },
+  reset: (b) => (exactly(b, ['token', 'password']) && b.token.length <= 128 ? b : null),
+};
+const passwordOk = (p) => [...p].length >= 12 && [...p].length <= 1024;
+/** What a link is now, as the platform's src/invites.js says it. */
+const linkStatus = (row, now = Date.now()) => (!row ? 'invalid' : row.used_at ? 'used' : row.replaced_at ? 'replaced' : row.expires_at <= now ? 'expired' : 'ready');
+
 const COOKIE = 'op_session';
 const COOKIE_ATTRIBUTES = 'Path=/api; HttpOnly; SameSite=Strict';
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -245,7 +311,12 @@ const LANE_ALREADY_OPEN = { error: 'this lane is already open', code: 'lane_alre
 const ADD_LANE_REFUSED = { error: "name and direction ('entry' or 'exit') are required" };
 // U7c, as the platform's src/app.js answers POST /garages.
 const ADD_GARAGE_REFUSED = { error: 'name, timezone and currency are required' };
-const INTERNAL_ERROR = { error: 'internal error' };
+// U7d-2: since platform 130d38d, its src/garageFields.js, each in its own sentence.
+const GARAGE_NAME_MAX = 100;
+const GARAGE_NAME_REFUSED = { error: `name must be text of 1 to ${GARAGE_NAME_MAX} characters`, code: 'garage_name_refused' };
+const GARAGE_TIMEZONE_REFUSED = { error: 'timezone must be a time zone name this platform knows, such as "America/New_York"', code: 'garage_timezone_refused' };
+const GARAGE_CURRENCY_REFUSED = { error: 'currency must be an ISO 4217 currency code in use today, such as "USD"', code: 'garage_currency_refused' };
+const garageCurrencyInCapitals = (code) => ({ error: `currency is written in capital letters: "${code}"`, code: 'garage_currency_refused' });
 const COMPUTER_NAME_REQUIRED = { error: 'name is required' };
 const DRIVERS_REFUSED = (v) => ({ error: `transient_available is true or false, not ${JSON.stringify(v)}; unstated is the absence of the field, never a value` });
 const lastOpen = (direction) => {
@@ -287,6 +358,17 @@ function screenTextRefused(raw, field, code) {
     code,
     details: { characters: absent },
   };
+}
+
+/** A time zone the platform knows (its database's pg_timezone_names): here, one this runtime can keep time in. */
+function zoneKnown(raw) {
+  if (typeof raw !== 'string' || raw.length > 64 || raw === '') return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: raw }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** A garage-time moment, YYYY-MM-DDTHH:MM, as the instant it is in `timeZone`. */
@@ -612,6 +694,108 @@ export async function startStub({ port = 0 } = {}) {
     });
   }
 
+  // ── U7d-2: the four doors behind an emailed link ───────────────────────────
+  const invites = new Map(); // token -> { tenant_id, email, language, company, expires_at, used_at, replaced_at }
+  const resets = new Map(); // token -> { email, expires_at, used_at, replaced_at }
+  const sent = []; // every email the stand-in "sent": { to, kind, token }
+  const doorRequests = []; // every request to a door: { door, method, url, body }, as it arrived
+  let failLink = null;
+  let tenantN = 0;
+  const newLink = (prefix) => `${prefix}${randomBytes(32).toString('base64url')}`;
+  const ownerByEmail = (email) => Object.values(data).find((o) => o.email === email) ?? null;
+
+  /** An invite for `email` to become the one owner of a new account, as `invite-admin` makes one. Answers the link's token. */
+  function invite(email, { language = 'en', company = 'Invited company' } = {}) {
+    if (ownerByEmail(email)) throw new Error(`${email} already names an owner`);
+    if ([...invites.values()].some((i) => i.email === email && linkStatus(i) === 'ready')) throw new Error(`${email} already has an invite waiting`);
+    tenantN += 1;
+    const token = newLink('opi_');
+    invites.set(token, { tenant_id: `d7${String(tenantN).padStart(6, '0')}-0000-4000-8000-000000000000`, email, language, company, expires_at: Date.now() + 7 * DAY, used_at: null, replaced_at: null });
+    sent.push({ to: email, kind: 'invite', token });
+    return token;
+  }
+  /** The waiting invite of `email` replaced by a new one, as `invite-admin --resend` does. */
+  function resendInvite(email) {
+    const live = [...invites.entries()].find(([, i]) => i.email === email && linkStatus(i) === 'ready');
+    if (!live) throw new Error(`no invite is waiting for ${email}`);
+    live[1].replaced_at = Date.now();
+    const token = newLink('opi_');
+    invites.set(token, { ...live[1], expires_at: Date.now() + 7 * DAY, replaced_at: null });
+    sent.push({ to: email, kind: 'invite', token });
+    return token;
+  }
+  /** A new owner, on `tenant_id`, as accepting an invite or `create-admin` makes one. */
+  function makeOwner({ email, password, tenant_id, language }) {
+    const key = `owner-${Object.keys(data).length + 1}`;
+    data[key] = { email, password, tenant_id, language, garages: [], lanes: {}, people: {}, open: {} };
+    return data[key];
+  }
+
+  async function door(req, res, which) {
+    const raw = await new Promise((resolve) => {
+      let text = '';
+      req.on('data', (c) => (text += c));
+      req.on('end', () => resolve(text));
+    });
+    doorRequests.push({ door: which, method: req.method, url: req.url, body: raw });
+    if (failLink) {
+      const [status, body] = LINK_ANSWERS[failLink];
+      failLink = null;
+      return send(res, status, body);
+    }
+    if (allowedOrigin === null) return send(res, ...LINK_ANSWERS.notSetUp);
+    if (req.headers.origin !== undefined && req.headers.origin !== allowedOrigin) return send(res, 403, ORIGIN_REFUSED);
+    if (!/^application\/json\b/.test(req.headers['content-type'] ?? '')) return send(res, 400, DOOR_UNREADABLE[which]);
+    let body;
+    try {
+      body = DOOR_SHAPES[which](JSON.parse(raw));
+    } catch {
+      body = null;
+    }
+    if (!body) return send(res, 400, DOOR_UNREADABLE[which]);
+
+    if (which === 'status' || which === 'accept') {
+      const found = INVITE_TOKEN.test(body.token) ? invites.get(body.token) ?? null : null;
+      const status = linkStatus(found);
+      if (which === 'status') {
+        return send(res, 200, { status, message: INVITE_SENTENCES[status], ...(status === 'ready' ? { email: found.email, language: found.language, expires_at: new Date(found.expires_at).toISOString() } : {}) });
+      }
+      if (status !== 'ready') return send(res, 409, { error: INVITE_SENTENCES[status], code: `invite_${status}` });
+      if (!passwordOk(body.password)) return send(res, 400, PASSWORD_REFUSED);
+      if (Object.values(data).some((o) => o.tenant_id === found.tenant_id)) return send(res, 409, INVITE_HAS_ADMIN);
+      if (ownerByEmail(found.email)) return send(res, 409, INVITE_EMAIL_TAKEN);
+      const who = makeOwner({ email: found.email, password: body.password, tenant_id: found.tenant_id, language: body.language });
+      found.used_at = Date.now();
+      const token = randomBytes(32).toString('base64url');
+      issued.push(token);
+      sessions.set(token, { owner: who, ended: false });
+      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language }, {
+        'Set-Cookie': `${COOKIE}=${token}; ${COOKIE_ATTRIBUTES}; Max-Age=${SESSION_SECONDS}; Secure`,
+      });
+    }
+    if (which === 'forgot') {
+      const who = ownerByEmail(body.email);
+      if (who) {
+        for (const r of resets.values()) if (r.email === who.email && !r.used_at && !r.replaced_at) r.replaced_at = Date.now();
+        const token = newLink('opr_');
+        resets.set(token, { email: who.email, expires_at: Date.now() + 60 * MINUTE, used_at: null, replaced_at: null });
+        sent.push({ to: who.email, kind: 'reset', token });
+      }
+      return send(res, 200, FORGOT_SENT);
+    }
+    // reset
+    const found = RESET_TOKEN.test(body.token) ? resets.get(body.token) ?? null : null;
+    const status = linkStatus(found);
+    if (status !== 'ready') return send(res, 409, { error: RESET_SENTENCES[status], code: `reset_${status}` });
+    if (!passwordOk(body.password)) return send(res, 400, PASSWORD_REFUSED);
+    const who = ownerByEmail(found.email);
+    who.password = body.password;
+    for (const sn of sessions.values()) if (sn.owner === who) sn.ended = true;
+    for (const key of [...wrongTries.keys()]) if (key.endsWith(`|${who.email}`)) wrongTries.delete(key);
+    found.used_at = Date.now();
+    return send(res, 200, { email: who.email, message: RESET_DONE });
+  }
+
   // ── U4 ────────────────────────────────────────────────────────────────────
   // An answer from a U4 route: sent, and said so, so the routes after it do not answer too.
   const answer = (...args) => {
@@ -695,8 +879,13 @@ export async function startStub({ port = 0 } = {}) {
       refuseGarage = false;
       return refuse(res, who, 400, ADD_GARAGE_REFUSED, at);
     }
-    // The database's own check on the currency: the platform answers it as an internal error, and logs nothing.
-    if (typeof body.currency !== 'string' || !/^[A-Z]{3}$/.test(body.currency)) return answer(res, 500, INTERNAL_ERROR);
+    // U7d-2: the platform's own checks, in its order: the name, the money, the time zone.
+    if (typeof body.name !== 'string' || body.name.trim() === '' || [...body.name].length > GARAGE_NAME_MAX) return refuse(res, who, 400, GARAGE_NAME_REFUSED, at);
+    if (!CURRENCY_CODES.includes(body.currency)) {
+      const capitals = typeof body.currency === 'string' && CURRENCY_CODES.includes(body.currency.toUpperCase());
+      return refuse(res, who, 400, capitals ? garageCurrencyInCapitals(body.currency.toUpperCase()) : GARAGE_CURRENCY_REFUSED, at);
+    }
+    if (!zoneKnown(body.timezone)) return refuse(res, who, 400, GARAGE_TIMEZONE_REFUSED, at);
     const garage = makeGarage(who, { name: body.name, timezone: body.timezone, currency: body.currency });
     line(who, {
       garageId: garage.id, action: 'garage.create', subject: { kind: 'garage', id: garage.id, name: garage.name }, before: null,
@@ -1366,6 +1555,8 @@ export async function startStub({ port = 0 } = {}) {
     }
 
     if (path === '/api/v1/auth/sign-in' && req.method === 'POST') return signIn(req, res);
+    // U7d-2: the four doors read no cookie, and no query.
+    if (DOORS[path] && req.method === 'POST') return door(req, res, DOORS[path]);
 
     // Who the cookie names: the auth routes and the reads answer "not signed in" differently.
     const onAuth = path.startsWith('/api/v1/auth/');
@@ -1441,6 +1632,33 @@ export async function startStub({ port = 0 } = {}) {
     quietMinutes: () => quiet,
     setQuietMinutes: (minutes) => {
       quiet = minutes;
+    },
+    // ── U7d-2 ──
+    /** An invite for `email` to own a new account, as `invite-admin` makes one: `{ language, company }`. Answers the link's token. */
+    invite: (email, options) => invite(email, options),
+    /** The waiting invite of `email` replaced by a new one (`invite-admin --resend`). Answers the new token. */
+    resendInvite: (email) => resendInvite(email),
+    /** The link `token` (an invite or a reset) past its end. */
+    expireLink: (token) => {
+      const row = invites.get(token) ?? resets.get(token);
+      if (!row) throw new Error('no such link at the stand-in');
+      row.expires_at = Date.now() - MINUTE;
+    },
+    /** An owner made on the account `token`'s invite is for, with another email, as `create-admin` makes one. */
+    adminOnTenantOf: (token, email) => makeOwner({ email, password: 'made-at-the-database-1', tenant_id: invites.get(token).tenant_id, language: 'en' }),
+    /** An owner of another account with `email`, as `create-admin` makes one. */
+    adminElsewhere: (email) => {
+      tenantN += 1;
+      return makeOwner({ email, password: 'made-at-the-database-1', tenant_id: `e7${String(tenantN).padStart(6, '0')}-0000-4000-8000-000000000000`, language: 'en' });
+    },
+    /** Every email the stand-in sent, oldest first: `{ to, kind: 'invite' | 'reset', token }`. */
+    sent: () => sent.slice(),
+    /** Every request that reached one of the four doors, as it arrived: `{ door, method, url, body }`. */
+    doorRequests: () => doorRequests.slice(),
+    /** The next door answers as a platform set up to give it would: tooMany, busy or notSetUp. */
+    failLink: (kind) => {
+      if (!LINK_ANSWERS[kind]) throw new Error(`no such door answer: ${kind}`);
+      failLink = kind;
     },
     // ── U7c ──
     /** A garage on `owner`'s account, made as the platform makes one: `{ name, timezone, currency, live }`. */

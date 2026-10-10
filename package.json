@@ -34,6 +34,7 @@
     "check-tidy": "node scripts/check-tidy.js",
     "check-choices": "node scripts/check-choices.js",
     "check-garages": "node scripts/check-garages.js",
+    "check-invites": "node scripts/check-invites.js",
     "check-job-limits": "node scripts/check-job-limits.js",
     "check-cache-order": "node scripts/check-cache-order.js",
     "check-removed-person": "node scripts/check-removed-person.js",

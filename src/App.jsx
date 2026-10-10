@@ -7,6 +7,10 @@ import QuickFind from './QuickFind.jsx';
 import Icon from './Icon.jsx';
 import Logo from './Logo.jsx';
 import SignIn from './SignIn.jsx';
+import InviteScreen from './InviteScreen.jsx';
+import ForgotScreen from './ForgotScreen.jsx';
+import ResetScreen from './ResetScreen.jsx';
+import { takeLink } from './links.js';
 import { GaragePicker, ProblemNote } from './parts.jsx';
 import Home from './Home.jsx';
 import SettingsPage, { Choosers } from './SettingsPage.jsx';
@@ -43,8 +47,30 @@ function useHashPage() {
   return page;
 }
 
-export default function App({ theme, storage, client }) {
+/**
+ * U7d-2: the screen an emailed link opens, `{ kind, token }`, or null. The
+ * one the page started with was taken out of the address by src/main.jsx; a
+ * link opened in this page while it is open is taken out the same way, the
+ * moment the address changes.
+ */
+function useLink(first) {
+  const [link, setLink] = useState(first ?? null);
+  useEffect(() => {
+    const onHash = () => {
+      const opened = takeLink(window.location, window.history);
+      if (opened) setLink(opened);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  return [link, setLink];
+}
+
+export default function App({ theme, storage, client, link: startLink = null }) {
   const page = useHashPage();
+  const [link, setLink] = useLink(startLink);
+  // U7d-2: "Forgot your password?", opened from the sign-in screen or a reset link that no longer works.
+  const [forgot, setForgot] = useState(false);
   // Signed out: the language last used on this computer, else English.
   // Signed in: the owner's profile (signedInAs below).
   const [language, setLanguage] = useState(() => readLanguage(storage));
@@ -165,9 +191,10 @@ export default function App({ theme, storage, client }) {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    const title = signedIn ? t(`page.${page.id}.title`) : t('signIn.title');
+    const linkTitle = { invite: 'invite.title', reset: 'reset.title' }[link?.kind];
+    const title = linkTitle ? t(linkTitle) : signedIn ? t(`page.${page.id}.title`) : forgot ? t('forgot.title') : t('signIn.title');
     document.title = `${title} · ${t('app.name')}`;
-  }, [language, page, t, signedIn]);
+  }, [language, page, t, signedIn, link, forgot]);
 
   const actions = useMemo(
     () => ({
@@ -183,8 +210,56 @@ export default function App({ theme, storage, client }) {
   // The language and the look: on the Settings page, and on the sign-in screen.
   const choosers = <Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} />;
 
+  // U7d-2: an emailed link's screen comes first, signed in or not: it is what the link was opened for.
+  const toSignIn = () => {
+    setLink(null);
+    setForgot(false);
+  };
+  if (link?.kind === 'invite') {
+    return (
+      <InviteScreen
+        key={link.token}
+        t={t}
+        client={client}
+        token={link.token}
+        language={language}
+        // The screens speak the language picked for the account; this computer keeps it once the account is made.
+        onLanguage={(next) => knownLanguage(next) && setLanguage(next)}
+        controls={<Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} withLanguage={false} />}
+        onSignedIn={(who) => {
+          setLink(null);
+          signedInAs(who, { fromSignInScreen: false });
+          actions.go(PAGES.find((p) => p.id === 'garages'));
+        }}
+        onSignIn={toSignIn}
+      />
+    );
+  }
+  if (link?.kind === 'reset') {
+    return (
+      <ResetScreen
+        key={link.token}
+        t={t}
+        client={client}
+        token={link.token}
+        controls={choosers}
+        // A reset signs nobody in and signs the account out everywhere: the sign-in screen, saying so.
+        onChanged={() => {
+          setLink(null);
+          signedInNow.current = false;
+          dispatch({ type: 'drop', notice: 'passwordChanged' });
+        }}
+        onForgot={() => {
+          setLink(null);
+          setForgot(true);
+        }}
+        onSignIn={toSignIn}
+      />
+    );
+  }
   if (owner.status === 'checking') return <div className="checking" aria-busy="true" />;
   if (!signedIn) {
+    if (forgot) return <ForgotScreen t={t} client={client} controls={choosers} onSignIn={toSignIn} />;
     return (
       <SignIn
         t={t}
@@ -192,6 +267,7 @@ export default function App({ theme, storage, client }) {
         notice={owner.notice}
         controls={choosers}
         onSignedIn={(who) => signedInAs(who, { fromSignInScreen: true })}
+        onForgot={() => setForgot(true)}
       />
     );
   }
