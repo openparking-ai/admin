@@ -234,6 +234,20 @@ const onlyTheTwoKeys = ({ local, session }) =>
   session.length === 0 && local.every((k) => k === THEME_KEY || k === LANGUAGE_KEY);
 
 const aTextIn = (text) => A_TEXT.filter((s) => text.includes(s));
+
+/**
+ * U7a: Home's garage below the list, read: its count and its lanes. The
+ * garage's own line in the list says the same count, so a wait for the
+ * count's words alone can end before the garage below has its lanes.
+ */
+const detailRead = (page, loading) =>
+  settles(page, (words) => {
+    const detail = document.querySelector('[data-detail]');
+    return Boolean(detail?.querySelector('[data-figure="inside"]')) && !detail.querySelector('[data-section="lanes"]').textContent.includes(words);
+  }, loading);
+/** Every read on the page answered: nothing on it still says it is loading. */
+const allRead = (page, loading) => settles(page, (words) => !document.body.innerText.includes(words), loading);
+const detailCount = (page) => page.evaluate(() => document.querySelector('[data-detail] [data-figure="inside"]')?.textContent ?? '');
 const LANES_TITLE = EN['page.lanes.title'];
 // U7a: "Cars inside" is Garage View, at its own address.
 const INSIDE_TITLE = EN['page.inside.title'];
@@ -467,7 +481,7 @@ try {
   check((await page.inputValue('input[name="password"]').catch(() => '')) === '', 'and the password is gone with the form');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   check(await settles(page, (id) => document.querySelector('[data-detail]')?.dataset.detail === id, A.garages[0].id), 'Home: the garage chosen is shown below the list');
-  check(await showsText(page, EN['inside.countMany'].replace('{count}', '2')), 'Home: the cars-inside count the platform returned (2)');
+  check((await detailRead(page, EN.loading)) && (await detailCount(page)) === EN['inside.countMany'].replace('{count}', '2'), 'Home: the cars-inside count the platform returned (2)');
   const home = await bodyText(page);
   check(home.includes(EN['inside.unconfirmedOne']), 'Home: the one it could not confirm, in words');
   check(home.includes(EN['lane.workingOne']), 'Home: "Working, heard from a minute ago"');
@@ -534,7 +548,9 @@ try {
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     const purpose = await page.textContent('.page-purpose');
     check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
-    // U4b: there is no computer at a lane, and no page says so.
+    // U4b: there is no computer at a lane, and no page says so. Read once the page holds what it reads
+    // (U7a: Home reads every garage's line besides the garage below).
+    await allRead(page, EN.loading);
     const said = await bodyText(page);
     check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
     if (!['home', 'setup', 'lanes', 'inside', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
@@ -1077,7 +1093,7 @@ try {
   await page.click('.nav-item[href="#/"]');
   check(await showsHeading(page, ES['page.home.title']), 'Home in Spanish');
   check((await page.getAttribute('html', 'lang')) === 'es', 'and tells the browser so');
-  check(await showsText(page, ES['inside.countMany'].replace('{count}', '2')), 'Home in Spanish: the count');
+  check((await detailRead(page, ES.loading)) && (await detailCount(page)) === ES['inside.countMany'].replace('{count}', '2'), 'Home in Spanish: the count');
   const homeEs = (await bodyText(page)).toLowerCase();
   check(['pase de garaje', 'mensual', 'visitante'].every((k) => !homeEs.includes(k)), 'Home in Spanish: no breakdown by kind of customer');
   check(homeEs.includes(ES['lane.quiet'].replace('{time}', inZone('2026-03-10T19:40:00Z', 'America/New_York', 'es')).toLowerCase()), 'Home in Spanish: the quiet lane, in garage time');
@@ -1112,6 +1128,7 @@ try {
     await page.click(`.nav-item[href="#${p.path}"]`);
     const title = ES[`page.${p.id}.title`];
     check(await showsHeading(page, title), `la navegación llega a "${title}"`);
+    await allRead(page, ES.loading);
     const dice = await bodyText(page);
     check(!LANE_COMPUTER.test(dice), `"${title}": nunca "computadora de carril"${LANE_COMPUTER.test(dice) ? ` (dice "${dice.match(LANE_COMPUTER)[0]}")` : ''}`);
   }

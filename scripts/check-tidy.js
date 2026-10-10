@@ -208,7 +208,15 @@ try {
   const platformInside = (id) => page.evaluate(async (g) => (await (await fetch(`/api/v1/garages/${g}/sessions/open`)).json()).inside_count, id);
   for (const g of [HARBOR, RIVERSIDE, HARBOR]) {
     await page.click(`.garage-choice[data-garage="${g.id}"]`);
-    const shown = await settles(page, (id) => document.querySelector('[data-detail]')?.dataset.detail === id && document.querySelector('[data-figure="inside"]'), g.id);
+    // Its count and its lanes both read: they come from two reads, either one first.
+    const shown = await settles(
+      page,
+      ([id, loading]) => {
+        const detail = document.querySelector('[data-detail]');
+        return detail?.dataset.detail === id && Boolean(detail.querySelector('[data-figure="inside"]')) && !detail.querySelector('[data-section="lanes"]').textContent.includes(loading);
+      },
+      [g.id, EN.loading],
+    );
     const detail = await page.evaluate(() => ({
       title: document.querySelector('.home-detail-title')?.textContent ?? '',
       lanes: [...document.querySelectorAll('[data-detail] .lane-name')].map((e) => e.textContent),
