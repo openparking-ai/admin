@@ -2384,7 +2384,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/api.js', anchor: "request('/auth/invite/status', { method: 'POST', body: { token }, sessionless: true })", with: "request('/auth/invite/status', { method: 'POST', body: { token } })" },
     before: BUILD,
     run: INVITES,
-    names: ['FAIL 1 ready (en): "Accept your invite", with its form', 'FAIL 1 used (en)'],
+    names: ['FAIL 1 ready (en): "Accept your invite", with its form', 'FAIL 1 ready (en): the email the invite was sent to, read only (null)'],
   },
   {
     check: 'U7d2-2 the token left in the address',
