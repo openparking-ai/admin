@@ -239,3 +239,85 @@ test('a language save that fails: a kind with words, nothing raw; a 401 sends th
     assert.deepEqual(heard, ['ended'], `${a.what}: the screens were told`);
   }
 });
+
+// U6: every refusal the routes of Taxes and fees, Getting paid and Card readers
+// give, each its own plain sentence and never the platform's own words: as
+// recorded from the platform (test/platform-shapes.json), and the two no
+// platform can be brought to give in a recording (two accounts naming one
+// garage, a reader bound to another lane), as the stand-in gives them in the
+// platform's words (src/stripeAccount.js, src/terminal.js).
+const U6_KIND = {
+  tax_set_effective_from_taken: 'taxStartTaken', tax_set_not_storable: 'taxNotKept', rate_engine_unavailable: 'taxNotChecked',
+  connect_not_configured: 'cardsNotSetUp', garage_not_found: 'garageNotFound', bad_country: 'countryRefused', stripe_refused: 'stripeRefused',
+  stripe_unreachable: 'stripeUnreachable', stripe_account_ambiguous: 'accountTwice', no_stripe_account: 'noAccount',
+  card_payments_not_active: 'cardsNotActive', bad_location: 'placeRefused', no_terminal_location: 'noPlace', bad_reader: 'readerRefused',
+  lane_has_reader: 'laneHasReader', reader_bound_elsewhere: 'readerElsewhere', no_reader_bound: 'noReader', lane_not_found: 'notFound',
+};
+/** The client's call for a recorded answer, by what it was. */
+function u6Call(what) {
+  const post = !/^(taxes|payment account|readers place|card readers)(, (of a garage not theirs|none yet|with Stripe Connect not set up))?$/.test(what) && !/^card readers/.test(what);
+  if (what.startsWith('taxes')) return post ? (c) => c.addTaxList('g', { effective_from: 'x', rules: [] }) : (c) => c.taxLists('g');
+  if (what.startsWith("Stripe's page")) return (c) => c.stripePage('g');
+  if (what.startsWith('payment account, checked')) return (c) => c.checkPaymentAccount('g');
+  if (what.startsWith('payment account')) return post ? (c) => c.makePaymentAccount('g', 'US') : (c) => c.paymentAccount('g');
+  if (what.startsWith('readers place')) return post ? (c) => c.setReaderPlace('g', {}) : (c) => c.readerPlace('g');
+  if (what.startsWith('card readers')) return (c) => c.readerConnections('g');
+  if (/disconnected/.test(what)) return (c) => c.disconnectReader('l');
+  if (what.startsWith('a card reader')) return (c) => c.connectReader('l', 'code', 'name');
+  return null;
+}
+
+test('U6 every refusal of taxes, the payment account and card readers has its own plain sentence, and the platform\'s words never reach one', async () => {
+  const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).answers;
+  const from = recorded.findIndex((a) => a.what === 'taxes, a new list');
+  const to = recorded.findIndex((a) => a.what === 'changes, after the card reader');
+  assert.ok(from > 0 && to > from, 'the recording holds the U6 answers');
+  const refusals = recorded.slice(from, to).filter((a) => a.status >= 400);
+  const { startStub } = await import('./stub-platform.js');
+  const stub = await startStub();
+  const fromStandIn = stub.moneyRefusals();
+  await stub.close();
+  const cases = [
+    ...refusals.map((a) => [a.what, a.status, a.body, u6Call(a.what)]),
+    ['two accounts naming one garage', ...fromStandIn.stripe_account_ambiguous, (c) => c.makePaymentAccount('g', 'US')],
+    ['a reader bound to another lane', ...fromStandIn.reader_bound_elsewhere, (c) => c.connectReader('l', 'code', 'name')],
+  ];
+  const seen = new Set();
+  for (const [what, status, body, call] of cases) {
+    assert.ok(call, `no client call for "${what}"`);
+    const want = body.code === undefined ? { 400: 'taxListRefused', 404: 'garageNotFound' }[status] : U6_KIND[body.code];
+    assert.ok(want, `"${what}": ${status} ${body.code ?? '(no code)'} has no words kept for it`);
+    const problem = await problemOf(call(createClient({ fetch: fakeFetch(json(status, body)).fn })));
+    assert.equal(problem.kind, want, `"${what}"`);
+    for (const language of ['en', 'es']) {
+      const words = translate(language, problemKey(problem));
+      assert.doesNotMatch(words, RAW, `${what} (${language}): "${words}"`);
+      assert.ok(!words.includes(body.error), `${what} (${language}): the platform's own words`);
+      assert.notEqual(words, translate(language, 'problem.unexpected'), `${what} (${language}): said as "something went wrong"`);
+    }
+    seen.add(want);
+  }
+  // Every refusal the brief names, taken from the platform's source, was met here.
+  for (const kind of ['taxListRefused', 'taxStartTaken', 'taxNotKept', 'taxNotChecked', 'garageNotFound', 'cardsNotSetUp', 'countryRefused', 'stripeRefused', 'stripeUnreachable', 'accountTwice', 'noAccount', 'cardsNotActive', 'placeRefused', 'noPlace', 'readerRefused', 'laneHasReader', 'readerElsewhere', 'noReader', 'notFound']) {
+    assert.ok(seen.has(kind), `no refusal met for ${kind}`);
+  }
+});
+
+test('"cannot be reached" and "give a phone number or an email" are two sentences, each shown where it belongs', async () => {
+  const stopped = await problemOf(createClient({ fetch: fakeFetch(new TypeError('Failed to fetch')).fn }).garages());
+  const noWay = await problemOf(createClient({ fetch: fakeFetch(json(400, { error: 'a person needs a phone number, an email address, or both', code: 'alert_contact_unreachable' })).fn }).addPerson('g', { name: 'A' }));
+  assert.equal(stopped.kind, 'unreachable');
+  assert.equal(noWay.kind, 'contactUnreachable');
+  for (const [language, reached, phoneOrEmail] of [['en', /cannot be reached/, /phone number, an email address/], ['es', /No se puede comunicar/, /teléfono, un correo/]]) {
+    assert.match(translate(language, problemKey(stopped)), reached, `${language}: the platform stopped`);
+    assert.match(translate(language, problemKey(noWay)), phoneOrEmail, `${language}: a person with no way to reach them`);
+  }
+});
+
+test('U6 the onboarding link: only an address of the web, opened and never kept', async () => {
+  const link = (url) => json(201, { onboarding_link: { url, expires_at: null } });
+  assert.equal(await createClient({ fetch: fakeFetch(link('https://connect.stripe.com/setup/s/x')).fn }).stripePage('g'), 'https://connect.stripe.com/setup/s/x');
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', '//evil.example', 7]) {
+    assert.equal((await problemOf(createClient({ fetch: fakeFetch(link(bad)).fn }).stripePage('g'))).kind, 'unexpected', String(bad));
+  }
+});

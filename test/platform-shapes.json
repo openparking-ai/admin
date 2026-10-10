@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`.",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -3154,6 +3154,1431 @@
             }
           }
         }
+      }
+    },
+    {
+      "what": "taxes, a new list",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "tax_set": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "effective_from": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "rule_count": {
+                "types": [
+                  "number"
+                ]
+              },
+              "rules": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "object"
+                  ],
+                  "keys": {
+                    "id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "label": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "percent_bp": {
+                      "types": [
+                        "number"
+                      ]
+                    },
+                    "rounding": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "sequence": {
+                      "types": [
+                        "number"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "taxes, a list starting at the moment another starts",
+      "status": 409,
+      "body": {
+        "error": "two tax sets would be in force from one instant: set <id>, stated <time>, already takes effect at <time>, and this set would take effect at <time>. Which one is in force would be decided by nothing; refused, both named",
+        "code": "tax_set_effective_from_taken",
+        "details": {
+          "held": {
+            "id": "<id>",
+            "effective_from": "<time>",
+            "created_at": "<time>"
+          },
+          "refused": {
+            "effective_from": "<time>",
+            "rule_count": 1
+          }
+        }
+      }
+    },
+    {
+      "what": "taxes, a line of 0 percent",
+      "status": 400,
+      "body": {
+        "error": "the rate engine refused the tax set: request.tax_sets[0].rules[0].percent_bp must be a positive whole number, got 0."
+      }
+    },
+    {
+      "what": "taxes, a line with no rounding chosen",
+      "status": 400,
+      "body": {
+        "error": "the rate engine refused the tax set: request.tax_sets[0].rules[0].rounding is ''; expected one of up, down, nearest. There is no default: a percentage lands on a fraction of a minor unit, and who keeps that fraction is the garage's to state."
+      }
+    },
+    {
+      "what": "taxes, a line with no name",
+      "status": 400,
+      "body": {
+        "error": "the rate engine refused the tax set: request.tax_sets[0].rules[0].label must be a non-empty string. It is what a driver and an operator both read on the line."
+      }
+    },
+    {
+      "what": "taxes, a percent past what can be kept",
+      "status": 409,
+      "body": {
+        "error": "tax_set.rules[0].percent_bp is 3000000000, outside the column's integer range -2147483648 to 2147483647. The rate engine accepts this set; this is a limit of where this platform keeps it, not a judgement of the set, and nothing was stored",
+        "code": "tax_set_not_storable",
+        "details": {
+          "field": "tax_set.rules[0].percent_bp",
+          "limit": "integer_range"
+        }
+      }
+    },
+    {
+      "what": "taxes, a list with no time zone",
+      "status": 400,
+      "body": {
+        "error": "the rate engine refused the tax set: request.tax_sets[0].effective_from has no UTC offset ('2031-02-01T00:00:00'). A naive timestamp is refused: it would be read in whatever zone the server happens to run in, which is a different fee on a different machine."
+      }
+    },
+    {
+      "what": "taxes, a new list: no tax",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "tax_set": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "effective_from": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "rule_count": {
+                "types": [
+                  "number"
+                ]
+              },
+              "rules": {
+                "types": [
+                  "array"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "taxes, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "taxes, the rate engine not answering",
+      "status": 503,
+      "body": {
+        "error": "RATE_ENGINE_URL is not set; a tax set is judged by the engine before it is stored, and by nothing else; the tax set was not stored",
+        "code": "rate_engine_unavailable"
+      }
+    },
+    {
+      "what": "taxes",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "tax_sets": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "created_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "effective_from": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "garage_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "rule_count": {
+                  "types": [
+                    "number"
+                  ]
+                },
+                "rules": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "label": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "percent_bp": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "rounding": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "sequence": {
+                        "types": [
+                          "number"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "taxes, of a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "payment account, with Stripe Connect not set up",
+      "status": 409,
+      "body": {
+        "error": "This deployment has no Stripe Connect configured.",
+        "code": "connect_not_configured"
+      }
+    },
+    {
+      "what": "payment account, made with Stripe Connect not set up",
+      "status": 409,
+      "body": {
+        "error": "This deployment has no Stripe Connect configured.",
+        "code": "connect_not_configured"
+      }
+    },
+    {
+      "what": "readers place, with Stripe Connect not set up",
+      "status": 409,
+      "body": {
+        "error": "This deployment has no Stripe Connect configured.",
+        "code": "connect_not_configured"
+      }
+    },
+    {
+      "what": "card readers, with Stripe Connect not set up",
+      "status": 409,
+      "body": {
+        "error": "This deployment has no Stripe Connect configured.",
+        "code": "connect_not_configured"
+      }
+    },
+    {
+      "what": "payment account, none yet",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account, of a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found",
+        "code": "garage_not_found"
+      }
+    },
+    {
+      "what": "Stripe's page, with no account yet",
+      "status": 409,
+      "body": {
+        "error": "this garage has no Stripe account yet; create it first",
+        "code": "no_stripe_account"
+      }
+    },
+    {
+      "what": "payment account, checked with no account yet",
+      "status": 409,
+      "body": {
+        "error": "this garage has no Stripe account yet; create it first",
+        "code": "no_stripe_account"
+      }
+    },
+    {
+      "what": "payment account, a country that is not one",
+      "status": 400,
+      "body": {
+        "error": "country is required: the garage's country as two capital letters (ISO 3166-1 alpha-2), e.g. \"US\"",
+        "code": "bad_country"
+      }
+    },
+    {
+      "what": "payment account, made",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "null"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "null"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account, made again",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "null"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "null"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "null"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "null"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "Stripe's page",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "onboarding_link": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "expires_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "url": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account, checked",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place, none yet",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "location": {
+            "types": [
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place, given while card payments are off",
+      "status": 409,
+      "body": {
+        "error": "this garage's Stripe account cannot take a card yet: Stripe reports card_payments 'inactive'. Finish onboarding through the onboarding link, then ask again.",
+        "code": "card_payments_not_active"
+      }
+    },
+    {
+      "what": "a card reader, with no place given yet",
+      "status": 409,
+      "body": {
+        "error": "this garage has no Location yet; create it first",
+        "code": "no_terminal_location"
+      }
+    },
+    {
+      "what": "payment account, checked after Stripe turned card payments on",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place, with no name",
+      "status": 400,
+      "body": {
+        "error": "display_name is required",
+        "code": "bad_location"
+      }
+    },
+    {
+      "what": "readers place, with no street",
+      "status": 400,
+      "body": {
+        "error": "address.line1 and address.country are required",
+        "code": "bad_location"
+      }
+    },
+    {
+      "what": "readers place, given",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "location": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "display_name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "location_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place, given again",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "location": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "display_name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "location_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "location": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "display_name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "location_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "readers place, of a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found",
+        "code": "garage_not_found"
+      }
+    },
+    {
+      "what": "card readers, none yet",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "readers": {
+            "types": [
+              "array"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "a card reader, with no code",
+      "status": 400,
+      "body": {
+        "error": "registration_code is required: the code the reader shows",
+        "code": "bad_reader"
+      }
+    },
+    {
+      "what": "a card reader, with no name",
+      "status": 400,
+      "body": {
+        "error": "label is required",
+        "code": "bad_reader"
+      }
+    },
+    {
+      "what": "a card reader, a lane not theirs",
+      "status": 404,
+      "body": {
+        "error": "lane not found",
+        "code": "lane_not_found"
+      }
+    },
+    {
+      "what": "a card reader, a code Stripe does not take",
+      "status": 502,
+      "body": {
+        "error": "Stripe refused the request (400, resource_missing): registration code is not valid",
+        "code": "stripe_refused"
+      }
+    },
+    {
+      "what": "a card reader, connected",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "reader": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "bound_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "label": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "location_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "reader_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "unbound_at": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a card reader, on a lane that has one",
+      "status": 409,
+      "body": {
+        "error": "this lane already has reader <tmr> bound; unbind it first",
+        "code": "lane_has_reader"
+      }
+    },
+    {
+      "what": "card readers",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "readers": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "bound_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "label": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "lane_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "location_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "reader_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "unbound_at": {
+                  "types": [
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "lanes, with a card reader",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "lanes": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "closed": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "by": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "name": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "message": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "reason": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "devices": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "last_seen_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "name": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "revoked_at": {
+                        "types": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "direction": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "reader": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "bound_at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "label": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "reader_id": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "reopened": {
+                  "types": [
+                    "null",
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "by": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "name": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quiet_minutes": {
+            "types": [
+              "number"
+            ]
+          },
+          "screen": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "characters": {
+                "types": [
+                  "string"
+                ]
+              },
+              "message_max": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a card reader, disconnected",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "reader": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "bound_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "label": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "location_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "reader_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "unbound_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a card reader, disconnected again",
+      "status": 409,
+      "body": {
+        "error": "this lane has no reader bound",
+        "code": "no_reader_bound"
+      }
+    },
+    {
+      "what": "a card reader not theirs, disconnected",
+      "status": 404,
+      "body": {
+        "error": "lane not found",
+        "code": "lane_not_found"
+      }
+    },
+    {
+      "what": "card readers, after one was disconnected",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "readers": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "bound_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "label": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "lane_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "location_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "reader_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "unbound_at": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account, checked with Stripe not answering",
+      "status": 503,
+      "body": {
+        "error": "Stripe could not be reached: fetch failed",
+        "code": "stripe_unreachable"
+      }
+    },
+    {
+      "what": "changes, after the card reader",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "lane.card_reader_disconnect",
+          "outcome": "done",
+          "before": {
+            "label": "Recorded exit reader"
+          },
+          "after": null
+        },
+        "subject_name": "string",
+        "subject_removed": false
       }
     },
     {

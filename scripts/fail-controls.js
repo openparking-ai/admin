@@ -68,6 +68,20 @@ const CONTROLS = [
     run: ['node', 'scripts/check-languages-match.js'],
     names: ['page.taxes.title: missing in es'],
   },
+  // The bug U6 found on main: the alert-contact sentence written under the key
+  // the "cannot be reached" sentence already had, so the later one won on every page.
+  {
+    check: '3 the two languages match: a key written twice in English',
+    plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
+    run: ['node', 'scripts/check-languages-match.js'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 107, 587); only the last is ever shown'],
+  },
+  {
+    check: '3 the two languages match: a key written twice in Spanish',
+    plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
+    run: ['node', 'scripts/check-languages-match.js'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 104, 584); only the last is ever shown'],
+  },
   {
     check: '4 Quick Find finds every page in both languages',
     plant: { file: 'src/search.js', anchor: '...PAGES.map((page) =>', with: "...PAGES.filter((p) => p.id !== 'readers').map((page) =>" },
@@ -1319,6 +1333,55 @@ const CONTROLS = [
     run: CHECK_DRAWINGS,
     names: ['no answer, en: asks for "nothing, a set is made", snapshot "drivers"'],
   },
+  // ── U6: Taxes and fees, Getting paid, Card readers ──
+  {
+    check: 'U6-2 a percent sent as 185',
+    plant: { file: 'src/taxes.js', anchor: "  const bp = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));", with: "  const bp = Number(m[1]) * 10 + Number((m[2] ?? '').padEnd(1, '0'));" },
+    run: ['node', '--test', 'test/taxes.test.js'],
+    names: ['a percent as typed, in hundredths: 18.5 is 1850'],
+  },
+  {
+    check: "U6-2 the start of a day in the browser's zone",
+    plant: { file: 'src/taxes.js', anchor: '  const midnight = Date.UTC(y, mo - 1, d);', with: '  return garageInstant(new Date(`${day}T00:00:00`).getTime(), timeZone);\n  const midnight = Date.UTC(y, mo - 1, d);' },
+    run: ['node', '--test', 'test/taxes.test.js'],
+    names: ["FROM THE START OF a day, in the garage's own zone, across both of New York's clock changes"],
+  },
+  {
+    check: 'U6-6 a state worded wrong',
+    plant: { file: 'src/i18n/en.js', anchor: '"taxes.noTax": "This garage charges no tax.",', with: '"taxes.noTax": "This garage hasn\'t said yet.",' },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['en taxes.noTax: "This garage hasn\'t said yet." does not say it'],
+  },
+  {
+    check: 'U6-1 a refusal with no words of its own, in the client',
+    plant: { file: 'src/api.js', anchor: "  [409, 'card_payments_not_active', 'cardsNotActive'],\n", with: '' },
+    run: ['node', '--test', 'test/api.test.js'],
+    names: ['"readers place, given while card payments are off"'],
+  },
+  {
+    check: 'U6 the change log: a refusal said as "it was not allowed"',
+    plant: { file: 'src/changes.js', anchor: "  'card_payments_not_active', 'bad_location',", with: "  'bad_location'," },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ['card_payments_not_active: said as'],
+  },
+  {
+    check: 'U6 the stand-in differs from the platform',
+    plant: { file: 'test/stub-platform.js', anchor: "const NO_PLACE = { error: 'this garage has no Location yet; create it first', code: 'no_terminal_location' };", with: "const NO_PLACE = { error: 'This garage has no place for its readers yet.', code: 'no_terminal_location' };" },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "a card reader, with no place given yet"'],
+  },
+  {
+    check: 'U6 a field on Card readers with no description',
+    plant: { file: 'src/i18n/es.js', anchor: '  "readers.code.about": "Las palabras que muestra el lector cuando está listo para conectarse. Nunca se guarda.",\n', with: '' },
+    run: ['node', 'scripts/check-descriptions.js'],
+    names: ['es: readers.code.about (Card readers): missing'],
+  },
+  {
+    check: 'U6 Quick Find: a setting not found',
+    plant: { file: 'src/search.js', anchor: "  { id: 'connectReader', action: { page: 'readers' } },\n", with: '' },
+    run: ['node', '--test', 'test/search.test.js'],
+    names: ['en "connect a card reader"'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -1557,7 +1620,8 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/App.jsx', anchor: "        {t('page.notYet')}", with: '' },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL "Garages": nothing on it yet', 'FAIL "Getting paid": nothing on it yet'],
+    // Getting paid has something on it since U6; Garages and Rates still have nothing.
+    names: ['FAIL "Garages": nothing on it yet', 'FAIL "Rates": nothing on it yet'],
   },
   {
     check: 'U3-2 garage time in a downloaded file, in the browser',
@@ -1936,6 +2000,81 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-drawings-browser.js'],
     names: ['FAIL the page says every way in and out is a lane with this equipment, before download'],
+  },
+  // ── U6: Taxes and fees, Getting paid and Card readers, in a browser (scripts/check-money-pages.js) ──
+  {
+    check: "U6-1 the platform's words on screen",
+    plant: [
+      { file: 'src/api.js', anchor: '    if (!res.ok) {\n      const reasons', with: '    if (!res.ok) {\n      globalThis.platformSaid = data?.error;\n      const reasons' },
+      { file: 'src/parts.jsx', anchor: '      <p>{t(problemKey({ kind }))}</p>', with: '      <p>{t(problemKey({ kind }))} {globalThis.platformSaid}</p>' },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ["FAIL 1 no foreign text (en), Taxes, saving, tax_set_invalid", "the platform's own words on screen"],
+  },
+  {
+    check: "U6-2 the start of a day in the browser's zone, in the browser",
+    plant: { file: 'src/taxes.js', anchor: '  const midnight = Date.UTC(y, mo - 1, d);', with: '  return garageInstant(new Date(`${day}T00:00:00`).getTime(), timeZone);\n  const midnight = Date.UTC(y, mo - 1, d);' },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL 2 from the start of a day: 1 November 2026, New York, starts at its midnight, 04:00 UTC (sent "2026-10-31T15:00:00.000000Z"'],
+  },
+  {
+    check: 'U6-3 a write that is not POST tax-sets',
+    plant: { file: 'src/api.js', anchor: "{ method: 'POST', body: { tax_set: taxList }, byStatus: TAX_BY_STATUS }", with: "{ method: 'PUT', body: { tax_set: taxList }, byStatus: TAX_BY_STATUS }" },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL 3 append-only', 'also PUT /api/v1/garages/'],
+  },
+  {
+    check: "U6-4 the reader's code in browser storage",
+    plant: { file: 'src/CardReadersPage.jsx', anchor: "        const sent = code.trim();\n", with: "        const sent = code.trim();\n        sessionStorage.setItem('reader', sent);\n" },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ["FAIL 4 the reader's code is not in browser storage (reader=simulated-wpe-u6check-7731)"],
+  },
+  {
+    check: "U6-4 the reader's code in the address",
+    plant: { file: 'src/CardReadersPage.jsx', anchor: "        const sent = code.trim();\n", with: "        const sent = code.trim();\n        window.history.replaceState(null, '', `${window.location.pathname}?reader=${sent}${window.location.hash}`);\n" },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ["FAIL 4 the reader's code is not in the address"],
+  },
+  {
+    check: 'U6-5 a garage of pass holders only offered getting paid',
+    // Taken for one that takes any driver: its account read, and its own words dropped.
+    plant: [
+      { file: 'src/GettingPaidPage.jsx', anchor: "  if (answer !== 'any') return { answer };", with: "  if (answer === 'unanswered') return { answer };" },
+      { file: 'src/GettingPaidPage.jsx', anchor: "  if (answer === 'passOnly') {", with: "  if (answer === 'neverSaid') {" },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL 5 pass holders only, Getting paid'],
+  },
+  {
+    check: 'U6-5 a garage of pass holders only shown card readers',
+    // Taken for one that takes any driver: its account read, and its own words dropped.
+    plant: [
+      { file: 'src/CardReadersPage.jsx', anchor: "  if (answer !== 'any') return { answer };", with: "  if (answer === 'unanswered') return { answer };" },
+      { file: 'src/CardReadersPage.jsx', anchor: "  if (answer === 'passOnly') {", with: "  if (answer === 'neverSaid') {" },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL 5 pass holders only, Card readers'],
+  },
+  {
+    check: 'U6-5 the reader form while the account cannot take cards',
+    plant: { file: 'src/CardReadersPage.jsx', anchor: '  const can = takesCards(account);', with: '  const can = Boolean(account);' },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL 5 an account that cannot take cards: no reader form'],
+  },
+  {
+    check: 'U6 the card-readers step of Setup leads nowhere',
+    plant: { file: 'src/setup.js', anchor: "  card_readers: { page: 'readers' },", with: '  card_readers: { notYet: true },' },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['FAIL Setup: the card_readers step says where it is done'],
   },
 ];
 

@@ -146,4 +146,14 @@ export function alertsData() {
   };
 }
 
-export const LISTS = { inside: insideData, lanes: lanesData, changes: changesData, refused: refusedData, alerts: alertsData };
+/** U6: every card reader connection, connected at every time and ended at every time, or still connected. */
+export function readersData() {
+  const lanes = [{ id: uuid('l', 1), name: 'L', direction: 'exit' }];
+  const connections = TIMES.flatMap((at, i) => [
+    { lane_id: lanes[0].id, reader_id: `tmr_${i}a`, label: 'R', location_id: 'tml_1', bound_at: at, unbound_at: null },
+    { lane_id: lanes[0].id, reader_id: `tmr_${i}b`, label: 'R', location_id: 'tml_1', bound_at: at, unbound_at: TIMES[(i + 7) % TIMES.length] },
+  ]);
+  return { lanes, connections };
+}
+
+export const LISTS = { inside: insideData, lanes: lanesData, changes: changesData, refused: refusedData, alerts: alertsData, readers: readersData };

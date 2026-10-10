@@ -7,11 +7,15 @@
 //     SAME_ON_PURPOSE, each with its reason;
 //   - both carry the same {placeholders};
 //   - every key the screens ask for exists: each t('...') written in src/, and
-//     each key the screens build from the page, setting, look and language lists.
+//     each key the screens build from the page, setting, look and language lists;
+//   - each key is written once in each dictionary's source: given twice, the
+//     later entry silently wins and the earlier words are never shown. Read by
+//     ESLint's own parser (rule no-dupe-keys), so 'a' and "a" are one key.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { Linter } from 'eslint';
 import { DICTIONARIES, LANGUAGES } from '../src/i18n/index.js';
 import { PAGES } from '../src/pages.js';
 import { FEATURES } from '../src/search.js';
@@ -64,6 +68,19 @@ export function keysTheScreensUse() {
   return keys;
 }
 
+/** Each key written more than once in a dictionary's source, with the lines it is on. */
+export function keysGivenTwice(language, text) {
+  const lines = text.split('\n');
+  const linter = new Linter({ configType: 'flat' });
+  const found = linter.verify(text, { languageOptions: { ecmaVersion: 2023, sourceType: 'module' }, rules: { 'no-dupe-keys': 'error' } });
+  return found.map((m) => {
+    if (m.ruleId !== 'no-dupe-keys') return `${language}.js line ${m.line}: ${m.message}`;
+    const key = /'(.*)'\.?$/.exec(m.message.replace(/^Duplicate key /, ''))?.[1] ?? m.message;
+    const at = lines.flatMap((l, i) => (new RegExp(`^\\s*(['"])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1\\s*:`).test(l) ? [i + 1] : []));
+    return `${key}: given ${at.length || 'more than one'} times in ${language}.js (lines ${at.join(', ') || m.line}); only the last is ever shown`;
+  });
+}
+
 export function compare(dictionaries, used) {
   const [first, ...rest] = LANGUAGES;
   const problems = [];
@@ -94,6 +111,7 @@ export function compare(dictionaries, used) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const used = keysTheScreensUse();
   const { problems, keys } = compare(DICTIONARIES, used);
+  for (const l of LANGUAGES) problems.push(...keysGivenTwice(l, readFileSync(join(ROOT, 'src', 'i18n', `${l}.js`), 'utf8')));
   if (problems.length) {
     console.error('The two languages do not match:\n');
     for (const p of problems) console.error(`  ${p}`);
@@ -102,6 +120,6 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const same = Object.keys(SAME_ON_PURPOSE);
   console.log(
     `languages match — ${keys} keys in each of ${LANGUAGES.join(' and ')}; ${used.size} asked for by the screens, ` +
-      `all present; same on purpose (${same.length}): ${same.join(', ')}.`,
+      `all present; each written once; same on purpose (${same.length}): ${same.join(', ')}.`,
   );
 }

@@ -10,7 +10,14 @@ export const FEATURES = [
   { id: 'auto', action: { theme: 'auto' } },
   { id: 'en', action: { language: 'en' } },
   { id: 'es', action: { language: 'es' } },
+  // U6: the settings on Taxes and fees, Getting paid and Card readers, each found and taken to its page.
+  { id: 'changeTaxes', action: { page: 'taxes' } },
+  { id: 'setUpPaid', action: { page: 'paid' } },
+  { id: 'connectReader', action: { page: 'readers' } },
 ];
+
+/** The page a setting is on, for a setting that is found on a page. */
+export const pageOf = (feature) => PAGES.find((p) => p.id === feature.action?.page) ?? null;
 
 /** Lowercase, without accents, so "cámara" and "camara" are the same. */
 export const fold = (text) =>

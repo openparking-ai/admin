@@ -85,7 +85,7 @@ export function owners(now = Date.now()) {
             id: 'la100000-0000-4000-8000-000000000001',
             name: 'North Entry',
             direction: 'entry',
-            reader: { reader_id: 'rd-stand-in-0001', label: 'North Entry reader', bound_at: ago(60 * 24 * 60 * MINUTE) },
+            reader: { reader_id: 'tmr_stubNorthEntry', label: 'North Entry reader', bound_at: ago(60 * 24 * 60 * MINUTE) },
             devices: [{ id: 'dv100000-0000-4000-8000-000000000001', name: 'Harbor entry computer', last_seen_at: ago(MINUTE + 5000), revoked_at: null }],
           },
           {
@@ -151,14 +151,48 @@ export function owners(now = Date.now()) {
 /** What the stand-in keeps beside each garage for its checklist: the platform's own reads, in short. */
 function setupData() {
   return {
-    'a1000000-0000-4000-8000-000000000001': { transient_available: true, opened_at: '2026-01-02T15:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2025-12-01T05:00:00.000Z' }, taxes: { stated: 1, in_force: 1, earliest: '2025-12-01T05:00:00.000Z', rules_in_force: 2 }, account: { account: true, charges_enabled: true, card_payments: 'active', details_submitted: true, read_at: '2026-01-02T14:00:00Z' } },
-    'a2000000-0000-4000-8000-000000000002': { transient_available: null, opened_at: null, rates: { stored: 0, in_force: 0, earliest: null }, taxes: { stated: 0, in_force: 0, earliest: null, rules_in_force: null }, account: null },
-    'b1000000-0000-4000-8000-000000000001': { transient_available: false, opened_at: '2026-02-01T18:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2026-01-01T08:00:00.000Z' }, taxes: { stated: 1, in_force: 1, earliest: '2026-01-01T08:00:00.000Z', rules_in_force: 0 }, account: null },
+    'a1000000-0000-4000-8000-000000000001': { transient_available: true, opened_at: '2026-01-02T15:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2025-12-01T05:00:00.000Z' } },
+    'a2000000-0000-4000-8000-000000000002': { transient_available: null, opened_at: null, rates: { stored: 0, in_force: 0, earliest: null } },
+    'b1000000-0000-4000-8000-000000000001': { transient_available: false, opened_at: '2026-02-01T18:00:00Z', rates: { stored: 1, in_force: 1, earliest: '2026-01-01T08:00:00.000Z' } },
+  };
+}
+
+/**
+ * U6: what the stand-in keeps of each garage's taxes, payment account, its
+ * readers' place and every reader connection, as the platform's
+ * src/taxes.js, src/stripeAccount.js and src/terminal.js keep them. Harbor
+ * charges two taxes and takes cards; its North Entry reader is connected
+ * (the lanes read says so too), and North Exit had one, since ended.
+ * Riverside has said nothing and has no account. Elm Court charges no tax.
+ */
+function moneyData() {
+  const rule = (id, label, percent_bp, rounding, sequence) => ({ id, label, percent_bp, rounding, sequence });
+  return {
+    'a1000000-0000-4000-8000-000000000001': {
+      taxSets: [
+        { id: 'ts100000-0000-4000-8000-000000000001', garage_id: 'a1000000-0000-4000-8000-000000000001', effective_from: '2025-12-01T05:00:00.000000Z', rule_count: 2, created_at: '2025-11-28T15:00:00.000Z', rules: [rule('city', 'City parking tax', 1850, 'nearest', 1), rule('state', 'State surcharge', 600, 'up', 2)] },
+      ],
+      account: {
+        garage_id: 'a1000000-0000-4000-8000-000000000001', account_id: 'acct_stubHarbor', create_requested_at: '2025-12-20T15:00:00.000Z', account_recorded_at: '2025-12-20T15:00:01.000Z',
+        card_payments: 'active', card_payments_read_at: '2026-01-02T14:00:00.000Z', charges_enabled: true, charges_enabled_read_at: '2026-01-02T14:00:00.000Z', details_submitted: true, details_submitted_read_at: '2026-01-02T14:00:00.000Z',
+      },
+      place: { garage_id: 'a1000000-0000-4000-8000-000000000001', location_id: 'tml_stubHarbor', display_name: '200 Harbor Street, Springfield, IL 62701, US', created_at: '2025-12-21T16:00:00.000Z' },
+      connections: [
+        { lane_id: 'la100000-0000-4000-8000-000000000002', reader_id: 'tmr_stubOldExit', label: 'Old exit reader', location_id: 'tml_stubHarbor', bound_at: '2026-01-10T15:00:00.000Z', unbound_at: '2026-02-01T16:30:00.000Z' },
+      ],
+    },
+    'a2000000-0000-4000-8000-000000000002': { taxSets: [], account: null, place: null, connections: [] },
+    'b1000000-0000-4000-8000-000000000001': {
+      taxSets: [{ id: 'ts100000-0000-4000-8000-000000000002', garage_id: 'b1000000-0000-4000-8000-000000000001', effective_from: '2026-01-01T08:00:00.000000Z', rule_count: 0, created_at: '2025-12-30T18:00:00.000Z', rules: [] }],
+      account: null,
+      place: null,
+      connections: [],
+    },
   };
 }
 
 /** Every piece of text of owner A's that a screen could show. */
-export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com', 'Night manager', '+15550100001', 'office@example.com'];
+export const A_TEXT = ['Harbor Street Garage', 'Riverside Deck', 'North Entry', 'North Exit', 'Service Lane', 'Harbor entry computer', 'HRB4410', 'HT-0042', 'owner-a@example.com', 'Night manager', '+15550100001', 'office@example.com', 'City parking tax', 'North Entry reader', '200 Harbor Street'];
 
 // The platform's own words, as test/platform-shapes.json recorded them.
 const SIGN_IN_REQUIRED = { error: 'Sign in first.', code: 'sign_in_required' };
@@ -352,15 +386,129 @@ function onlyFields(body, keys) {
 }
 const kept = (v) => (v === null ? 'none' : 'given');
 
+// ── U6: the platform's sentences for taxes, the payment account and card readers ──
+// src/stripe.js, src/stripeAccount.js, src/terminal.js and src/app.js (taxSetRefusal), word for word.
+const NO_CONNECT = { error: 'This deployment has no Stripe Connect configured.', code: 'connect_not_configured' };
+const GARAGE_NOT_FOUND_NAMED = { error: 'garage not found', code: 'garage_not_found' };
+const BAD_COUNTRY = { error: 'country is required: the garage\'s country as two capital letters (ISO 3166-1 alpha-2), e.g. "US"', code: 'bad_country' };
+const NO_ACCOUNT = { error: 'this garage has no Stripe account yet; create it first', code: 'no_stripe_account' };
+const NO_PLACE = { error: 'this garage has no Location yet; create it first', code: 'no_terminal_location' };
+const NO_READER = { error: 'this lane has no reader bound', code: 'no_reader_bound' };
+const cardsNotActive = (state) => ({
+  error: `this garage's Stripe account cannot take a card yet: Stripe reports card_payments '${state}'. Finish onboarding through the onboarding link, then ask again.`,
+  code: 'card_payments_not_active',
+});
+const placeRefused = (error) => ({ error, code: 'bad_location' });
+const readerRefused = (error) => ({ error, code: 'bad_reader' });
+const STRIPE_AWAY = { error: 'Stripe could not be reached: fetch failed', code: 'stripe_unreachable' };
+const CODE_REFUSED = { error: 'Stripe refused the request (400, resource_missing): registration code is not valid', code: 'stripe_refused' };
+const ADDRESS_FIELDS = ['line1', 'line2', 'city', 'state', 'postal_code', 'country'];
+const ENGINE_AWAY = { error: 'RATE_ENGINE_URL is not set; a tax set is judged by the engine before it is stored, and by nothing else; the tax set was not stored', code: 'rate_engine_unavailable' };
+const INTEGER_MAX = 2_147_483_647;
+
+/** A value as the rate engine's Python writes it in a sentence (`{value!r}`). */
+const pyRepr = (v) => (v === null || v === undefined ? 'None' : typeof v === 'string' ? `'${v}'` : typeof v === 'boolean' ? (v ? 'True' : 'False') : Array.isArray(v) ? 'list' : String(v));
+const pyType = (v) => (v === null || v === undefined ? 'NoneType' : Array.isArray(v) ? 'list' : typeof v === 'string' ? 'str' : typeof v === 'number' ? (Number.isInteger(v) ? 'int' : 'float') : typeof v === 'boolean' ? 'bool' : 'dict');
+
+/**
+ * A tax list, judged as the rate engine's load_tax_sets judges one (its
+ * sentences), then as the platform's assertStorable: null when it would be
+ * kept, else [status, body] as the platform answers. The instant is returned
+ * as the engine reads it, in UTC to the microsecond.
+ */
+function judgeTaxList(raw) {
+  const engine = (sentence) => [400, { error: `the rate engine refused the tax set: ${sentence}` }];
+  // The platform hands the list to the engine as its request's tax_sets[0]: the engine's sentences name it so.
+  const where = 'request.tax_sets[0]';
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { refused: engine(`${where} must be an object, got ${pyType(raw)}.`) };
+  const keys = ['effective_from', 'rules'];
+  const missing = keys.filter((k) => !(k in raw)).sort();
+  if (missing.length) return { refused: engine(`${where} is missing required field(s): ${missing.join(', ')}. This module has no defaults; a field it cannot read is a pricing decision nobody made.`) };
+  const unknown = Object.keys(raw).filter((k) => !keys.includes(k)).sort();
+  if (unknown.length) return { refused: engine(`${where} carries key(s) this version does not understand: ${unknown.join(', ')}. They are REJECTED rather than ignored -- an ignored key is how a plan an operator believes is live prices something else. Upgrade the engine, or remove the key.`) };
+  const at = raw.effective_from;
+  if (typeof at !== 'string') return { refused: engine(`${where}.effective_from must be an ISO 8601 string, got ${pyType(at)}.`) };
+  const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?)(Z|[+-]\d{2}:\d{2})?$/.exec(at);
+  if (!m) return { refused: engine(`${where}.effective_from is not ISO 8601: '${at}' (Invalid isoformat string: '${at}').`) };
+  if (!m[2]) return { refused: engine(`${where}.effective_from has no UTC offset ('${at}'). A naive timestamp is refused: it would be read in whatever zone the server happens to run in, which is a different fee on a different machine.`) };
+  if (!Array.isArray(raw.rules)) return { refused: engine(`${where}.rules must be a list. An EMPTY list is how a garage states that it charges no tax from this set's effective_from.`) };
+  const ids = new Set();
+  const places = new Map();
+  for (const [i, r] of raw.rules.entries()) {
+    const w = `${where}.rules[${i}]`;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return { refused: engine(`${w} must be an object, got ${pyType(r)}.`) };
+    const ruleKeys = ['id', 'label', 'percent_bp', 'rounding', 'sequence'];
+    const gone = ruleKeys.filter((k) => !(k in r)).sort();
+    if (gone.length) return { refused: engine(`${w} is missing required field(s): ${gone.join(', ')}. This module has no defaults; a field it cannot read is a pricing decision nobody made.`) };
+    const odd = Object.keys(r).filter((k) => !ruleKeys.includes(k)).sort();
+    if (odd.length) return { refused: engine(`${w} carries key(s) this version does not understand: ${odd.join(', ')}. They are REJECTED rather than ignored -- an ignored key is how a plan an operator believes is live prices something else. Upgrade the engine, or remove the key.`) };
+    if (typeof r.id !== 'string' || !r.id.trim()) return { refused: engine(`${w}.id must be a non-empty string.`) };
+    if (typeof r.label !== 'string' || !r.label.trim()) return { refused: engine(`${w}.label must be a non-empty string. It is what a driver and an operator both read on the line.`) };
+    if (!Number.isInteger(r.percent_bp) || r.percent_bp < 1) return { refused: engine(`${w}.percent_bp must be a positive whole number, got ${pyRepr(r.percent_bp)}.`) };
+    if (!['up', 'down', 'nearest'].includes(r.rounding)) {
+      return { refused: engine(`${w}.rounding is ${pyRepr(r.rounding)}; expected one of up, down, nearest. There is no default: a percentage lands on a fraction of a minor unit, and who keeps that fraction is the garage's to state.`) };
+    }
+    if (!Number.isInteger(r.sequence) || r.sequence < 0) return { refused: engine(`${w}.sequence must be a whole number, got ${pyRepr(r.sequence)}.`) };
+    if (ids.has(r.id)) return { refused: engine(`${where}.rules contains two rules with id '${r.id}'.`) };
+    ids.add(r.id);
+    if (places.has(r.sequence)) {
+      return { refused: engine(`${where}.rules: '${places.get(r.sequence)}' and '${r.id}' both state sequence ${r.sequence}. The order of a set's taxes is the garage's to state, and two rules in one place is an order nobody stated.`) };
+    }
+    places.set(r.sequence, r.id);
+  }
+  // The platform's own limit of where it keeps a set (src/taxes.js assertStorable).
+  for (const [i, r] of raw.rules.entries()) {
+    for (const key of ['percent_bp', 'sequence']) {
+      if (r[key] > INTEGER_MAX) {
+        const field = `tax_set.rules[${i}].${key}`;
+        return {
+          refused: [409, {
+            error: `${field} is ${r[key]}, outside the column's integer range -2147483648 to 2147483647. The rate engine accepts this set; this is a limit of where this platform keeps it, not a judgement of the set, and nothing was stored`,
+            code: 'tax_set_not_storable',
+            details: { field, limit: 'integer_range' },
+          }],
+        };
+      }
+    }
+  }
+  const instant = new Date(at.replace(/(\.\d{3})\d*/, '$1')).toISOString();
+  const micro = (m[1].match(/\.(\d{1,6})/)?.[1] ?? '').padEnd(6, '0');
+  return { effectiveFrom: `${instant.slice(0, 19)}.${micro}Z`, rules: raw.rules };
+}
+
+/** What the platform's activation readout says of a garage's tax lists, at `now`. */
+function taxFacts(sets, now = Date.now()) {
+  if (!sets.length) return { stated: 0, in_force: 0, earliest: null, rules_in_force: null };
+  const started = sets.filter((s) => Date.parse(s.effective_from) <= now).sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from));
+  const earliest = Math.min(...sets.map((s) => Date.parse(s.effective_from)));
+  return { stated: sets.length, in_force: started.length, earliest: new Date(earliest).toISOString(), rules_in_force: started.length ? started.at(-1).rule_count : null };
+}
+
 export async function startStub({ port = 0 } = {}) {
   const data = owners();
   const setups = setupData();
+  const money = moneyData();
+  /** U6: what the stand-in holds of a garage's taxes, account, place and connections. */
+  const moneyOf = (garageId) => (money[garageId] ??= { taxSets: [], account: null, place: null, connections: [] });
+  let connectOn = true; // a platform with Stripe Connect set up (STRIPE_API_KEY and the two return addresses)
+  let engineOn = true; // the rate engine answers
+  let stripeOn = true; // Stripe answers
+  let refuseNext = null; // the next U6 write is refused with this code, as the platform says it
   const log = new Map(); // tenant -> lines, oldest first
   const used = new Set(); // lanes with a stay or an event: never removable
   let quiet = 5; // the platform's LANE_QUIET_MINUTES, which its lanes and setup reads return
   let flipped = false; // a checklist whose `done` says the opposite of its facts, for the checks
   for (const o of Object.values(data)) {
     for (const lanes of Object.values(o.lanes)) for (const l of lanes) Object.assign(l, { closed: l.closed ?? null, reopened: l.reopened ?? null });
+  }
+  // U6: a lane's reader in the lanes read is its current connection, first in the garage's list of them.
+  for (const o of Object.values(data)) {
+    for (const [garageId, lanes] of Object.entries(o.lanes)) {
+      const held = moneyOf(garageId);
+      for (const l of lanes.filter((x) => x.reader)) {
+        held.connections.unshift({ lane_id: l.id, reader_id: l.reader.reader_id, label: l.reader.label, location_id: held.place?.location_id ?? 'tml_stubHarbor', bound_at: l.reader.bound_at, unbound_at: null });
+      }
+    }
   }
   // The stand-in's stays are on these lanes, as the platform's would be.
   for (const o of Object.values(data)) for (const stays of Object.values(o.open)) for (const st of stays) {
@@ -523,11 +671,14 @@ export async function startStub({ port = 0 } = {}) {
       { key: 'lanes', done: entry.length > 0 && exit.length > 0, facts: { entry_lanes: entry.length, exit_lanes: exit.length, closed_lanes: lanes.filter((l) => l.closed).map(laneLine) } },
       { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: quiet, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
       { key: 'rates', done: extra.rates.in_force > 0, facts: extra.rates },
-      { key: 'taxes', done: extra.taxes.in_force > 0, facts: extra.taxes },
     ];
+    // U6: the taxes and the account as the stand-in holds them, read as the platform's activation readout reads them.
+    const held = moneyOf(garage.id);
+    const taxes = taxFacts(held.taxSets);
+    steps.push({ key: 'taxes', done: taxes.in_force > 0, facts: taxes });
     if (extra.transient_available === true) {
-      const a = extra.account;
-      steps.push({ key: 'getting_paid', done: Boolean(a?.account && a.charges_enabled === true && a.card_payments === 'active'), facts: { can_be_set_up_here: false, account: Boolean(a?.account), charges_enabled: a?.charges_enabled ?? null, card_payments: a?.card_payments ?? null, details_submitted: a?.details_submitted ?? null, read_at: a?.read_at ?? null } });
+      const a = held.account;
+      steps.push({ key: 'getting_paid', done: Boolean(a?.account_id && a.charges_enabled === true && a.card_payments === 'active'), facts: { can_be_set_up_here: connectOn, account: Boolean(a?.account_id), charges_enabled: a?.charges_enabled ?? null, card_payments: a?.card_payments ?? null, details_submitted: a?.details_submitted ?? null, read_at: a?.charges_enabled_read_at ?? null } });
       const without = exit.filter((l) => !l.reader);
       steps.push({ key: 'card_readers', done: exit.length > 0 && without.length === 0, facts: { exit_lanes: exit.length, with_reader: exit.length - without.length, without_reader: without.map(laneLine) } });
     }
@@ -932,6 +1083,201 @@ export async function startStub({ port = 0 } = {}) {
     }
   }
 
+  // ── U6 ────────────────────────────────────────────────────────────────────
+  // Taxes (src/taxes.js and the tax-sets routes), the payment account
+  // (src/stripeAccount.js) and card readers (src/terminal.js), as the platform
+  // answers them, in the order it checks: Stripe Connect set up, the garage
+  // or lane, what was sent, then the account. A refusal that is a 4xx is a
+  // line in the change log; a 5xx is not (the platform logs 4xx only).
+  const MONEY = [
+    ['GET', /^\/api\/v1\/garages\/([^/]+)\/tax-sets$/, 'taxLists'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/tax-sets$/, 'addTaxList'],
+    ['GET', /^\/api\/v1\/garages\/([^/]+)\/stripe-account$/, 'account'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account$/, 'makeAccount'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/onboarding-link$/, 'stripePage'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/refresh$/, 'checkAccount'],
+    ['GET', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/location$/, 'place'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/location$/, 'setPlace'],
+    ['GET', /^\/api\/v1\/garages\/([^/]+)\/readers$/, 'connections'],
+    ['POST', /^\/api\/v1\/lanes\/([^/]+)\/reader$/, 'connect'],
+    ['POST', /^\/api\/v1\/lanes\/([^/]+)\/reader\/unbind$/, 'disconnect'],
+  ];
+  const ACTION = {
+    addTaxList: 'tax_set.add', makeAccount: 'payment_account.create', stripePage: 'payment_account.setup_link', checkAccount: 'payment_account.read',
+    setPlace: 'payment_account.reader_place', connect: 'lane.card_reader_connect', disconnect: 'lane.card_reader_disconnect',
+  };
+  /** Every refusal these routes can give, by code, as the platform says it: for a check to ask for (refuseNext). */
+  const MONEY_REFUSALS = {
+    tax_set_invalid: [400, { error: 'the rate engine refused the tax set: request.tax_sets[0].rules[0].percent_bp must be a positive whole number, got 0.' }],
+    tax_set_effective_from_taken: [409, { error: 'two tax sets would be in force from one instant: set ts100000-0000-4000-8000-000000000001, stated 2025-11-28T15:00:00.000Z, already takes effect at 2025-12-01T05:00:00.000000Z, and this set would take effect at 2025-12-01T05:00:00Z. Which one is in force would be decided by nothing; refused, both named', code: 'tax_set_effective_from_taken', details: { held: { id: 'ts100000-0000-4000-8000-000000000001', effective_from: '2025-12-01T05:00:00.000000Z', created_at: '2025-11-28T15:00:00.000Z' }, refused: { effective_from: '2025-12-01T05:00:00Z', rule_count: 1 } } }],
+    tax_set_not_storable: [409, { error: 'tax_set.rules[0].percent_bp is 3000000000, outside the column\'s integer range -2147483648 to 2147483647. The rate engine accepts this set; this is a limit of where this platform keeps it, not a judgement of the set, and nothing was stored', code: 'tax_set_not_storable', details: { field: 'tax_set.rules[0].percent_bp', limit: 'integer_range' } }],
+    rate_engine_unavailable: [503, ENGINE_AWAY],
+    connect_not_configured: [409, NO_CONNECT],
+    bad_country: [400, BAD_COUNTRY],
+    stripe_refused: [502, CODE_REFUSED],
+    stripe_unreachable: [503, STRIPE_AWAY],
+    stripe_account_ambiguous: [409, { error: 'Stripe holds 2 accounts naming this garage (acct_stubOne, acct_stubTwo); one garage has one account, so none is attached and none is made. A person decides which is the garage\'s.', code: 'stripe_account_ambiguous' }],
+    no_stripe_account: [409, NO_ACCOUNT],
+    card_payments_not_active: [409, cardsNotActive('inactive')],
+    bad_location: [400, placeRefused('address.line1 and address.country are required')],
+    no_terminal_location: [409, NO_PLACE],
+    bad_reader: [400, readerRefused('registration_code is required: the code the reader shows')],
+    lane_has_reader: [409, { error: 'this lane already has reader tmr_stubNorthEntry bound; unbind it first', code: 'lane_has_reader' }],
+    reader_bound_elsewhere: [409, { error: 'reader tmr_stubNorthEntry is bound to another lane; unbind it there first', code: 'reader_bound_elsewhere' }],
+    no_reader_bound: [409, NO_READER],
+    lane_not_found: [404, LANE_NOT_FOUND_NAMED],
+    garage_not_found: [404, GARAGE_NOT_FOUND_NAMED],
+  };
+  const presentAccount = (a) => a && {
+    garage_id: a.garage_id, account_id: a.account_id, create_requested_at: a.create_requested_at, account_recorded_at: a.account_recorded_at,
+    card_payments: a.card_payments, card_payments_read_at: a.card_payments_read_at, charges_enabled: a.charges_enabled, charges_enabled_read_at: a.charges_enabled_read_at,
+    details_submitted: a.details_submitted, details_submitted_read_at: a.details_submitted_read_at,
+  };
+  // What Stripe holds of each account, as its read reports it; the stand-in's own Stripe.
+  const stripeSide = new Map(); // account_id -> { card_payments, charges_enabled, details_submitted }
+  for (const held of Object.values(money)) {
+    if (held.account) stripeSide.set(held.account.account_id, { card_payments: held.account.card_payments, charges_enabled: held.account.charges_enabled, details_submitted: held.account.details_submitted });
+  }
+  let made = 0;
+  /** Ask the stand-in's Stripe now, and keep what it says with when it was read (refreshAccount). */
+  const readStripe = (held) => {
+    const side = stripeSide.get(held.account.account_id);
+    const at = new Date().toISOString();
+    const before = { card_payments: held.account.card_payments, charges_enabled: held.account.charges_enabled, details_submitted: held.account.details_submitted };
+    Object.assign(held.account, { ...side, card_payments_read_at: at, charges_enabled_read_at: at, details_submitted_read_at: at });
+    return { before, after: { ...side } };
+  };
+
+  async function moneyRoutes(req, res, path, who) {
+    const route = MONEY.find(([method, re]) => method === req.method && re.test(path));
+    if (!route) return undefined;
+    const [, re, name] = route;
+    const id = re.exec(path)[1];
+    const body = req.method === 'POST' ? ((await readBody(req)) ?? {}) : null;
+    const byLane = name === 'connect' || name === 'disconnect';
+    const found = byLane ? laneOf(who, id) : null;
+    const garage = byLane ? who.garages.find((g) => g.id === found?.garageId) : who.garages.find((g) => g.id === id);
+    const at = { garageId: garage?.id ?? null, action: ACTION[name], subject: found ? subjectOfLane(found.lane) : garage ? { kind: 'garage', id: garage.id, name: garage.name } : { kind: 'unknown', id: null, name: null } };
+    // A refusal: a line in the log for a 4xx write; a read, or a 5xx, answers only.
+    const no = (status, refusal, missing) => (req.method === 'POST' && status < 500 ? refuse(res, who, status, refusal, { ...at, missing }) : answer(res, status, refusal));
+
+    if (refuseNext && req.method === 'POST') {
+      const [status, refusal] = MONEY_REFUSALS[refuseNext];
+      refuseNext = null;
+      return no(status, refusal, status === 404 ? (byLane ? 'lane_not_found' : 'garage_not_found') : undefined);
+    }
+
+    // ── Taxes: not a Stripe route. The list is judged before the garage is looked up.
+    if (name === 'taxLists') {
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      return answer(res, 200, { tax_sets: [...moneyOf(garage.id).taxSets].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from)) });
+    }
+    if (name === 'addTaxList') {
+      if (!engineOn) return no(...MONEY_REFUSALS.rate_engine_unavailable);
+      const judged = judgeTaxList(body?.tax_set ?? null);
+      if (judged.refused) return no(...judged.refused);
+      if (!garage) return no(404, GARAGE_NOT_FOUND, 'garage_not_found');
+      const held = moneyOf(garage.id);
+      const clash = held.taxSets.find((s) => Date.parse(s.effective_from) === Date.parse(judged.effectiveFrom) && s.effective_from.slice(19) === judged.effectiveFrom.slice(19));
+      if (clash) {
+        return no(409, {
+          error: `two tax sets would be in force from one instant: set ${clash.id}, stated ${clash.created_at}, already takes effect at ${clash.effective_from}, and this set would take effect at ${body.tax_set.effective_from}. Which one is in force would be decided by nothing; refused, both named`,
+          code: 'tax_set_effective_from_taken',
+          details: { held: { id: clash.id, effective_from: clash.effective_from, created_at: clash.created_at }, refused: { effective_from: body.tax_set.effective_from, rule_count: judged.rules.length } },
+        });
+      }
+      made += 1;
+      const rules = [...judged.rules].sort((a, b) => a.sequence - b.sequence).map(({ id: ruleId, label, percent_bp, rounding, sequence }) => ({ id: ruleId, label, percent_bp, rounding, sequence }));
+      const stored = { id: `ts9${String(made).padStart(5, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`, garage_id: garage.id, effective_from: judged.effectiveFrom, rule_count: rules.length, created_at: new Date().toISOString(), rules };
+      held.taxSets.push(stored);
+      line(who, { garageId: garage.id, action: 'tax_set.add', subject: { kind: 'tax_set', id: stored.id, name: null }, before: null, after: { effective_from: stored.effective_from, taxes: rules.map((r) => ({ label: r.label, percent_bp: r.percent_bp })) } });
+      return answer(res, 201, { tax_set: stored });
+    }
+
+    // ── Stripe Connect: every route first says whether it is set up here.
+    if (!connectOn) return no(409, NO_CONNECT);
+    // Connecting a reader reads what was sent before it looks for the lane (bindReader).
+    if (name === 'connect') {
+      if (typeof body.registration_code !== 'string' || !body.registration_code.trim()) return no(400, readerRefused('registration_code is required: the code the reader shows'));
+      if (typeof body.label !== 'string' || !body.label.trim()) return no(400, readerRefused('label is required'));
+    }
+    if (!garage) return no(404, byLane ? LANE_NOT_FOUND_NAMED : GARAGE_NOT_FOUND_NAMED, byLane ? 'lane_not_found' : 'garage_not_found');
+    const held = moneyOf(garage.id);
+    if (name === 'account') return answer(res, 200, { stripe_account: presentAccount(held.account) });
+    if (name === 'makeAccount') {
+      if (held.account) return answer(res, 200, { stripe_account: presentAccount(held.account) });
+      if (typeof body.country !== 'string' || !/^[A-Z]{2}$/.test(body.country)) return no(400, BAD_COUNTRY);
+      if (!stripeOn) return no(...MONEY_REFUSALS.stripe_unreachable);
+      made += 1;
+      const now = new Date().toISOString();
+      held.account = {
+        garage_id: garage.id, account_id: `acct_stub${made}`, create_requested_at: now, account_recorded_at: now,
+        card_payments: null, card_payments_read_at: null, charges_enabled: null, charges_enabled_read_at: null, details_submitted: null, details_submitted_read_at: null,
+      };
+      stripeSide.set(held.account.account_id, { card_payments: 'inactive', charges_enabled: false, details_submitted: false });
+      line(who, { garageId: garage.id, action: 'payment_account.create', subject: { kind: 'payment_account', id: null, name: null }, before: { account: false }, after: { account: true } });
+      return answer(res, 201, { stripe_account: presentAccount(held.account) });
+    }
+    if (name === 'stripePage' || name === 'checkAccount') {
+      if (!held.account) return no(409, NO_ACCOUNT);
+      if (!stripeOn) return no(...MONEY_REFUSALS.stripe_unreachable);
+      if (name === 'stripePage') {
+        // Stripe's own page. Here: a page of the admin site's own, so a check's browser never leaves it.
+        return answer(res, 201, { onboarding_link: { url: `${allowedOrigin ?? 'http://127.0.0.1'}/#/stripe-stand-in`, expires_at: new Date(Date.now() + 5 * MINUTE).toISOString() } });
+      }
+      const { before, after } = readStripe(held);
+      line(who, { garageId: garage.id, action: 'payment_account.read', subject: { kind: 'payment_account', id: null, name: null }, before, after });
+      return answer(res, 200, { stripe_account: presentAccount(held.account) });
+    }
+    // A Location, a reader: refused while the account cannot take a card, as Stripe says now.
+    const takesCardsNow = () => {
+      if (!held.account) return [409, NO_ACCOUNT];
+      if (!stripeOn) return MONEY_REFUSALS.stripe_unreachable;
+      readStripe(held);
+      return held.account.card_payments === 'active' ? null : [409, cardsNotActive(held.account.card_payments)];
+    };
+    if (name === 'place') return answer(res, 200, { location: held.place });
+    if (name === 'connections') return answer(res, 200, { readers: [...held.connections].sort((a, b) => (a.unbound_at === null) - (b.unbound_at === null) || Date.parse(a.bound_at) - Date.parse(b.bound_at)).reverse() });
+    if (name === 'setPlace') {
+      if (held.place) return answer(res, 200, { location: held.place });
+      if (typeof body.display_name !== 'string' || !body.display_name.trim()) return no(400, placeRefused('display_name is required'));
+      const address = body.address;
+      if (!address || typeof address !== 'object' || Array.isArray(address)) return no(400, placeRefused('address is required: {line1, city, postal_code, country, ...}'));
+      for (const [k, v] of Object.entries(address)) {
+        if (!ADDRESS_FIELDS.includes(k)) return no(400, placeRefused(`unknown address field ${JSON.stringify(k)}`));
+        if (typeof v !== 'string') return no(400, placeRefused(`address.${k} is a string`));
+      }
+      if (!address.line1 || !address.country) return no(400, placeRefused('address.line1 and address.country are required'));
+      const cannot = takesCardsNow();
+      if (cannot) return no(...cannot);
+      held.place = { garage_id: garage.id, location_id: `tml_stub${(made += 1)}`, display_name: body.display_name.trim(), created_at: new Date().toISOString() };
+      line(who, { garageId: garage.id, action: 'payment_account.reader_place', subject: { kind: 'payment_account', id: null, name: null }, before: null, after: { place_name: held.place.display_name } });
+      return answer(res, 201, { location: held.place });
+    }
+    const { lane } = found;
+    const current = held.connections.find((c) => c.lane_id === lane.id && c.unbound_at === null);
+    if (name === 'connect') {
+      const code = body.registration_code;
+      const label = body.label.trim();
+      if (current) return no(409, { error: `this lane already has reader ${current.reader_id} bound; unbind it first`, code: 'lane_has_reader' });
+      if (!held.place) return no(409, NO_PLACE);
+      const cannot = takesCardsNow();
+      if (cannot) return no(...cannot);
+      // The stand-in's Stripe takes the codes its test readers show, as Stripe's simulated reader's does.
+      if (!code.trim().startsWith('simulated')) return no(...MONEY_REFUSALS.stripe_refused);
+      const connection = { lane_id: lane.id, reader_id: `tmr_stub${(made += 1)}`, label, location_id: held.place.location_id, bound_at: new Date().toISOString(), unbound_at: null };
+      held.connections.push(connection);
+      lane.reader = { reader_id: connection.reader_id, label, bound_at: connection.bound_at };
+      line(who, { garageId: garage.id, action: 'lane.card_reader_connect', subject: { kind: 'reader', id: connection.reader_id, name: label }, before: null, after: { lane: lane.name, label } });
+      return answer(res, 201, { reader: connection });
+    }
+    if (!current) return no(409, NO_READER);
+    current.unbound_at = new Date().toISOString();
+    lane.reader = null;
+    line(who, { garageId: garage.id, action: 'lane.card_reader_disconnect', subject: { kind: 'reader', id: current.reader_id, name: current.label }, before: { label: current.label }, after: null });
+    return answer(res, 200, { reader: current });
+  }
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://stub');
     const path = url.pathname;
@@ -992,6 +1338,8 @@ export async function startStub({ port = 0 } = {}) {
     }
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
 
+    const u6 = await moneyRoutes(req, res, path, who);
+    if (u6 !== undefined) return u6;
     const u4 = await setupRoutes(req, res, path, who);
     if (u4 !== undefined) return u4;
 
@@ -1038,6 +1386,38 @@ export async function startStub({ port = 0 } = {}) {
     /** Every step of every checklist answered with `done` reversed (true), or as worked out (false). */
     flipSetup: (on) => {
       flipped = Boolean(on);
+    },
+    // ── U6 ──
+    /** What the stand-in holds of a garage's taxes, account, readers' place and reader connections. */
+    money: (garageId) => moneyOf(garageId),
+    /** Stripe Connect set up on this platform, as a deployment's STRIPE_API_KEY and return addresses do. */
+    setConnect: (on) => {
+      connectOn = Boolean(on);
+    },
+    /** The rate engine answering, or not (RATE_ENGINE_URL unset). */
+    setEngine: (on) => {
+      engineOn = Boolean(on);
+    },
+    /** Stripe answering, or not. */
+    setStripe: (on) => {
+      stripeOn = Boolean(on);
+    },
+    /** Stripe's side of a garage's account moves (onboarding done, card payments turned on), as Stripe's would. */
+    setCards: (garageId, side) => {
+      const account = moneyOf(garageId).account;
+      if (!account) throw new Error(`garage ${garageId} has no account at the stand-in`);
+      stripeSide.set(account.account_id, { ...stripeSide.get(account.account_id), ...side });
+    },
+    /** The next write to a U6 route answers with this refusal, as the platform says it (MONEY_REFUSALS). */
+    refuseNext: (code) => {
+      if (!MONEY_REFUSALS[code]) throw new Error(`no such refusal: ${code}`);
+      refuseNext = code;
+    },
+    /** Every refusal the U6 routes give, by code, with the platform's own words. */
+    moneyRefusals: () => structuredClone(MONEY_REFUSALS),
+    /** Whether the garage takes drivers without a pass: true, false or null (unanswered). */
+    setDrivers: (garageId, takes) => {
+      setups[garageId].transient_available = takes;
     },
     /** Put `lines` (oldest first) as the owner's change log, for the file checks. */
     setChanges: (owner, lines) => log.set(owner.tenant_id, lines.slice()),

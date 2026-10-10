@@ -10,7 +10,7 @@
 // In a real browser, signed in against the stand-in platform
 // (test/stub-platform.js), in English and in Spanish, each printable page --
 // Cars inside, Lanes and equipment, Setup, the change log with its refused
-// attempts, and Alerts -- is printed to PDF by headless Chromium with its
+// attempts, Alerts, and Card readers' connections (U6) -- is printed to PDF by headless Chromium with its
 // defaults (backgrounds off), and the PDF is read back with pypdf. Every
 // state mark the screen shows is read from the screen by what it IS (a tick's
 // aria-checked, a step's data-state, a lane's data-open, the answer chosen),
@@ -21,6 +21,7 @@
 //   steps        each setup step's Done or Not yet
 //   lanes        each lane's Open, or the reason it is closed
 //   answers      the drivers question: the answer chosen, and not the other
+//   connections  each card reader's "Still connected", or when it ended
 //   lists        each list's own name; the refused attempts are told apart
 //                from the changes made by theirs
 // A mark missing from paper, or the wrong one, is named.
@@ -134,6 +135,10 @@ const MARKS = ({ words }) => {
       window: 200,
     });
   }
+  // U6: each card reader connection, still connected or ended, beside the reader's name.
+  for (const tr of document.querySelectorAll('[data-list="readers"] tbody tr[data-connection]')) {
+    marks.push({ kind: 'connection', what: `card reader "${text(tr.cells[1])}": ${tr.dataset.connection}`, anchor: text(tr.cells[1]), want: text(tr.cells[3]), window: 40 });
+  }
   for (const td of document.querySelectorAll('td[data-confirmed]')) {
     marks.push({ kind: 'person', what: `person "${rowName(td)}": confirmed ${td.dataset.confirmed}`, anchor: rowName(td), want: td.dataset.confirmed === 'yes' ? words['alerts.isConfirmed'] : words['alerts.notConfirmed'], window: 80 });
   }
@@ -155,6 +160,7 @@ const PAGES = [
   { id: 'setup', title: 'page.setup.title', hash: '#/setup', ready: '[data-step] [data-state]' },
   { id: 'changes', title: 'page.changes.title', hash: '#/change-log', ready: '[data-list="refused"] tbody tr' },
   { id: 'alerts', title: 'page.alerts.title', hash: '#/alerts', ready: '[data-list="alert-choices"] [data-tick]' },
+  { id: 'readers', title: 'page.readers.title', hash: '#/card-readers', ready: '[data-list="readers"] tbody tr[data-connection]' },
 ];
 
 console.log('A print reads right with the browser\'s default settings, on every page that prints:');

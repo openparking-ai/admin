@@ -110,3 +110,108 @@ test('each description speaks of every state its field can show, in both languag
   }
   assert.deepEqual(gaps, []);
 });
+
+// ── U6 check 6: every state of Taxes and fees and Getting paid, worded true ──
+// Each state the platform can return has its own sentence, and each sentence
+// says what is true of its state and of no other: the garage has not said,
+// no list is in force yet, it charges no tax, or it charges these; no
+// account, one that can take cards, one that cannot yet; each fact of the
+// account in each state Stripe can report, and whether it was checked.
+import { stateWords } from '../src/taxes.js';
+import { accountFacts, accountWords, driversAnswer, takesCards } from '../src/payments.js';
+
+const U6_TRUE = {
+  'taxes.none': [/hasn't said|has not said/i, /no lo ha indicado/i],
+  'taxes.notYet': [/no list is in force yet/i, /todavía no hay una lista vigente/i],
+  'taxes.noTax': [/charges no tax/i, /no cobra impuestos/i],
+  'taxes.linesOne': [/one tax or fee is added/i, /se suma un impuesto o cargo/i],
+  'taxes.linesMany': [/taxes and fees are added/i, /se suman \{count\} impuestos/i],
+  'paid.noAccount': [/has no payment account/i, /no tiene una cuenta de pagos/i],
+  'paid.canTake': [/^This garage can take cards/i, /^Este garaje puede cobrar con tarjeta/i],
+  'paid.cannotYet': [/can't take cards yet|cannot take cards yet/i, /todavía no puede cobrar/i],
+  'paid.passOnly': [/pass holders only.*takes no cards/i, /solo recibe a quienes tienen pase.*no cobra con tarjeta/i],
+  'readers.passOnly': [/pass holders only.*no card readers/i, /solo recibe a quienes tienen pase.*no tiene lectores/i],
+  'problem.cardsNotSetUp': [/card payments aren't set up/i, /pagos con tarjeta todavía no están activados/i],
+  'paid.card.active': [/^On$/, /^Activados$/],
+  'paid.card.inactive': [/^Off$/, /^Desactivados$/],
+  'paid.card.pending': [/waiting/i, /espera/i],
+  'paid.card.unrequested': [/not asked/i, /no solicitados/i],
+  'paid.notCheckedYet': [/not checked/i, /sin revisar/i],
+  'paid.charges.yes': [/^Allowed$/, /^Permitidos$/],
+  'paid.charges.no': [/not allowed yet/i, /todavía no permitidos/i],
+  'paid.details.yes': [/all given/i, /completos/i],
+  'paid.details.no': [/not finished/i, /sin terminar/i],
+};
+
+test('U6 each state sentence says what is true of its state, and of no other, in both languages', () => {
+  const wrong = [];
+  for (const [key, [en, es]] of Object.entries(U6_TRUE)) {
+    for (const [language, re] of [['en', en], ['es', es]]) {
+      const said = DICTIONARIES[language][key];
+      if (!re.test(said)) wrong.push(`${language} ${key}: "${said}" does not say it`);
+      for (const [other, pair] of Object.entries(U6_TRUE)) {
+        if (other !== key && other.split('.').slice(0, 2).join('.') !== key.split('.').slice(0, 2).join('.') && pair[language === 'en' ? 0 : 1].test(said) && !/^paid\.(card|charges|details)\./.test(other)) {
+          wrong.push(`${language} ${key}: "${said}" says what ${other} says`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(wrong, []);
+});
+
+const TAX_NOW = new Date('2026-06-01T12:00:00Z');
+const taxList = (effective_from, rules = []) => ({ effective_from, rule_count: rules.length, rules });
+const lineOf = (id) => ({ id, label: id, percent_bp: 100, rounding: 'up', sequence: 1 });
+const account = (over = {}) => ({
+  garage_id: 'g', account_id: 'acct_x', card_payments: 'active', card_payments_read_at: '2026-05-01T14:00:00Z',
+  charges_enabled: true, charges_enabled_read_at: '2026-05-01T14:00:00Z', details_submitted: true, details_submitted_read_at: '2026-05-01T14:00:00Z', ...over,
+});
+
+for (const language of ['en', 'es']) {
+  const t = (key, values) => translate(language, key, values);
+  const words = DICTIONARIES[language];
+  const g = { timezone: 'America/New_York' };
+
+  test(`${language}: U6 every state of a garage's taxes: not said, none yet in force, no tax, one line, several, a list that starts later`, () => {
+    assert.equal(stateWords(t, [], g, language, TAX_NOW), words['taxes.none']);
+    if (language === 'en') assert.equal(words['taxes.none'], "This garage hasn't said yet.");
+    const later = stateWords(t, [taxList('2026-09-01T04:00:00.000000Z', [lineOf('a')])], g, language, TAX_NOW);
+    assert.ok(later.startsWith(words['taxes.notYet'].split('{time}')[0]) && later !== words['taxes.none'] && later !== words['taxes.noTax'], later);
+    assert.equal(stateWords(t, [taxList('2026-01-01T05:00:00.000000Z')], g, language, TAX_NOW), words['taxes.noTax']);
+    if (language === 'en') assert.equal(words['taxes.noTax'], 'This garage charges no tax.');
+    assert.equal(stateWords(t, [taxList('2026-01-01T05:00:00.000000Z', [lineOf('a')])], g, language, TAX_NOW), words['taxes.linesOne']);
+    assert.equal(stateWords(t, [taxList('2026-01-01T05:00:00.000000Z', [lineOf('a'), lineOf('b')])], g, language, TAX_NOW), t('taxes.linesMany', { count: 2 }));
+    // A list starting later never stands for the one in force now.
+    assert.equal(stateWords(t, [taxList('2026-01-01T05:00:00.000000Z'), taxList('2026-09-01T04:00:00.000000Z', [lineOf('a')])], g, language, TAX_NOW), words['taxes.noTax']);
+  });
+
+  test(`${language}: U6 every state of a payment account: none, can take cards, and each way it cannot yet`, () => {
+    assert.equal(accountWords(t, null), words['paid.noAccount']);
+    assert.equal(accountWords(t, account()), words['paid.canTake']);
+    for (const over of [{ card_payments: 'inactive' }, { card_payments: 'pending' }, { card_payments: 'unrequested' }, { charges_enabled: false }, { card_payments: null, charges_enabled: null }, { card_payments: 'active', charges_enabled: false }]) {
+      assert.equal(accountWords(t, account(over)), words['paid.cannotYet'], JSON.stringify(over));
+      assert.equal(takesCards(account(over)), false, JSON.stringify(over));
+    }
+  });
+
+  test(`${language}: U6 each fact of the account in each state, and when it was checked`, () => {
+    const fact = (over, key) => accountFacts(t, account(over), g, language).find((f) => f.key === key);
+    for (const state of ['active', 'pending', 'inactive', 'unrequested']) assert.equal(fact({ card_payments: state }, 'paid.cards').value, words[`paid.card.${state}`]);
+    assert.equal(fact({ card_payments: 'restricted_soon' }, 'paid.cards').value, words['paid.card.other']);
+    assert.equal(fact({ card_payments: null, card_payments_read_at: null }, 'paid.cards').value, words['paid.notCheckedYet']);
+    assert.equal(fact({ card_payments: null, card_payments_read_at: null }, 'paid.cards').checked, words['paid.notChecked']);
+    assert.equal(fact({ charges_enabled: true }, 'paid.charges').value, words['paid.charges.yes']);
+    assert.equal(fact({ charges_enabled: false }, 'paid.charges').value, words['paid.charges.no']);
+    assert.equal(fact({ details_submitted: false }, 'paid.details').value, words['paid.details.no']);
+    assert.equal(fact({ details_submitted: true }, 'paid.details').value, words['paid.details.yes']);
+    // Checked at 10:00 am in New York, never in this computer's zone.
+    assert.equal(fact({}, 'paid.cards').checked, t('paid.checkedAt', { time: new Intl.DateTimeFormat(language === 'es' ? 'es-US' : 'en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }).format(new Date('2026-05-01T14:00:00Z')) }));
+  });
+}
+
+test('U6 who the pages are for: any driver, pass holders only, or not answered yet', () => {
+  assert.equal(driversAnswer(true), 'any');
+  assert.equal(driversAnswer(false), 'passOnly');
+  assert.equal(driversAnswer(null), 'unanswered');
+  assert.equal(driversAnswer(undefined), 'unanswered');
+});

@@ -182,3 +182,24 @@ export function refusedData(readAt = READ_AT) {
   const refused = changeLines(readAt).filter((l) => l.outcome === 'refused');
   return { refused, next: null, count: { lines: refused.length, attempts: refused.reduce((n, l) => n + l.attempts, 0) } };
 }
+
+/**
+ * U6: every connection a lane has had, current first, as the platform's
+ * GET /garages/:id/readers lists them, with the lanes they name. One reader
+ * connected before New York's clock change and one after it; names a
+ * spreadsheet would take for a number or a formula.
+ */
+export function readersData() {
+  const lanes = [
+    { id: 'lf100000-0000-4000-8000-000000000001', name: 'Salida Norte', direction: 'exit' },
+    { id: 'lf100000-0000-4000-8000-000000000002', name: TEXT_CASES.at, direction: 'exit' },
+  ];
+  return {
+    lanes,
+    connections: [
+      { lane_id: lanes[0].id, reader_id: 'tmr_fixture1', label: 'Lector Ñandú', location_id: 'tml_fixture', bound_at: AFTER_CHANGE, unbound_at: null },
+      { lane_id: lanes[1].id, reader_id: 'tmr_fixture2', label: TEXT_CASES.ticket, location_id: 'tml_fixture', bound_at: '2026-03-09T14:00:00Z', unbound_at: null },
+      { lane_id: lanes[0].id, reader_id: 'tmr_fixture3', label: TEXT_CASES.formula, location_id: 'tml_fixture', bound_at: '2026-02-01T15:00:00Z', unbound_at: BEFORE_CHANGE },
+    ],
+  };
+}

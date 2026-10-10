@@ -64,3 +64,19 @@ test('only the start of a word counts', () => {
   assert.ok(ids.includes('rates'));
   assert.ok(!ids.includes('garages'), 'gaRAges matched from the middle of a word');
 });
+
+test('U6 each page\'s settings are found, in both languages, and each is taken to its page', async () => {
+  const { pageOf } = await import('../src/search.js');
+  for (const [language, query, id, page] of [
+    ['en', 'change taxes', 'changeTaxes', 'taxes'], ['es', 'cambiar impuestos', 'changeTaxes', 'taxes'],
+    ['en', 'no tax', 'changeTaxes', 'taxes'], ['es', 'redondeo', 'changeTaxes', 'taxes'],
+    ['en', 'set up getting paid', 'setUpPaid', 'paid'], ['es', 'configurar los cobros', 'setUpPaid', 'paid'],
+    ['en', 'check again', 'setUpPaid', 'paid'], ['es', 'continuar en stripe', 'setUpPaid', 'paid'],
+    ['en', 'connect a card reader', 'connectReader', 'readers'], ['es', 'conectar un lector', 'connectReader', 'readers'],
+    ['en', 'reader code', 'connectReader', 'readers'], ['es', 'desconectar lector', 'connectReader', 'readers'],
+  ]) {
+    const found = search(buildIndex(language), query).find((e) => e.kind === 'feature');
+    assert.equal(found?.id, id, `${language} "${query}"`);
+    assert.equal(pageOf(found).id, page, `${language} "${query}" goes to ${page}`);
+  }
+});

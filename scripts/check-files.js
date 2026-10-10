@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The downloaded files hold the list, read back by readers we did not write.
 //
-// Builds the Excel and PDF files of both lists, in English and Spanish, from
+// Builds the Excel and PDF files of each list (Card readers' too, U6), in English and Spanish, from
 // the lists in test/files-fixtures.js, with this computer in TOKYO time while
 // the garage is in New York. Then reads every file back with Python openpyxl
 // and pypdf (scripts/files/read-files.py) and requires:
@@ -67,6 +67,7 @@ import {
   changesData,
   refusedData,
   alertsData,
+  readersData,
   asRead,
   manyStays,
 } from '../test/files-fixtures.js';
@@ -118,7 +119,7 @@ try {
   const made = [];
   for (const language of ['en', 'es']) {
     const t = words(language);
-    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()], ['changes', changesData()], ['refused', refusedData()], ['alerts', alertsData()]]) {
+    for (const [list, data] of [['inside', insideData()], ['lanes', lanesData()], ['changes', changesData()], ['refused', refusedData()], ['alerts', alertsData()], ['readers', readersData()]]) {
       for (const format of ['xlsx', 'pdf']) made.push({ language, list, format, data, t, ...build(list, format, { language, data }) });
     }
   }
@@ -144,7 +145,7 @@ try {
         }),
       );
       // Counted from the list the platform gave, never from the file's own rows.
-      const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, refused: () => m.data.refused.length, alerts: () => m.data.contacts.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
+      const listCount = { inside: () => m.data.sessions.length, changes: () => m.data.changes.length, refused: () => m.data.refused.length, alerts: () => m.data.contacts.length, readers: () => m.data.connections.length, lanes: () => m.data.reduce((n, l) => n + Math.max(1, (l.devices ?? []).length), 0) }[m.list]();
       check(heading !== -1 && rows.length === listCount && wrong.length === 0, `1 the file is the list: ${where}: ${rows.length} rows read back of the list's ${listCount}, every cell equal${wrong.length ? `; ${wrong.slice(0, 3).join('; ')}` : ''}`);
       if (m.list === 'inside') {
         const independent = insideRows(m.data);
@@ -160,6 +161,13 @@ try {
       }
       // 2
       const lines = sheet.rows.slice(0, heading).map((r) => r?.[0]?.value).filter(Boolean);
+      if (m.list === 'readers') {
+        // Connected after New York's clock change; one that ended before it.
+        const after = rows[0]?.[2]?.value;
+        const ended = rows[2]?.[3]?.value;
+        check(after === '2026-03-08 03:30:00' && ended === '2026-03-08 01:30:00', `2 garage time: ${where}: either side of the clock change, ${after} and ${ended} (garage clock 03:30 and 01:30)`);
+        check(rows[0]?.[3]?.value === m.t('readers.stillConnected'), `${where}: a connection still on says so: "${rows[0]?.[3]?.value}"`);
+      }
       if (m.list === 'inside') {
         const before = rows[0]?.[2]?.value;
         const after = rows[1]?.[2]?.value;
@@ -174,7 +182,7 @@ try {
       // The change log keeps no stored text in a cell of its own -- every name
       // sits inside a sentence -- so for it this is the formula count alone.
       // Alerts: a name and a phone number a spreadsheet would take for a number or a formula.
-      const cases = { inside: [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at], lanes: [TEXT_CASES.at], changes: [], refused: [], alerts: [TEXT_CASES.ticket, TEXT_CASES.formula, '+15550100001', '+442079460000123'] }[m.list];
+      const cases = { inside: [TEXT_CASES.ticket, TEXT_CASES.plate, TEXT_CASES.formula, TEXT_CASES.at], lanes: [TEXT_CASES.at], changes: [], refused: [], alerts: [TEXT_CASES.ticket, TEXT_CASES.formula, '+15550100001', '+442079460000123'], readers: [TEXT_CASES.ticket, TEXT_CASES.formula, TEXT_CASES.at] }[m.list];
       const lost = cases.filter((v) => !texts.includes(v));
       check(lost.length === 0 && got.formulas === 0, `3 text stays text: ${where}: ${cases.length - lost.length} of ${cases.length} come back as text, exactly (${cases.join(', ')}); formulas in the workbook: ${got.formulas}${lost.length ? `; not text: ${lost.join(', ')}` : ''}`);
       // 4
@@ -195,11 +203,13 @@ try {
             ? m.data[m.list].map((l) => l.subject.name).filter((n) => n && n !== GARAGE.name && n !== TEXT_CASES.at)
             : m.list === 'alerts'
               ? m.data.contacts.flatMap((p) => [p.name, p.phone, p.email].filter(Boolean))
-              : m.data.flatMap((l) => (l.devices ?? []).map((d) => d.name));
+              : m.list === 'readers'
+                ? m.data.connections.map((c) => c.label)
+                : m.data.flatMap((l) => (l.devices ?? []).map((d) => d.name));
       // A change line names its lane or computer, and again in what changed:
       // there, every line's is on a page at least once.
       const notOnce = items.filter((p) => (m.list === 'changes' || m.list === 'refused' ? count(all, p) < 1 : count(all, p) !== 1 && !items.some((o) => o !== p && o.includes(p))));
-      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${{ inside: 'plates', lanes: 'lane connections', changes: 'lanes and connections changed', refused: 'lanes tried', alerts: 'names, numbers and addresses' }[m.list]} on a page ${m.list === 'changes' || m.list === 'refused' ? 'at least' : 'exactly'} once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
+      check(notOnce.length === 0 && offPage.length === 0, `1 the file is the list: ${where}: ${items.length - notOnce.length} of ${items.length} ${{ inside: 'plates', lanes: 'lane connections', changes: 'lanes and connections changed', refused: 'lanes tried', alerts: 'names, numbers and addresses', readers: 'card readers' }[m.list]} on a page ${m.list === 'changes' || m.list === 'refused' ? 'at least' : 'exactly'} once; text off the page: ${offPage.length}${notOnce.length ? `; not once: ${notOnce.join(', ')}` : ''}`);
       // 2 + 4
       check(all.includes(plain(zone)), `2 garage time: ${where}: the zone sentence "${zone}"`);
       check(all.includes(GARAGE.name) && m.missing.length === 0, `4 every character: ${where}: "${GARAGE.name}" comes back exactly; letters the font could not draw: ${m.missing.length}`);

@@ -107,11 +107,12 @@ const STRUCTURE = {
  * Every answer, in order. `owner` is { email, password }; the first garage of
  * the owner must have lanes and stays inside. `origin` is the admin page's own.
  */
-export async function record(base, { origin, owner, elsewhere = 'http://elsewhere.example' }) {
+export async function record(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
+  if (!hooks) throw new Error('record needs the hooks that move the platform around it (U6: Stripe Connect, the rate engine, Stripe)');
   let cookie = '';
   const out = [];
   let garage = null;
-  async function call(what, method, path, body, headers = {}, { quiet = false, structure = null } = {}) {
+  async function call(what, method, path, body, headers = {}, { quiet = false, structure = null, normalise = false } = {}) {
     const res = await fetch(`${base}/api/v1${path.replace('{garage}', garage)}`, {
       method,
       headers: Object.fromEntries(
@@ -135,7 +136,7 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
     out.push({
       what,
       status: res.status,
-      ...(refusal ? { body: data } : { shape: data === null ? 'empty' : shapeOf(data) }),
+      ...(refusal ? { body: normalise ? normalised(data) : data } : { shape: data === null ? 'empty' : shapeOf(data) }),
       ...(setCookie ? { cookie: cookieOf(setCookie) } : {}),
     });
     return data;
@@ -162,6 +163,7 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   await setupCalls(call, (g) => (garage = g ?? garage), garage);
   await alertsCalls(call, garage);
   await boardCalls(call, garage);
+  await moneyCalls(call, garage, hooks);
   await call('sign-out, from a page at another address', 'POST', '/auth/sign-out', undefined, { origin: elsewhere });
   const kept = cookie;
   await call('sign-out', 'POST', '/auth/sign-out');
@@ -306,4 +308,103 @@ export async function signInAnswer(base, { origin, owner }) {
     body: JSON.stringify({ email: owner.email, password: 'wrong-on-purpose' }),
   });
   return { status: res.status, body: JSON.parse(await res.text()) };
+}
+
+/**
+ * A refusal whose words name things made in the run -- an id, a moment, a
+ * Stripe account, place or reader -- with each of those said as what it is,
+ * so the platform's sentence and the stand-in's are compared word for word
+ * around them.
+ */
+export function normalised(value) {
+  if (typeof value === 'string') {
+    return value
+      .replace(/[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}/gi, '<id>')
+      .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?/g, '<time>')
+      .replace(/\b(acct|tml|tmr)_[A-Za-z0-9]+/g, '<$1>');
+  }
+  if (Array.isArray(value)) return value.map(normalised);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normalised(v)]));
+  return value;
+}
+
+/**
+ * U6: the garage's taxes, its payment account, the place of its card readers
+ * and a reader connected and disconnected -- with every refusal the three
+ * pages can meet that a platform can be brought to give. `hooks` moves what
+ * is around the platform, the same way on both: Stripe Connect set up or not
+ * (`connect`), the rate engine answering (`engine`), Stripe answering
+ * (`stripe`), Stripe turning card payments on for an account (`cards`); and
+ * `fresh` leaves the garage with no account, place or reader, as the
+ * platform's demo garage is. Every list, number and address here is invented.
+ */
+async function moneyCalls(call, garage, hooks) {
+  const taxes = `/garages/${garage}/tax-sets`;
+  const list = (effective_from, rules) => ({ tax_set: { effective_from, rules } });
+  const line = (over = {}) => ({ id: 'tax-1', label: 'Recorded city tax', percent_bp: 1850, rounding: 'nearest', sequence: 1, ...over });
+  await hooks.fresh(garage);
+  await call('taxes, a new list', 'POST', taxes, list('2031-01-01T00:00:00-05:00', [line(), line({ id: 'tax-2', label: 'Recorded state tax', percent_bp: 600, rounding: 'up', sequence: 2 })]));
+  await call('taxes, a list starting at the moment another starts', 'POST', taxes, list('2031-01-01T05:00:00Z', [line()]), {}, { normalise: true });
+  await call('taxes, a line of 0 percent', 'POST', taxes, list('2031-02-01T00:00:00-05:00', [line({ percent_bp: 0 })]));
+  await call('taxes, a line with no rounding chosen', 'POST', taxes, list('2031-02-01T00:00:00-05:00', [line({ rounding: '' })]));
+  await call('taxes, a line with no name', 'POST', taxes, list('2031-02-01T00:00:00-05:00', [line({ label: '  ' })]));
+  await call('taxes, a percent past what can be kept', 'POST', taxes, list('2031-02-01T00:00:00-05:00', [line({ percent_bp: 3000000000 })]));
+  await call('taxes, a list with no time zone', 'POST', taxes, list('2031-02-01T00:00:00', [line()]));
+  await call('taxes, a new list: no tax', 'POST', taxes, list('2031-03-01T00:00:00-05:00', []));
+  await call('taxes, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/tax-sets`, list('2031-04-01T00:00:00-04:00', [line()]));
+  await hooks.engine(false);
+  await call('taxes, the rate engine not answering', 'POST', taxes, list('2031-04-01T00:00:00-04:00', [line()]));
+  await hooks.engine(true);
+  await call('taxes', 'GET', taxes);
+  await call('taxes, of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/tax-sets`);
+
+  const account = `/garages/${garage}/stripe-account`;
+  const place = { display_name: '1 Recorded Street, Springfield, IL 62701, US', address: { line1: '1 Recorded Street', city: 'Springfield', state: 'IL', postal_code: '62701', country: 'US' } };
+  await hooks.connect(false);
+  await call('payment account, with Stripe Connect not set up', 'GET', account);
+  await call('payment account, made with Stripe Connect not set up', 'POST', account, { country: 'US' });
+  await call('readers place, with Stripe Connect not set up', 'GET', `${account}/location`);
+  await call('card readers, with Stripe Connect not set up', 'GET', `/garages/${garage}/readers`);
+  await hooks.connect(true);
+  await call('payment account, none yet', 'GET', account);
+  await call('payment account, of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/stripe-account`);
+  await call("Stripe's page, with no account yet", 'POST', `${account}/onboarding-link`);
+  await call('payment account, checked with no account yet', 'POST', `${account}/refresh`);
+  await call('payment account, a country that is not one', 'POST', account, { country: 'usa' });
+  const made = (await call('payment account, made', 'POST', account, { country: 'US' })).stripe_account;
+  await call('payment account, made again', 'POST', account, { country: 'US' });
+  await call('payment account', 'GET', account);
+  await call("Stripe's page", 'POST', `${account}/onboarding-link`);
+  await call('payment account, checked', 'POST', `${account}/refresh`);
+  await call('readers place, none yet', 'GET', `${account}/location`);
+  await call('readers place, given while card payments are off', 'POST', `${account}/location`, place);
+  const lanes = (await call('lanes, for the card readers', 'GET', `/garages/${garage}/lanes`, undefined, {}, { quiet: true })).lanes;
+  const exit = lanes.find((l) => l.direction === 'exit');
+  const reader = (over = {}) => ({ registration_code: 'simulated-wpe', label: 'Recorded exit reader', ...over });
+  await call('a card reader, with no place given yet', 'POST', `/lanes/${exit.id}/reader`, reader());
+  await hooks.cards(garage, made.account_id, { card_payments: 'active', charges_enabled: true, details_submitted: true });
+  await call('payment account, checked after Stripe turned card payments on', 'POST', `${account}/refresh`);
+  await call('readers place, with no name', 'POST', `${account}/location`, { ...place, display_name: '' });
+  await call('readers place, with no street', 'POST', `${account}/location`, { ...place, address: { country: 'US' } });
+  await call('readers place, given', 'POST', `${account}/location`, place);
+  await call('readers place, given again', 'POST', `${account}/location`, place);
+  await call('readers place', 'GET', `${account}/location`);
+  await call('readers place, of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/stripe-account/location`);
+  await call('card readers, none yet', 'GET', `/garages/${garage}/readers`);
+  await call('a card reader, with no code', 'POST', `/lanes/${exit.id}/reader`, reader({ registration_code: '' }));
+  await call('a card reader, with no name', 'POST', `/lanes/${exit.id}/reader`, reader({ label: ' ' }));
+  await call('a card reader, a lane not theirs', 'POST', `/lanes/${NOT_THEIRS}/reader`, reader());
+  await call('a card reader, a code Stripe does not take', 'POST', `/lanes/${exit.id}/reader`, reader({ registration_code: 'not-a-real-code' }));
+  await call('a card reader, connected', 'POST', `/lanes/${exit.id}/reader`, reader());
+  await call('a card reader, on a lane that has one', 'POST', `/lanes/${exit.id}/reader`, reader({ registration_code: 'simulated-wpe-2' }), {}, { normalise: true });
+  await call('card readers', 'GET', `/garages/${garage}/readers`);
+  await call('lanes, with a card reader', 'GET', `/garages/${garage}/lanes`);
+  await call('a card reader, disconnected', 'POST', `/lanes/${exit.id}/reader/unbind`);
+  await call('a card reader, disconnected again', 'POST', `/lanes/${exit.id}/reader/unbind`);
+  await call('a card reader not theirs, disconnected', 'POST', `/lanes/${NOT_THEIRS}/reader/unbind`);
+  await call('card readers, after one was disconnected', 'GET', `/garages/${garage}/readers`);
+  await hooks.stripe(false);
+  await call('payment account, checked with Stripe not answering', 'POST', `${account}/refresh`);
+  await hooks.stripe(true);
+  await call('changes, after the card reader', 'GET', `/garages/${garage}/changes`, undefined, {}, { structure: 'changes' });
 }

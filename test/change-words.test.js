@@ -235,3 +235,34 @@ test('F1: a lane removed says, in both languages, the screen messages no longer 
     assert.deepEqual(by[t('changes.field.messages_removed')], { stored: '“South only”, “Event tonight”' }, language);
   }
 });
+
+// U6: every refusal the routes of Taxes and fees, Getting paid and Card readers
+// write in the log (the platform logs a 4xx refusal; src/app.js taxSetRefusal,
+// src/stripeAccount.js, src/terminal.js), each in words of its own, both
+// languages -- never "it was not allowed", never its code. A tax list the
+// engine would not take is answered with no code, and logged as bad_request.
+const U6_LOGGED = [
+  'bad_request', 'tax_set_effective_from_taken', 'tax_set_not_storable', 'garage_not_found', 'lane_not_found',
+  'connect_not_configured', 'bad_country', 'stripe_account_ambiguous', 'no_stripe_account', 'card_payments_not_active',
+  'bad_location', 'no_terminal_location', 'bad_reader', 'lane_has_reader', 'reader_bound_elsewhere', 'no_reader_bound',
+];
+
+test('U6 every refused tax list, payment account and card reader is said in words of its own, both languages', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const other = t('changes.refusal.other');
+    const said = new Map();
+    for (const refusal of U6_LOGGED) {
+      const why = whyWords(t, { outcome: 'refused', refusal, who: { kind: 'owner', name: 'owner@example.com' } });
+      assert.notEqual(why.toLowerCase(), other.toLowerCase(), `${language} ${refusal}: said as "${other}"`);
+      assert.doesNotMatch(why, /[a-z]+_[a-z_]+/, `${language} ${refusal}: "${why}" holds a code`);
+      said.set(refusal, why);
+    }
+    assert.equal(new Set(said.values()).size, U6_LOGGED.length, `${language}: two refusals share their words`);
+    // What each U6 write tried, never that it was done.
+    for (const action of ['tax_set.add', 'payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.reader_place', 'lane.card_reader_connect', 'lane.card_reader_disconnect']) {
+      const tried = whatPieces(t, { outcome: 'refused', action, subject: lane, who: { kind: 'owner', name: 'x' } })[0].words;
+      assert.ok(tried.startsWith(language === 'es' ? 'Intentó' : 'Tried'), `${language} ${action}: "${tried}"`);
+    }
+  }
+});
