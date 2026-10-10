@@ -866,7 +866,8 @@ try {
   check((await page.$$('[data-list="refused"] tr[data-outcome="refused"]')).length >= 2, `${CHANGES_TITLE}: refused attempts listed apart, under "${EN['refused.title']}"`);
   check(!refusedText.includes(EN['changes.action.lane_close']), `${CHANGES_TITLE}: a refused attempt never says it was done ("${EN['changes.action.lane_close']}")`);
   check(rawIn(log).length === 0 && !/lane\.close|last_open_lane|lane_has_history/.test(log), `${CHANGES_TITLE}: nothing raw on screen${rawIn(log).length ? `: ${rawIn(log).join(', ')}` : ''}`);
-  await checkDescribed(page, CHANGES_TITLE, 'en', 11);
+  // The two lists' columns (11), and the choices above them (U7b): Sort by and What, then Sort by, What and Why.
+  await checkDescribed(page, CHANGES_TITLE, 'en', 16);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'change-log-english.png'), fullPage: true });
   await checkPrint(page, CHANGES_TITLE, HARBOR);
 
@@ -971,7 +972,7 @@ try {
 
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await onSettings(page, 'language', 'es');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 11], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 16], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);

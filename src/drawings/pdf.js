@@ -23,8 +23,10 @@ export function openDocument(fonts) {
   doc.addFont('DMSans-Bold.ttf', 'DMSans', 'bold');
   doc.setFont('DMSans', 'normal');
   const drawable = fontDraws(doc.internal.getFont());
-  const missing = new Set();
-  let hidden = false;
+  const whole = { missing: new Set(), hidden: false };
+  // What each sheet left out, by its place in the set.
+  const bySheet = [];
+  let sheet = null;
   const measures = {
     measure(text, size, bold) {
       doc.setFont('DMSans', bold ? 'bold' : 'normal');
@@ -32,12 +34,23 @@ export function openDocument(fonts) {
     },
     clean(text) {
       const made = printable(text, drawable);
-      for (const ch of made.missing) missing.add(ch);
-      hidden ||= made.hidden;
+      for (const left of sheet ? [whole, sheet] : [whole]) {
+        for (const ch of made.missing) left.missing.add(ch);
+        left.hidden ||= made.hidden;
+      }
       return made.text;
     },
+    sheet(i) {
+      sheet = { missing: new Set(), hidden: false };
+      bySheet[i] = sheet;
+    },
   };
-  return { doc, measures, left: () => ({ missing: [...missing], hidden }) };
+  /** What the set left out; or, given a sheet's place, what that sheet alone did. */
+  const left = (only = null) => {
+    const from = only === null ? whole : (bySheet[only] ?? { missing: new Set(), hidden: false });
+    return { missing: [...from.missing], hidden: from.hidden };
+  };
+  return { doc, measures, left };
 }
 
 const hex = (color) => [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
@@ -102,14 +115,22 @@ function drawItem(doc, item) {
 /**
  * The set for one garage as a PDF: { bytes, sheets, needs, missing, hidden }.
  * `needs` is set, and there are no bytes, when the set cannot be made yet.
+ *
+ * `only`, a sheet's place in the set (U7b): the PDF holds that sheet alone,
+ * drawn as it is in the whole set -- its number "of" the whole set too --
+ * and says only what that sheet left out.
  */
-export function makeDrawings({ fonts, t, language, garage, lanes, takesAnyDriver, madeAt }) {
+export function makeDrawings({ fonts, t, language, garage, lanes, takesAnyDriver, madeAt, only = null }) {
   const { doc, measures, left } = openDocument(fonts);
   const set = buildSet({ t, language, garage, lanes, takesAnyDriver, madeAt, fonts: measures });
   if (set.needs) return { needs: set.needs, sheets: [], bytes: null, ...left() };
-  const name = [...visibleOnly(garage.name)];
-  const title = name.length > TITLE_LIMIT ? `${name.slice(0, TITLE_LIMIT - 1).join('').trimEnd()}…` : name.join('');
-  doc.setProperties({ title: `${t('drawings.doc')} - ${title}` });
-  drawSheets(doc, set.sheets);
-  return { bytes: new Uint8Array(doc.output('arraybuffer')), sheets: set.sheets, needs: null, ...left() };
+  const sheets = only === null ? set.sheets : [set.sheets[only]];
+  const cut = (text) => {
+    const chars = [...visibleOnly(text)];
+    return chars.length > TITLE_LIMIT ? `${chars.slice(0, TITLE_LIMIT - 1).join('').trimEnd()}…` : chars.join('');
+  };
+  const sheet = only === null ? [] : [sheets[0].title, ...(sheets[0].lane ? [cut(sheets[0].lane)] : [])];
+  doc.setProperties({ title: [t('drawings.doc'), ...sheet, cut(garage.name)].join(' - ') });
+  drawSheets(doc, sheets);
+  return { bytes: new Uint8Array(doc.output('arraybuffer')), sheets, needs: null, ...left(only) };
 }

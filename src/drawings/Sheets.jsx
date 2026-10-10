@@ -2,7 +2,8 @@ import { PAGE } from './layout.js';
 
 // The sheets for the printed page: the very items the PDF draws
 // (src/drawings/pdf.js), as one SVG a sheet, each on a page of its own
-// (styles.css, `@page drawings`).
+// (styles.css, `@page drawings`). One sheet viewed on the screen (U7b) is
+// drawn by the same <Sheet>, so it is drawn exactly as it prints.
 
 const ANCHOR = { start: 'start', middle: 'middle', end: 'end' };
 
@@ -33,15 +34,22 @@ function Item({ item }) {
   }
 }
 
+/** One sheet, as one SVG the size of the page. */
+export function Sheet({ sheet, number, className = 'drawing-sheet' }) {
+  return (
+    <svg className={className} viewBox={`0 0 ${PAGE.width} ${PAGE.height}`} role="img" aria-label={sheet.title} data-sheet={number}>
+      {sheet.items.map((item, j) => (
+        <Item key={j} item={item} />
+      ))}
+    </svg>
+  );
+}
+
 export default function Sheets({ sheets }) {
   return (
     <div className="drawings-print" data-sheets={sheets.length}>
       {sheets.map((sheet, i) => (
-        <svg key={i} className="drawing-sheet" viewBox={`0 0 ${PAGE.width} ${PAGE.height}`} role="img" aria-label={sheet.title} data-sheet={i + 1}>
-          {sheet.items.map((item, j) => (
-            <Item key={j} item={item} />
-          ))}
-        </svg>
+        <Sheet key={i} sheet={sheet} number={i + 1} />
       ))}
     </div>
   );

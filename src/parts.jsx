@@ -133,7 +133,8 @@ export function usePrint() {
 // A list read at least this long before it is printed says when it was read.
 export const AS_OF_MS = 60 * 1000;
 
-export function PrintHead({ t, garage, language, printedAt, readAt }) {
+/** `chosen`, for a list that can be sorted and chosen from (U7b): the choices in words, or "Everything". */
+export function PrintHead({ t, garage, language, printedAt, readAt, chosen }) {
   const printed = printedAt ?? new Date();
   const old = readAt && printed - readAt >= AS_OF_MS;
   return (
@@ -143,6 +144,7 @@ export function PrintHead({ t, garage, language, printedAt, readAt }) {
       </p>
       <p>{t('print.printed', { time: garageDateTime(printed, garage.timezone, language) })}</p>
       {old ? <p data-notice="as-of">{t('print.asOf', { time: garageDateTime(readAt, garage.timezone, language) })}</p> : null}
+      {chosen ? <p data-chosen>{chosen}</p> : null}
     </div>
   );
 }
@@ -177,21 +179,32 @@ export function usePaging(count) {
 /**
  * Previous, Next, and where you are ("21–40 of 312"), under a list longer
  * than one page. Never printed: the print holds every row.
+ *
+ * `total`, for a list some of whose lines were chosen (U7b): how many there
+ * are in all, said after the count shown ("21–40 of 57, of 312 in all"), and
+ * said even when what is shown fits on one page.
  */
-export function Pager({ t, language, paging, list }) {
-  if (paging.count <= PAGE_ROWS) return null;
+export function Pager({ t, language, paging, list, total }) {
+  const chosen = total !== undefined && total !== paging.count;
+  if (paging.count === 0 || (paging.count <= PAGE_ROWS && !chosen)) return null;
   const n = (x) => x.toLocaleString(language === 'es' ? 'es-US' : 'en-US');
+  const where = { from: n(paging.from + 1), to: n(paging.to), count: n(paging.count) };
+  const pages = paging.count > PAGE_ROWS;
   return (
     <nav className="pager no-print" aria-label={t('pager.label')} data-pager={list}>
-      <button type="button" className="link-button" data-action="previous" disabled={paging.at === 0} onClick={() => paging.go(paging.at - 1)}>
-        {t('pager.previous')}
-      </button>
-      <span className="pager-where" data-from={paging.from + 1} data-to={paging.to} data-count={paging.count}>
-        {t('pager.where', { from: n(paging.from + 1), to: n(paging.to), count: n(paging.count) })}
+      {pages ? (
+        <button type="button" className="link-button" data-action="previous" disabled={paging.at === 0} onClick={() => paging.go(paging.at - 1)}>
+          {t('pager.previous')}
+        </button>
+      ) : null}
+      <span className="pager-where" data-from={paging.from + 1} data-to={paging.to} data-count={paging.count} data-total={chosen ? total : undefined}>
+        {chosen ? t('pager.whereOf', { ...where, total: n(total) }) : t('pager.where', where)}
       </span>
-      <button type="button" className="link-button" data-action="next" disabled={paging.at === paging.pages - 1} onClick={() => paging.go(paging.at + 1)}>
-        {t('pager.next')}
-      </button>
+      {pages ? (
+        <button type="button" className="link-button" data-action="next" disabled={paging.at === paging.pages - 1} onClick={() => paging.go(paging.at + 1)}>
+          {t('pager.next')}
+        </button>
+      ) : null}
     </nav>
   );
 }
