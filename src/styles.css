@@ -231,11 +231,11 @@ ul {
   top: 0;
   z-index: 10;
 }
-.topbar-controls {
+/* The language and the look: on Settings and the sign-in screen only (U7a). */
+.choosers {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  margin-left: auto;
 }
 /* A chooser: its name, its description under it, then its choices. */
 .chooser {
@@ -286,22 +286,22 @@ ul {
 .segment {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: none;
   background: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 7px 13px;
+  padding: 5px 10px;
   border-radius: 999px;
   color: var(--text-secondary);
 }
 .segment .icon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
 }
 .segment:hover {
   color: var(--text-primary);
@@ -590,7 +590,8 @@ ul {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
+  padding: 5px 0;
+  font-size: 14px;
   border-top: 1px solid var(--border-1);
 }
 .lane-list > li:first-child {
@@ -642,9 +643,11 @@ ul {
 }
 .garage-choice {
   display: flex;
+  align-items: baseline;
+  gap: 14px;
   justify-content: space-between;
   width: 100%;
-  padding: 12px 14px;
+  padding: 8px 12px;
   background: var(--bg-page);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
@@ -656,6 +659,32 @@ ul {
 }
 .garage-choice-name {
   font-weight: 600;
+}
+/* U7a: Home's garages, each with its one line; the one shown below is marked. */
+.home-garages {
+  gap: 6px;
+}
+.home-garages .garage-line {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.garage-choice[aria-current='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.home-detail-title {
+  margin-top: 24px;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+}
+.home-detail .home-grid > .panel {
+  margin-top: 12px;
+}
+.settings .choosers {
+  flex-direction: column;
+  gap: 18px;
 }
 .list-head {
   display: flex;
@@ -684,24 +713,61 @@ ul {
   width: 100%;
   border-collapse: collapse;
   margin-top: 8px;
+  /* U7a: compact, so a list of a few hundred reads as a list. */
+  font-size: 14px;
+  line-height: 1.35;
 }
 .list th {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
   text-align: left;
-  padding: 8px 10px 8px 0;
+  padding: 6px 10px 6px 0;
   border-bottom: 1px solid var(--border-2);
   /* Names in one line across the top, whatever the length of the description under each. */
   vertical-align: top;
 }
+.list th .field-about {
+  font-size: 11px;
+}
 .list td {
-  padding: 10px 10px 10px 0;
+  padding: 4px 10px 4px 0;
   border-bottom: 1px solid var(--border-1);
   vertical-align: top;
+}
+/* A date and time on one line. */
+.list td[data-time] {
+  white-space: nowrap;
+}
+/* U7a: a row off this page of the list. Only the screen leaves it out: a print holds every row. */
+@media screen {
+  .off-page,
+  .print-only {
+    display: none !important;
+  }
+}
+.pager {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.pager .link-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+.pager-where {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.opens {
+  margin-top: 16px;
 }
 .device-name {
   font-weight: 600;
@@ -1038,6 +1104,22 @@ textarea {
   gap: 6px 18px;
 }
 
+/* A tick with its words beside it (a lane's price, a lane picked for a message):
+   as wide as its words, not the 28px of a tick alone in a list cell. Before U7a
+   the words were squeezed into that width, one word to a line, over the text below. */
+.board-prices .tick {
+  width: auto;
+  height: auto;
+  min-height: 28px;
+  gap: 8px;
+  justify-content: flex-start;
+  text-align: left;
+  color: var(--text-primary);
+}
+.board-prices .tick-box {
+  flex-shrink: 0;
+}
+
 .screen-preview {
   display: inline-block;
   margin-top: 6px;
@@ -1069,6 +1151,10 @@ textarea {
 .drawings-list {
   margin: 0;
   padding-left: 22px;
+}
+.drawings-about {
+  margin-top: 14px;
+  font-size: 14px;
 }
 .drawings-print {
   display: none;

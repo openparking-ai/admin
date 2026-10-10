@@ -43,6 +43,7 @@ import { DICTIONARIES } from '../src/i18n/index.js';
 import { startStub } from '../test/stub-platform.js';
 import { readBack, tableOf, garageClock } from './files/read-back.js';
 import { READERS, readSpreadsheets } from './files/spreadsheet-readers.js';
+import { chooseOnSettings } from './on-settings.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -297,7 +298,7 @@ try {
   check(await settles(page, () => document.querySelectorAll('[data-section="earlier"] [data-tax-list="earlier"]').length === 1), 'Taxes: the list before it stays on record, under "Before"');
   // Check 1, every refusal of the tax routes, both languages.
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const code of ['tax_set_invalid', 'tax_set_effective_from_taken', 'tax_set_not_storable', 'rate_engine_unavailable', 'garage_not_found']) {
       await refusalSaid(page, code, language, async () => {
         if (!(await page.$('[data-form="change-taxes"]'))) await page.click('[data-action="change-taxes"]');
@@ -309,7 +310,7 @@ try {
   await screenshot(page, 'taxes-spanish-day');
   // The list in force, two that start later with lines (the third charges no tax), and one before: four tables of three columns.
   await checkDescribed(page, 'Impuestos y cargos', 'es', 4 * 3);
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
   // Check 3: the only write this page sent.
   appendOnly(taxRequestsFrom, 4, 'the Taxes page');
   // The other states: no list said yet (Riverside), and a garage that charges no tax (all of Harbor's later lists aside).
@@ -338,28 +339,38 @@ try {
   await checkDescribed(page, 'Getting paid', 'en', 3);
   await screenshot(page, 'getting-paid-english-day');
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const code of ['connect_not_configured', 'stripe_refused', 'stripe_unreachable', 'no_stripe_account', 'stripe_account_ambiguous', 'garage_not_found']) {
       await refusalSaid(page, code, language, () => page.click('[data-action="check-again"]'), 'Getting paid, checking again');
     }
   }
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
   // A garage with no account yet: a country, then "Set up getting paid", which opens Stripe's page in a new tab.
   stub.setDrivers(RIVERSIDE.id, true);
   await chooseGarage(page, RIVERSIDE);
   await go(page, '#/getting-paid', 'page.paid.title');
   await appears(page, '[data-paid="no-account"]');
+  // U7a: the form is closed behind "Set up getting paid" until it is pressed.
+  check(!(await page.$('[data-field="country"]')) && (await page.textContent('[data-action="open-set-up-paid"]')) === EN['paid.setUp'], `Getting paid, no account: the form is closed behind "${EN['paid.setUp']}"`);
+  const openSetUp = async () => {
+    if (!(await page.$('[data-form="set-up-paid"]'))) await page.click('[data-action="open-set-up-paid"]');
+  };
+  await openSetUp();
   check((await page.inputValue('[data-field="country"]')) === 'US', 'Getting paid, no account: the country chooser starts on the United States for a garage in US dollars');
   await checkDescribed(page, 'Getting paid, no account', 'en', 1);
   await screenshot(page, 'getting-paid-no-account-english-day');
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const code of ['bad_country', 'stripe_unreachable']) {
-      await refusalSaid(page, code, language, () => page.click('[data-action="set-up-paid"]'), 'Getting paid, setting up');
+      await refusalSaid(page, code, language, async () => {
+        await openSetUp();
+        await page.click('[data-action="set-up-paid"]');
+      }, 'Getting paid, setting up');
       for (const p of context.pages().slice(1)) await p.close();
     }
   }
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
+  await openSetUp();
   const opened = context.waitForEvent('page', { timeout: 5000 }).catch(() => null);
   await page.click('[data-action="set-up-paid"]');
   const tab = await opened;
@@ -389,7 +400,7 @@ try {
   // Check 5: an account that cannot take cards gets no reader form.
   check(await go(page, '#/card-readers', 'page.readers.title'), 'Card readers is in the navigation');
   await appears(page, '[data-readers="first"]');
-  const noForm = !(await page.$('[data-form="reader-place"]')) && !(await page.$('[data-action="connect-reader"]')) && !(await page.$('[data-panel]'));
+  const noForm = !(await page.$('[data-form="reader-place"]')) && !(await page.$('[data-action="open-place"]')) && !(await page.$('[data-action="connect-reader"]')) && !(await page.$('[data-panel]'));
   check(noForm && (await page.textContent('[data-notice="readers-first"]')) === EN['readers.cannotYet'], `5 an account that cannot take cards: no reader form, and "${EN['readers.cannotYet']}"`);
   check((await page.getAttribute('[data-readers="first"] a', 'href')) === '#/getting-paid', 'Card readers: ...with the way to Getting paid');
   await screenshot(page, 'card-readers-cannot-yet-english-day');
@@ -397,7 +408,7 @@ try {
   stub.setDrivers(RIVERSIDE.id, false);
   await reload(page, '#/getting-paid', 'page.paid.title');
   check(await settles(page, (w) => document.querySelector('[data-paid="pass-only"]')?.textContent === w, EN['paid.passOnly']), `5 pass holders only, Getting paid: "${EN['paid.passOnly']}"`);
-  check(!(await page.$('[data-action="set-up-paid"]')) && !(await page.$('[data-action="check-again"]')) && !(await page.$('[data-field="country"]')), '5 pass holders only: no setting up getting paid');
+  check(!(await page.$('[data-action="open-set-up-paid"]')) && !(await page.$('[data-action="set-up-paid"]')) && !(await page.$('[data-action="check-again"]')) && !(await page.$('[data-field="country"]')), '5 pass holders only: no setting up getting paid');
   await go(page, '#/card-readers', 'page.readers.title');
   check(await settles(page, (w) => document.querySelector('[data-readers="pass-only"]')?.textContent === w, EN['readers.passOnly']), `5 pass holders only, Card readers: "${EN['readers.passOnly']}"`);
   check(!(await page.$('[data-list="ways-out"]')) && !(await page.$('[data-action="connect-reader"]')) && !(await page.$('[data-list="readers"]')), '5 pass holders only: no readers, no reader form');
@@ -417,7 +428,13 @@ try {
   await chooseGarage(page, HARBOR);
   stub.money(HARBOR.id).place = null;
   await go(page, '#/card-readers', 'page.readers.title');
-  await appears(page, '[data-form="reader-place"]');
+  // U7a: the address form is closed behind "Enter the address" until it is pressed.
+  const openPlace = async () => {
+    if (!(await page.$('[data-form="reader-place"]'))) await page.click('[data-action="open-place"]');
+    await appears(page, '[data-form="reader-place"]');
+  };
+  check(await settles(page, (w) => document.querySelector('[data-action="open-place"]')?.textContent === w, EN['readers.placeOpen']) && !(await page.$('[data-form="reader-place"]')), `Card readers, no address yet: the form is closed behind "${EN['readers.placeOpen']}"`);
+  await openPlace();
   check((await page.$$('[data-notice="place-first"]')).length === 2 && !(await page.$('[data-action="connect-reader"]')), 'Card readers, no address yet: each way out says to enter the address first, and no reader can be connected');
   await checkDescribed(page, 'Card readers, no address yet', 'en', 5 + 4 + 4);
   await screenshot(page, 'card-readers-address-english-day');
@@ -425,12 +442,16 @@ try {
   const missing = [EN['readers.needStreet'], EN['readers.needCity']].join(' ');
   check(await settles(page, (w) => document.querySelector('[data-notice="place-missing"]')?.textContent === w, missing), `Card readers: an address with no street or city is said: "${missing}"`);
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
+    await openPlace();
     await page.fill('[data-field="street"]', '1 Example Street');
     await page.fill('[data-field="city"]', 'Springfield');
     await refusalSaid(page, 'bad_location', language, () => page.click('[data-action="save-place"]'), 'Card readers, the address');
   }
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
+  await openPlace();
+  await page.fill('[data-field="street"]', '1 Example Street');
+  await page.fill('[data-field="city"]', 'Springfield');
   await page.fill('[data-field="state"]', 'IL');
   await page.fill('[data-field="zip"]', '62701');
   await page.click('[data-action="save-place"]');
@@ -496,7 +517,7 @@ try {
   check(JSON.stringify(history.map((r) => r.map(plain))) === JSON.stringify(historyWant.map((r) => r.map(plain))), `Card readers: every connection, current first, when connected and when ended, in the garage's time (${JSON.stringify(history)})`);
   const files = [];
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const what of ['excel', 'pdf']) {
       const download = page.waitForEvent('download', { timeout: 15000 });
       await page.click(`[data-list="readers"] [data-action="download-${what}"]`);
@@ -506,7 +527,7 @@ try {
       files.push({ language, what, path, name: file.suggestedFilename() });
     }
   }
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
   const back = readBack(files.map((f) => f.path));
   const apps = readSpreadsheets(files.map((f) => f.path));
   for (const f of files) {
@@ -568,7 +589,7 @@ try {
   await page.click('[data-action="connect-confirm"]');
   check(await settles(page, (id) => document.querySelector(`tr[data-lane="${id}"]`)?.dataset.reader === 'yes', southExit.id), 'Card readers: a second way out given a reader');
   for (const language of ['en', 'es']) {
-    if (language === 'es') await page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const code of ['bad_reader', 'lane_has_reader', 'reader_bound_elsewhere', 'no_terminal_location', 'card_payments_not_active', 'stripe_refused', 'stripe_unreachable', 'lane_not_found', 'connect_not_configured']) {
       await refusalSaid(page, code, language, async () => {
         if (!(await page.$('[data-panel="connect-reader"]'))) await page.click(`tr[data-lane="${northExit.id}"] [data-action="connect-reader"]`);
@@ -585,7 +606,7 @@ try {
     await page.click('[data-panel="disconnect-reader"] [data-action="close-panel"]');
   }
   await screenshot(page, 'card-readers-spanish-day');
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'language', 'en');
   await screenshot(page, 'card-readers-english-day');
 
   // ── By night, both languages ─────────────────────────────────────────
@@ -595,7 +616,7 @@ try {
   await night.page.click('button[type="submit"]');
   await night.page.click(`.garage-choice[data-garage="${HARBOR.id}"]`);
   for (const language of ['en', 'es']) {
-    if (language === 'es') await night.page.click('[data-control="language"] [data-value="es"]');
+    if (language === 'es') await chooseOnSettings(night.page, 'language', 'es');
     for (const [hash, key, name] of [['#/taxes', 'page.taxes.title', 'taxes'], ['#/getting-paid', 'page.paid.title', 'getting-paid'], ['#/card-readers', 'page.readers.title', 'card-readers']]) {
       const reached = await go(night.page, hash, key, language);
       await night.page.waitForTimeout(400);

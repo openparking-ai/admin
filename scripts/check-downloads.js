@@ -61,6 +61,7 @@ import { oddTextWalk } from './files/odd-text-browser.js';
 import { PAGES, hashFor } from '../src/pages.js';
 import { COLUMNS } from '../src/files/model.js';
 import { CASES, CASE_COUNTS, UNICODE } from './files/odd-text.js';
+import { chooseOnSettings } from './on-settings.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const keepAt = process.argv.indexOf('--keep');
@@ -309,9 +310,9 @@ try {
 
   // ── 1-4, 12: both lists, both formats, both languages, day and night ──────
   for (const language of ['en', 'es']) {
-    await page.click(`[data-control="language"] [data-value="${language}"]`);
+    await chooseOnSettings(page, 'language', language);
     for (const look of ['day', 'night']) {
-      await page.click(`[data-control="theme"] [data-value="${look}"]`);
+      await chooseOnSettings(page, 'theme', look);
       for (const list of ['inside', 'lanes', 'changes', 'refused', 'alerts']) {
         await goTo(page, list);
         const tag = `${list}-${language}-${look}`;
@@ -326,8 +327,8 @@ try {
       }
     }
   }
-  await page.click('[data-control="theme"] [data-value="day"]');
-  await page.click('[data-control="language"] [data-value="en"]');
+  await chooseOnSettings(page, 'theme', 'day');
+  await chooseOnSettings(page, 'language', 'en');
 
   // ── 6: a fresh read, for a file and for Print ─────────────────────────────
   await goTo(page, 'inside');
@@ -584,7 +585,8 @@ try {
   // 10
   if (nasty) {
     const refused = /[/\\:*?"<>|\p{Cc}\p{Cf}]/u;
-    check(nasty.every((n) => !refused.test(n) && /^Cars inside - \d{4}-\d\d-\d\d \d{4} - ABCDEFGH\.(xlsx|pdf)$/.test(n)), `10 a garage named A/B:C*D?"E<F>|G + a control character + H: ${nasty.map((n) => `"${n}"`).join(' and ')}`);
+    const named = new RegExp(`^${WORDS.en['page.inside.title']} - \\d{4}-\\d\\d-\\d\\d \\d{4} - ABCDEFGH\\.(xlsx|pdf)$`);
+    check(nasty.every((n) => !refused.test(n) && named.test(n)), `10 a garage named A/B:C*D?"E<F>|G + a control character + H: ${nasty.map((n) => `"${n}"`).join(' and ')}`);
   }
 
   // The class: one line per text x output, every case in it.

@@ -5,16 +5,17 @@ import { garageDateTime } from './time.js';
 import FieldName from './FieldName.jsx';
 import Icon from './Icon.jsx';
 
-/** Several garages: a plain list to pick from. */
-export function GaragePicker({ t, garages, onChoose }) {
+/** Several garages: a plain list to pick from, twenty at a time (U7a). */
+export function GaragePicker({ t, language, garages, onChoose }) {
+  const paging = usePaging(garages.length);
   return (
     <section className="panel">
       <h2 className="section-title">
         <FieldName t={t} name="garage.choose" />
       </h2>
       <ul className="garage-list">
-        {garages.map((g) => (
-          <li key={g.id}>
+        {garages.map((g, i) => (
+          <li key={g.id} className={paging.row(i)}>
             <button type="button" className="garage-choice" data-garage={g.id} onClick={() => onChoose(g.id)}>
               <span className="garage-choice-name">
                 <bdi>{g.name}</bdi>
@@ -24,6 +25,7 @@ export function GaragePicker({ t, garages, onChoose }) {
           </li>
         ))}
       </ul>
+      <Pager t={t} language={language} paging={paging} list="choose-garage" />
     </section>
   );
 }
@@ -142,6 +144,72 @@ export function PrintHead({ t, garage, language, printedAt, readAt }) {
       <p>{t('print.printed', { time: garageDateTime(printed, garage.timezone, language) })}</p>
       {old ? <p data-notice="as-of">{t('print.asOf', { time: garageDateTime(readAt, garage.timezone, language) })}</p> : null}
     </div>
+  );
+}
+
+// U7a: a list on screen shows this many rows at a time.
+export const PAGE_ROWS = 20;
+
+/**
+ * Which rows of a list of `count` are on screen: PAGE_ROWS at a time, from
+ * the first. A row off the page stays in the page with the class "off-page",
+ * which only the screen leaves out: a print holds the whole list, and every
+ * file is made from the list as read, never from what shows.
+ */
+export function usePaging(count) {
+  const [chosen, setChosen] = useState(0);
+  const pages = Math.max(1, Math.ceil(count / PAGE_ROWS));
+  const at = Math.min(chosen, pages - 1);
+  const from = at * PAGE_ROWS;
+  const to = Math.min(count, from + PAGE_ROWS);
+  return {
+    count,
+    at,
+    pages,
+    from,
+    to,
+    /** The class for row `i`: none on this page, "off-page" off it. */
+    row: (i) => (i >= from && i < to ? undefined : 'off-page'),
+    go: (n) => setChosen(Math.max(0, Math.min(pages - 1, n))),
+  };
+}
+
+/**
+ * Previous, Next, and where you are ("21–40 of 312"), under a list longer
+ * than one page. Never printed: the print holds every row.
+ */
+export function Pager({ t, language, paging, list }) {
+  if (paging.count <= PAGE_ROWS) return null;
+  const n = (x) => x.toLocaleString(language === 'es' ? 'es-US' : 'en-US');
+  return (
+    <nav className="pager no-print" aria-label={t('pager.label')} data-pager={list}>
+      <button type="button" className="link-button" data-action="previous" disabled={paging.at === 0} onClick={() => paging.go(paging.at - 1)}>
+        {t('pager.previous')}
+      </button>
+      <span className="pager-where" data-from={paging.from + 1} data-to={paging.to} data-count={paging.count}>
+        {t('pager.where', { from: n(paging.from + 1), to: n(paging.to), count: n(paging.count) })}
+      </span>
+      <button type="button" className="link-button" data-action="next" disabled={paging.at === paging.pages - 1} onClick={() => paging.go(paging.at + 1)}>
+        {t('pager.next')}
+      </button>
+    </nav>
+  );
+}
+
+/**
+ * A form kept closed behind its button until the button is pressed (U7a).
+ * `opener` is the key of the button's words; `children(close)` draws the
+ * open form, which calls `close` when it is done or cancelled.
+ */
+export function Opens({ t, opener, action, children }) {
+  const [open, setOpen] = useState(false);
+  if (open) return children(() => setOpen(false));
+  return (
+    <p className="opens no-print">
+      <button type="button" className="primary-button" data-action={action} onClick={() => setOpen(true)}>
+        {t(opener)}
+      </button>
+    </p>
   );
 }
 

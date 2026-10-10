@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { PrintHead, ProblemNote, Segmented, useGarageRead, useNow, usePrint } from './parts.jsx';
+import { Opens, Pager, PrintHead, ProblemNote, Segmented, useGarageRead, useNow, usePaging, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
 import { SAMPLE_KEYS, deviceWords, directionKey, openPieces, reasonsFor } from './lanes.js';
 import { garageTime } from './time.js';
@@ -24,6 +24,7 @@ export default function LanesPage({ t, language, client, garage }) {
   // One setup panel at a time: { kind, lane, device }.
   const [panel, setPanel] = useState(null);
   const reread = useCallback(() => lanes.refresh().catch(() => lanes.retry()), [lanes]);
+  const paging = usePaging(lanes.data?.lanes.length ?? 0);
 
   if (lanes.problem) return <ProblemNote t={t} kind={lanes.problem} onRetry={lanes.retry} />;
   if (!lanes.data) return <p className="quiet">{t('loading')}</p>;
@@ -34,7 +35,7 @@ export default function LanesPage({ t, language, client, garage }) {
         <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={lanes.readAt} />
         <div className="list-head">
           <h2 className="section-title">{t('page.lanes.title')}</h2>
-          <ListActions t={t} list="lanes" language={language} client={client} garage={garage} refresh={lanes.refresh} print={print} />
+          {lanes.data.lanes.length ? <ListActions t={t} list="lanes" language={language} client={client} garage={garage} refresh={lanes.refresh} print={print} /> : null}
         </div>
         {lanes.data.lanes.length === 0 ? (
           <p className="quiet">{t('lanes.none')}</p>
@@ -63,8 +64,8 @@ export default function LanesPage({ t, language, client, garage }) {
               </tr>
             </thead>
             <tbody>
-              {lanes.data.lanes.map((lane) => (
-                <tr key={lane.id} data-lane={lane.id}>
+              {lanes.data.lanes.map((lane, i) => (
+                <tr key={lane.id} data-lane={lane.id} className={paging.row(i)}>
                   <td>
                     <bdi>{lane.name}</bdi>
                   </td>
@@ -127,6 +128,7 @@ export default function LanesPage({ t, language, client, garage }) {
             </tbody>
           </table>
         )}
+        <Pager t={t} language={language} paging={paging} list="lanes" />
       </section>
 
       {panel ? (
@@ -142,7 +144,20 @@ export default function LanesPage({ t, language, client, garage }) {
         />
       ) : null}
 
-      <AddLane t={t} client={client} garage={garage} onAdded={() => reread()} />
+      <Opens t={t} opener="lanes.add" action="open-add-lane">
+        {(close) => (
+          <AddLane
+            t={t}
+            client={client}
+            garage={garage}
+            onAdded={() => {
+              close();
+              reread();
+            }}
+            onClose={close}
+          />
+        )}
+      </Opens>
 
       <BoardSection t={t} language={language} client={client} garage={garage} lanes={lanes.data.lanes} />
     </>
@@ -176,7 +191,7 @@ function useProblem() {
   return [problem, setProblem, fail];
 }
 
-function AddLane({ t, client, garage, onAdded }) {
+function AddLane({ t, client, garage, onAdded, onClose }) {
   const [name, setName] = useState('');
   const [direction, setDirection] = useState('entry');
   const [busy, setBusy] = useState(false);
@@ -196,7 +211,12 @@ function AddLane({ t, client, garage, onAdded }) {
   };
   return (
     <section className="panel no-print" data-form="add-lane">
-      <h2 className="section-title">{t('lanes.add')}</h2>
+      <div className="lane-panel-head">
+        <h2 className="section-title">{t('lanes.add')}</h2>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('lanes.panelCancel')}
+        </button>
+      </div>
       <form
         className="setup-form"
         onSubmit={(e) => {

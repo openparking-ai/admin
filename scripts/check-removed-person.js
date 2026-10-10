@@ -31,6 +31,7 @@ import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { startStub } from '../test/stub-platform.js';
 import { readBack } from './files/read-back.js';
+import { chooseOnSettings } from './on-settings.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIR = mkdtempSync(join(tmpdir(), 'admin-removed-'));
@@ -121,7 +122,7 @@ const fileText = (read) => (read.kind === 'pdf'
 console.log('Removing a person removes their name from every view of the change log:');
 for (const language of ['en', 'es']) {
   const words = DICTIONARIES[language];
-  await page.click(`[data-control="language"] [data-value="${language}"]`);
+  await chooseOnSettings(page, 'language', language);
   await page.evaluate(() => { window.location.hash = '#/alerts'; });
   await page.evaluate(() => { window.location.hash = '#/change-log'; });
   await page.waitForFunction((title) => document.querySelector('.page-title')?.textContent.includes(title), words['page.changes.title']);

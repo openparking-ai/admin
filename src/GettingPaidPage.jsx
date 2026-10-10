@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ProblemNote, useGarageRead } from './parts.jsx';
+import { Opens, ProblemNote, useGarageRead } from './parts.jsx';
 import { STALE } from './api.js';
 import { accountFacts, accountWords, detailsGiven, driversAnswer, takesCards } from './payments.js';
 import { countryChoices, firstCountry } from './countries.js';
@@ -110,8 +110,24 @@ export default function GettingPaidPage({ t, language, client, garage }) {
   return <Account t={t} language={language} client={client} garage={garage} account={account} carried={carried} onChecked={reread} />;
 }
 
-/** No account yet: the garage's country, then "Set up getting paid". */
+/**
+ * No account yet: "Set up getting paid" opens the form (U7a), which asks the
+ * garage's country, then makes the account and opens Stripe's page.
+ */
 function MakeAccount({ t, language, client, garage, onMade }) {
+  return (
+    <section className="panel" data-paid="no-account">
+      <p className="paid-state" data-state="none">
+        {t('paid.noAccount')}
+      </p>
+      <Opens t={t} opener="paid.setUp" action="open-set-up-paid">
+        {(close) => <AccountForm t={t} language={language} client={client} garage={garage} onMade={onMade} onClose={close} />}
+      </Opens>
+    </section>
+  );
+}
+
+function AccountForm({ t, language, client, garage, onMade, onClose }) {
   const [country, setCountry] = useState(firstCountry(garage));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -142,10 +158,13 @@ function MakeAccount({ t, language, client, garage, onMade }) {
   };
 
   return (
-    <section className="panel" data-paid="no-account">
-      <p className="paid-state" data-state="none">
-        {t('paid.noAccount')}
-      </p>
+    <div className="setup-form" data-form="set-up-paid">
+      <div className="lane-panel-head">
+        <h2 className="section-title">{t('paid.setUp')}</h2>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('paid.cancel')}
+        </button>
+      </div>
       <form
         className="setup-form"
         onSubmit={(e) => {
@@ -171,12 +190,12 @@ function MakeAccount({ t, language, client, garage, onMade }) {
         ) : null}
         <p className="quiet">{t('paid.setUpSays')}</p>
         <button type="submit" className="primary-button" data-action="set-up-paid" disabled={busy}>
-          {busy ? t('paid.opening') : t('paid.setUp')}
+          {busy ? t('paid.opening') : t('paid.setUpGo')}
         </button>
         {problem ? <ProblemNote t={t} kind={problem} /> : null}
         {link ? <StripeLink t={t} url={link} onUsed={onMade} /> : null}
       </form>
-    </section>
+    </div>
   );
 }
 

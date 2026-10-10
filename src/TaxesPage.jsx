@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ProblemNote, Segmented, useGarageRead, useNow } from './parts.jsx';
+import { Pager, ProblemNote, Segmented, useGarageRead, useNow, usePaging } from './parts.jsx';
 import { STALE } from './api.js';
 import { ROUNDINGS, arrange, garageInstant, linesOf, listToState, parsePercent, percentText, startOfDay, stateWords, taxState } from './taxes.js';
 import { garageDateTime, zoneSaid } from './time.js';
@@ -90,6 +90,7 @@ export default function TaxesPage({ t, language, client, garage }) {
 /** One list: when it starts (or started), and its lines in order -- or that it charges no tax. */
 function TaxList({ t, language, list, when, kind }) {
   const lines = linesOf(list);
+  const paging = usePaging(lines.length);
   return (
     <div className="tax-list" data-tax-list={kind} data-starts={list.effective_from}>
       <p className="tax-when">{when}</p>
@@ -111,8 +112,8 @@ function TaxList({ t, language, list, when, kind }) {
             </tr>
           </thead>
           <tbody>
-            {lines.map((line) => (
-              <tr key={line.id} data-line={line.id}>
+            {lines.map((line, i) => (
+              <tr key={line.id} data-line={line.id} className={paging.row(i)}>
                 <td>
                   <bdi>{line.label}</bdi>
                 </td>
@@ -123,6 +124,7 @@ function TaxList({ t, language, list, when, kind }) {
           </tbody>
         </table>
       )}
+      <Pager t={t} language={language} paging={paging} list={`taxes-${kind}`} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ const PATHS = {
   copy: ['M8 8h12v12H8z', 'M4 16V4h12'],
   drawings: ['M3 4h18v16H3z', 'M3 15h7v5', 'M14 8h4', 'M14 12h4', 'M6 7h5v5H6z'],
   bell: ['M6 16V11a6 6 0 0 1 12 0v5l2 2H4z', 'M10 20a2 2 0 0 0 4 0'],
+  settings: ['M4 6h9', 'M17 6h3', 'M15 4v4', 'M4 12h3', 'M11 12h9', 'M9 10v4', 'M4 18h11', 'M19 18h1', 'M17 16v4'],
 };
 
 export default function Icon({ name }) {

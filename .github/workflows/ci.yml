@@ -237,6 +237,9 @@ jobs:
       - name: Taxes and fees, Getting paid and Card readers -- no platform words on screen, percent and start, append-only, the reader's code kept nowhere, who sees what
         run: npm run check-money-pages
 
+      - name: The owner's screens tidied -- the choosers on Settings only, Garage View's name, lists of 312 paged and downloaded and printed whole, no Download or Print on an empty list, Confirm email, Home's garages
+        run: npm run check-tidy
+
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,
         # and every commit message. Plants its own controls -- a word in a

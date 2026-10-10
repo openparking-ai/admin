@@ -47,6 +47,7 @@ const PAGE_OF = {
   'TaxesPage.jsx': 'page.taxes.title',
   'GettingPaidPage.jsx': 'page.paid.title',
   'CardReadersPage.jsx': 'page.readers.title',
+  'SettingsPage.jsx': 'page.settings.title',
 };
 // Files drawn on more than one page: where on screen their fields are.
 const PLACE_OF = {
