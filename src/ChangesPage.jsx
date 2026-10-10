@@ -176,9 +176,7 @@ function RefusedList({ t, language, client, garage, pages: log, printedAt, print
         <p className="quiet">{t('refused.none')}</p>
       ) : (
         <>
-          <p className="quiet" data-count={attempts}>
-            {attempts === 1 ? t('refused.countOne') : t('refused.countMany', { attempts: attempts.toLocaleString(language === 'es' ? 'es-US' : 'en-US') })}
-          </p>
+          <RefusedCount t={t} language={language} attempts={attempts} lines={lines} choice={choice} />
           <Choices t={t} language={language} list="refused" all={all} choice={choice} onChoose={choose} />
           {lines.length === 0 ? (
             <p className="quiet" data-notice="none-chosen">
@@ -230,6 +228,29 @@ function RefusedList({ t, language, client, garage, pages: log, printedAt, print
       )}
       <Pager t={t} language={language} paging={paging} list="refused" total={all.length} />
     </section>
+  );
+}
+
+/**
+ * How many refused attempts there are. With some ticked (U7c), how many of
+ * them are shown: "24 of 120 refused attempts", each line counting its
+ * attempts as its Times column does. With none ticked, or only sorted, how
+ * many in all, as before.
+ */
+function RefusedCount({ t, language, attempts, lines, choice }) {
+  const n = (x) => x.toLocaleString(language === 'es' ? 'es-US' : 'en-US');
+  if (choice.kinds.length > 0 || choice.whys.length > 0) {
+    const shown = lines.reduce((sum, line) => sum + Number(line.attempts ?? 1), 0);
+    return (
+      <p className="quiet" data-count={attempts} data-shown={shown}>
+        {t(attempts === 1 ? 'refused.countChosenOne' : 'refused.countChosen', { shown: n(shown), attempts: n(attempts) })}
+      </p>
+    );
+  }
+  return (
+    <p className="quiet" data-count={attempts}>
+      {attempts === 1 ? t('refused.countOne') : t('refused.countMany', { attempts: n(attempts) })}
+    </p>
   );
 }
 

@@ -27,6 +27,8 @@ export const PROBLEM_KINDS = [
   'taxListRefused', 'taxStartTaken', 'taxNotKept', 'taxNotChecked', 'garageNotFound',
   'cardsNotSetUp', 'countryRefused', 'stripeRefused', 'stripeUnreachable', 'accountTwice', 'noAccount', 'cardsNotActive',
   'placeRefused', 'noPlace', 'readerRefused', 'laneHasReader', 'readerElsewhere', 'noReader',
+  // U7c: a garage added.
+  'garageRefused',
 ];
 
 /**
@@ -87,6 +89,13 @@ const NAMED = [
  * own words; the platform's text is never kept.
  */
 const TAX_BY_STATUS = { 400: 'taxListRefused', 404: 'garageNotFound' };
+
+/**
+ * U7c: adding a garage. The platform refuses one with no name, time zone or
+ * currency as a 400 with no code; these screens never send one, so this is
+ * the plain sentence for the rare case it gets this far.
+ */
+const GARAGE_BY_STATUS = { 400: 'garageRefused' };
 
 /**
  * Text for a lane's screen refused for a character the screen cannot show:
@@ -274,6 +283,18 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     /** Keep `language` on the signed-in owner's profile, so every computer they sign in on speaks it. */
     setLanguage: async (language) => object(await request('/auth/language', { method: 'PUT', body: { language } })),
     garages: async () => list(await request('/garages'), 'garages'),
+    /**
+     * Add a garage (U7c): its name, time zone and currency, and nothing else,
+     * so what the platform does with an unknown plate, its kind of space and
+     * whether it takes drivers without a pass stay its own (the last a Setup
+     * step). None of the three can be changed after. The answer is the new
+     * garage's row: its id is what these screens keep.
+     */
+    addGarage: async ({ name, timezone, currency }) => {
+      const garage = object(object(await request('/garages', { method: 'POST', body: { name, timezone, currency }, byStatus: GARAGE_BY_STATUS })).garage);
+      if (typeof garage.id !== 'string' || garage.id === '') throw new Problem('unexpected');
+      return garage;
+    },
     /**
      * The garage's lanes, and the platform's one setting for when a lane
      * computer counts as not heard from (`quiet_minutes`): read with them,

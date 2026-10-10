@@ -132,6 +132,25 @@ The build publishes no source maps.
 - **Who gets which alert** pages at 20 rows like every list (U7b), a row being
   one person under one alert; an alert running on to the next page is named
   again at its top. The print holds every row.
+- **Garages** (U7c): the account's garages, 20 a page, each with its name,
+  its time zone and money in words ("Eastern — New York", "US dollars"),
+  open or not yet, and how many of its Setup steps are done, as the Setup
+  page counts them; pressing one chooses it and opens its Setup. **Add a
+  garage**, closed until pressed, asks three things -- the name, the time
+  zone (the United States' first, then every other the browser can name,
+  each with its place) and the money it charges in (US dollars first) --
+  with nothing picked for the owner; then shows the three again with "These
+  can't be changed after the garage is created", and Create garage sends
+  `POST /garages` with exactly `name`, `timezone` and `currency`, once,
+  however quickly it is pressed twice. A blank field sends nothing and says
+  which; a refusal is one plain sentence and changes nothing. The new garage
+  is chosen and its Setup opened; what to do with an unknown plate and the
+  kind of space keep the platform's defaults, and drivers without a pass
+  stays a Setup step. An account with no garage is offered Add a garage on
+  every page. `src/GaragesPage.jsx`, `src/garages.js`.
+- **The refused attempts' count follows the choices** (U7c): with some
+  ticked it says how many of them are shown ("24 of 120 refused attempts");
+  with none, or only sorted, how many in all.
 - **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
   readers, Rates, Taxes and fees, Getting paid, Garage View, Alerts, Change log,
   Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
@@ -270,6 +289,7 @@ name it.
 | Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
 | The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
 | The change log sorted and chosen from (U7b), in a browser against the stand-in, both languages, with 312 changes and 57 refused attempts of many kinds: sorted each way, every line in that order across every page, none missed or repeated, and Excel, PDF and Print in that order; ticks only for kinds and reasons the log holds; two ticked, every line shown one of them, the count saying so, and Excel, PDF and Print holding exactly those and naming the choice; one drawing at a time, View, PDF and Print each that sheet only and the same as in the whole set; refused attempts one line a row at 1280 px, whole when pointed at, focused and printed; who gets which alert at most 20 rows a page, printed whole; Getting paid's Cancel at the right | `npm run build && npm run check-choices` |
+| The Garages page and adding a garage (U7c), in a browser against the stand-in, both languages: two garages listed with their name, time zone, money, open or not and Setup steps done as the platform counts them, each row opening its own Setup; 45 paged at 20 with none missed or repeated; nothing picked until the owner picks, US time zones and US dollars first; Create garage pressed twice sends exactly one `POST /garages` of exactly name, timezone and currency, and the new garage is chosen with its "Garage details" done; a blank field (or a name of spaces) sends nothing and says why; a refusal says so and chooses nothing; an account with no garage is offered Add a garage on every page; the refused attempts' count with a choice ("24 of 120"); Quick Find | `npm run build && npm run check-garages` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

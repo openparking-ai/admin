@@ -84,6 +84,14 @@ const STRUCTURE = {
       subject_removed: line.subject.removed,
     };
   },
+  // U7c: a garage just added: its checklist by structure, and which steps a new garage has done.
+  added: (data) => ({
+    keys: Object.keys(data).sort(),
+    setup_keys: Object.keys(data.setup).sort(),
+    open: data.setup.open,
+    takes_any_driver: data.setup.takes_any_driver,
+    steps: data.setup.steps.map((s) => ({ key: s.key, done: s.done, facts: Object.keys(s.facts).sort() })),
+  }),
   // U4b: the alerts are the contract itself, in order; a person's fields by name.
   alerts: (data) => ({
     keys: Object.keys(data).sort(),
@@ -104,24 +112,24 @@ const STRUCTURE = {
 };
 
 /**
- * Every answer, in order. `owner` is { email, password }; the first garage of
- * the owner must have lanes and stays inside. `origin` is the admin page's own.
+ * Calls to a platform, each answer written down in `state.out`: its status,
+ * the exact body of a refusal, the shape of any other body (or its structure,
+ * STRUCTURE), and the cookie's attributes. Each call carries the page's
+ * `origin` and the cookie the platform last set; `{garage}` in a path is
+ * `state.garage`.
  */
-export async function record(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
-  if (!hooks) throw new Error('record needs the hooks that move the platform around it (U6: Stripe Connect, the rate engine, Stripe)');
-  let cookie = '';
-  const out = [];
-  let garage = null;
+function recorder(base, origin) {
+  const state = { cookie: '', garage: null, out: [] };
   async function call(what, method, path, body, headers = {}, { quiet = false, structure = null, normalise = false } = {}) {
-    const res = await fetch(`${base}/api/v1${path.replace('{garage}', garage)}`, {
+    const res = await fetch(`${base}/api/v1${path.replace('{garage}', state.garage)}`, {
       method,
       headers: Object.fromEntries(
-        Object.entries({ origin, ...(cookie && { cookie }), ...(body !== undefined && { 'content-type': 'application/json' }), ...headers }).filter(([, v]) => v !== undefined),
+        Object.entries({ origin, ...(state.cookie && { cookie: state.cookie }), ...(body !== undefined && { 'content-type': 'application/json' }), ...headers }).filter(([, v]) => v !== undefined),
       ),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const setCookie = res.headers.get('set-cookie');
-    if (setCookie) cookie = setCookie.split(';')[0].endsWith('=') ? '' : setCookie.split(';')[0];
+    if (setCookie) state.cookie = setCookie.split(';')[0].endsWith('=') ? '' : setCookie.split(';')[0];
     const text = await res.text();
     const data = text === '' ? null : JSON.parse(text);
     const refusal = res.status >= 400;
@@ -130,10 +138,10 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
       return data;
     }
     if (structure && !refusal) {
-      out.push({ what, status: res.status, structure: STRUCTURE[structure](data) });
+      state.out.push({ what, status: res.status, structure: STRUCTURE[structure](data) });
       return data;
     }
-    out.push({
+    state.out.push({
       what,
       status: res.status,
       ...(refusal ? { body: normalise ? normalised(data) : data } : { shape: data === null ? 'empty' : shapeOf(data) }),
@@ -141,6 +149,16 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
     });
     return data;
   }
+  return { state, call };
+}
+
+/**
+ * Every answer, in order. `owner` is { email, password }; the first garage of
+ * the owner must have lanes and stays inside. `origin` is the admin page's own.
+ */
+export async function record(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
+  if (!hooks) throw new Error('record needs the hooks that move the platform around it (U6: Stripe Connect, the rate engine, Stripe)');
+  const { state, call } = recorder(base, origin);
   await call('who is signed in, before signing in', 'GET', '/auth/me');
   await call('a read, before signing in', 'GET', '/garages');
   await call('language, before signing in', 'PUT', '/auth/language', { language: 'es' });
@@ -155,25 +173,48 @@ export async function record(base, { origin, owner, elsewhere = 'http://elsewher
   await call('language, Spanish', 'PUT', '/auth/language', { language: 'es' });
   await call('who is signed in, after choosing Spanish', 'GET', '/auth/me');
   await call('language, back to English', 'PUT', '/auth/language', { language: 'en' });
-  garage = (await call('garages', 'GET', '/garages')).garages[0].id;
+  state.garage = (await call('garages', 'GET', '/garages')).garages[0].id;
   await call('lanes', 'GET', '/garages/{garage}/lanes');
   await call('cars inside', 'GET', '/garages/{garage}/sessions/open');
   await call('lanes, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/lanes`);
   await call('cars inside, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/sessions/open`);
-  await setupCalls(call, (g) => (garage = g ?? garage), garage);
-  await alertsCalls(call, garage);
-  await boardCalls(call, garage);
-  await moneyCalls(call, garage, hooks);
+  await setupCalls(call, (g) => (state.garage = g ?? state.garage), state.garage);
+  await alertsCalls(call, state.garage);
+  await boardCalls(call, state.garage);
+  await moneyCalls(call, state.garage, hooks);
   await call('sign-out, from a page at another address', 'POST', '/auth/sign-out', undefined, { origin: elsewhere });
-  const kept = cookie;
+  const kept = state.cookie;
   await call('sign-out', 'POST', '/auth/sign-out');
-  cookie = kept;
+  state.cookie = kept;
   await call('who is signed in, with the cookie from before the sign-out', 'GET', '/auth/me');
-  cookie = kept;
+  state.cookie = kept;
   await call('a read, with the cookie from before the sign-out', 'GET', '/garages');
-  cookie = kept;
+  state.cookie = kept;
   await call('language, with the cookie from before the sign-out', 'PUT', '/auth/language', { language: 'es' });
-  return out;
+  return state.out;
+}
+
+/**
+ * U7c: a garage added, as the Garages page adds one -- its name, time zone
+ * and currency, nothing else -- with the refusals it can meet, then the
+ * account's garages, the new garage's checklist, its change log and the
+ * refused attempts. Recorded apart from `record`, after it: a garage added
+ * stays on the account. Every name here is invented.
+ */
+export async function recordAddGarage(base, { origin, owner, elsewhere = 'http://elsewhere.example' }) {
+  const { state, call } = recorder(base, origin);
+  const added = { name: 'Recorded Garage', timezone: 'America/Denver', currency: 'USD' };
+  await call('sign-in, to add a garage', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  await call('a garage, added from a page at another address', 'POST', '/garages', added, { origin: elsewhere });
+  await call('a garage, added with no time zone', 'POST', '/garages', { name: added.name, currency: added.currency });
+  await call('a garage, added with no name', 'POST', '/garages', { ...added, name: '' });
+  await call('a garage, added with its money in small letters', 'POST', '/garages', { ...added, currency: 'usd' });
+  state.garage = (await call('a garage, added', 'POST', '/garages', added)).garage.id;
+  await call('garages, after one was added', 'GET', '/garages');
+  await call('setup, of the garage added', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'added' });
+  await call('changes, of the garage added', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  await call('refused attempts, after a garage was refused', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
+  return state.out;
 }
 
 /**

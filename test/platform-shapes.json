@@ -4659,6 +4659,356 @@
       }
     }
   ],
+  "add_garage_recorded_from": "openparking-ai/platform 31277d9 (main), 2026-10-10, U7c, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. The 158 answers above are unchanged.",
+  "add_garage_answers": [
+    {
+      "what": "a garage, added from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "a garage, added with no time zone",
+      "status": 400,
+      "body": {
+        "error": "name, timezone and currency are required"
+      }
+    },
+    {
+      "what": "a garage, added with no name",
+      "status": 400,
+      "body": {
+        "error": "name, timezone and currency are required"
+      }
+    },
+    {
+      "what": "a garage, added with its money in small letters",
+      "status": 500,
+      "body": {
+        "error": "internal error"
+      }
+    },
+    {
+      "what": "a garage, added",
+      "status": 201,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "null"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "garages, after one was added",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garages": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "currency": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "live": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "timezone": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "setup, of the garage added",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "setup"
+        ],
+        "setup_keys": [
+          "garage_id",
+          "open",
+          "steps",
+          "takes_any_driver"
+        ],
+        "open": false,
+        "takes_any_driver": null,
+        "steps": [
+          {
+            "key": "garage_details",
+            "done": true,
+            "facts": [
+              "currency",
+              "name",
+              "timezone"
+            ]
+          },
+          {
+            "key": "drivers",
+            "done": false,
+            "facts": [
+              "transient_available"
+            ]
+          },
+          {
+            "key": "lanes",
+            "done": false,
+            "facts": [
+              "closed_lanes",
+              "entry_lanes",
+              "exit_lanes"
+            ]
+          },
+          {
+            "key": "lane_computers",
+            "done": false,
+            "facts": [
+              "lanes",
+              "not_working",
+              "quiet_minutes",
+              "working"
+            ]
+          },
+          {
+            "key": "rates",
+            "done": false,
+            "facts": [
+              "earliest",
+              "in_force",
+              "stored"
+            ]
+          },
+          {
+            "key": "taxes",
+            "done": false,
+            "facts": [
+              "earliest",
+              "in_force",
+              "rules_in_force",
+              "stated"
+            ]
+          },
+          {
+            "key": "alerts",
+            "done": false,
+            "facts": [
+              "alerts",
+              "nobody_told",
+              "people"
+            ]
+          },
+          {
+            "key": "open",
+            "done": false,
+            "facts": [
+              "not_done",
+              "open",
+              "opened_at",
+              "required_missing"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "what": "changes, of the garage added",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "garage.create",
+          "outcome": "done",
+          "before": null,
+          "after": {
+            "name": "Recorded Garage",
+            "currency": "USD",
+            "timezone": "America/Denver",
+            "space_class": "standard",
+            "default_action": "allow",
+            "transient_available": null
+          }
+        },
+        "subject_name": "string",
+        "subject_removed": false
+      }
+    },
+    {
+      "what": "refused attempts, after a garage was refused",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "next",
+          "refused"
+        ],
+        "count": [
+          "attempts",
+          "lines"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "garage.create",
+          "outcome": "refused",
+          "refusal": "bad_request",
+          "before": null,
+          "after": null
+        }
+      }
+    }
+  ],
   "sign_in_answers": {
     "too many tries from here (SIGN_IN_ATTEMPTS_PER_ADDRESS=1)": {
       "status": 429,

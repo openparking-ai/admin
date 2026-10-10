@@ -1391,3 +1391,36 @@ textarea {
     break-after: auto;
   }
 }
+/* U7c: the Garages page. A row is pressed as a whole; its name is the button for the keyboard. */
+.list.garages tbody tr {
+  cursor: pointer;
+}
+.list.garages tbody tr:hover,
+.list.garages tbody tr[aria-current='true'] {
+  background: var(--accent-soft);
+}
+.list.garages td:not(:first-child) {
+  white-space: nowrap;
+}
+.garage-open {
+  font-weight: 600;
+  text-align: left;
+  white-space: normal;
+}
+/* U7c: an account with no garage yet, on every page. */
+.no-garages {
+  margin-top: 20px;
+}
+/* U7c: Add a garage's check step: the three answers, then what cannot be changed. */
+.garage-answers {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+.garage-answers dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+.garage-check .warning {
+  margin-bottom: 14px;
+}
