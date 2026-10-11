@@ -56,7 +56,7 @@ const BUILD = [['npx', 'vite', 'build', '--logLevel', 'error']];
 const CONTROLS = [
   {
     check: '1 no tech language',
-    plant: { file: 'src/i18n/es.js', anchor: "'Lo que usted cobra:", with: "'Lo que usted cobra por token:" },
+    plant: { file: 'src/i18n/es.js', anchor: "'Lo que paga un conductor por estacionar aquí:", with: "'Lo que paga un conductor por token:" },
     run: ['node', 'scripts/check-plain-words.js'],
     names: ['es: page.rates.purpose: "token"'],
   },
@@ -1453,6 +1453,37 @@ const CONTROLS = [
     run: ['node', '--test', 'test/choose.test.js'],
     names: ['lane.reopen: no kind'],
   },
+  // ── U7g: the Rates form against what the platform stored and the engine charged (test/rates.test.js) ──
+  {
+    check: 'U7g-4 a wrong field in the document',
+    plant: { file: 'src/rates.js', anchor: "max_minor: parseMoney(form.dayMax.price, currency).minor, day_boundary: form.dayMax.kind });", with: "max_minor: parseMoney(form.dayMax.price, currency).minor * 10, day_boundary: form.dayMax.kind });" },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['form a (hourly and the most per day) builds a different document from the one the platform stored'],
+  },
+  {
+    check: 'U7g-4 the order of two discounts lost',
+    plant: { file: 'src/rates.js', anchor: '    adjust_order: adjustIds.length ? adjustIds : null,', with: '    adjust_order: adjustIds.length ? [...adjustIds].reverse() : null,' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['form e (a 10% discount, then a 2.00 discount) builds a different document'],
+  },
+  {
+    check: "U7g-4 a finding shown in the engine's words",
+    plant: { file: 'src/rates.js', anchor: "  return [t(findingKey(finding.code)), about, car].filter(Boolean).join(' ');", with: "  return [finding.text ?? t(findingKey(finding.code)), about, car].filter(Boolean).join(' ');" },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ["the engine's own sentence reached the screen"],
+  },
+  {
+    check: 'U7g-5 a finding code with no sentence of its own',
+    plant: { file: 'src/i18n/en.js', anchor: '  "rates.finding.CONFLICT_NEGATIVE_TOTAL": "These rates would charge less than nothing.",\n', with: '' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['en: CONFLICT_NEGATIVE_TOTAL unworded'],
+  },
+  {
+    check: "U7g-11 a special's leave-by case dropped from the price table",
+    plant: { file: 'src/rates.js', anchor: "      add(from, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name });\n", with: '' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['no "specialLeftLate" stay'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -2542,6 +2573,38 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: INVITES,
     names: ['FAIL 13 a phone, 360 px (en)', '"whole":false', 'FAIL 13 a phone, 360 px (es)'],
+  },
+  // ── U7g: the Rates page and the Open button, in a browser (scripts/check-rates.js) ──
+  {
+    check: 'U7g-6 the Open button pressable with a step missing',
+    plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={notDone.length > 0} aria-disabled={notDone.length > 0}', with: 'disabled={false} aria-disabled={false}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 6 steps missing (drivers, lanes, lane_computers, rates, taxes): Open cannot be pressed'],
+  },
+  {
+    check: 'U7g-12 the tick ignored',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const canConfirm = current && ticked && !saving', with: '  const canConfirm = current && !saving' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 12 priced but not ticked: Confirm cannot be pressed'],
+  },
+  {
+    check: 'U7g-12 the stale table accepted',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = table.priced !== null && table.priced.key === draftKey(form, shown, table.added);', with: '  const current = table.priced !== null;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 12 the stale table: Confirm cannot be pressed'],
+  },
+  {
+    check: "U7g-5 a finding shown in the engine's words, in a browser",
+    plant: [
+      { file: 'src/api.js', anchor: '          code: f.code,\n', with: '          code: f.code,\n          text: f.text,\n' },
+      { file: 'src/rates.js', anchor: "  return [t(findingKey(finding.code)), about, car].filter(Boolean).join(' ');", with: "  return [finding.text ?? t(findingKey(finding.code)), about, car].filter(Boolean).join(' ');" },
+    ],
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 5 each finding in a plain sentence'],
   },
 ];
 

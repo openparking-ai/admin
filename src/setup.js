@@ -18,12 +18,13 @@ export const WHERE = {
   drivers: { here: true },
   lanes: { page: 'lanes', drawings: true },
   lane_computers: { page: 'lanes' },
-  rates: { notYet: true },
+  rates: { page: 'rates' },
   taxes: { page: 'taxes' },
   getting_paid: { page: 'paid' },
   card_readers: { page: 'readers' },
   alerts: { page: 'alerts' },
-  open: { notYet: true },
+  // U7g: the Open button, on this page.
+  open: { here: true },
 };
 
 /** The lanes a fact lists, by name, joined as a sentence would join them. */
@@ -98,8 +99,10 @@ export function factLines(t, step, garage, language, now = new Date()) {
     }
     case 'open':
       if (f.open) return [{ text: f.opened_at ? t('setup.fact.openSince', { time: at(f.opened_at) }) : t('setup.fact.open') }];
-      return (f.required_missing ?? []).length
-        ? [{ text: t('setup.fact.needs'), names: new Intl.ListFormat(language === 'es' ? 'es' : 'en', { style: 'long', type: 'conjunction' }).format(f.required_missing.map((k) => t(`setup.step.${k}`))) }]
+      // U7g: what opening waits for is every step above but alerts -- the
+      // platform's `not_done`, the same list its Open refuses on.
+      return (f.not_done ?? []).length
+        ? [{ text: t('setup.fact.needs'), names: new Intl.ListFormat(language === 'es' ? 'es' : 'en', { style: 'long', type: 'conjunction' }).format(f.not_done.map((k) => t(`setup.step.${k}`))) }]
         : [{ text: t('setup.fact.canOpen') }];
     default:
       return [];

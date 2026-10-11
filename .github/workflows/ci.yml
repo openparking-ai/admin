@@ -237,6 +237,9 @@ jobs:
       - name: Taxes and fees, Getting paid and Card readers -- no platform words on screen, percent and start, append-only, the reader's code kept nowhere, who sees what
         run: npm run check-money-pages
 
+      - name: Rates and the Open button -- the form sends the document it builds, the engine's prices row for row (recorded), findings in plain words, saved only once ticked and confirmed, a stale table refused, downloads and print, Open only with nothing missing
+        run: npm run check-rates
+
       - name: The owner's screens tidied -- the choosers on Settings only, Garage View's name, lists of 312 paged and downloaded and printed whole, no Download or Print on an empty list, Confirm email, Home's garages
         run: npm run check-tidy
 

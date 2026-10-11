@@ -553,7 +553,7 @@ try {
     await allRead(page, EN.loading);
     const said = await bodyText(page);
     check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
-    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'banned', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
+    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'banned', 'changes', 'alerts', 'drawings', 'rates', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
@@ -580,7 +580,8 @@ try {
   await stepsAgree(page, 'as worked out');
   const setupText = await bodyText(page);
   check(setupText.includes(EN['setup.isOpen']), `Setup: an open garage says so at the top: "${EN['setup.isOpen']}"`);
-  check(setupText.includes(EN['setup.notFromHere']) && setupText.includes(EN['setup.goTo'].replace('{page}', LANES_TITLE)), 'Setup: where each step is done, or that it cannot be set from here yet');
+  // U7g: every step is now done somewhere: rates on the Rates page, opening on this one.
+  check(!setupText.includes(EN['setup.notFromHere']) && setupText.includes(EN['setup.goTo'].replace('{page}', LANES_TITLE)) && setupText.includes(EN['setup.goTo'].replace('{page}', EN['page.rates.title'])), 'Setup: where each step is done, rates on the Rates page');
   check(setupText.includes('Service Lane') && setupText.includes(EN['setup.fact.noComputer']), 'Setup: the facts in plain words, naming the lane with no computer');
   check(rawIn(setupText).length === 0, `Setup: nothing raw on screen${rawIn(setupText).length ? `: ${rawIn(setupText).join(', ')}` : ''}`);
   // The ten steps; the drivers question is closed behind its button (U7a).

@@ -1,0 +1,144 @@
+// The Rates form, filled in six ways (U7g check 4), each with one stay and
+// what that stay costs by the form's own sentences -- worked out here by
+// hand, before tax, and checked against what the rate engine charged when
+// test/platform-shapes.json was recorded from the platform.
+//
+// Every one starts "from the start of" a Monday in 2030, a week apart, in
+// the garage's time (America/New_York), so each is the plan in force for its
+// own week and no two start at one moment. Used by the recording
+// (test/platform-shapes.js), the form's tests (test/rates.test.js) and the
+// browser check (scripts/check-rates.js).
+
+import { blankForm, blankRate, blankSpecial } from '../src/rates.js';
+
+export const ZONE = 'America/New_York';
+export const RECORDED_GARAGE = { name: 'Recorded rates garage', timezone: ZONE, currency: 'USD' };
+
+const rate = (firstMinutes, firstPrice, nextMinutes, nextPrice) => ({ ...blankRate(), firstMinutes, firstPrice, nextMinutes, nextPrice, rounding: 'ceil' });
+const hourly = () => rate('60', '8.00', '60', '4.00');
+
+function form(day, change) {
+  const f = { ...blankForm(), time: hourly(), starts: 'day', day };
+  change(f);
+  return f;
+}
+
+function special(preset, fields) {
+  return { ...blankSpecial(preset), ...fields };
+}
+
+/**
+ * The six, as the brief names them. `stay` is in the garage's time; `fee` is
+ * what the form's sentences say it costs, before tax.
+ */
+export const FORMS = [
+  {
+    id: 'a',
+    what: 'hourly and the most per day',
+    form: form('2030-01-07', (f) => {
+      f.dayMax = { on: true, price: '30.00', kind: 'calendar_day' };
+    }),
+    // Ten hours: 8.00 + 9 x 4.00 = 44.00, and at most 30.00 a day.
+    stay: { entry: '2030-01-08T08:00', exit: '2030-01-08T18:00' },
+    fee: 3000,
+  },
+  {
+    id: 'b',
+    what: 'an early bird on weekdays',
+    form: form('2030-01-14', (f) => {
+      f.specials = [special('weekdays', { name: 'Early bird', enterFrom: '06:00', enterBy: '09:00', leaveBy: '18:00', nextDay: false, charge: 'flat', flat: '15.00' })];
+    }),
+    // In at 7:30 on a Tuesday, out at 5:00 PM: the early bird, 15.00 (the hourly rate would be 8.00 + 9 x 4.00).
+    stay: { entry: '2030-01-15T07:30', exit: '2030-01-15T17:00' },
+    fee: 1500,
+  },
+  {
+    id: 'c',
+    what: 'a weekend flat price, leaving by the next day',
+    form: form('2030-01-21', (f) => {
+      f.specials = [special('weekends', { name: 'Weekend', enterFrom: '00:00', enterBy: '23:59', leaveBy: '12:00', nextDay: true, charge: 'flat', flat: '20.00' })];
+    }),
+    // In Saturday 10:00, out Sunday 11:00: the weekend price, 20.00.
+    stay: { entry: '2030-01-26T10:00', exit: '2030-01-27T11:00' },
+    fee: 2000,
+  },
+  {
+    id: 'd',
+    what: 'an event date at a different time-based rate',
+    form: form('2030-01-28', (f) => {
+      f.specials = [special('dates', { name: 'Game day', dates: ['2030-02-02'], enterFrom: '00:00', enterBy: '23:59', leaveBy: '23:59', nextDay: false, charge: 'rate', rate: rate('60', '15.00', '60', '5.00') })];
+    }),
+    // Three and a half hours on the game day: 15.00 + 3 x 5.00 = 30.00.
+    stay: { entry: '2030-02-02T18:00', exit: '2030-02-02T21:30' },
+    fee: 3000,
+  },
+  {
+    id: 'e',
+    what: 'a 10% discount, then a 2.00 discount',
+    form: form('2030-02-04', (f) => {
+      const everyDay = { enterFrom: '00:00', enterBy: '23:59', leaveBy: '23:59', nextDay: true, charge: 'adjust' };
+      f.specials = [
+        special('everyDay', { ...everyDay, name: 'Ten percent off', adjust: { direction: 'discount', kind: 'percent', value: '10', rounding: 'down' } }),
+        special('everyDay', { ...everyDay, name: 'Two off', adjust: { direction: 'discount', kind: 'fixed', value: '2.00', rounding: 'down' } }),
+      ];
+    }),
+    // Three hours: 8.00 + 2 x 4.00 = 16.00; 10% off is 14.40; then 2.00 off is 12.40.
+    // (The other order: 16.00 - 2.00 = 14.00, then 10% off = 12.60.)
+    stay: { entry: '2030-02-05T10:00', exit: '2030-02-05T13:00' },
+    fee: 1240,
+  },
+  {
+    id: 'f',
+    what: 'a free grace period of 10 minutes',
+    form: form('2030-02-11', (f) => {
+      f.grace = { on: true, minutes: '10' };
+    }),
+    // Out within ten minutes: free.
+    stay: { entry: '2030-02-12T10:00', exit: '2030-02-12T10:10' },
+    fee: 0,
+  },
+];
+
+/**
+ * The form the browser check fills in and prices a table for: a little of
+ * everything, so the table holds every kind of example stay.
+ */
+export const TABLE_FORM = form('2030-03-04', (f) => {
+  f.dayMax = { on: true, price: '30.00', kind: 'calendar_day' };
+  f.grace = { on: true, minutes: '10' };
+  f.specials = [
+    special('weekdays', { name: 'Early bird', enterFrom: '06:00', enterBy: '09:00', leaveBy: '18:00', nextDay: false, charge: 'flat', flat: '15.00' }),
+    special('weekends', { name: 'Weekend', enterFrom: '00:00', enterBy: '23:59', leaveBy: '12:00', nextDay: true, charge: 'flat', flat: '20.00' }),
+  ];
+});
+
+/** A plan with a gap: the time-based rate stops at 24 hours and nothing caps a longer stay. */
+export const GAP_DAY = '2030-03-11';
+
+/**
+ * Every document the recording sends, as the Rates form builds it (the page's
+ * own buildPlan), named so a run is the same as the last: the six forms with
+ * their stays, the price table's form with its example stays and one stay of
+ * the owner's, rates with a gap, and three the store refuses.
+ */
+export function recordedPlans({ buildPlan, startOfDay, tableStays }) {
+  const garage = { ...RECORDED_GARAGE };
+  const make = (form, name, start = startOfDay(form.day, ZONE)) => buildPlan(form, { garage, spaceClass: 'standard', start, name });
+  const forms = FORMS.map((f) => ({ id: f.id, plan: make(f.form, `recorded-${f.id}`), stay: f.stay }));
+  const tablePlan = make(TABLE_FORM, 'recorded-table');
+  const gap = make({ ...FORMS[0].form, dayMax: { on: false, price: '', kind: '' }, day: GAP_DAY }, 'recorded-gap');
+  gap.rules = gap.rules.map((r) => (r.id === 'time' ? { ...r, max_duration_minutes: 1440 } : r));
+  return {
+    garage,
+    forms,
+    table: { plan: tablePlan, stays: tableStays(tablePlan, ZONE).map(({ entry, exit }) => ({ entry, exit })), added: { entry: '2030-03-06T07:00', exit: '2030-03-06T19:00' } },
+    gap,
+    gapStays: [
+      { entry: '2030-03-12T10:00', exit: '2030-03-12T12:00' },
+      { entry: '2030-03-12T10:00', exit: '2030-03-13T10:01' },
+    ],
+    past: make(FORMS[0].form, 'recorded-past', startOfDay('2020-01-06', ZONE)),
+    sameStart: make(FORMS[1].form, 'recorded-same-start', forms[0].plan.effective_from),
+    sameName: make(FORMS[0].form, 'recorded-a', startOfDay('2030-05-06', ZONE)),
+  };
+}

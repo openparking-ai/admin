@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, signInAnswer } from './platform-shapes.js';
+import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordRates, signInAnswer } from './platform-shapes.js';
+import { recordedPlans } from './rates-forms.js';
+import { buildPlan, tableStays } from '../src/rates.js';
+import { startOfDay } from '../src/taxes.js';
 import { startStub } from './stub-platform.js';
 
 // The stand-in the checks run against answers as the real platform does: the
@@ -111,6 +114,20 @@ test('the stand-in can give the sign-in answers only a platform set up for them 
       stub.failSignIn(kind);
       assert.deepEqual(await signInAnswer(stub.url, { origin: ORIGIN, owner: stub.data.a }), real, what);
     }
+  } finally {
+    await stub.close();
+  }
+});
+
+// U7g: rates, trying a stay, saving with the confirmation, and the Open button,
+// recorded from the platform with the rate engine at its pin apart from the answers above.
+test('the stand-in answers the rates, the try and the Open button as the platform does (U7g)', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const answers = await recordRates(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans({ buildPlan, startOfDay, tableStays }) });
+    assert.deepEqual(answers.map((a) => a.what), recorded.rates_answers.map((a) => a.what));
+    for (const [i, real] of recorded.rates_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

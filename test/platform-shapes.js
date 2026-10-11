@@ -69,6 +69,13 @@ const NOT_THEIRS = '00000000-0000-4000-8000-000000000009';
  * stand-in's garages.
  */
 const STRUCTURE = {
+  // U7g: what the try priced, whole -- money, lines and instants, no id and
+  // nothing of a person -- because the price IS what is recorded: the check
+  // that the form says what the engine charges reads it.
+  priced: (data) => data,
+  // U7g: the rates read: the documents whole (the page's own, made from the
+  // forms in test/rates-forms.js), and the kind of space.
+  plans: (data) => ({ keys: Object.keys(data).sort(), space_class: data.space_class, plans: data.rate_plans.map((r) => ({ keys: Object.keys(r).sort(), plan: r.plan })) }),
   setup: (data) => ({
     keys: Object.keys(data).sort(),
     setup_keys: Object.keys(data.setup).sort(),
@@ -143,6 +150,12 @@ function recorder(base, origin) {
     const text = await res.text();
     const data = text === '' ? null : JSON.parse(text);
     const refusal = res.status >= 400;
+    if (quiet === 'limit') {
+      // U7g: asked until "a minute"; only that refusal is written down.
+      if (res.status !== 429) return data;
+      state.out.push({ what, status: res.status, body: data });
+      return 'refused';
+    }
     if (quiet) {
       if (refusal) throw new Error(`${what}: ${res.status} ${text}`);
       return data;
@@ -274,6 +287,57 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
   await call('banned cars, after the removal', 'GET', '/garages/{garage}/banned');
   await call('tailgaters not banned, this garage only', 'PATCH', '/garages/{garage}', { ban_tailgaters: false, ban_reach: 'garage' });
   await call('changes, after the banned cars', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  return state.out;
+}
+
+/**
+ * U7g: rates, trying a stay, saving with the owner's confirmation, and the
+ * Open button -- on a garage made for it, so no rate stored before is in the
+ * way. Each of the six forms of test/rates-forms.js is tried on one stay and
+ * then saved; a table of example stays is tried for the browser check's form;
+ * and every refusal the Rates page and the Open button can meet. `hooks.lanes`
+ * gives the new garage a way in and a way out (nothing about opening is ready).
+ */
+export async function recordRates(base, { origin, owner, hooks, plans }) {
+  const { state, call } = recorder(base, origin);
+  await call('sign-in, for the rates', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('a garage, for the rates', 'POST', '/garages', plans.garage, {}, { quiet: true })).garage.id;
+  if (hooks?.lanes) await hooks.lanes(state.garage);
+  const rates = '/garages/{garage}/rate-plans';
+  const tryIt = `${rates}/try`;
+  await call('rates, none yet', 'GET', rates, undefined, {}, { structure: 'plans' });
+  await call('rates, of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/rate-plans`);
+  await call('a stay tried, with no rates at all', 'POST', tryIt, { stays: [plans.forms[0].stay] });
+  for (const f of plans.forms) {
+    await call(`a stay tried, form ${f.id}`, 'POST', tryIt, { plan: f.plan, stays: [f.stay] }, {}, { structure: 'priced' });
+    await call(`rates saved, form ${f.id}, not confirmed`, 'POST', rates, { plan: f.plan });
+    await call(`rates saved, form ${f.id}`, 'POST', rates, { plan: f.plan, confirmed: true });
+  }
+  await call('a stay tried, on the rates saved', 'POST', tryIt, { stays: plans.forms.map((f) => f.stay) }, {}, { structure: 'priced' });
+  await call('the price table tried', 'POST', tryIt, { plan: plans.table.plan, stays: plans.table.stays }, {}, { structure: 'priced' });
+  await call('the price table tried, with a stay of its own', 'POST', tryIt, { plan: plans.table.plan, stays: [...plans.table.stays, plans.table.added] }, {}, { structure: 'priced' });
+  await call('a stay tried, the price table form', 'POST', tryIt, { plan: plans.table.plan, stays: [plans.table.added] }, {}, { structure: 'priced' });
+  await call('rates saved, the price table form', 'POST', rates, { plan: plans.table.plan, confirmed: true });
+  await call('rates saved, with a gap', 'POST', rates, { plan: plans.gap, confirmed: true });
+  await call('a stay tried, rates with a gap', 'POST', tryIt, { plan: plans.gap, stays: plans.gapStays }, {}, { structure: 'priced' });
+  await call('rates saved, starting in the past', 'POST', rates, { plan: plans.past, confirmed: true }, {}, { normalise: true });
+  await call('rates saved, starting when others start', 'POST', rates, { plan: plans.sameStart, confirmed: true }, {}, { normalise: true });
+  await call('rates saved, a name already saved', 'POST', rates, { plan: plans.sameName, confirmed: true });
+  await call('rates saved, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans`, { plan: plans.forms[0].plan, confirmed: true });
+  await call('a stay tried, leaving before it came in', 'POST', tryIt, { stays: [{ entry: '2030-01-08T10:00', exit: '2030-01-08T09:00' }] });
+  await call('a stay tried, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans/try`, { stays: [plans.forms[0].stay] });
+  await call('rates', 'GET', rates, undefined, {}, { structure: 'plans' });
+  await call('setup, with rates saved', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'setup' });
+  await call('the garage opened, with steps missing', 'POST', '/garages/{garage}/activate');
+  await call('changes, after the rates', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  // Last, so it holds back nothing above: tries until the platform says "a minute".
+  let n = 0;
+  for (;;) {
+    n += 1;
+    // An empty list: refused before any price, so only the count moves.
+    const res = await call('a stay tried, too many in a minute', 'POST', tryIt, { stays: [] }, {}, { quiet: 'limit' });
+    if (res === 'refused' || n > 40) break;
+  }
   return state.out;
 }
 
