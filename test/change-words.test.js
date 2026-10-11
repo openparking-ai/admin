@@ -37,6 +37,9 @@ const LINES = [
   ['garage.create', null, { name: 'Harbor Garage', timezone: 'America/New_York', currency: 'USD', default_action: 'allow', space_class: 'standard', transient_available: null }],
   ['garage.update', { default_action: 'allow', transient_available: null }, { default_action: 'deny', transient_available: true }],
   ['garage.update', { transient_available: true }, { transient_available: false }],
+  // U7f: the two tailgater settings, and a car taken off the banned list.
+  ['garage.update', { ban_tailgaters: false, ban_reach: 'garage' }, { ban_tailgaters: true, ban_reach: 'all' }],
+  ['garage.banned_car_remove', { banned: true }, { banned: false }],
   ['garage.open', { open: false }, { open: true }],
   ['garage.pass_links', { garage_pass: null, monthly_billing: null }, { garage_pass: { tenant_id: 't', garage_id: 'g' }, monthly_billing: null }],
   ['garage.validations_link', { validations: null }, { validations: { tenant_id: 't', garage_id: 'g' } }],

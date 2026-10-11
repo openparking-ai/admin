@@ -1505,3 +1505,15 @@ textarea {
 .garage-check .warning {
   margin-bottom: 14px;
 }
+
+/* U7f: a banned car's pictures, small, side by side. */
+.banned-pictures {
+  white-space: nowrap;
+}
+.banned-picture {
+  display: inline-block;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}

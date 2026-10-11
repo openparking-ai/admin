@@ -181,14 +181,23 @@ The build publishes no source maps.
   (`ZONE_RENAMED` in `src/garages.js`). On Setup, a garage's details say they
   were set when it was created and can't be changed.
 - **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
-  readers, Rates, Taxes and fees, Getting paid, Garage View, Alerts, Change log,
-  Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
+  readers, Rates, Taxes and fees, Getting paid, Garage View, Banned cars, Alerts,
+  Change log, Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
 - **Setup** is the garage's checklist, as the platform works it out
   (`GET /garages/:id/setup`): each step's name and what it is, done or not yet,
   its facts in plain words and where it is done (the page that does it) -- or
   "This can't be set from here yet." Nothing here decides a step (`src/setup.js` only words it). The
   question "Does this garage take drivers without a pass?" is answered there;
   once answered it can be changed, never taken back to unanswered.
+- **Tailgaters** (U7f) are the owner's choice, on Setup, beside the checklist:
+  ban tailgaters (off until turned on) and where a banned car is kept out (this
+  garage, or all the owner's garages), saved on `PATCH /garages/:id`. **Banned
+  cars** lists every car whose ban reaches this garage (`GET /garages/:id/banned`),
+  each with its pictures, shown as images from this site's own address
+  (`GET /garages/:id/banned/:banId/pictures/:pictureId`, under the page's
+  `img-src 'self'`), and takes one off the list after asking
+  (`POST /garages/:id/banned/:banId/remove`). No screen adds a car: the lane lists
+  a tailgater whose plate it read, where the garage bans them.
 - **Lanes and equipment** also sets lanes up: add, rename, remove (a used lane is
   kept, with the reason), connect a lane computer or cancel its access, close
   (full, or closed to everyone, with a message picked from English and Spanish

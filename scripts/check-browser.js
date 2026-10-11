@@ -553,7 +553,7 @@ try {
     await allRead(page, EN.loading);
     const said = await bodyText(page);
     check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
-    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
+    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'banned', 'changes', 'alerts', 'drawings', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
@@ -584,7 +584,8 @@ try {
   check(setupText.includes('Service Lane') && setupText.includes(EN['setup.fact.noComputer']), 'Setup: the facts in plain words, naming the lane with no computer');
   check(rawIn(setupText).length === 0, `Setup: nothing raw on screen${rawIn(setupText).length ? `: ${rawIn(setupText).join(', ')}` : ''}`);
   // The ten steps; the drivers question is closed behind its button (U7a).
-  await checkDescribed(page, SETUP_TITLE, 'en', 10);
+  // Ten steps, and U7f's tailgaters beside them.
+  await checkDescribed(page, SETUP_TITLE, 'en', 11);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'setup-english.png'), fullPage: true });
   // A platform whose answer contradicts its own facts: the page follows the answer.
   stub.flipSetup(true);
@@ -871,6 +872,64 @@ try {
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'change-log-english.png'), fullPage: true });
   await checkPrint(page, CHANGES_TITLE, HARBOR);
 
+  // ── U7f: tailgaters on Setup, and the Banned cars page ──────────────────
+  const BANNED_TITLE = EN['page.banned.title'];
+  await page.click('.nav-item[href="#/setup"]');
+  await settles(page, () => Boolean(document.querySelector('[data-section="tailgaters"] [data-fact="ban"]')));
+  check((await page.textContent('[data-section="tailgaters"] [data-fact="ban"]')) === EN['setup.tailgaters.on'], `Setup: tailgaters, as the garage set it ("${EN['setup.tailgaters.on']}")`);
+  check((await page.textContent('[data-section="tailgaters"] [data-fact="reach"]')) === EN['setup.tailgaters.reachGarage'], 'Setup: where a banned car is kept out, this garage only');
+  await page.click('[data-action="open-tailgaters"]');
+  await page.click('[data-control="ban-reach"] [data-value="all"]');
+  await page.click('[data-question="tailgaters"] button[type="submit"]');
+  check(await settles(page, (w) => document.querySelector('[data-section="tailgaters"] [data-fact="reach"]')?.textContent === w, EN['setup.tailgaters.reachAll']), 'Setup: the reach changed to all my garages, saved, and read back');
+  await page.click('[data-action="open-tailgaters"]');
+  await page.click('[data-control="ban-reach"] [data-value="garage"]');
+  await page.click('[data-question="tailgaters"] button[type="submit"]');
+  await settles(page, (w) => document.querySelector('[data-section="tailgaters"] [data-fact="reach"]')?.textContent === w, EN['setup.tailgaters.reachGarage']);
+
+  await page.click('.nav-item[href="#/banned-cars"]');
+  check(await showsHeading(page, BANNED_TITLE), `${BANNED_TITLE} is in the navigation`);
+  await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
+  const bannedText = await page.textContent('[data-list="banned"]');
+  check(bannedText.includes('TAIL-4821') && bannedText.includes(A.garages[0].name), `${BANNED_TITLE}: the car, its plate and the garage it was banned at`);
+  await settles(page, () => { const imgs = [...document.querySelectorAll('img.banned-picture')]; return imgs.length === 2 && imgs.every((img) => img.complete); });
+  const pictures = await page.$$eval('[data-list="banned"] img.banned-picture', (imgs) => imgs.map((img) => ({ loaded: img.naturalWidth > 0, alt: img.alt, src: img.getAttribute('src') })));
+  check(pictures.length === 2 && pictures.every((x) => x.loaded), `${BANNED_TITLE}: its two pictures shown, from this site under the page's own policy`);
+  check(pictures.every((x) => x.alt.includes('TAIL-4821') && x.src.startsWith('/api/v1/garages/') && !x.src.includes('?')), `${BANNED_TITLE}: each picture said in words, and from this site's own address`);
+  // CHECK 6: no screen offers adding a car by hand. The control: the same search finds the one action the page has, taking a car off.
+  const actions = await page.$$eval('[data-list="banned"] [data-action]', (els) => els.map((el) => el.getAttribute('data-action')));
+  check(actions.includes('remove-banned'), `${BANNED_TITLE}: the search for actions finds "take it off" (the control)`);
+  check(actions.every((a) => a.startsWith('remove-banned')), `${BANNED_TITLE}: no action but taking a car off -- none adds one${actions.length ? ` (found: ${[...new Set(actions)].join(', ')})` : ''}`);
+  const addWords = await page.$$eval('[data-list="banned"] button', (els) => els.map((el) => el.textContent.trim()));
+  check(!addWords.some((w) => /\badd\b|\bban\b/i.test(w)), `${BANNED_TITLE}: no button says add or ban${addWords.some((w) => /\badd\b|\bban\b/i.test(w)) ? ` (${addWords.join(' | ')})` : ''}`);
+  check(rawIn(await bodyText(page)).length === 0, `${BANNED_TITLE}: nothing raw on screen`);
+  await checkDescribed(page, BANNED_TITLE, 'en', 5);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'banned-cars-english.png'), fullPage: true });
+  await onSettings(page, 'language', 'es');
+  await page.click('.nav-item[href="#/banned-cars"]');
+  check(await showsHeading(page, ES['page.banned.title']), `en español: "${ES['page.banned.title']}"`);
+  await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
+  check(rawIn(await bodyText(page)).length === 0, `en español, ${ES['page.banned.title']}: nothing raw on screen`);
+  await checkDescribed(page, ES['page.banned.title'], 'es', 5);
+  if (SCREENS) await page.screenshot({ path: join(SCREENS, 'banned-cars-spanish.png'), fullPage: true });
+  await onSettings(page, 'language', 'en');
+  await page.click('.nav-item[href="#/banned-cars"]');
+  await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
+  // Taking a car off: asked first, kept when kept, gone when taken off -- and said in the change log.
+  await page.click('[data-action="remove-banned"]');
+  const asked = await settles(page, (w) => Boolean(document.querySelector('[data-confirm="remove-banned"]')?.textContent.includes(w)), EN['banned.removeAsk']);
+  check(asked, `${BANNED_TITLE}: taking a car off asks first`);
+  if (asked) {
+    await page.click('[data-action="remove-banned-keep"]');
+    check((await page.$$('[data-list="banned"] tbody tr')).length === 1, `${BANNED_TITLE}: kept when "${EN['banned.keep']}"`);
+    await page.click('[data-action="remove-banned"]');
+    await page.click('[data-action="remove-banned-yes"]');
+  }
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="none-banned"]'))), `${BANNED_TITLE}: taken off, and the list says "${EN['banned.empty']}"`);
+  await page.click('.nav-item[href="#/change-log"]');
+  await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
+  check((await page.textContent('[data-list="changes"]')).includes(EN['changes.action.garage_banned_car_remove']), `${CHANGES_TITLE}: the car taken off the banned list, in plain words`);
+
   // ── U4b: Alerts, who gets which alert ───────────────────────────────────
   const ALERTS_TITLE = EN['page.alerts.title'];
   const platformAlerts = (p, garageId) =>
@@ -972,7 +1031,7 @@ try {
 
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await onSettings(page, 'language', 'es');
-  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 10], ['#/change-log', 'page.changes.title', 16], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
+  for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 16], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
     await page.click(`.nav-item[href="${hash}"]`);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);

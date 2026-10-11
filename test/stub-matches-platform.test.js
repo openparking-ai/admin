@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linkAnswer, record, recordAccountLinks, recordAddGarage, signInAnswer } from './platform-shapes.js';
+import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, signInAnswer } from './platform-shapes.js';
 import { startStub } from './stub-platform.js';
 
 // The stand-in the checks run against answers as the real platform does: the
@@ -49,6 +49,19 @@ test('the stand-in adds a garage, and refuses one, as the platform does', async 
 });
 
 // U7d-2: the four doors behind an emailed link, recorded from the platform apart from the answers above.
+test('the stand-in answers the tailgater settings and the banned cars as the platform does (U7f)', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const hooks = { fresh: (garageId) => stub.freshBans(garageId), tailgater: (garageId) => stub.listTailgater(garageId) };
+    const answers = await recordBanned(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks });
+    assert.deepEqual(answers.map((a) => a.what), recorded.banned_answers.map((a) => a.what));
+    for (const [i, real] of recorded.banned_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
+  } finally {
+    await stub.close();
+  }
+});
+
 test('the stand-in answers an invite, a forgotten password and a reset as the platform does', async () => {
   const stub = await startStub();
   try {

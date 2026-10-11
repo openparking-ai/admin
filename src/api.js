@@ -180,6 +180,16 @@ export const problemKey = (problem) =>
  * Signing in, signing out and any 401 start a new epoch: the answer to a
  * request made before it is thrown away (kind STALE), never handed to a screen.
  */
+/**
+ * Where one picture of a banned car is, for an image on the page (U7f). Not a
+ * request this client makes: the browser fetches it, on this same origin, with
+ * the session cookie -- the page's policy takes images from here and nowhere
+ * else. The same door as every other: under /api/v1, no query string.
+ */
+export function bannedPicturePath(garageId, banId, pictureId) {
+  return `${BASE}/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/pictures/${encodeURIComponent(pictureId)}`;
+}
+
 export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
   let epoch = 0;
   let signedIn = false;
@@ -415,6 +425,24 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     /** Whether the garage takes drivers without a pass: true or false, never back to unanswered. */
     setDrivers: async (garageId, takesAny) =>
       object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { transient_available: takesAny === true } })),
+    // ── U7f: tailgaters and banned cars ──
+    /**
+     * The garage's two tailgater settings, and every car whose ban reaches it
+     * (listed here, or at one of the account's garages that bans across all),
+     * each with its pictures. A car is listed only by the platform, as a
+     * tailgater; nothing here can put one on the list.
+     */
+    banned: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/banned`));
+      if (typeof data.ban_tailgaters !== 'boolean' || !['garage', 'all'].includes(data.ban_reach)) throw new Problem('unexpected');
+      return { banTailgaters: data.ban_tailgaters, banReach: data.ban_reach, cars: list(data, 'cars') };
+    },
+    /** The two settings: ban tailgaters (true or false), and the list's reach ('garage' or 'all'). */
+    setTailgaters: async (garageId, { banTailgaters, banReach }) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { ban_tailgaters: banTailgaters === true, ban_reach: banReach === 'all' ? 'all' : 'garage' } })),
+    /** Take one car off the list. */
+    removeBanned: async (garageId, banId) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/remove`, { method: 'POST' })),
     addLane: async (garageId, name, direction) =>
       object(await request(`/garages/${encodeURIComponent(garageId)}/lanes`, { method: 'POST', body: { name, direction } })),
     renameLane: async (laneId, name) => object(await request(`/lanes/${encodeURIComponent(laneId)}`, { method: 'PATCH', body: { name } })),

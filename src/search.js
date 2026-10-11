@@ -16,6 +16,8 @@ export const FEATURES = [
   { id: 'connectReader', action: { page: 'readers' } },
   // U7c: adding a garage, found and taken to the Garages page.
   { id: 'addGarage', action: { page: 'garages' } },
+  // U7f: banning tailgaters, a setting on Setup.
+  { id: 'banTailgaters', action: { page: 'setup' } },
 ];
 
 /** The page a setting is on, for a setting that is found on a page. */

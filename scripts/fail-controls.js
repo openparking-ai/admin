@@ -78,13 +78,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 110, 588); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 113, 632); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 107, 585); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 110, 629); only the last is ever shown'],
   },
   {
     check: '4 Quick Find finds every page in both languages',
@@ -1401,6 +1401,19 @@ const CONTROLS = [
     run: ['node', '--test', 'test/api.test.js'],
     names: ['U7c a garage is added with exactly its name', 'a garage, added with no time zone'],
   },
+  // U7f: the stand-in answers the tailgater settings and the banned cars as the platform does.
+  {
+    check: 'U7f the stand-in takes a reach the platform refuses',
+    plant: { file: 'test/stub-platform.js', anchor: "const BAN_REACHES = ['garage', 'all'];", with: "const BAN_REACHES = ['garage', 'all', 'everywhere'];" },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "tailgaters banned, a reach the screens do not offer"'],
+  },
+  {
+    check: 'U7f the stand-in removes a car that is not on the list',
+    plant: { file: 'test/stub-platform.js', anchor: '      if (!found) return refuse(res, who, 404, BANNED_CAR_NOT_FOUND,', with: '      if (!found) return answer(res, 200, { removed: true }); if (!found) return refuse(res, who, 404, BANNED_CAR_NOT_FOUND,' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "a banned car not on the list, removed"'],
+  },
   // U7d-2: the stand-in answers the four doors as the platform does (test/stub-matches-platform.test.js),
   // and the client says each of their refusals in its own words (test/api.test.js).
   {
@@ -1443,6 +1456,25 @@ const CONTROLS = [
 ];
 
 const BROWSER_CONTROLS = [
+  // U7f, check 6: no screen offers adding a car to the banned list by hand.
+  {
+    check: 'U7f a button that adds a car to the banned list',
+    plant: {
+      file: 'src/BannedPage.jsx',
+      anchor: "      <div className=\"list-head\">\n        <h2 className=\"section-title\">{t('page.banned.title')}</h2>\n",
+      with: "      <div className=\"list-head\">\n        <h2 className=\"section-title\">{t('page.banned.title')}</h2>\n        <button type=\"button\" className=\"link-button\" data-action=\"add-banned\">{t('banned.removeButton')}</button>\n",
+    },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Banned cars: no action but taking a car off -- none adds one (found: add-banned, remove-banned)'],
+  },
+  {
+    check: 'U7f a car taken off the banned list without asking',
+    plant: { file: 'src/BannedPage.jsx', anchor: 'onClick={() => setAsking(car.id)}', with: 'onClick={() => remove(car)}' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL Banned cars: taking a car off asks first'],
+  },
   {
     check: '6 no request leaves the page',
     plant: {

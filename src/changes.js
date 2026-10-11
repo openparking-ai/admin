@@ -27,6 +27,7 @@ export const ACTIONS = [
   'rate_plan.add', 'tax_set.add', 'key.cancel', 'language.change', 'rates.retired',
   'alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices',
   'board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices',
+  'garage.banned_car_remove',
 ];
 
 /** The refusals the platform names, each with words of its own; any other is "it was not allowed". */
@@ -71,6 +72,7 @@ export const FIELDS = [
   'details_submitted', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
   'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
   'text', 'lanes', 'starts', 'ends', 'prices', 'messages_off', 'messages_removed',
+  'ban_tailgaters', 'ban_reach', 'banned',
 ];
 
 /**
@@ -103,6 +105,7 @@ export const CHOICES = {
   reason: ['full', 'everyone'],
   access: ['connected', 'cancelled', 'active'],
   default_action: ['allow', 'deny'],
+  ban_reach: ['garage', 'all'],
   card_payments: ['active', 'inactive', 'pending', 'unrequested'],
   space_class: ['standard'],
   phone: ['given', 'none', 'changed'],
@@ -252,7 +255,7 @@ export function changeText(t, line, garage, language) {
 
 /** The kinds of thing a line can be about, each with the actions about it, in the order the ticks list them. */
 export const KINDS = {
-  garage: ['garage.create', 'garage.update', 'garage.open', 'garage.pass_links', 'garage.validations_link'],
+  garage: ['garage.create', 'garage.update', 'garage.open', 'garage.pass_links', 'garage.validations_link', 'garage.banned_car_remove'],
   lanes: ['lane.add', 'lane.rename', 'lane.remove', 'lane.close', 'lane.close_again', 'lane.reopen'],
   connections: ['computer.connect', 'computer.cancel'],
   screens: ['board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices'],
