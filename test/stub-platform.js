@@ -33,7 +33,10 @@
 //   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } the changes made, newest first, 50 a page
 //   GET    /api/v1/garages/:id/refused-attempts[/:lineId]  { refused: [line], next, count: { lines, attempts } } apart
 //   A request that changes nothing writes no line (the same before and after).
-//   PATCH  /api/v1/garages/:id              { transient_available: true | false } -> { garage }
+//   PATCH  /api/v1/garages/:id              { transient_available?, ban_tailgaters?, ban_reach? } -> { garage }
+//   GET    /api/v1/garages/:id/banned       -> { ban_tailgaters, ban_reach, cars: [{ id, listed_at, entry_at, garage_id, garage_name, plate, pictures: [{ id, taken_at }] }] }  (U7f)
+//   POST   /api/v1/garages/:id/banned/:banId/remove  -> { removed: true }; 404 banned_car_not_found  (U7f)
+//   GET    /api/v1/garages/:id/banned/:banId/pictures/:pictureId  -> the picture, image/png  (U7f)
 //   POST   /api/v1/garages/:id/lanes        { name, direction } -> 201 { lane }
 //   PATCH  /api/v1/lanes/:id                { name } -> { lane }
 //   DELETE /api/v1/lanes/:id                204; a lane ever used is 409 lane_has_history
@@ -185,6 +188,29 @@ function setupData() {
 }
 
 /**
+ * U7f: each garage's two tailgater settings and its banned cars. Harbor bans
+ * tailgaters at this garage only and has one car on its list, so the Banned
+ * cars page has a car to show; the others have said nothing.
+ */
+function bannedData() {
+  const at = '2026-10-04T21:40:00.000Z';
+  return {
+    'a1000000-0000-4000-8000-000000000001': {
+      ban_tailgaters: true,
+      ban_reach: 'garage',
+      cars: [{
+        id: 'ba100000-0000-4000-8000-000000000001', listed_at: at, entry_at: at,
+        garage_id: 'a1000000-0000-4000-8000-000000000001', garage_name: 'Harbor Street Garage', plate: 'TAIL-4821',
+        pictures: [
+          { id: 'bp100000-0000-4000-8000-000000000001', taken_at: at },
+          { id: 'bp100000-0000-4000-8000-000000000002', taken_at: '2026-10-04T21:40:02.000Z' },
+        ],
+      }],
+    },
+  };
+}
+
+/**
  * U6: what the stand-in keeps of each garage's taxes, payment account, its
  * readers' place and every reader connection, as the platform's
  * src/taxes.js, src/stripeAccount.js and src/terminal.js keep them. Harbor
@@ -323,6 +349,13 @@ const GARAGE_TIMEZONE_REFUSED = { error: 'timezone must be a time zone name this
 const GARAGE_CURRENCY_REFUSED = { error: 'currency must be an ISO 4217 currency code in use today, such as "USD"', code: 'garage_currency_refused' };
 const garageCurrencyInCapitals = (code) => ({ error: `currency is written in capital letters: "${code}"`, code: 'garage_currency_refused' });
 const COMPUTER_NAME_REQUIRED = { error: 'name is required' };
+// U7f: the two tailgater settings, refused in the platform's own words; the banned car not found; a picture.
+const BAN_REACHES = ['garage', 'all'];
+const BAN_TAILGATERS_REFUSED = { error: 'ban_tailgaters must be true or false when given' };
+const BAN_REACH_REFUSED = { error: 'ban_reach must be one of garage, all when given' };
+const BANNED_CAR_NOT_FOUND = { error: 'banned car not found', code: 'banned_car_not_found' };
+// A 1x1 PNG: what the picture route serves at the stand-in.
+const PICTURE_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 const DRIVERS_REFUSED = (v) => ({ error: `transient_available is true or false, not ${JSON.stringify(v)}; unstated is the absence of the field, never a value` });
 const lastOpen = (direction) => {
   const way = direction === 'entry' ? 'way in' : 'way out';
@@ -876,6 +909,7 @@ export async function startStub({ port = 0 } = {}) {
     return {
       id, tenant_id: who.tenant_id, name, timezone, currency, created_at: new Date().toISOString(), default_action: 'allow', space_class: 'standard',
       transient_available: null, activated_at: setups[id].opened_at, garage_pass_link: null, monthly_billing_link: null, validations_link: null,
+      ban_tailgaters: false, ban_reach: 'garage',
     };
   }
 
@@ -952,6 +986,30 @@ export async function startStub({ port = 0 } = {}) {
     return { garage_id: garage.id, open, takes_any_driver: extra.transient_available, steps };
   }
 
+  // ── U7f: each garage's two tailgater settings and the cars banned there ──
+  const banState = bannedData();
+  const bansOf = (garageId) => (banState[garageId] ??= { ban_tailgaters: false, ban_reach: 'garage', cars: [] });
+  /** Every car whose ban reaches this garage, as the platform's REACHING: listed here, or at a garage of the account that bans across all. */
+  const reaching = (who, garageId) =>
+    who.garages
+      .filter((g) => g.id === garageId || bansOf(g.id).ban_reach === 'all')
+      .flatMap((g) => bansOf(g.id).cars.map((car) => ({ car, at: g })))
+      .sort((x, y) => (x.car.listed_at < y.car.listed_at ? 1 : -1));
+  let banN = 0;
+  /** A tailgater listed at this garage, as the platform lists one: its stay, its plate, one picture. */
+  function listTailgater(garageId, { plate = 'TAIL-0001' } = {}) {
+    banN += 1;
+    const garage = Object.values(data).flatMap((w) => w.garages).find((g) => g.id === garageId);
+    const at = new Date(Date.UTC(2026, 9, 11, 14, banN)).toISOString();
+    const car = {
+      id: `bb${String(banN).padStart(6, '0')}-0000-4000-8000-000000000001`,
+      listed_at: at, entry_at: at, garage_id: garageId, garage_name: garage.name, plate,
+      pictures: [{ id: `bc${String(banN).padStart(6, '0')}-0000-4000-8000-000000000001`, taken_at: at }],
+    };
+    bansOf(garageId).cars.push(car);
+    return structuredClone(car);
+  }
+
   async function setupRoutes(req, res, path, who) {
     let m = /^\/api\/v1\/garages\/([^/]+)\/(setup|changes|refused-attempts)(?:\/([^/]+))?$/.exec(path);
     if (m && req.method === 'GET') {
@@ -984,21 +1042,58 @@ export async function startStub({ port = 0 } = {}) {
       const body = (await readBody(req)) ?? {};
       if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'garage.update', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
       const at = { garageId: garage.id, action: 'garage.update', subject: { kind: 'garage', id: garage.id, name: garage.name } };
-      if (!('transient_available' in body)) return refuse(res, who, 400, { error: 'default_action or transient_available is required' }, at);
-      if (body.transient_available !== true && body.transient_available !== false) return refuse(res, who, 400, DRIVERS_REFUSED(body.transient_available), at);
+      // The platform's checks, in its order: the drivers answer, then U7f's two settings, then that one was given.
+      if ('transient_available' in body && body.transient_available !== true && body.transient_available !== false) return refuse(res, who, 400, DRIVERS_REFUSED(body.transient_available), at);
+      if ('ban_tailgaters' in body && typeof body.ban_tailgaters !== 'boolean') return refuse(res, who, 400, BAN_TAILGATERS_REFUSED, at);
+      if ('ban_reach' in body && !BAN_REACHES.includes(body.ban_reach)) return refuse(res, who, 400, BAN_REACH_REFUSED, at);
+      const fields = ['transient_available', 'ban_tailgaters', 'ban_reach'].filter((f) => f in body);
+      if (fields.length === 0) return refuse(res, who, 400, { error: 'default_action, transient_available, ban_tailgaters or ban_reach is required' }, at);
       const extra = setups[garage.id];
-      const was = extra.transient_available;
-      extra.transient_available = body.transient_available;
-      line(who, { ...at, before: { transient_available: was }, after: { transient_available: body.transient_available } });
+      const bans = bansOf(garage.id);
+      const holder = (f) => (f === 'transient_available' ? extra : bans);
+      const before = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
+      for (const f of fields) holder(f)[f] = body[f];
+      const after = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
+      // Asked again, answered with what was there: no line, as the platform writes none.
+      if (fields.some((f) => before[f] !== after[f])) line(who, { ...at, before, after });
       // The platform answers with the garage's whole row.
       return answer(res, 200, {
         garage: {
           id: garage.id, tenant_id: who.tenant_id, name: garage.name, timezone: garage.timezone, currency: garage.currency,
           created_at: '2025-11-20T15:00:00.000Z', default_action: 'allow', space_class: 'standard',
-          transient_available: body.transient_available, activated_at: extra.opened_at ?? '2026-01-02T15:00:00.000Z',
+          transient_available: extra.transient_available, activated_at: extra.opened_at ?? '2026-01-02T15:00:00.000Z',
           garage_pass_link: null, monthly_billing_link: null, validations_link: null,
+          ban_tailgaters: bans.ban_tailgaters, ban_reach: bans.ban_reach,
         },
       });
+    }
+    // ── U7f: the banned cars ──
+    m = /^\/api\/v1\/garages\/([^/]+)\/banned$/.exec(path);
+    if (m && req.method === 'GET') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      const { ban_tailgaters, ban_reach } = bansOf(garage.id);
+      return answer(res, 200, { ban_tailgaters, ban_reach, cars: reaching(who, garage.id).map(({ car }) => structuredClone(car)) });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)\/banned\/([^/]+)\/remove$/.exec(path);
+    if (m && req.method === 'POST') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, { action: 'garage.banned_car_remove', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' });
+      const found = reaching(who, garage.id).find(({ car }) => car.id === m[2]);
+      if (!found) return refuse(res, who, 404, BANNED_CAR_NOT_FOUND, { garageId: garage.id, action: 'garage.banned_car_remove', subject: { kind: 'garage', id: garage.id, name: garage.name } });
+      const list = bansOf(found.at.id).cars;
+      list.splice(list.indexOf(found.car), 1);
+      line(who, { garageId: found.at.id, action: 'garage.banned_car_remove', subject: { kind: 'garage', id: found.at.id, name: found.at.name }, before: { banned: true }, after: { banned: false } });
+      return answer(res, 200, { removed: true });
+    }
+    m = /^\/api\/v1\/garages\/([^/]+)\/banned\/([^/]+)\/pictures\/([^/]+)$/.exec(path);
+    if (m && req.method === 'GET') {
+      const garage = who.garages.find((g) => g.id === m[1]);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      const found = reaching(who, garage.id).find(({ car }) => car.id === m[2]);
+      if (!found || !found.car.pictures.some((pic) => pic.id === m[3])) return answer(res, 404, { error: 'picture not found' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(PICTURE_PNG);
     }
     m = /^\/api\/v1\/garages\/([^/]+)\/lanes$/.exec(path);
     if (m && req.method === 'POST') {
@@ -1717,6 +1812,13 @@ export async function startStub({ port = 0 } = {}) {
     /** Whether the garage takes drivers without a pass: true, false or null (unanswered). */
     setDrivers: (garageId, takes) => {
       setups[garageId].transient_available = takes;
+    },
+    // ── U7f ──
+    /** A tailgater listed at this garage, as the platform lists one; its row as the Banned cars read answers it. */
+    listTailgater,
+    /** The garage's two tailgater settings off and no car on its list, as a garage the platform has just made. */
+    freshBans: (garageId) => {
+      banState[garageId] = { ban_tailgaters: false, ban_reach: 'garage', cars: [] };
     },
     /** Put `lines` (oldest first) as the owner's change log, for the file checks. */
     setChanges: (owner, lines) => log.set(owner.tenant_id, lines.slice()),

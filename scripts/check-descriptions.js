@@ -49,6 +49,7 @@ const PAGE_OF = {
   'CardReadersPage.jsx': 'page.readers.title',
   'SettingsPage.jsx': 'page.settings.title',
   'GaragesPage.jsx': 'page.garages.title',
+  'BannedPage.jsx': 'page.banned.title',
   // U7d-2: the screens an emailed link or a forgotten password opens.
   'InviteScreen.jsx': 'invite.title',
   'ForgotScreen.jsx': 'forgot.title',

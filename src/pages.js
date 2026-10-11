@@ -16,6 +16,8 @@ export const PAGES = [
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
   // U7a: Garage View, once "Cars inside": its old address still opens it.
   { id: 'inside', path: '/garage-view', was: ['/cars-inside'], icon: 'car' },
+  // U7f: the cars banned at this garage, and taking one off the list.
+  { id: 'banned', path: '/banned-cars', icon: 'ban' },
   { id: 'alerts', path: '/alerts', icon: 'bell' },
   { id: 'changes', path: '/change-log', icon: 'log' },
   // U7a: the language and the look, once at the top of every page.

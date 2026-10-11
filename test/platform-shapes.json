@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform.",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -519,6 +519,16 @@
                   "string"
                 ]
               },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
               "created_at": {
                 "types": [
                   "string"
@@ -600,6 +610,16 @@
               "activated_at": {
                 "types": [
                   "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
                 ]
               },
               "created_at": {
@@ -4659,7 +4679,7 @@
       }
     }
   ],
-  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged.",
+  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged. U7f, 2026-10-11: \"a garage, added\" is recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans) by the same call, the same way: the row gained ban_tailgaters and ban_reach (0033), every other key the same.",
   "add_garage_answers": [
     {
       "what": "a garage, added from a page at another address",
@@ -4731,6 +4751,16 @@
               "activated_at": {
                 "types": [
                   "null"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
                 ]
               },
               "created_at": {
@@ -5031,6 +5061,635 @@
           "before": null,
           "after": null
         }
+      }
+    }
+  ],
+  "banned_recorded_from": "openparking-ai/platform 96dff3a (u7f/pictures-bans), 2026-10-11, U7f, on the Mac: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordBanned (test/platform-shapes.js) alone, its tailgater listed by the demo's entry-lane computer as a lane lists one -- a stay opened with tailgater: true and a descriptor, and one picture -- while the garage banned tailgaters.",
+  "banned_answers": [
+    {
+      "what": "banned cars, none listed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "ban_reach": {
+            "types": [
+              "string"
+            ]
+          },
+          "ban_tailgaters": {
+            "types": [
+              "boolean"
+            ]
+          },
+          "cars": {
+            "types": [
+              "array"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "banned cars, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "tailgaters banned, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "tailgaters banned, not true or false",
+      "status": 400,
+      "body": {
+        "error": "ban_tailgaters must be true or false when given"
+      }
+    },
+    {
+      "what": "tailgaters banned, a reach the screens do not offer",
+      "status": 400,
+      "body": {
+        "error": "ban_reach must be one of garage, all when given"
+      }
+    },
+    {
+      "what": "tailgaters banned",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "tailgaters banned again (nothing changes)",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "tailgaters banned, at all my garages",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "banned cars, one listed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "ban_reach": {
+            "types": [
+              "string"
+            ]
+          },
+          "ban_tailgaters": {
+            "types": [
+              "boolean"
+            ]
+          },
+          "cars": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "entry_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "garage_id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "garage_name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "listed_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "pictures": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "taken_at": {
+                        "types": [
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "plate": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a banned car, removed from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "a banned car not on the list, removed",
+      "status": 404,
+      "body": {
+        "error": "banned car not found",
+        "code": "banned_car_not_found"
+      }
+    },
+    {
+      "what": "a banned car, removed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "removed": {
+            "types": [
+              "boolean"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "a banned car, removed again",
+      "status": 404,
+      "body": {
+        "error": "banned car not found",
+        "code": "banned_car_not_found"
+      }
+    },
+    {
+      "what": "banned cars, after the removal",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "ban_reach": {
+            "types": [
+              "string"
+            ]
+          },
+          "ban_tailgaters": {
+            "types": [
+              "boolean"
+            ]
+          },
+          "cars": {
+            "types": [
+              "array"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "tailgaters not banned, this garage only",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after the banned cars",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "garage.update",
+          "outcome": "done",
+          "before": {
+            "ban_reach": "all",
+            "ban_tailgaters": true
+          },
+          "after": {
+            "ban_reach": "garage",
+            "ban_tailgaters": false
+          }
+        },
+        "subject_name": "string",
+        "subject_removed": false
       }
     }
   ],

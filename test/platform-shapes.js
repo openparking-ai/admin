@@ -245,6 +245,38 @@ export async function recordAddGarage(base, { origin, owner, elsewhere = 'http:/
  * the last forgot sent (`resetLink`). Recorded apart, after the others: a
  * reset changes the owner's password. Every address here is invented.
  */
+/**
+ * U7f: the two tailgater settings and the banned cars, as the Setup page and
+ * the Banned cars page meet them. `hooks.fresh(garage)` starts the garage with
+ * the settings off and no car listed; `hooks.tailgater(garage)` lists one car
+ * as the platform lists one -- a tailgater read at a lane, with a picture,
+ * while the garage bans tailgaters. Recorded apart from `record`, after it.
+ */
+export async function recordBanned(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
+  const { state, call } = recorder(base, origin);
+  await call('sign-in, for the banned cars', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('garages, for the banned cars', 'GET', '/garages', undefined, {}, { quiet: true })).garages[0].id;
+  await hooks.fresh(state.garage);
+  await call('banned cars, none listed', 'GET', '/garages/{garage}/banned');
+  await call('banned cars, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/banned`);
+  await call('tailgaters banned, from a page at another address', 'PATCH', '/garages/{garage}', { ban_tailgaters: true }, { origin: elsewhere });
+  await call('tailgaters banned, not true or false', 'PATCH', '/garages/{garage}', { ban_tailgaters: 'yes' });
+  await call('tailgaters banned, a reach the screens do not offer', 'PATCH', '/garages/{garage}', { ban_reach: 'everywhere' });
+  await call('tailgaters banned', 'PATCH', '/garages/{garage}', { ban_tailgaters: true });
+  await call('tailgaters banned again (nothing changes)', 'PATCH', '/garages/{garage}', { ban_tailgaters: true });
+  await call('tailgaters banned, at all my garages', 'PATCH', '/garages/{garage}', { ban_reach: 'all' });
+  await hooks.tailgater(state.garage);
+  const [car] = (await call('banned cars, one listed', 'GET', '/garages/{garage}/banned')).cars;
+  await call('a banned car, removed from a page at another address', 'POST', `/garages/{garage}/banned/${car.id}/remove`, undefined, { origin: elsewhere });
+  await call('a banned car not on the list, removed', 'POST', `/garages/{garage}/banned/${NOT_THEIRS}/remove`);
+  await call('a banned car, removed', 'POST', `/garages/{garage}/banned/${car.id}/remove`);
+  await call('a banned car, removed again', 'POST', `/garages/{garage}/banned/${car.id}/remove`);
+  await call('banned cars, after the removal', 'GET', '/garages/{garage}/banned');
+  await call('tailgaters not banned, this garage only', 'PATCH', '/garages/{garage}', { ban_tailgaters: false, ban_reach: 'garage' });
+  await call('changes, after the banned cars', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  return state.out;
+}
+
 export async function recordAccountLinks(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
   if (!hooks) throw new Error('recordAccountLinks needs the hooks that invite, resend, expire and read the reset link');
   const { state, call } = recorder(base, origin);

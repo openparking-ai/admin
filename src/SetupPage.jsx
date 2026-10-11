@@ -62,7 +62,105 @@ export default function SetupPage({ t, language, client, garage }) {
           </li>
         ))}
       </ol>
+      <TailgaterSettings t={t} client={client} garage={garage} />
     </section>
+  );
+}
+
+/**
+ * U7f: tailgaters, the garage owner's choice. Off until the owner turns it on:
+ * a car that follows another through the gate, whose plate the lane reads, is
+ * put on this garage's banned list and kept out next time. And the list's
+ * reach: this garage only, or all the owner's garages. Not a checklist step --
+ * a garage opens with it off.
+ */
+function TailgaterSettings({ t, client, garage }) {
+  const settings = useGarageRead(useCallback((id) => client.banned(id), [client]), garage.id);
+  if (settings.problem) return <ProblemNote t={t} kind={settings.problem} onRetry={settings.retry} />;
+  if (!settings.data) return null;
+  const { banTailgaters, banReach } = settings.data;
+  return (
+    <div className="setup-extra" data-section="tailgaters">
+      <div className="setup-step-head">
+        <h3 className="setup-step-name">
+          <FieldName t={t} name="setup.tailgaters" />
+        </h3>
+      </div>
+      <ul className="setup-facts">
+        <li data-fact="ban">{banTailgaters ? t('setup.tailgaters.on') : t('setup.tailgaters.off')}</li>
+        {banTailgaters ? <li data-fact="reach">{banReach === 'all' ? t('setup.tailgaters.reachAll') : t('setup.tailgaters.reachGarage')}</li> : null}
+      </ul>
+      <Opens t={t} opener="setup.tailgaters.change" action="open-tailgaters">
+        {(close) => <TailgaterQuestion t={t} client={client} garage={garage} was={settings.data} onSaved={settings.retry} onClose={close} />}
+      </Opens>
+    </div>
+  );
+}
+
+function TailgaterQuestion({ t, client, garage, was, onSaved, onClose }) {
+  const [ban, setBan] = useState(was.banTailgaters);
+  const [reach, setReach] = useState(was.banReach);
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState(null);
+  const changed = ban !== was.banTailgaters || reach !== was.banReach;
+
+  const save = async () => {
+    setSaving(true);
+    setProblem(null);
+    try {
+      await client.setTailgaters(garage.id, { banTailgaters: ban, banReach: reach });
+      onSaved();
+    } catch (p) {
+      if (p.kind !== STALE && p.kind !== 'ended') setProblem(p.kind);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form
+      className="setup-question"
+      data-question="tailgaters"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (changed && !saving) save();
+      }}
+    >
+      <div className="chooser" data-chooser="ban-tailgaters">
+        <FieldName t={t} name="setup.tailgaters.question" />
+        <Segmented
+          label={t('setup.tailgaters.question')}
+          value={ban}
+          options={[
+            { value: true, text: t('setup.tailgaters.yes') },
+            { value: false, text: t('setup.tailgaters.no') },
+          ]}
+          onChange={setBan}
+          name="ban-tailgaters"
+        />
+      </div>
+      <div className="chooser" data-chooser="ban-reach">
+        <FieldName t={t} name="setup.tailgaters.reach" />
+        <Segmented
+          label={t('setup.tailgaters.reach')}
+          value={reach}
+          options={[
+            { value: 'garage', text: t('setup.tailgaters.thisGarage') },
+            { value: 'all', text: t('setup.tailgaters.allGarages') },
+          ]}
+          onChange={setReach}
+          name="ban-reach"
+        />
+      </div>
+      <div className="lane-actions">
+        <button type="submit" className="primary-button" disabled={!changed || saving}>
+          {saving ? t('setup.saving') : t('setup.save')}
+        </button>
+        <button type="button" className="link-button" data-action="close-panel" onClick={onClose}>
+          {t('setup.cancel')}
+        </button>
+      </div>
+      {problem ? <ProblemNote t={t} kind={problem} /> : null}
+    </form>
   );
 }
 
