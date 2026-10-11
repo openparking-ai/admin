@@ -493,6 +493,10 @@ const READER_STEMS = ['reader', 'lector'];
       for (const w of want) if (!text.includes(plain(w))) missing.push(`page ${i + 1}: "${w}"`);
     });
     check(missing.length === 0, `${f.language}, ${f.name}: every page's title and title block read back as text${missing.length ? `; not found:\n      ${missing.join('\n      ')}` : ''}`);
+    // 11, read back from the PDF by a reader this project did not write: no confirmation pair, and K3 on the file.
+    const all = pdf.pages.map((p) => plain(p.text)).join(' ');
+    const pair = [...new Set(all.match(/\bL[45]\b/g) ?? [])];
+    check(pair.length === 0 && /\bK3\b/.test(all), `${f.language}, ${f.name}: the PDF read back names no L4 or L5, and names ${MARK.K3}${pair.length ? `; found ${pair.join(', ')}` : ''}`);
     check(pdf.title === `${t('drawings.doc')} - ${f.garage.garage.name.slice(0, 120).trim()}` || pdf.title?.startsWith(t('drawings.doc')), `${f.language}, ${f.name}: the file's title names the drawings and the garage`);
   }
 
