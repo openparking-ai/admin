@@ -157,7 +157,6 @@ function loopsTable(c, t) {
       [m(MARK.L1), t('drawings.loop.l1'), t('drawings.item.relay')],
       [m(MARK.L2), t('drawings.loop.l2'), t('drawings.item.relay')],
       [m(MARK.L3), t('drawings.loop.l3'), t('drawings.loop.l3wired')],
-      [m(`${MARK.L4}, ${MARK.L5}`), t('drawings.loop.l45'), t('drawings.item.relay')],
     ],
   );
   c.para(
@@ -254,11 +253,11 @@ function wiringSheet(s, t, _spec, { reader }) {
       [t('drawings.item.gateControl'), t('drawings.inside.gateControl')],
       [t('drawings.item.switch'), t('drawings.inside.switch')],
       [t('drawings.item.relay'), t('drawings.inside.relay')],
-      [t('drawings.item.detector'), t('drawings.inside.detector', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })],
+      [t('drawings.item.detector'), t('drawings.inside.detector', { marks: [MARK.L1, MARK.L2].join(', ') })],
     ],
   );
   c.heading(t('drawings.box.rules'));
-  c.bullets([t('drawings.rule.closing', { mark: MARK.L3 }), t('drawings.rule.pulse', { mark: MARK.K1 })]);
+  c.bullets([t('drawings.rule.closing', { mark: MARK.L3, signal: MARK.K3 }), t('drawings.rule.pulse', { mark: MARK.K1 })]);
 }
 
 function roomSheet(s, t, _spec, { lanes }) {
@@ -293,10 +292,13 @@ function cablingSheet(s, t, _spec, { reader }) {
     [mark(MARK.N6), t('drawings.cable.n6'), cable, t('drawings.cable.n6rule')],
     [mark(MARK.N7), t('drawings.cable.n7'), cable, t('drawings.cable.n7rule')],
     [mark(MARK.N8), t('drawings.cable.n8'), t('drawings.cable.n8cable'), ''],
-    [mark(MARK.S1), t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') }), t('drawings.cable.s1cable', { twist: say('leadTwist', t) }), t('drawings.cable.s1rule', { longest: say('leadLongest', t) })],
+    [mark(MARK.S1), t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2].join(', ') }), t('drawings.cable.s1cable', { twist: say('leadTwist', t) }), t('drawings.cable.s1rule', { longest: say('leadLongest', t) })],
     [mark(MARK.S2), t('drawings.cable.s2', { mark: MARK.L3 }), t('drawings.cable.s2cable'), t('drawings.cable.s2rule', { longest: say('gateLeadLongest', t), twist: say('gateLeadTwist', t) })],
     [mark(MARK.K1), t('drawings.cable.k1'), t('drawings.cable.k1cable'), ''],
     [mark(MARK.K2), t('drawings.cable.k2'), t('drawings.cable.k2cable'), t('drawings.cable.k2rule')],
+    // The gate's loop-active output for its closing loop: MHTM manual p. 95, table 22 (factory setting relay 4 "Loop active A",
+    // relay 5 "Loop active B"; the closing loop is on the gate's own detector, clamps A or B, p. 91).
+    [mark(MARK.K3), t('drawings.cable.k3', { mark: MARK.L3 }), t('drawings.cable.k3cable'), t('drawings.cable.k3rule')],
   );
   const top = column(s, FRAME.left, FRAME.top, FRAME.right - FRAME.left);
   top.table(

@@ -15,6 +15,8 @@
 //              below), and the equipment words they are read for.
 //   writing    1 and 3: how a number is written, and the title block's
 //              "3 of 10". A digit is what these checks look for.
+//   closing    11: the closing loop's loop-active output to the relay box,
+//              as the wiring rule, the loop table and the cable list say it.
 
 import { endOnce } from '../src/i18n/index.js';
 import { committed } from './drawings-snapshot.js';
@@ -22,6 +24,7 @@ import { committed } from './drawings-snapshot.js';
 export const PINNED = {
   saysNone: ['drawings.stop.passOnly', 'drawings.entryType.passOnly', 'drawings.type.exitNoReader', 'drawings.how2B.noReader'],
   everyLane: ['drawings.about.oneComputer', 'drawings.about.alsoAtExit', 'drawings.about.alsoEveryLane', 'drawings.wiring.scanner', 'drawings.item.cardReader', 'drawings.wiring.intercom'],
+  closing: ['drawings.rule.closing', 'drawings.loop.l3wired', 'drawings.cable.k3'],
   writing: ['drawings.unit.ft', 'drawings.unit.in', 'drawings.unit.m', 'drawings.unit.mm', 'drawings.unit.length', 'drawings.unit.turns', 'drawings.unit.twist', 'drawings.unit.category', 'drawings.unit.volts', 'drawings.unit.amps', 'drawings.unit.degrees', 'drawings.tb.sheetOf'],
 };
 

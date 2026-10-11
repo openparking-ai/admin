@@ -62,25 +62,21 @@ export function drawPlan(g, t, { kind, reader }) {
   g.rect(truckFront - U * metres('smallCarLength'), MID - smallHalf, U * metres('smallCarLength'), 2 * smallHalf, { width: 1.2, dash: [6, 4], radius: 10 });
   g.text(truckBack + 16, 318, t('drawings.plan.smallCar', { length: say('smallCarLength', t) }), soft);
 
-  // The loops: L1 behind the truck, L2 at the pay station or pedestal, L3 under the arm, L4 and L5 past it.
+  // The loops: L1 behind the truck, L2 at the pay station or pedestal, L3 under the arm. L3 also confirms the car went through,
+  // read through the gate's loop-active output (U7e), so there is no pair of confirmation loops past it.
   const loopW = U * metres('loopWidth');
   // Across the lane: the lane less the edge distance at each side, centred.
   const loopL = laneWidth - 2 * U * metres('loopEdgeMax');
-  const spacing = U * metres('loopSpacing');
   const l1 = before('thirdLoopNear') - loopW;
   const l2 = before('payStation') - loopW / 2;
   const l3 = ARM - loopW / 2;
-  const l4 = l3 + loopW + spacing;
-  const l5 = l4 + loopW + spacing;
   const loopTop = MID - loopL / 2;
-  for (const [x, dash] of [[l1, [7, 4]], [l2], [l3], [l4], [l5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop' });
+  for (const [x, dash] of [[l1, [7, 4]], [l2], [l3]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop' });
   const loopText = { size: SIZE.text, bold: true, color: COLOR.loop };
   g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });
   // Beside its loop, as L3's is: above it runs the pay station's dashed line.
   g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);
   g.text(l3 + loopW + 4, loopTop - 7, t('drawings.plan.l3', { mark: MARK.L3 }), loopText);
-  g.text(l4 + loopW / 2, loopTop - 7, MARK.L4, { ...loopText, anchor: 'middle' });
-  g.text(l5 + loopW / 2, loopTop - 7, MARK.L5, { ...loopText, anchor: 'middle' });
 
   // The control panel, the arm, the display and the front camera.
   g.rect(742, 104, 36, 42, { stroke: null, fill: COLOR.ink });

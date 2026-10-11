@@ -79,9 +79,12 @@ export function drawWiring(g, t, { reader, scannerAt }) {
   g.path([[585, 270], [585, 104]], sig);
   g.text(592, 190, t('drawings.wiring.openSignal', { mark: MARK.K1 }), soft);
   g.text(486, 342, MARK.K2, soft);
+  // The gate's loop-active output for L3, read by the relay box and driving nothing (U7e).
+  g.path([[530, 104], [530, 270]], sig);
+  g.text(536, 190, MARK.K3, soft);
 
   // What is outside the control panel.
-  const loops = [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(' ');
+  const loops = [MARK.L1, MARK.L2].join(' ');
   box(g, 20, 60, 170, t('drawings.wiring.garagePanel'));
   box(g, 20, 200, 170, t('drawings.wiring.serverRoom'), t('drawings.wiring.serverRoomHolds'));
   box(g, 20, 340, 170, t('drawings.wiring.loops', { marks: loops }), t('drawings.wiring.inTheFloor'));
