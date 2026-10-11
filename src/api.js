@@ -29,7 +29,14 @@ export const PROBLEM_KINDS = [
   'placeRefused', 'noPlace', 'readerRefused', 'laneHasReader', 'readerElsewhere', 'noReader',
   // U7c: a garage added.
   'garageRefused',
+  // U7d-2: an invite accepted, a forgotten password, a new one chosen.
+  'passwordRule', 'linkTooMany', 'linkBusy',
+  'inviteUsed', 'inviteExpired', 'inviteReplaced', 'inviteInvalid', 'inviteTaken', 'inviteEmailTaken',
+  'resetUsed', 'resetExpired', 'resetReplaced', 'resetInvalid',
 ];
+
+/** U7d-2: what an invite link can be, as the platform's status door says it. */
+export const LINK_STATUSES = ['ready', 'used', 'expired', 'replaced', 'invalid'];
 
 /**
  * The platform's named answers, each with its own words: the status and the
@@ -80,6 +87,25 @@ const NAMED = [
   [409, 'lane_has_reader', 'laneHasReader'],
   [409, 'reader_bound_elsewhere', 'readerElsewhere'],
   [409, 'no_reader_bound', 'noReader'],
+  // U7d-2, as the platform's src/accountDoors.js names them.
+  [400, 'password_refused', 'passwordRule'],
+  [429, 'link_rate_limited', 'linkTooMany'],
+  [503, 'link_busy', 'linkBusy'],
+  [409, 'invite_used', 'inviteUsed'],
+  [409, 'invite_expired', 'inviteExpired'],
+  [409, 'invite_replaced', 'inviteReplaced'],
+  [409, 'invite_invalid', 'inviteInvalid'],
+  [409, 'invite_has_admin', 'inviteTaken'],
+  [409, 'invite_email_taken', 'inviteEmailTaken'],
+  [409, 'reset_used', 'resetUsed'],
+  [409, 'reset_expired', 'resetExpired'],
+  [409, 'reset_replaced', 'resetReplaced'],
+  [409, 'reset_invalid', 'resetInvalid'],
+  // U7d-2: a garage the platform refuses since 130d38d (its src/garageFields.js), each by its
+  // code; these screens never send one, so one plain sentence for all three.
+  [400, 'garage_name_refused', 'garageRefused'],
+  [400, 'garage_currency_refused', 'garageRefused'],
+  [400, 'garage_timezone_refused', 'garageRefused'],
 ];
 
 /**
@@ -162,8 +188,16 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     for (const fn of listeners) fn(kind);
   };
 
-  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null } = {}) {
+  /**
+   * `sessionless`: a door that reads no session (U7d-2: an invite's status
+   * and accepting it, forgot, reset). Its answer belongs to no owner, so a
+   * sign-out or a 401 while it is on its way -- the "not signed in" of the
+   * first load, as the platform holds every door's answer to its floor --
+   * does not throw it away.
+   */
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false } = {}) {
     const asked = epoch;
+    const stale = (at) => (sessionless ? null : staleSince(at));
     let res;
     try {
       res = await fetchFn(`${BASE}${path}`, {
@@ -224,7 +258,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
   }
 
   // An answer that arrived after a sign-out belongs to nobody on screen now.
-  const stale = (asked) => (asked === epoch ? null : new Problem(STALE));
+  const staleSince = (asked) => (asked === epoch ? null : new Problem(STALE));
 
   const object = (data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Problem('unexpected');
@@ -260,6 +294,35 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       signedIn = true;
       return who;
     },
+    /**
+     * U7d-2: what an invite link is now -- ready, used, expired, replaced or
+     * invalid -- and, when ready, the email it is for and its language. The
+     * token goes in the body, never in an address.
+     */
+    inviteStatus: async (token) => {
+      const data = object(await request('/auth/invite/status', { method: 'POST', body: { token }, sessionless: true }));
+      if (!LINK_STATUSES.includes(data.status)) throw new Problem('unexpected');
+      if (data.status !== 'ready') return { status: data.status };
+      if (typeof data.email !== 'string' || !['en', 'es'].includes(data.language)) throw new Problem('unexpected');
+      return { status: 'ready', email: data.email, language: data.language };
+    },
+    /**
+     * U7d-2: make the account an invite is for, with its password and
+     * language, and be signed in as it -- the platform signs in as sign-in
+     * does, so this is a sign-in: a new epoch, and who is signed in after.
+     */
+    async acceptInvite(token, password, language) {
+      epoch += 1;
+      const who = object(await request('/auth/invite/accept', { method: 'POST', body: { token, password, language }, sessionless: true }));
+      signedIn = true;
+      return who;
+    },
+    /** U7d-2: ask for a link to choose a new password. The platform's answer is the same whoever the email names. */
+    forgot: async (email) => {
+      object(await request('/auth/forgot', { method: 'POST', body: { email }, sessionless: true }));
+    },
+    /** U7d-2: the new password, with the link's token. It signs nobody in, and signs the account out everywhere. */
+    resetPassword: async (token, password) => object(await request('/auth/reset', { method: 'POST', body: { token, password }, sessionless: true })),
     async signOut() {
       try {
         await request('/auth/sign-out', { method: 'POST' });

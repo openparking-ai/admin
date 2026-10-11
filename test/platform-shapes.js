@@ -92,6 +92,16 @@ const STRUCTURE = {
     takes_any_driver: data.setup.takes_any_driver,
     steps: data.setup.steps.map((s) => ({ key: s.key, done: s.done, facts: Object.keys(s.facts).sort() })),
   }),
+  // U7d-2: what a link is, as the status door says it -- the status, its sentence and the
+  // invite's language word for word; the email and the end by kind only.
+  link: (data) => ({
+    keys: Object.keys(data).sort(),
+    status: data.status,
+    message: data.message,
+    ...(data.language === undefined ? {} : { language: data.language, email: typeof data.email, expires_at: typeof data.expires_at }),
+  }),
+  // U7d-2: forgot's one sentence, and reset's, word for word.
+  said: (data) => ({ keys: Object.keys(data).sort(), message: data.message }),
   // U4b: the alerts are the contract itself, in order; a person's fields by name.
   alerts: (data) => ({
     keys: Object.keys(data).sort(),
@@ -209,12 +219,102 @@ export async function recordAddGarage(base, { origin, owner, elsewhere = 'http:/
   await call('a garage, added with no time zone', 'POST', '/garages', { name: added.name, currency: added.currency });
   await call('a garage, added with no name', 'POST', '/garages', { ...added, name: '' });
   await call('a garage, added with its money in small letters', 'POST', '/garages', { ...added, currency: 'usd' });
+  // U7d-2: the platform's own checks since 130d38d (its src/garageFields.js), each a 400 with its code.
+  // The platform counts a refusal repeated on the line it already has (0027); the stand-in writes a
+  // line each time. Each refusal after the first money one is of a kind not refused before it, so the
+  // newest line is the same on both.
+  await call('a garage, added with money no country uses', 'POST', '/garages', { ...added, currency: 'XYZ' });
+  await call('a garage, added with a time zone the platform does not know', 'POST', '/garages', { ...added, timezone: 'Mars/Olympus' });
+  await call('a garage, added with a name of 101 characters', 'POST', '/garages', { ...added, name: 'N'.repeat(101) });
   state.garage = (await call('a garage, added', 'POST', '/garages', added)).garage.id;
   await call('garages, after one was added', 'GET', '/garages');
   await call('setup, of the garage added', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'added' });
   await call('changes, of the garage added', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
   await call('refused attempts, after a garage was refused', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
   return state.out;
+}
+
+/**
+ * U7d-2: the four doors behind an emailed link -- an invite's status and its
+ * accepting, a forgotten password and choosing a new one -- with every answer
+ * the screens can meet. The token rides in the POST body only, as the screens
+ * send it. `hooks` does what only the platform's operator can: invite an
+ * email (`invite`, answering the link's token), send it again (`resend`),
+ * move a link past its end (`expire`), make an admin on the invite's account
+ * or elsewhere (`adminOnTenantOf`, `adminElsewhere`), and read the reset link
+ * the last forgot sent (`resetLink`). Recorded apart, after the others: a
+ * reset changes the owner's password. Every address here is invented.
+ */
+export async function recordAccountLinks(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
+  if (!hooks) throw new Error('recordAccountLinks needs the hooks that invite, resend, expire and read the reset link');
+  const { state, call } = recorder(base, origin);
+  const chosen = 'invited-owner-password-1';
+  const short = 'eleven-char';
+  const status = (what, token, headers = {}) => call(what, 'POST', '/auth/invite/status', { token }, headers, { structure: 'link' });
+  const forgot = (what, email, headers = {}) => call(what, 'POST', '/auth/forgot', { email }, headers, { structure: 'said' });
+  const accept = (what, token, password = chosen, language = 'es') => call(what, 'POST', '/auth/invite/accept', { token, password, language });
+  const reset = (what, token, password = chosen) => call(what, 'POST', '/auth/reset', { token, password }, {}, { structure: 'said' });
+
+  // An invite, ready, accepted, then used.
+  const ready = await hooks.invite('invited-owner@example.com', 'es');
+  await status('invite status, from a page at another address', ready, { origin: elsewhere });
+  await call('invite status, a body the door does not read', 'POST', '/auth/invite/status', { token: ready, password: chosen });
+  await status('invite status, ready', ready);
+  await accept('invite accept, a password of 11 characters', ready, short);
+  await accept('invite accept, a language the screens have no words for', ready, chosen, 'fr');
+  await accept('invite accept', ready);
+  await call('who is signed in, after accepting an invite', 'GET', '/auth/me');
+  await call('garages, of an account just made', 'GET', '/garages');
+  await status('invite status, used', ready);
+  await accept('invite accept, used', ready);
+  // Replaced by a newer one, and the newer one past its end.
+  const first = await hooks.invite('replaced-owner@example.com', 'en');
+  const second = await hooks.resend('replaced-owner@example.com');
+  await status('invite status, replaced', first);
+  await accept('invite accept, replaced', first);
+  await hooks.expire('invite', second);
+  await status('invite status, expired', second);
+  await accept('invite accept, expired', second);
+  // Not an invite.
+  await status('invite status, a link that is not an invite', 'opi_not-a-real-invite');
+  await accept('invite accept, a link that is not an invite', 'opi_not-a-real-invite');
+  // The account, or the email, already has its admin.
+  const hasAdmin = await hooks.invite('third-owner@example.com', 'en');
+  await hooks.adminOnTenantOf(hasAdmin, 'another-admin@example.com');
+  await accept('invite accept, the account already has its admin', hasAdmin);
+  const emailTaken = await hooks.invite('fourth-owner@example.com', 'en');
+  await hooks.adminElsewhere('fourth-owner@example.com');
+  await accept('invite accept, the email already names an admin', emailTaken);
+
+  // A forgotten password, and a new one chosen.
+  await call('sign-in, before a reset', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  await forgot('forgot, from a page at another address', owner.email, { origin: elsewhere });
+  await forgot('forgot, a body the door does not read', 'x');
+  await forgot('forgot, an email that names nobody', 'nobody-here@example.com');
+  await forgot('forgot', owner.email);
+  const replaced = await hooks.resetLink(owner.email);
+  await forgot('forgot, asked again', owner.email);
+  const link = await hooks.resetLink(owner.email);
+  await reset('reset, replaced', replaced);
+  await reset('reset, a link that is not a reset link', 'opr_not-a-real-reset');
+  await call('reset, a body the door does not read', 'POST', '/auth/reset', { token: link });
+  await reset('reset, a password of 11 characters', link, short);
+  await reset('reset', link);
+  await reset('reset, used', link);
+  await call('who is signed in, with the session from before the reset', 'GET', '/auth/me');
+  await call('sign-in, with the password from before the reset', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password });
+  await call('sign-in, with the new password', 'POST', '/auth/sign-in', { email: owner.email, password: chosen });
+  await forgot('forgot, once more', owner.email);
+  const late = await hooks.resetLink(owner.email);
+  await hooks.expire('reset', late);
+  await reset('reset, expired', late);
+  return state.out;
+}
+
+/** U7d-2: one answer of a door, for the answers only a platform set up to give them can give. */
+export async function linkAnswer(base, { origin, path = '/auth/forgot', body = { email: 'owner-a@example.com' } }) {
+  const res = await fetch(`${base}/api/v1${path}`, { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return { status: res.status, body: JSON.parse(await res.text()) };
 }
 
 /**

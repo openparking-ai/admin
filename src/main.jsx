@@ -4,7 +4,12 @@ import './fonts.css';
 import './styles.css';
 import { createTheme } from './theme.js';
 import { createClient } from './api.js';
+import { takeLink } from './links.js';
 import App from './App.jsx';
+
+// U7d-2: an emailed link's token, taken out of the address before anything
+// else runs or is drawn, so it is never left there (src/links.js).
+const link = takeLink(window.location, window.history);
 
 const storage = (() => {
   try {
@@ -25,6 +30,6 @@ const client = createClient();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App theme={theme} storage={storage} client={client} />
+    <App theme={theme} storage={storage} client={client} link={link} />
   </StrictMode>,
 );

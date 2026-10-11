@@ -14,20 +14,82 @@ const locale = (language) => LOCALES[language] ?? LOCALES.en;
 
 /**
  * The United States' time zones, listed first, each said in the
- * dictionaries' own words (`zone.<key>`): the states, then the territories.
+ * dictionaries' own words (`zone.<key>`). U7d-2: every zone tzdata's
+ * zone1970.tab gives the United States (tzdata 2026c: 29 zones), in its
+ * order -- by clock, east to west, each clock's most-used place first --
+ * then the three territories U7c listed. A zone of these that a browser
+ * names by an older name (America/Indianapolis) is put right by
+ * ZONE_RENAMED below, so it is listed here once and nowhere else.
  */
 export const US_ZONES = [
   { id: 'America/New_York', key: 'eastern' },
+  { id: 'America/Detroit', key: 'detroit' },
+  { id: 'America/Kentucky/Louisville', key: 'louisville' },
+  { id: 'America/Kentucky/Monticello', key: 'monticello' },
+  { id: 'America/Indiana/Indianapolis', key: 'indianapolis' },
+  { id: 'America/Indiana/Vincennes', key: 'vincennes' },
+  { id: 'America/Indiana/Winamac', key: 'winamac' },
+  { id: 'America/Indiana/Marengo', key: 'marengo' },
+  { id: 'America/Indiana/Petersburg', key: 'petersburg' },
+  { id: 'America/Indiana/Vevay', key: 'vevay' },
   { id: 'America/Chicago', key: 'central' },
+  { id: 'America/Indiana/Tell_City', key: 'tellCity' },
+  { id: 'America/Indiana/Knox', key: 'knox' },
+  { id: 'America/Menominee', key: 'menominee' },
+  { id: 'America/North_Dakota/Center', key: 'center' },
+  { id: 'America/North_Dakota/New_Salem', key: 'newSalem' },
+  { id: 'America/North_Dakota/Beulah', key: 'beulah' },
   { id: 'America/Denver', key: 'mountain' },
+  { id: 'America/Boise', key: 'boise' },
   { id: 'America/Phoenix', key: 'arizona' },
   { id: 'America/Los_Angeles', key: 'pacific' },
   { id: 'America/Anchorage', key: 'alaska' },
+  { id: 'America/Juneau', key: 'juneau' },
+  { id: 'America/Sitka', key: 'sitka' },
+  { id: 'America/Metlakatla', key: 'metlakatla' },
+  { id: 'America/Yakutat', key: 'yakutat' },
+  { id: 'America/Nome', key: 'nome' },
+  { id: 'America/Adak', key: 'adak' },
   { id: 'Pacific/Honolulu', key: 'hawaii' },
   { id: 'America/Puerto_Rico', key: 'puertoRico' },
   { id: 'Pacific/Guam', key: 'guam' },
   { id: 'Pacific/Pago_Pago', key: 'samoa' },
 ];
+
+/**
+ * U7d-2: the old names a browser still gives for zones tzdata has renamed,
+ * each with today's name. A browser's list of zones (and the zone it says
+ * the computer is in) is ICU's, which keeps names tzdata changed long ago:
+ * "Asia/Calcutta" for Asia/Kolkata, "Europe/Kiev" for Europe/Kyiv. These
+ * are exactly the zones Chromium 141 and Node 22 list that tzdata 2026c
+ * keeps only as a link and does not list as a place of its own in
+ * zone.tab -- a rename, not two places that keep one clock, which stay
+ * apart (Bratislava is not Prague). Each is shown, and sent, by today's name.
+ */
+export const ZONE_RENAMED = {
+  'Africa/Asmera': 'Africa/Asmara',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'America/Catamarca': 'America/Argentina/Catamarca',
+  'America/Coral_Harbour': 'America/Atikokan',
+  'America/Cordoba': 'America/Argentina/Cordoba',
+  'America/Godthab': 'America/Nuuk',
+  'America/Indianapolis': 'America/Indiana/Indianapolis',
+  'America/Jujuy': 'America/Argentina/Jujuy',
+  'America/Louisville': 'America/Kentucky/Louisville',
+  'America/Mendoza': 'America/Argentina/Mendoza',
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Truk': 'Pacific/Chuuk',
+};
+
+/** A zone by today's name. */
+export const zoneToday = (id) => (Object.hasOwn(ZONE_RENAMED, id) ? ZONE_RENAMED[id] : id);
 
 /** The place a zone is named for, from its name: "America/Indiana/Knox" is "Knox, Indiana". */
 function cityOf(id) {
@@ -41,12 +103,13 @@ function cityOf(id) {
  * name for it.
  */
 export function zoneWords(t, id, language) {
-  const us = US_ZONES.find((z) => z.id === id);
+  const today = zoneToday(id);
+  const us = US_ZONES.find((z) => z.id === today);
   if (us) return t(`zone.${us.key}`);
-  const said = zoneSaid(id, language);
+  const said = zoneSaid(today, language);
   if (!said) return null;
   const zone = said.charAt(0).toLocaleUpperCase(locale(language)) + said.slice(1);
-  const city = cityOf(id);
+  const city = cityOf(today);
   return city ? t('zone.said', { zone, city }) : zone;
 }
 
@@ -62,12 +125,14 @@ function everyZone() {
 /**
  * The time zones to pick from: the United States' first, in their order,
  * then every other zone the browser can name, in the order of their words.
- * Each `{ id, words }`.
+ * Each `{ id, words }`, by today's name (ZONE_RENAMED), and each once: a
+ * browser that lists a zone under its old name and its new one, or a US
+ * zone under an old name, shows it once, where it belongs.
  */
 export function zoneChoices(t, language) {
   const us = US_ZONES.map((z) => ({ id: z.id, words: t(`zone.${z.key}`) }));
   const collator = new Intl.Collator(locale(language));
-  const others = everyZone()
+  const others = [...new Set(everyZone().map(zoneToday))]
     .filter((id) => !US_ZONES.some((z) => z.id === id))
     .map((id) => ({ id, words: zoneWords(t, id, language) }))
     .filter((z) => z.words)

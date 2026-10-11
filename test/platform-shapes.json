@@ -4659,7 +4659,7 @@
       }
     }
   ],
-  "add_garage_recorded_from": "openparking-ai/platform 31277d9 (main), 2026-10-10, U7c, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. The 158 answers above are unchanged.",
+  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged.",
   "add_garage_answers": [
     {
       "what": "a garage, added from a page at another address",
@@ -4685,9 +4685,34 @@
     },
     {
       "what": "a garage, added with its money in small letters",
-      "status": 500,
+      "status": 400,
       "body": {
-        "error": "internal error"
+        "error": "currency is written in capital letters: \"USD\"",
+        "code": "garage_currency_refused"
+      }
+    },
+    {
+      "what": "a garage, added with money no country uses",
+      "status": 400,
+      "body": {
+        "error": "currency must be an ISO 4217 currency code in use today, such as \"USD\"",
+        "code": "garage_currency_refused"
+      }
+    },
+    {
+      "what": "a garage, added with a time zone the platform does not know",
+      "status": 400,
+      "body": {
+        "error": "timezone must be a time zone name this platform knows, such as \"America/New_York\"",
+        "code": "garage_timezone_refused"
+      }
+    },
+    {
+      "what": "a garage, added with a name of 101 characters",
+      "status": 400,
+      "body": {
+        "error": "name must be text of 1 to 100 characters",
+        "code": "garage_name_refused"
       }
     },
     {
@@ -5002,7 +5027,7 @@
           ],
           "action": "garage.create",
           "outcome": "refused",
-          "refusal": "bad_request",
+          "refusal": "garage_name_refused",
           "before": null,
           "after": null
         }
@@ -5022,6 +5047,448 @@
       "body": {
         "error": "Sign-in is busy. Try again in a moment.",
         "code": "sign_in_busy"
+      }
+    },
+    "not set up (no ADMIN_ORIGIN)": {
+      "status": 409,
+      "body": {
+        "error": "This deployment has no admin origin configured, so owner sign-in is off.",
+        "code": "sign_in_not_configured"
+      }
+    }
+  },
+  "account_links_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, and email sent to a stand-in for the email service (EMAIL_API_URL) whose messages gave the links; then recordAccountLinks (test/platform-shapes.js) alone, its hooks run by the platform's own invite-admin and create-admin, and a link moved past its end at the database (its created_at and expires_at, inside 0032's checks). The answers under link_answers are from the same commit, each on a fresh database with the one setting named.",
+  "account_links_answers": [
+    {
+      "what": "invite status, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "invite status, a body the door does not read",
+      "status": 400,
+      "body": {
+        "error": "The request could not be read. Send JSON: {\"token\"}.",
+        "code": "invite_unreadable"
+      }
+    },
+    {
+      "what": "invite status, ready",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "email",
+          "expires_at",
+          "language",
+          "message",
+          "status"
+        ],
+        "status": "ready",
+        "message": "This invite is ready. Choose a password to finish.",
+        "language": "es",
+        "email": "string",
+        "expires_at": "string"
+      }
+    },
+    {
+      "what": "invite accept, a password of 11 characters",
+      "status": 400,
+      "body": {
+        "error": "The password must be 12 to 1024 characters.",
+        "code": "password_refused"
+      }
+    },
+    {
+      "what": "invite accept, a language the screens have no words for",
+      "status": 400,
+      "body": {
+        "error": "The request could not be read. Send JSON: {\"token\", \"password\", \"language\"}.",
+        "code": "invite_unreadable"
+      }
+    },
+    {
+      "what": "invite accept",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "language": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": false,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "who is signed in, after accepting an invite",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "language": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "garages, of an account just made",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garages": {
+            "types": [
+              "array"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "invite status, used",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message",
+          "status"
+        ],
+        "status": "used",
+        "message": "This invite was already used. Sign in instead."
+      }
+    },
+    {
+      "what": "invite accept, used",
+      "status": 409,
+      "body": {
+        "error": "This invite was already used. Sign in instead.",
+        "code": "invite_used"
+      }
+    },
+    {
+      "what": "invite status, replaced",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message",
+          "status"
+        ],
+        "status": "replaced",
+        "message": "A newer invite was sent. Use the link in the latest email."
+      }
+    },
+    {
+      "what": "invite accept, replaced",
+      "status": 409,
+      "body": {
+        "error": "A newer invite was sent. Use the link in the latest email.",
+        "code": "invite_replaced"
+      }
+    },
+    {
+      "what": "invite status, expired",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message",
+          "status"
+        ],
+        "status": "expired",
+        "message": "This invite has ended. Ask for a new one."
+      }
+    },
+    {
+      "what": "invite accept, expired",
+      "status": 409,
+      "body": {
+        "error": "This invite has ended. Ask for a new one.",
+        "code": "invite_expired"
+      }
+    },
+    {
+      "what": "invite status, a link that is not an invite",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message",
+          "status"
+        ],
+        "status": "invalid",
+        "message": "This link is not an invite. Check that the whole link was used."
+      }
+    },
+    {
+      "what": "invite accept, a link that is not an invite",
+      "status": 409,
+      "body": {
+        "error": "This link is not an invite. Check that the whole link was used.",
+        "code": "invite_invalid"
+      }
+    },
+    {
+      "what": "invite accept, the account already has its admin",
+      "status": 409,
+      "body": {
+        "error": "This account already has its admin. Sign in instead.",
+        "code": "invite_has_admin"
+      }
+    },
+    {
+      "what": "invite accept, the email already names an admin",
+      "status": 409,
+      "body": {
+        "error": "That email already names an admin. Sign in instead.",
+        "code": "invite_email_taken"
+      }
+    },
+    {
+      "what": "forgot, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "forgot, a body the door does not read",
+      "status": 400,
+      "body": {
+        "error": "The request could not be read. Send JSON: {\"email\"}.",
+        "code": "forgot_unreadable"
+      }
+    },
+    {
+      "what": "forgot, an email that names nobody",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message"
+        ],
+        "message": "If that email names an account, a link to choose a new password is on its way. It works once, for one hour."
+      }
+    },
+    {
+      "what": "forgot",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message"
+        ],
+        "message": "If that email names an account, a link to choose a new password is on its way. It works once, for one hour."
+      }
+    },
+    {
+      "what": "forgot, asked again",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message"
+        ],
+        "message": "If that email names an account, a link to choose a new password is on its way. It works once, for one hour."
+      }
+    },
+    {
+      "what": "reset, replaced",
+      "status": 409,
+      "body": {
+        "error": "A newer reset link was sent. Use the link in the latest email.",
+        "code": "reset_replaced"
+      }
+    },
+    {
+      "what": "reset, a link that is not a reset link",
+      "status": 409,
+      "body": {
+        "error": "This link is not a reset link. Check that the whole link was used.",
+        "code": "reset_invalid"
+      }
+    },
+    {
+      "what": "reset, a body the door does not read",
+      "status": 400,
+      "body": {
+        "error": "The request could not be read. Send JSON: {\"token\", \"password\"}.",
+        "code": "reset_unreadable"
+      }
+    },
+    {
+      "what": "reset, a password of 11 characters",
+      "status": 400,
+      "body": {
+        "error": "The password must be 12 to 1024 characters.",
+        "code": "password_refused"
+      }
+    },
+    {
+      "what": "reset",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "email",
+          "message"
+        ],
+        "message": "The password is changed, and every session of the account is signed out. Sign in with the new password."
+      }
+    },
+    {
+      "what": "reset, used",
+      "status": 409,
+      "body": {
+        "error": "This reset link was already used. Ask for a new one if you need it.",
+        "code": "reset_used"
+      }
+    },
+    {
+      "what": "who is signed in, with the session from before the reset",
+      "status": 401,
+      "body": {
+        "error": "The session has ended. Sign in again.",
+        "code": "session_ended"
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": true,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age=0",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "sign-in, with the password from before the reset",
+      "status": 401,
+      "body": {
+        "error": "Sign-in refused. Check the email and password.",
+        "code": "sign_in_refused"
+      }
+    },
+    {
+      "what": "sign-in, with the new password",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "email": {
+            "types": [
+              "string"
+            ]
+          },
+          "language": {
+            "types": [
+              "string"
+            ]
+          },
+          "session_ends_at": {
+            "types": [
+              "string"
+            ]
+          },
+          "tenant_id": {
+            "types": [
+              "string"
+            ]
+          }
+        }
+      },
+      "cookie": {
+        "name": "op_session",
+        "cleared": false,
+        "attributes": [
+          "HttpOnly",
+          "Max-Age",
+          "Path=/api",
+          "SameSite=Strict"
+        ]
+      }
+    },
+    {
+      "what": "forgot, once more",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "message"
+        ],
+        "message": "If that email names an account, a link to choose a new password is on its way. It works once, for one hour."
+      }
+    },
+    {
+      "what": "reset, expired",
+      "status": 409,
+      "body": {
+        "error": "This reset link has ended. Ask for a new one.",
+        "code": "reset_expired"
+      }
+    }
+  ],
+  "link_answers": {
+    "too many tries from here (ACCOUNT_LINK_ATTEMPTS_PER_ADDRESS=1)": {
+      "status": 429,
+      "body": {
+        "error": "Too many attempts from here. Try again later.",
+        "code": "link_rate_limited"
+      }
+    },
+    "busy (SIGN_IN_HASH_LINE=1, three resets at once)": {
+      "status": 503,
+      "body": {
+        "error": "Busy. Try again in a moment.",
+        "code": "link_busy"
       }
     },
     "not set up (no ADMIN_ORIGIN)": {

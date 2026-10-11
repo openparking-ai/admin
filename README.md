@@ -151,6 +151,35 @@ The build publishes no source maps.
 - **The refused attempts' count follows the choices** (U7c): with some
   ticked it says how many of them are shown ("24 of 120 refused attempts");
   with none, or only sorted, how many in all.
+- **Accept your invite** (U7d-2): sign-up is by invitation only, and the
+  emailed link is `<site>/#invite=<token>`. The token is read from the
+  address's fragment as the page starts -- or as a link is opened into a page
+  already open -- and the address is put back without it at once, so it is
+  not left in the history, a bookmark or a picture of the address bar; it is
+  sent only in a POST body (`POST /auth/invite/status`, `/auth/invite/accept`),
+  never in an address or a query (`src/links.js`). The screen says what the
+  link is, in a plain sentence. Ready: the email it was sent to (read only), a
+  new password typed twice (at least 12 characters, said plainly) and the
+  language, the invite's own to start with; nothing is sent until the two
+  match and meet the rule. Accepted, the owner is signed in on the Garages
+  page, ready to add a garage. Used, ended, replaced by a newer invite, or not
+  an invite: its sentence and the one thing to do, and no form.
+  `src/InviteScreen.jsx`.
+- **Forgot your password?** (U7d-2), a small link on the sign-in screen: the
+  email, then the same sentence whatever email was typed, so the screen
+  never says whether an account exists (`POST /auth/forgot`). The link it
+  sends is `<site>/#reset=<token>`, taken out of the address the same way:
+  **Choose a new password** asks for it twice; changed, the sign-in screen
+  says so, and that every computer was signed out. A link already used,
+  ended, replaced or not one says so plainly and offers "Forgot your
+  password?" again. `src/ForgotScreen.jsx`, `src/ResetScreen.jsx`.
+- **Time zones** (U7d-2): the United States' group is every zone tzdata's
+  `zone1970.tab` gives the United States, then Puerto Rico, Guam and American
+  Samoa. A browser lists some zones by names tzdata has since changed
+  ("Asia/Calcutta", "Europe/Kiev", "America/Indianapolis"); each is shown, and
+  sent, by today's name (Kolkata, Kyiv, Indiana's Indianapolis), once
+  (`ZONE_RENAMED` in `src/garages.js`). On Setup, a garage's details say they
+  were set when it was created and can't be changed.
 - **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
   readers, Rates, Taxes and fees, Getting paid, Garage View, Alerts, Change log,
   Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
@@ -290,6 +319,7 @@ name it.
 | The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
 | The change log sorted and chosen from (U7b), in a browser against the stand-in, both languages, with 312 changes and 57 refused attempts of many kinds: sorted each way, every line in that order across every page, none missed or repeated, and Excel, PDF and Print in that order; ticks only for kinds and reasons the log holds; two ticked, every line shown one of them, the count saying so, and Excel, PDF and Print holding exactly those and naming the choice; one drawing at a time, View, PDF and Print each that sheet only and the same as in the whole set; refused attempts one line a row at 1280 px, whole when pointed at, focused and printed; who gets which alert at most 20 rows a page, printed whole; Getting paid's Cancel at the right | `npm run build && npm run check-choices` |
 | The Garages page and adding a garage (U7c), in a browser against the stand-in, both languages: two garages listed with their name, time zone, money, open or not and Setup steps done as the platform counts them, each row opening its own Setup; 45 paged at 20 with none missed or repeated; nothing picked until the owner picks, US time zones and US dollars first; Create garage pressed twice sends exactly one `POST /garages` of exactly name, timezone and currency, and the new garage is chosen with its "Garage details" done; a blank field (or a name of spaces) sends nothing and says why; a refusal says so and chooses nothing; an account with no garage is offered Add a garage on every page; the refused attempts' count with a choice ("24 of 120"); Quick Find | `npm run build && npm run check-garages` |
+| Accepting an invite, a forgotten password, a new one chosen (U7d-2), in a browser against the stand-in (its four doors recorded from the platform), both languages: a ready invite accepted with a matching password signs in on the Garages page, the account in the language picked; used, expired, replaced and invalid each say so with no form; the token out of the address once read (back and forward too) and in no request's address or query, only a POST body; a password sent only when typed twice the same and at least 12 characters; Forgot the same for an email with an account and one without; a reset said on the sign-in screen, the old session ended, a used or ended link offering Forgot again; the United States' time zones whole, old names shown by today's, once; Setup's garage details; a Spanish name on one line beside a long zone | `npm run build && npm run check-invites` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

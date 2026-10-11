@@ -8,9 +8,13 @@
 import { garageTime } from './time.js';
 import { alertName } from './alerts.js';
 
-/** Where each step is done: a page of these screens, this page, or not from here yet. */
+/**
+ * Where each step is done: a page of these screens, this page, or not from
+ * here yet; or, for a garage's details, nowhere: they were set when the
+ * garage was created, and can't be changed (U7d-2).
+ */
 export const WHERE = {
-  garage_details: { notYet: true },
+  garage_details: { fixed: true },
   drivers: { here: true },
   lanes: { page: 'lanes', drawings: true },
   lane_computers: { page: 'lanes' },

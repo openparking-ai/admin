@@ -246,6 +246,9 @@ jobs:
       - name: The Garages page and adding a garage -- each row opening its own Setup, 20 a page; exactly name, time zone and currency sent, once; blank fields and a refusal said plainly; a new account starting there; the refused attempts counted as chosen
         run: npm run check-garages
 
+      - name: Accepting an invite, a forgotten password, a new one chosen -- the token out of the address and only in a POST body, passwords typed twice, Forgot the same for any email, every link status said; the United States' time zones whole, by today's names; Setup's garage details; Spanish names on one line
+        run: npm run check-invites
+
       - name: No name from outside this project, in the working tree and the built site
         # Tracked and untracked files and the built site, contents and paths,
         # and every commit message. Plants its own controls -- a word in a
