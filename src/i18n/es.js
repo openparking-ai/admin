@@ -1412,6 +1412,8 @@ export default {
   "forgot.sent": "Si ese correo tiene una cuenta, va en camino un enlace para elegir una contraseña nueva. Sirve una vez, durante una hora.",
   "reset.title": "Elija una contraseña nueva",
   "reset.intro": "Escriba su contraseña nueva dos veces. Al cambiarla, se cierra su acceso en todas las computadoras.",
+  // Signed in: the link may be another account's, and only that account is signed out (platform 130d38d).
+  "reset.intro.signedIn": "Escriba la contraseña nueva dos veces. Al cambiarla, se cierra en todas las computadoras el acceso de la cuenta a la que se envió este enlace.",
   "reset.submit": "Cambiar mi contraseña",
   "reset.working": "Cambiando…",
   "reset.used": "Este enlace para elegir una contraseña nueva ya se usó.",
@@ -1419,6 +1421,8 @@ export default {
   "reset.replaced": "Se envió un enlace más reciente al mismo correo, así que este ya no sirve.",
   "reset.invalid": "Este enlace no sirve para elegir una contraseña nueva.",
   "reset.askAgain": "Para recibir un enlace nuevo, pídalo otra vez.",
+  "reset.askAgain.signedIn": "Para recibir un enlace nuevo, salga y elija “¿Olvidó su contraseña?” en la pantalla para entrar.",
+  "reset.changedOther": "La contraseña de {email} cambió y se cerró el acceso de esa cuenta en todas las computadoras. Usted sigue dentro como {you}.",
   "problem.passwordRule": "La contraseña debe tener de 12 a 1024 caracteres.",
   "problem.linkTooMany": "Hubo demasiados intentos desde aquí. Espere un rato e intente de nuevo.",
   "problem.linkBusy": "El sistema de su garaje está ocupado ahora mismo. Intente de nuevo en un momento.",

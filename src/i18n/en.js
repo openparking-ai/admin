@@ -1415,6 +1415,8 @@ export default {
   "forgot.sent": "If that email has an account, a link to choose a new password is on its way. It works once, for one hour.",
   "reset.title": "Choose a new password",
   "reset.intro": "Type your new password twice. Changing it signs you out on every computer.",
+  // Signed in: the link may be another account's, and only that account is signed out (platform 130d38d).
+  "reset.intro.signedIn": "Type the new password twice. Changing it signs out every computer signed in to the account this link was sent for.",
   "reset.submit": "Change my password",
   "reset.working": "Changing…",
   "reset.used": "This link to choose a new password was already used.",
@@ -1422,6 +1424,8 @@ export default {
   "reset.replaced": "A newer link was sent to the same email, so this one no longer works.",
   "reset.invalid": "This link does not work for choosing a new password.",
   "reset.askAgain": "To get a new link, ask again.",
+  "reset.askAgain.signedIn": "To get a new link, sign out, then choose “Forgot your password?” on the sign-in screen.",
+  "reset.changedOther": "The password of {email} is changed, and that account is signed out on every computer. You are still signed in as {you}.",
   "problem.passwordRule": "The password must be 12 to 1,024 characters.",
   "problem.linkTooMany": "There have been too many tries from here. Please wait a while, then try again.",
   "problem.linkBusy": "Your garage system is busy right now. Please try again in a moment.",

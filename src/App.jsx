@@ -260,6 +260,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
         client={client}
         token={link.token}
         controls={choosers}
+        signedInAs={signedIn ? owner.who?.email ?? null : null}
         // A reset signs nobody in and signs the account out everywhere: the sign-in screen, saying so.
         onChanged={() => {
           setLink(null);
@@ -272,7 +273,11 @@ export default function App({ theme, storage, client, link: startLink = null }) 
           setLink(null);
           setForgot(true);
         }}
-        onSignIn={toSignIn}
+        // Signed in, every way out is Home; signed out, the sign-in screen.
+        onLeave={() => {
+          if (signedIn) actions.go(PAGES.find((p) => p.id === 'home'));
+          toSignIn();
+        }}
       />
     );
   }

@@ -2485,6 +2485,32 @@ const BROWSER_CONTROLS = [
     run: INVITES,
     names: ['FAIL 7 Setup (es), an open garage and one not', 'Harbor Street Garage, screen: "Este estacionamiento está abierto', 'in the dictionary: setup.isOpen'],
   },
+  // U7d-2 fix round 2: a reset link opened while signed in; a long invited email on a phone.
+  {
+    check: 'U7d2-11 a reset link offers a signed-in owner "Back to sign in" again',
+    plant: {
+      file: 'src/ResetScreen.jsx',
+      anchor: "data-action={signedIn ? 'back-home' : 'back-to-sign-in'} onClick={onLeave}>\n            {signedIn ? t('links.backHome') : t('links.backToSignIn')}",
+      with: 'data-action="back-to-sign-in" onClick={onLeave}>\n            {t(\'links.backToSignIn\')}',
+    },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 11 signed in, a reset link ready (en)', '[["back-to-sign-in","Back to sign in"]]', 'FAIL 11 signed in, a reset link ready (es)'],
+  },
+  {
+    check: "U7d2-12 another account's reset said as signing this owner out, the session standing",
+    plant: { file: 'src/ResetScreen.jsx', anchor: "const own = !signedIn || String(done?.email).toLowerCase() === signedInAs.toLowerCase();", with: 'const own = true;' },
+    before: BUILD,
+    run: INVITES,
+    names: ["FAIL 12 signed in, another account's reset done (en)", 'me {"status":200', "FAIL 12 signed in, another account's reset done (es)"],
+  },
+  {
+    check: 'U7d2-13 the invited email on one line again, cut at 360 px',
+    plant: { file: 'src/styles.css', anchor: '.field .shown-value {\n  padding: 10px 12px;\n', with: '.field .shown-value {\n  padding: 10px 12px;\n  white-space: nowrap;\n  overflow: hidden;\n' },
+    before: BUILD,
+    run: INVITES,
+    names: ['FAIL 13 a phone, 360 px (en)', '"whole":false', 'FAIL 13 a phone, 360 px (es)'],
+  },
 ];
 
 function scratchCopy() {

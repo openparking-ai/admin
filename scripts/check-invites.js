@@ -44,6 +44,14 @@
 //      from its next line;
 //  10  a phone, 360 and 390 px: no signed-out screen is wider than the screen,
 //      and nothing on it runs off either edge;
+//  11  a reset link opened while an owner is signed in, ready, used, expired,
+//      replaced or invalid: every button says where it goes and goes there,
+//      Home; none offers Forgot, which is not shown to someone signed in;
+//  12  a reset done while an owner is signed in: another account's, and the
+//      screen says they are still signed in, as they are; their own, and the
+//      sign-in screen says so, as the session has ended;
+//  13  a phone, 360 px: an invited email of 60 characters shown whole, and
+//      nothing off either edge;
 //   and, in 1, an invite opened while an owner is signed in and left: the
 //   owner's pages in the account's language again, the way out named Home;
 //   in 7, every Setup line in Spanish says "garaje", on screen and in print;
@@ -58,7 +66,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
-import { DICTIONARIES, LANGUAGE_KEY } from '../src/i18n/index.js';
+import { DICTIONARIES, LANGUAGE_KEY, translate } from '../src/i18n/index.js';
 import { PAGES, hashFor } from '../src/pages.js';
 import { US_ZONES } from '../src/garages.js';
 import { startStub } from '../test/stub-platform.js';
@@ -470,6 +478,107 @@ try {
     await e.close();
   }
 
+  // ── 11, 12: a reset link opened while an owner is signed in ──────────────
+  // Every button on the card that is not a chooser: [action, words].
+  const buttons = (page) =>
+    page.$$eval('.signin-card button', (bs) => bs.filter((b) => !b.closest('[data-control], [data-chooser]')).map((b) => [b.dataset.action, b.textContent]));
+  const useReset = async (token, password) => {
+    const res = await fetch(`${stub.url}/api/v1/auth/reset`, { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify({ token, password }) });
+    if (res.status !== 200) throw new Error(`reset: ${res.status}`);
+  };
+  const meOf = (page) => page.evaluate(async () => {
+    const res = await fetch('/api/v1/auth/me');
+    return { status: res.status, email: res.status === 200 ? (await res.json()).email : null };
+  }).catch(() => null);
+  for (const language of LANGUAGES) {
+    const w = WORDS[language];
+    const home = [['go-home', w['links.backHome']]];
+    const owner = stub.adminElsewhere(fresh(`signed-in-${language}`));
+    owner.language = language;
+    const other = stub.adminElsewhere(fresh(`another-${language}`));
+    const signedInAt = async (link) => {
+      const opened = await openAt('', { language });
+      await signIn(opened.page, owner);
+      await opened.page.waitForSelector('.nav');
+      await opened.page.evaluate((tk) => (window.location.hash = `reset=${tk}`), link);
+      return opened;
+    };
+
+    // 11, ready: the form, and its way out is Home.
+    {
+      const { context, page } = await signedInAt(await forgotFor(other));
+      await settles(page, () => Boolean(document.querySelector('[data-form="reset"]')));
+      const way = (await buttons(page)).filter(([a]) => a !== 'change-password');
+      const intro = await textOf(page, '.page-purpose');
+      check(JSON.stringify(way) === JSON.stringify([['back-home', w['links.backHome']]]) && intro === w['reset.intro.signedIn'],
+        `11 signed in, a reset link ready (${language}): "${w['reset.intro.signedIn']}", its way out "${w['links.backHome']}" (${JSON.stringify(way)}, "${intro}")`);
+      if (SCREENS) await screenshot(page, `reset-signed-in-ready-${language}`);
+      if (way.some(([a]) => a === 'back-home')) await page.click('.signin-card [data-action="back-home"]');
+      check(await showsHeading(page, w['page.home.title']) && Boolean(await page.$('.nav')), `11 signed in, a reset link ready (${language}): "${w['links.backHome']}" lands on Home, still signed in`);
+      await context.close();
+    }
+
+    // 11, not ready: its sentence, what to do signed in, and one button, Home.
+    const used = await forgotFor(other);
+    await useReset(used, `${GOOD}-used-${language}`);
+    const replaced = await forgotFor(other);
+    const ended = await forgotFor(other);
+    stub.expireLink(ended);
+    for (const [status, link] of [['used', used], ['expired', ended], ['replaced', replaced], ['invalid', NEVER_MADE_RESET], ['invalid', '']]) {
+      const { context, page } = await signedInAt(link);
+      if (link !== '') {
+        await settles(page, () => Boolean(document.querySelector('[data-form="reset"]')));
+        await fillPasswords(page, `${GOOD}-again`, `${GOOD}-again`);
+        await page.click('[data-action="change-password"]');
+      }
+      await settles(page, () => Boolean(document.querySelector('.link-status')));
+      const shown = await linkShown(page);
+      const way = await buttons(page);
+      const what = link === '' ? 'empty' : status;
+      check(shown.status === status && shown.said === w[`reset.${status}`] && shown.todo === w['reset.askAgain.signedIn'] && JSON.stringify(way) === JSON.stringify(home),
+        `11 signed in, a reset link ${what} (${language}): "${w[`reset.${status}`]} ${w['reset.askAgain.signedIn']}", one button "${w['links.backHome']}" (${JSON.stringify(way)}${shown.status === status ? '' : `, shown: ${JSON.stringify(shown)}`})`);
+      if (SCREENS && status === 'used') await screenshot(page, `reset-signed-in-used-${language}`);
+      if (way.some(([a]) => a === 'go-home')) await page.click('.signin-card [data-action="go-home"]');
+      check(await showsHeading(page, w['page.home.title']) && Boolean(await page.$('.nav')), `11 signed in, a reset link ${what} (${language}): its button lands on Home, still signed in`);
+      await context.close();
+    }
+
+    // 12, another account's password changed: that account signed out, this owner still signed in, and the screen says so.
+    {
+      const { context, page } = await signedInAt(await forgotFor(other));
+      await settles(page, () => Boolean(document.querySelector('[data-form="reset"]')));
+      const fresher = `${GOOD}-other-${language}`;
+      await fillPasswords(page, fresher, fresher);
+      await page.click('[data-action="change-password"]');
+      await settles(page, () => Boolean(document.querySelector('.link-status')));
+      const said = await textOf(page, '[data-notice="reset-changed-other"]');
+      const words = translate(language, 'reset.changedOther', { email: other.email, you: owner.email });
+      const way = await buttons(page);
+      const me = await meOf(page);
+      check(said === words && JSON.stringify(way) === JSON.stringify(home) && me?.status === 200 && me.email === owner.email && other.password === fresher,
+        `12 signed in, another account's reset done (${language}): "${words}", one button "${w['links.backHome']}", and the platform holds the session (said ${JSON.stringify(said)}, ${JSON.stringify(way)}, me ${JSON.stringify(me)})`);
+      if (SCREENS) await screenshot(page, `reset-signed-in-changed-other-${language}`);
+      if (way.some(([a]) => a === 'go-home')) await page.click('.signin-card [data-action="go-home"]');
+      check(await showsHeading(page, w['page.home.title']) && Boolean(await page.$('.nav')), `12 signed in, another account's reset done (${language}): "${w['links.backHome']}" lands on Home, still signed in`);
+      await context.close();
+    }
+
+    // 12, their own: the session has ended, and the sign-in screen says the password is changed.
+    {
+      const { context, page } = await signedInAt(await forgotFor(owner));
+      await settles(page, () => Boolean(document.querySelector('[data-form="reset"]')));
+      const fresher = `${GOOD}-own-${language}`;
+      await fillPasswords(page, fresher, fresher);
+      await page.click('[data-action="change-password"]');
+      const atSignIn = await showsHeading(page, w['signIn.title']);
+      const said = await textOf(page, '[data-notice="password-changed"]');
+      const me = await meOf(page);
+      check(atSignIn && said === w['signIn.passwordChanged'] && me?.status === 401 && owner.password === fresher,
+        `12 signed in, their own reset done (${language}): the sign-in screen, "${w['signIn.passwordChanged']}", and the platform ended the session (me ${JSON.stringify(me)})`);
+      await context.close();
+    }
+  }
+
   // ── 2: every request, every page: the tokens in no address and no query ──
   {
     const tokens = [...stub.sent().map((m) => m.token), NEVER_MADE, NEVER_MADE_RESET];
@@ -531,6 +640,38 @@ try {
       }
     }
     check(wide.length === 0 && seen === screens.length * 4, `10 a phone, 360 and 390 px, en and es: the page no wider than the screen, and nothing off its edges, on Sign-in, Forgot, the invite and the reset screens (${seen})${wide.length ? `; wider: ${wide.join('; ')}` : ''}`);
+  }
+
+  // ── 13: a long invited email at 360 px, shown whole ─────────────────────
+  {
+    for (const language of LANGUAGES) {
+      const long = `harbor.street.night.manager.${language}.${'x'.repeat(17)}@example.com`;
+      const token = stub.invite(long, { language });
+      const { context, page } = await openAt(`#invite=${token}`, { language, width: 360 });
+      await settles(page, () => Boolean(document.querySelector('[data-form="accept-invite"]')));
+      const size = await page.evaluate(() => {
+        const shown = document.querySelector('[data-form="accept-invite"] [data-shown="email"]');
+        const r = shown?.getBoundingClientRect();
+        return {
+          text: shown?.textContent ?? null,
+          whole: shown ? shown.scrollWidth <= shown.clientWidth && shown.scrollHeight <= shown.clientHeight + 1 : false,
+          inside: r ? r.left >= 0 && r.right <= window.innerWidth : false,
+          doc: document.documentElement.scrollWidth,
+          screen: window.innerWidth,
+          off: [...document.body.querySelectorAll('*')]
+            .filter((e) => {
+              const b = e.getBoundingClientRect();
+              return b.width > 0 && (b.left < -0.5 || b.right > window.innerWidth + 0.5);
+            })
+            .map((e) => e.dataset.shown ?? e.dataset.control ?? e.className ?? e.tagName)
+            .slice(0, 3),
+        };
+      });
+      check(long.length === 60 && size.text === long && size.whole && size.inside && size.doc <= size.screen && size.off.length === 0,
+        `13 a phone, 360 px (${language}): the invited email of ${long.length} characters shown whole, and nothing off either edge (${JSON.stringify(size)})`);
+      if (SCREENS) await screenshot(page, `phone-360-invite-long-email-${language}`);
+      await context.close();
+    }
   }
 
   // ── 6: time zones ────────────────────────────────────────────────────────
@@ -696,4 +837,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  FAIL ${f}`);
   process.exit(1);
 }
-console.log(`\ninvites — ${passed} checks passed: an invite accepted end to end and every other status said with no form; the token out of the address and only in a POST body; passwords typed twice, sent only when they match and meet the rule; Forgot the same for any email; a reset said and signed out; time zones by today's names, the United States' whole; Setup's garage details, and "garaje" on Setup in Spanish; Spanish names on one line; a signed-in owner's language back after an invite; the link-status title's gap; no sideways scroll on a phone; both languages.${SCREENS ? ` Screenshots in ${SCREENS}.` : ''}`);
+console.log(`\ninvites — ${passed} checks passed: an invite accepted end to end and every other status said with no form; the token out of the address and only in a POST body; passwords typed twice, sent only when they match and meet the rule; Forgot the same for any email; a reset said and signed out; time zones by today's names, the United States' whole; Setup's garage details, and "garaje" on Setup in Spanish; Spanish names on one line; a signed-in owner's language back after an invite; a reset link opened signed in, every button saying where it goes, and the session said as the platform left it; the link-status title's gap; no sideways scroll on a phone, a long invited email shown whole; both languages.${SCREENS ? ` Screenshots in ${SCREENS}.` : ''}`);

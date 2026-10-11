@@ -4,7 +4,7 @@ import { couldBeToken, passwordProblems } from './links.js';
 import SignedOut from './SignedOut.jsx';
 import NewPassword from './NewPassword.jsx';
 import FieldName from './FieldName.jsx';
-import { ProblemNote, Segmented } from './parts.jsx';
+import { Email, ProblemNote, Segmented } from './parts.jsx';
 
 /** A refusal of accepting, as the invite it says the link now is (`invite.<status>`). */
 const STATUS_OF = {
@@ -130,7 +130,11 @@ export default function InviteScreen({ t, client, token, language, signedIn, onL
         <form className="signin-form" method="post" data-form="accept-invite" onSubmit={submit} noValidate>
           <label className="field">
             <FieldName t={t} name="invite.email" />
-            <input type="email" name="email" data-field="email" autoComplete="username" readOnly value={state.email} />
+            {/* One line cannot hold a long address on a phone: it is shown as text that wraps. */}
+            <span className="shown-value" data-shown="email" aria-hidden="true">
+              <Email address={state.email} />
+            </span>
+            <input type="email" name="email" data-field="email" className="kept-out-of-sight" tabIndex={-1} autoComplete="username" readOnly value={state.email} />
           </label>
           <div className="chooser" data-chooser="account-language">
             <FieldName t={t} name="invite.language" />

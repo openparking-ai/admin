@@ -251,3 +251,31 @@ export function Segmented({ label, value, options, onChange, name }) {
     </div>
   );
 }
+
+/**
+ * An email address that may break, on a phone, before its @ (U7d-2):
+ * "harbor.night / @example.com", not "example.co / m". A part too long for
+ * the line still breaks where it must (overflow-wrap, in the CSS).
+ */
+export function Email({ address }) {
+  const parts = String(address).split(/(?=@)/);
+  return (
+    <bdi className="email">
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {i ? <wbr /> : null}
+          {part}
+        </Fragment>
+      ))}
+    </bdi>
+  );
+}
+
+/** `sentence` with each of `addresses` in it shown as an Email. */
+export function WithEmails({ sentence, addresses }) {
+  const found = addresses.filter(Boolean).map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!found.length) return sentence;
+  return sentence
+    .split(new RegExp(`(${found.join('|')})`))
+    .map((piece, i) => (addresses.includes(piece) ? <Email key={i} address={piece} /> : <Fragment key={i}>{piece}</Fragment>));
+}
