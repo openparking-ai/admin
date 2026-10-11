@@ -1736,14 +1736,10 @@ const BROWSER_CONTROLS = [
     // The column names are drawn in capitals; the check reports what is on screen.
     names: ['FAIL Garage View, with a car not confirmed (en)', '"CAME IN"', 'FAIL Garage View, with a car not confirmed (es)', '"ENTRÓ"'],
   },
-  {
-    check: 'U2c-fix2 a page with nothing on it yet says so',
-    plant: { file: 'src/App.jsx', anchor: "        {t('page.notYet')}", with: '' },
-    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
-    run: ['node', 'scripts/check-browser.js'],
-    // Getting paid has something on it since U6, Garages since U7c; Rates still has nothing.
-    names: ['FAIL "Rates": nothing on it yet'],
-  },
+  // 'U2c-fix2 a page with nothing on it yet says so' is RETIRED in U7g: Rates was
+  // the last page with nothing on it, and no page in src/pages.js is empty now,
+  // so the plant had no page to show missing. scripts/check-browser.js still
+  // checks the words on any page added later without anything on it.
   {
     check: 'U3-2 garage time in a downloaded file, in the browser',
     plant: { file: 'src/files/model.js', anchor: "  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone,\n", with: "  const parts = new Intl.DateTimeFormat('en-US', {\n" },
