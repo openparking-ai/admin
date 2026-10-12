@@ -2795,7 +2795,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7g-12 the stale table accepted',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = table.priced !== null && table.priced.key === wantKey;', with: '  const current = table.priced !== null;' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = tables.every((tb) => priced[tb.id]?.key === tb.key);', with: '  const current = tables.every((tb) => priced[tb.id] !== undefined);' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 12 a stay added: Confirm and the tick are locked while the table is priced again'],
@@ -2943,7 +2943,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/rates.js', anchor: '    const kept = before === null ? i === 0 : sectionOf(later, section) === sectionOf(before, section);', with: '    const kept = true;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 2 fix 1: only the Mar 14 rates are rebuilt', 'FAIL 2 fix 1: stored, the Mar 24 rates keep their own'],
+    names: ['FAIL 2 fix 1: only the Mar 14 rates are rebuilt', 'FAIL 2 fix 1: stored, the Mar 14 rates with $5, and the Mar 24 rates keep their own'],
   },
   {
     check: 'U7i fix 1 F1 the calculator keeps its answer after the rates change',

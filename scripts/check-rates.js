@@ -640,7 +640,9 @@ async function carryWalk() {
   const save2 = lastSave();
   check(save2.carry?.length === 1 && sameDoc(save2.carry[0].plan, D.nextCarry.carried[0]), '2 fix 1: the save carries $5 into the Mar 14 rates only');
   const ownStored = stub.rateRowsAll(CARRY.id).find((r) => r.plan_version === versionOf(D.own));
-  check(ownStored && !ownStored.withdrawn_at && ownStored.plan.rules.find((r) => r.type === 'increment').first_period_minor === 900 && ownStored.plan.rules.find((r) => r.type === 'increment').repeat_period_minor === 400, '2 fix 1: stored, the Mar 24 rates keep their own: $9, then $4');
+  // With the $5 save stored beside them (a save that never happened leaves Mar 24 alone too).
+  const nextStored = stub.rateRowsAll(CARRY.id).some((r) => !r.withdrawn_at && sameDoc(r.plan, D.nextCarry.carried[0]));
+  check(nextStored && ownStored && !ownStored.withdrawn_at && ownStored.plan.rules.find((r) => r.type === 'increment').first_period_minor === 900 && ownStored.plan.rules.find((r) => r.type === 'increment').repeat_period_minor === 400, '2 fix 1: stored, the Mar 14 rates with $5, and the Mar 24 rates keep their own: $9, then $4');
 
   // ── The early bird changed where it is listed: it starts with its rates ──
   const earlyAt = await p.$$eval(`${SPEC} [data-special-in-force]`, (els) => els.findIndex((e) => e.querySelector('.special-name')?.textContent === 'Early bird') + 1);
