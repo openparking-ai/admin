@@ -17,6 +17,8 @@ import {
   TABLE_MAX,
   WEEK_KINDS,
   arrange,
+  baseAt,
+  carryForward,
   caseKey,
   caseWords,
   clockWords,
@@ -38,6 +40,7 @@ import {
   percentWords,
   planName,
   planSentences,
+  plansAfter,
   regularPlan,
   regularProblems,
   sameRates,
@@ -86,32 +89,57 @@ export default function RatesPage({ t, language, client, garage }) {
   // Which plan is in force is judged at the later of the clock and the read:
   // rates saved "now" are in force the moment the page reads them back.
   const now = new Date(Math.max(ticking.getTime(), read.readAt?.getTime() ?? 0));
-  const { plans, spaceClass } = read.data;
+  const { plans, replaced, spaceClass, saved } = read.data;
   const { current, later, earlier } = arrange(plans, now);
   const at = (iso) => garageDateTime(iso, garage.timezone, language);
   const zone = zoneSaid(garage.timezone, language, now);
-  // What a save builds on: the rates in force, or the last saved if none is yet.
-  const base = current ?? later.at(-1) ?? null;
-  const nowForm = formFromPlan(base, garage.currency);
-  const windows = orderedWindows(base);
-  const regularTyped = regular ?? typedRegular(nowForm);
   const opts = (start, name) => ({ garage, spaceClass, start, name });
+  // U7i fix 1: every save is built on the rates as they will be when it starts
+  // (`baseAt`) -- in force now plus any scheduled -- and carried into each later
+  // version that kept the part it changes (`carryForward`).
+  const idOf = (plan) => saved.find((r) => r.plan_version === plan.plan_version)?.id ?? null;
+  const nowStart = formStart({ starts: 'now' }, garage, now.getTime());
+  const startOf = (typed) => (typed.starts === 'day' && startProblems(typed, garage, ticking.getTime()).day === undefined ? formStart(typed, garage) : typed.starts === 'at' ? typed.at : nowStart);
+  const saveOf = (section, build) => (start, name) => {
+    const plan = build(baseAt(plans, start), start, name);
+    return { plan, ...carryForward(plans, plan, section) };
+  };
 
-  // Each save, as the check page and the calculator price it.
+  // The regular rates: built on the rates in force at the start chosen.
+  const regularTyped = regular ?? typedRegular(formFromPlan(baseAt(plans, nowStart), garage.currency));
+  const regularBase = baseAt(plans, startOf(regularTyped));
+  const regularNow = formFromPlan(regularBase, garage.currency);
   const regularDraft = {
     what: { kind: 'regular' },
+    section: 'regular',
     starts: regularTyped,
-    problems: { ...regularProblems(mergeRegular(regularTyped, nowForm), garage), ...startProblems(regularTyped, garage, ticking.getTime()) },
-    build: (start, name) => regularPlan(base, regularTyped, nowForm, opts(start, name)),
+    problems: { ...regularProblems(mergeRegular(regularTyped, regularNow), garage), ...startProblems(regularTyped, garage, ticking.getTime()) },
+    save: saveOf('regular', (base, start, name) => regularPlan(base, regularTyped, formFromPlan(base, garage.currency), opts(start, name))),
   };
-  const specialNow = special && special.kind !== 'add' ? specialForm(windows[special.index], garage.currency) : null;
+
+  // The special rates as they will be: those in force, then each one a later
+  // version brings, listed with when it starts.
+  const listed = specialsListed(current, later);
+  const editingEntry = special && special.kind !== 'add' ? listed[special.index] : null;
+  const specialNow = editingEntry ? specialForm(editingEntry.rule, garage.currency) : null;
   const specialMerged = special && (special.kind === 'add' || special.kind === 'change') ? mergeSpecial(special.typed, specialNow) : null;
+  const specialBase = special ? baseAt(plans, startOf(special.typed)) : null;
+  // The special being changed, in the rates it is built on (by its id: the order can differ there).
+  const inBase = editingEntry && specialBase ? orderedWindows(specialBase).findIndex((r) => r.id === editingEntry.rule.id) : -1;
   const specialDraft = special
     ? {
-        what: { kind: special.kind, name: specialMerged ? specialMerged.name.trim() : specialName(t, windows[special.index], special.index), by: special.by },
+        what: { kind: special.kind, name: specialMerged ? specialMerged.name.trim() : specialName(t, editingEntry.rule, special.index), by: special.by },
+        section: 'specials',
         starts: special.typed,
-        problems: { ...(specialMerged ? specialProblems(specialMerged, 'special', garage) : {}), ...startProblems(special.typed, garage, ticking.getTime()) },
-        build: (start, name) => specialsPlan(base, { kind: special.kind, index: special.index, by: special.by, special: specialMerged }, opts(start, name)),
+        problems: {
+          ...(specialMerged ? specialProblems(specialMerged, 'special', garage) : {}),
+          ...startProblems(special.typed, garage, ticking.getTime()),
+          ...(editingEntry && specialBase && inBase < 0 && !startProblems(special.typed, garage, ticking.getTime()).day ? { day: 'rates.need.specialNotThen' } : {}),
+        },
+        save: saveOf('specials', (base, start, name) => {
+          const index = editingEntry ? orderedWindows(base).findIndex((r) => r.id === editingEntry.rule.id) : null;
+          return specialsPlan(base, { kind: special.kind, index, by: special.by, special: specialMerged }, opts(start, name));
+        }),
       }
     : null;
   const ready = (draft) => draft && Object.keys(draft.problems).length === 0;
@@ -135,8 +163,8 @@ export default function RatesPage({ t, language, client, garage }) {
         client={client}
         garage={garage}
         draft={draft}
-        base={base}
         plans={plans}
+        idOf={idOf}
         taxNames={taxNames}
         onBack={() => setReviewing(null)}
         onSaved={done}
@@ -166,7 +194,8 @@ export default function RatesPage({ t, language, client, garage }) {
         t={t}
         language={language}
         garage={garage}
-        now={base ? nowForm : null}
+        now={regularBase ? regularNow : null}
+        basedOn={regularBase && regularBase !== current ? at(regularBase.effective_from) : null}
         typed={regularTyped}
         problems={regularDraft.problems}
         onChange={(next) => {
@@ -181,8 +210,9 @@ export default function RatesPage({ t, language, client, garage }) {
         t={t}
         language={language}
         garage={garage}
-        base={base}
-        windows={windows}
+        canAdd={plans.length > 0}
+        listed={listed}
+        at={at}
         editing={special}
         now={specialNow}
         draft={specialDraft}
@@ -200,6 +230,7 @@ export default function RatesPage({ t, language, client, garage }) {
         client={client}
         garage={garage}
         stored={plans}
+        idOf={idOf}
         draft={changing && ready(changing) ? changing : null}
         changingWhat={changing?.what ?? null}
         taxNames={taxNames}
@@ -218,7 +249,7 @@ export default function RatesPage({ t, language, client, garage }) {
         </section>
       ) : null}
 
-      {earlier.length ? (
+      {earlier.length || replaced.length ? (
         <section className="panel" data-section="earlier">
           <h2 className="section-title">{t('rates.earlier')}</h2>
           {earlier.map((plan) => (
@@ -228,10 +259,32 @@ export default function RatesPage({ t, language, client, garage }) {
               <Sentences t={t} language={language} plan={plan} kind="earlier" />
             </div>
           ))}
+          {replaced.map(({ plan }) => (
+            <div key={plan.plan_version} className="rate-plan" data-plan="replaced" data-starts={plan.effective_from}>
+              <p className="tax-when">{t('rates.review.carriedAt', { time: at(plan.effective_from) })}</p>
+              <ReplacedBy t={t} language={language} garage={garage} savers={savers} plan={plan} />
+              <SavedBy t={t} language={language} garage={garage} savers={savers} plan={plan} />
+              <Sentences t={t} language={language} plan={plan} kind="replaced" />
+            </div>
+          ))}
         </section>
       ) : null}
     </>
   );
+}
+
+/**
+ * The special rates as they will be (U7i fix 1): each in force now, then each
+ * one a later version brings that is not in force, with the version it starts
+ * with (`from`, null for one in force). `{ rule, from, plan }` -- `plan` the
+ * rates it is in -- in the order listed.
+ */
+function specialsListed(current, later) {
+  const listed = orderedWindows(current).map((rule) => ({ rule, from: null, plan: current }));
+  for (const plan of later) {
+    for (const rule of orderedWindows(plan)) if (!listed.some((e) => e.rule.id === rule.id)) listed.push({ rule, from: plan, plan });
+  }
+  return listed;
 }
 
 /** The names of the garage's taxes, by their line's id, for the words of a priced stay. */
@@ -256,7 +309,7 @@ const SAVER_PAGES = 40;
  */
 function useSavers(client, garage, saved) {
   // `for`: the sets of rates the lookup was made for; until it is the current ones, nothing is said.
-  const [state, setState] = useState({ by: {}, for: null });
+  const [state, setState] = useState({ by: {}, gone: {}, for: null });
   const [attempt, setAttempt] = useState(0);
   const wanted = useMemo(() => (saved ?? []).map((s) => `${s.id}:${s.plan_version}`).join(), [saved]);
   useEffect(() => {
@@ -265,26 +318,58 @@ function useSavers(client, garage, saved) {
     (async () => {
       const ids = new Map(saved.map((s) => [s.id, s.plan_version]));
       const by = {};
+      const gone = {};
       let after = null;
       for (let page = 0; page < SAVER_PAGES && Object.keys(by).length < ids.size; page += 1) {
         const out = await client.changes(garage.id, after);
         for (const line of out.changes) {
-          if (line.action !== 'rate_plan.add' || line.subject?.kind !== 'rate_plan' || !ids.has(line.subject.id)) continue;
+          if (line.subject?.kind !== 'rate_plan' || !ids.has(line.subject.id)) continue;
           const version = ids.get(line.subject.id);
-          if (!by[version]) by[version] = { name: line.who?.name ?? null, kind: line.who?.kind ?? null, at: line.at, confirmed: line.after?.confirmed === true };
+          // U7i fix 1: who replaced a set of rates before it started, from its own line.
+          if (line.action === 'rate_plan.withdraw' && !gone[version]) gone[version] = { name: line.who?.name ?? null, kind: line.who?.kind ?? null, at: line.at };
+          if (line.action === 'rate_plan.add' && !by[version]) by[version] = { name: line.who?.name ?? null, kind: line.who?.kind ?? null, at: line.at, confirmed: line.after?.confirmed === true };
         }
         if (!out.next) break;
         after = out.next;
       }
-      if (live) setState({ by, for: wanted });
-    })().catch(() => live && setState({ by: {}, for: wanted }));
+      if (live) setState({ by, gone, for: wanted });
+    })().catch(() => live && setState({ by: {}, gone: {}, for: wanted }));
     return () => {
       live = false;
     };
     // `wanted` stands for `saved`: the same sets of rates are not looked up again.
   }, [client, garage.id, wanted, attempt]);
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
-  return { by: state.by, read: state.for === wanted, refresh };
+  return { by: state.by, gone: state.gone, read: state.for === wanted, refresh };
+}
+
+/** "Replaced before it started, by Pat on Oct 12, 2026, 2:10 PM", from its `rate_plan.withdraw` line (U7i fix 1). */
+function ReplacedBy({ t, language, garage, savers, plan }) {
+  const s = savers.gone[plan.plan_version];
+  if (!s && !savers.read) return null;
+  if (!s) {
+    return (
+      <p className="quiet replaced-by" data-replaced-by="unknown" data-plan-version={plan.plan_version}>
+        {t('rates.replaced.unknown')}
+      </p>
+    );
+  }
+  const when = garageDateTime(s.at, garage.timezone, language);
+  if (!s.name) {
+    return (
+      <p className="quiet replaced-by" data-replaced-by="" data-replaced-at={s.at} data-plan-version={plan.plan_version}>
+        {t('rates.replaced.unnamed', { when })}
+      </p>
+    );
+  }
+  const [before, after] = t(s.kind === 'key' ? 'rates.replaced.byKey' : 'rates.replaced.by', { name: '\u0000', when }).split('\u0000');
+  return (
+    <p className="quiet replaced-by" data-replaced-by={s.name} data-replaced-at={s.at} data-plan-version={plan.plan_version}>
+      {before}
+      <bdi className="saved-name">{s.name}</bdi>
+      {after}
+    </p>
+  );
 }
 
 /** "Saved and confirmed by Pat on Oct 12, 2026, 2:10 PM", from the change log. */
@@ -670,7 +755,7 @@ function Starts({ t, garage, typed, onChange, problem, scope, ticking }) {
  * a free grace period, with their own Save. `now` is the form of the rates in
  * force, or null when there are none (then every field is needed).
  */
-function RegularSection({ t, language, garage, now, typed, problems, onChange, onSave, ticking }) {
+function RegularSection({ t, language, garage, now, basedOn = null, typed, problems, onChange, onSave, ticking }) {
   const save = useSaveTried('regular', problems, REGULAR_ORDER);
   const p = (at) => (save.tried ? problems[at] : null);
   const id = (at) => fieldId('regular', at);
@@ -684,6 +769,11 @@ function RegularSection({ t, language, garage, now, typed, problems, onChange, o
         <FieldName t={t} name="rates.regular" />
       </h2>
       <p className="quiet">{now ? t('rates.regular.keep') : t('rates.regular.first')}</p>
+      {basedOn ? (
+        <p className="quiet" data-notice="based-on">
+          {t('rates.basedOn', { time: basedOn })}
+        </p>
+      ) : null}
       <form
         className="setup-form"
         noValidate
@@ -759,36 +849,50 @@ function RegularSection({ t, language, garage, now, typed, problems, onChange, o
 // --- the special rates --------------------------------------------------------
 
 /**
- * The special rates in force, each with Change and Remove, and Add a special
- * rate; one is added, changed, removed or moved at a time, with its own Save.
- * The order of two or more discounts or increases is the order listed.
+ * The special rates as they will be, each with Change and Remove, and Add a
+ * special rate; one is added, changed, removed or moved at a time, with its own
+ * Save. One a later version brings is listed with when it starts (U7i fix 1),
+ * and a change to it starts with it. The order of two or more discounts or
+ * increases in force is the order listed.
  */
-function SpecialSection({ t, language, garage, base, windows, editing, now, draft, onEdit, onSave, ticking }) {
-  const adjusts = windows.filter((r) => r.stage === 'ADJUST');
-  const open = (kind, index = null, by = 0) => onEdit({ kind, index, by, typed: typedSpecial(kind === 'change' ? specialForm(windows[index], garage.currency) : null) });
+function SpecialSection({ t, language, garage, canAdd, listed, at, editing, now, draft, onEdit, onSave, ticking }) {
+  const inForce = listed.filter((e) => e.from === null).map((e) => e.rule);
+  const adjusts = inForce.filter((r) => r.stage === 'ADJUST');
+  const open = (kind, index = null, by = 0) => {
+    const entry = index === null ? null : listed[index];
+    const typed = typedSpecial(kind === 'change' ? specialForm(entry.rule, garage.currency) : null);
+    // A special a later version brings: saved to start exactly when that version does.
+    onEdit({ kind, index, by, typed: entry?.from ? { ...typed, starts: 'at', at: entry.from.effective_from } : typed });
+  };
   return (
     <section className="panel no-print" data-section="specials" aria-live="polite">
       <h2 className="section-title">
         <FieldName t={t} name="rates.specials" />
       </h2>
-      {windows.length ? <p className="quiet">{t('rates.specials.cheaper')}</p> : <p className="quiet">{t('rates.specials.none')}</p>}
+      {listed.length ? <p className="quiet">{t('rates.specials.cheaper')}</p> : <p className="quiet">{t('rates.specials.none')}</p>}
       {adjusts.length > 1 ? (
         <p className="quiet" data-notice="adjust-order">
           {t('rates.adjust.orderNote')}
         </p>
       ) : null}
-      {windows.length ? (
+      {listed.length ? (
         <ol className="tax-lines special-list">
-          {windows.map((rule, i) => {
-            const sentence = planSentences(t, { ...base, rules: [rule], adjust_order: null }, language).find((s) => s.key === rule.id);
-            const ai = adjusts.indexOf(rule);
+          {listed.map(({ rule, from, plan }, i) => {
+            // In words with the rates it is in: their money, their clock.
+            const sentence = planSentences(t, { ...plan, rules: [rule], adjust_order: null }, language).find((s) => s.key === rule.id);
+            const ai = from ? -1 : adjusts.indexOf(rule);
             const here = editing && editing.kind !== 'add' && editing.index === i;
             return (
-              <li key={rule.id} className="tax-line special-in-force" data-special-in-force={i + 1} data-editing={here ? 'yes' : 'no'}>
+              <li key={rule.id} className="tax-line special-in-force" data-special-in-force={i + 1} data-special-starts={from ? from.effective_from : 'now'} data-editing={here ? 'yes' : 'no'}>
                 <p className="tax-line-name">
                   <bdi className="special-name">{specialName(t, rule, i)}</bdi>
                 </p>
                 <p>{sentence?.text}</p>
+                {from ? (
+                  <p className="quiet" data-notice="special-starts-later">
+                    {t('rates.special.startsLater', { time: at(from.effective_from) })}
+                  </p>
+                ) : null}
                 {editing ? null : (
                   <div className="lane-actions">
                     <button type="button" className="link-button" data-action="change-special" onClick={() => open('change', i)}>
@@ -798,18 +902,18 @@ function SpecialSection({ t, language, garage, base, windows, editing, now, draf
                       {t('rates.special.remove')}
                     </button>
                     {ai > 0 ? (
-                      <button type="button" className="link-button" data-action="move-up" onClick={() => open('move', i, windows.indexOf(adjusts[ai - 1]) - i)}>
+                      <button type="button" className="link-button" data-action="move-up" onClick={() => open('move', i, inForce.indexOf(adjusts[ai - 1]) - i)}>
                         {t('rates.moveUp')}
                       </button>
                     ) : null}
                     {ai >= 0 && ai < adjusts.length - 1 ? (
-                      <button type="button" className="link-button" data-action="move-down" onClick={() => open('move', i, windows.indexOf(adjusts[ai + 1]) - i)}>
+                      <button type="button" className="link-button" data-action="move-down" onClick={() => open('move', i, inForce.indexOf(adjusts[ai + 1]) - i)}>
                         {t('rates.moveDown')}
                       </button>
                     ) : null}
                   </div>
                 )}
-                {here ? <SpecialEditor t={t} language={language} garage={garage} editing={editing} now={now} draft={draft} windows={windows} onEdit={onEdit} onSave={onSave} ticking={ticking} /> : null}
+                {here ? <SpecialEditor t={t} language={language} garage={garage} editing={editing} now={now} draft={draft} listed={listed} at={at} onEdit={onEdit} onSave={onSave} ticking={ticking} /> : null}
               </li>
             );
           })}
@@ -817,11 +921,11 @@ function SpecialSection({ t, language, garage, base, windows, editing, now, draf
       ) : null}
       {editing?.kind === 'add' ? (
         <div className="tax-line special" data-special-new>
-          <SpecialEditor t={t} language={language} garage={garage} editing={editing} now={null} draft={draft} windows={windows} onEdit={onEdit} onSave={onSave} ticking={ticking} />
+          <SpecialEditor t={t} language={language} garage={garage} editing={editing} now={null} draft={draft} listed={listed} at={at} onEdit={onEdit} onSave={onSave} ticking={ticking} />
         </div>
       ) : null}
       {editing ? null : (
-        <Act action="add-special" className="link-button" disabled={!base} reason={t('rates.specials.regularFirst')} onClick={() => open('add')}>
+        <Act action="add-special" className="link-button" disabled={!canAdd} reason={t('rates.specials.regularFirst')} onClick={() => open('add')}>
           {t('rates.addSpecial')}
         </Act>
       )}
@@ -830,7 +934,7 @@ function SpecialSection({ t, language, garage, base, windows, editing, now, draf
 }
 
 /** One special being added, changed, removed or moved: its fields (for an add or a change), when it starts, and its Save. */
-function SpecialEditor({ t, language, garage, editing, now, draft, windows, onEdit, onSave, ticking }) {
+function SpecialEditor({ t, language, garage, editing, now, draft, listed, at, onEdit, onSave, ticking }) {
   const save = useSaveTried('special', draft.problems, SPECIAL_ORDER);
   const typed = editing.typed;
   const change = (c) => onEdit({ ...editing, typed: { ...typed, ...c } });
@@ -843,7 +947,7 @@ function SpecialEditor({ t, language, garage, editing, now, draft, windows, onEd
         ? t('rates.special.changing', { name })
         : editing.kind === 'remove'
           ? t('rates.special.removing', { name })
-          : t('rates.special.moving', { name, other: specialName(t, windows[editing.index + editing.by], editing.index + editing.by) });
+          : t('rates.special.moving', { name, other: specialName(t, listed[editing.index + editing.by].rule, editing.index + editing.by) });
   return (
     <form
       className="setup-form special-editor"
@@ -858,7 +962,13 @@ function SpecialEditor({ t, language, garage, editing, now, draft, windows, onEd
         {heading}
       </p>
       {fields ? <SpecialFields t={t} language={language} garage={garage} typed={typed} now={now} problems={draft.problems} tried={save.tried} onChange={change} /> : null}
-      <Starts t={t} garage={garage} typed={typed} onChange={change} problem={save.tried ? draft.problems.day : null} scope="special" ticking={ticking} />
+      {typed.starts === 'at' ? (
+        <p className="quiet" data-notice="special-starts-with" id={fieldId('special', 'day')}>
+          {t('rates.special.startsWith', { time: at(typed.at) })}
+        </p>
+      ) : (
+        <Starts t={t} garage={garage} typed={typed} onChange={change} problem={save.tried ? draft.problems.day : null} scope="special" ticking={ticking} />
+      )}
       {save.tried ? <Missing t={t} scope="special" items={missingItems(t, draft.problems, SPECIAL_ORDER)} /> : null}
       <div className="lane-actions">
         <button type="submit" className="primary-button" data-action="save-special">
@@ -973,11 +1083,14 @@ function SpecialFields({ t, language, garage, typed: s, now, problems, tried, on
 /**
  * The price calculator (U7i, item 7): came in, left, and the fee with each
  * line in plain words. Nothing is saved. It prices by the rates in force, or
- * by the rates being changed and not saved yet -- priced by the platform the
- * way a leaving car is, never here. `draft` is the change, `{ build, starts }`,
- * or null when nothing is being changed or it is not complete.
+ * by the rates being changed and not saved yet -- with every later version as
+ * that save would leave it (U7i fix 1, item 8) -- priced by the platform the
+ * way a leaving car is, never here. `draft` is the change, `{ save, starts }`,
+ * or null when nothing is being changed or it is not complete. An answer is
+ * tied to the rates and the stay it was priced for: change either and it is
+ * greyed, with a line saying to work it out again (U7i fix 1, F1).
  */
-function Calculator({ t, language, client, garage, stored, draft, changingWhat, taxNames, onCheckPage = false }) {
+function Calculator({ t, language, client, garage, stored, idOf, draft, changingWhat, taxNames, onCheckPage = false }) {
   const [source, setSource] = useState(onCheckPage ? 'changing' : 'force');
   const [entry, setEntry] = useState('');
   const [exit, setExit] = useState('');
@@ -989,17 +1102,20 @@ function Calculator({ t, language, client, garage, stored, draft, changingWhat, 
   const hasForce = stored.length > 0;
   const using = source === 'changing' ? (draft ? 'changing' : null) : hasForce ? 'force' : null;
   const fine = wallOf(entry) && wallOf(exit) && exit >= entry;
+  // What an answer would be priced for this moment: the rates and the stay.
+  const askedFor = JSON.stringify({ using, rates: using === 'changing' ? saveKey(draft, garage) : using === 'force' ? plansKey(stored) : null, entry, exit });
 
   const run = async () => {
     setTried(true);
     if (!fine || busy || !using) return;
     setBusy(true);
     setProblem(null);
+    const key = askedFor;
     try {
       if (!name.current) name.current = planName(Date.now(), garage.timezone);
-      const plan = using === 'changing' ? draft.build(formStart(draft.starts, garage), name.current) : null;
-      const out = await client.tryStays(garage.id, { plan, stays: [{ entry, exit }] });
-      setAnswer({ stay: out.stays[0], plan, entry, exit });
+      const save = using === 'changing' ? draft.save(formStart(draft.starts, garage), name.current) : null;
+      const out = await client.tryStays(garage.id, { plan: save?.plan ?? null, carry: save ? carryBody(save, idOf) : [], stays: [{ entry, exit }] });
+      setAnswer({ stay: out.stays[0], plan: save?.plan ?? null, plans: save ? plansAfter(stored, save.plan, save) : stored, key });
     } catch (p) {
       if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
       setAnswer(null);
@@ -1009,8 +1125,9 @@ function Calculator({ t, language, client, garage, stored, draft, changingWhat, 
   };
 
   const stay = answer?.stay;
-  // The plan that priced it, to name a special: the draft, or the stored one it names.
-  const priced = stay && !stay.refused ? (answer.plan && answer.plan.plan_version === stay.plan_version ? answer.plan : stored.find((p) => p.plan_version === stay.plan_version) ?? answer.plan) : null;
+  // The plan that priced it, to name a special: one of the plans as they were priced.
+  const priced = stay && !stay.refused ? (answer.plans.find((p) => p.plan_version === stay.plan_version) ?? answer.plan) : null;
+  const stale = Boolean(answer) && answer.key !== askedFor;
   const reason = !using ? (source === 'changing' ? t(changingWhat ? 'rates.calc.fillFirst' : 'rates.calc.nothingChanging') : t('rates.calc.noRates')) : null;
 
   return (
@@ -1067,9 +1184,40 @@ function Calculator({ t, language, client, garage, stored, draft, changingWhat, 
         </p>
       ) : null}
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
-      {stay && !busy ? <TriedStay t={t} language={language} garage={garage} stay={stay} plan={priced ?? answer.plan} taxNames={taxNames} /> : null}
+      {stay && !busy && stale ? (
+        <p className="warning" data-notice="calc-stale">
+          {t('rates.calc.stale')}
+        </p>
+      ) : null}
+      {stay && !busy ? (
+        <div className={stale ? 'tried-stale' : undefined} data-stale={stale ? 'yes' : 'no'}>
+          <TriedStay t={t} language={language} garage={garage} stay={stay} plan={priced ?? answer.plan} taxNames={taxNames} />
+        </div>
+      ) : null}
     </section>
   );
+}
+
+/** The plans, as text: equal text, the same rates. */
+const plansKey = (plans) => JSON.stringify(plans.map((p) => ({ ...p, plan_version: null })));
+
+/**
+ * What a save would store, as text, but its names, and with a start of "now"
+ * said as "now" ("Now" moves with the clock): equal text, the same rates.
+ */
+function saveKey(draft, garage) {
+  const save = draft.save(formStart(draft.starts, garage), 'key');
+  const nowStart = draft.starts.starts === 'now';
+  return JSON.stringify({
+    plan: { ...save.plan, plan_version: null, effective_from: nowStart ? 'now' : save.plan.effective_from },
+    carried: save.carried.map((c) => ({ ...c.plan, plan_version: null })),
+    replaces: save.replaces?.plan_version ?? null,
+  });
+}
+
+/** The save's `carry`, as the platform takes it: each later version it replaces, by its stored id. */
+function carryBody(save, idOf) {
+  return [...(save.replaces ? [{ withdraw: idOf(save.replaces) }] : []), ...save.carried.map((c) => ({ withdraw: idOf(c.from), plan: c.plan }))];
 }
 
 /** One priced stay: what the driver pays, how long it stayed, and each part of the price. */
@@ -1127,11 +1275,15 @@ function TriedStay({ t, language, garage, stay, plan, taxNames }) {
  * sentences, the price calculator, and the price table -- priced by itself as
  * the page opens and again whenever a stay is added (U7i, item 8) -- then its
  * steps in order: 1 Check the prices, 2 Tick, 3 Confirm. Nothing is saved
- * before Confirm; a change after the table was priced locks Confirm until it is
- * priced again. `draft` is `{ what, starts, build }`.
+ * before Confirm; a change after a table was priced locks Confirm until it is
+ * priced again. With rates saved to start later (U7i fix 1, item 7), each later
+ * version this save rebuilds is listed too, with its date, its sentences and a
+ * priced table of its own, and each one this change does not reach says so;
+ * one tick and one Confirm save them all. `draft` is `{ what, section, starts, save }`.
  */
-function Review({ t, language, client, garage, draft, base, plans, taxNames, onBack, onSaved }) {
-  const [table, setTable] = useState({ added: [], priced: null });
+function Review({ t, language, client, garage, draft, plans, idOf, taxNames, onBack, onSaved }) {
+  const [added, setAdded] = useState([]);
+  const [priced, setPriced] = useState({});
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(null);
   const [findings, setFindings] = useState(null);
@@ -1139,50 +1291,67 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
   const [saving, setSaving] = useState(false);
   const [extra, setExtra] = useState({ entry: '', exit: '' });
   const name = useRef(planName(Date.now(), garage.timezone));
-  const asking = useRef(null);
+  const asking = useRef({});
   const { printedAt, print } = usePrint();
   const startsNow = draft.starts.starts === 'now';
+  const at = (iso) => garageDateTime(iso, garage.timezone, language);
 
-  // The plan as it would be saved this moment ("Now" is this moment).
-  const draftNow = () => draft.build(formStart(draft.starts, garage), name.current);
-  const shown = draftNow();
-  const wantKey = draftKey(startsNow, shown, table.added);
+  // The save as it would be made this moment ("Now" is this moment).
+  const saveNow = () => draft.save(formStart(draft.starts, garage), name.current);
+  const save = saveNow();
+  const shown = save.plan;
+  const base = baseAt(plans, shown.effective_from);
+  const saveText = saveKey(draft, garage);
+  // One table for the new rates (with the stays the owner added), one for each later version rebuilt.
+  const tables = [
+    { id: 'saved', plan: shown, stays: [...tableStays(shown, garage.timezone), ...added].slice(0, TABLE_MAX) },
+    ...save.carried.map((c, i) => ({ id: `later-${i + 1}`, plan: c.plan, stays: tableStays(c.plan, garage.timezone) })),
+  ].map((tb) => ({ ...tb, key: JSON.stringify({ save: saveText, stays: tb.stays.map(({ entry, exit }) => [entry, exit]) }) }));
+  const wantKey = tables.map((tb) => tb.key).join('|');
 
-  const price = async () => {
-    const asked = draftNow();
-    const stays = [...tableStays(asked, garage.timezone), ...table.added].slice(0, TABLE_MAX);
-    const key = draftKey(startsNow, asked, table.added);
-    asking.current = key;
+  const priceOne = async (table, made) => {
+    asking.current[table.id] = table.key;
+    const out = await client.tryStays(garage.id, { plan: made.plan, carry: carryBody(made, idOf), stays: table.stays.map(({ entry, exit }) => ({ entry, exit })) });
+    return { key: table.key, plan: table.plan, rows: table.stays.map((st, i) => ({ ...st, answer: out.stays[i] })), draftFindings: out.draftFindings, at: new Date() };
+  };
+  // Prices every table not priced for exactly what it shows now; returns the new rates' table.
+  const price = async ({ all = false } = {}) => {
+    const made = saveNow();
+    const due = tables.filter((tb) => all || (priced[tb.id]?.key !== tb.key && asking.current[tb.id] !== tb.key));
+    if (!due.length) return { data: priced.saved, readAt: priced.saved?.at };
     setBusy(true);
     setProblem(null);
     setFindings(null);
     try {
-      const out = await client.tryStays(garage.id, { plan: asked, stays: stays.map(({ entry, exit }) => ({ entry, exit })) });
-      const priced = { key, plan: asked, rows: stays.map((s, i) => ({ ...s, answer: out.stays[i] })), draftFindings: out.draftFindings, at: new Date() };
-      if (asking.current === key) {
-        setTable((tb) => ({ ...tb, priced }));
-        if (out.draftFindings.length) setFindings(out.draftFindings);
+      let first = priced.saved;
+      for (const table of due) {
+        const done = await priceOne(table, made);
+        if (asking.current[table.id] !== table.key) continue;
+        setPriced((was) => ({ ...was, [table.id]: done }));
+        if (table.id === 'saved') first = done;
+        if (done.draftFindings.length) setFindings(done.draftFindings);
       }
-      return { data: priced, readAt: priced.at };
+      return { data: first, readAt: first?.at };
     } catch (p) {
-      if (asking.current === key && p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
+      if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
+      for (const table of due) if (asking.current[table.id] === table.key) delete asking.current[table.id];
       throw p;
     } finally {
-      if (asking.current === key) setBusy(false);
+      setBusy(false);
     }
   };
 
-  // Priced as the page opens, and again whenever what it prices changes: a stay added.
+  // Priced as the page opens, and again whenever what a table prices changes: a stay added.
   useEffect(() => {
-    if (asking.current === wantKey) return;
     price().catch(() => {});
-    // `wantKey` is what the table prices: the rates and the stays.
+    // `wantKey` is what the tables price: the rates and the stays.
   }, [wantKey]);
 
   // Priced for exactly these rates and these stays. "Now" moves with the
   // clock, so a start of "now" is compared as "now", not as the moment.
-  const current = table.priced !== null && table.priced.key === wantKey;
-  const blocked = (table.priced?.draftFindings ?? []).length > 0;
+  const current = tables.every((tb) => priced[tb.id]?.key === tb.key);
+  const mainTable = priced.saved ?? null;
+  const blocked = tables.some((tb) => (priced[tb.id]?.draftFindings ?? []).length > 0);
   const canConfirm = current && ticked && !saving && !blocked;
   const startWords = startsNow ? t('rates.review.now') : garageDateTime(shown.effective_from, garage.timezone, language);
   const unchanged = sameRates(shown, base);
@@ -1198,8 +1367,8 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
     setFindings(null);
     try {
       // Saved as priced -- but "Now" is the moment Confirm is pressed.
-      const plan = startsNow ? { ...table.priced.plan, effective_from: formStart(draft.starts, garage) } : table.priced.plan;
-      await client.addRatePlan(garage.id, plan, { confirmed: ticked });
+      const plan = startsNow ? { ...mainTable.plan, effective_from: formStart(draft.starts, garage) } : mainTable.plan;
+      await client.addRatePlan(garage.id, plan, { confirmed: ticked, carry: carryBody(saveNow(), idOf) });
       onSaved();
     } catch (p) {
       if (p?.kind === STALE || p?.kind === 'ended') return;
@@ -1209,12 +1378,12 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
     }
   };
 
-  const tableFull = table.added.length + tableStays(shown, garage.timezone).length >= TABLE_MAX;
+  const tableFull = added.length + tableStays(shown, garage.timezone).length >= TABLE_MAX;
   const addStay = () => {
     const entry = wallOf(extra.entry);
     const exit = wallOf(extra.exit);
     if (!entry || !exit || exit < entry || tableFull) return;
-    setTable((tb) => ({ ...tb, added: [...tb.added, { entry, exit, why: { key: 'added' } }] }));
+    setAdded((was) => [...was, { entry, exit, why: { key: 'added' } }]);
     setExtra({ entry: '', exit: '' });
   };
   const what = draft.what;
@@ -1228,10 +1397,21 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
           : what.kind === 'remove'
             ? t('rates.review.whatRemove', { name: what.name })
             : t('rates.review.whatMove', { name: what.name });
+  // Each table's own line: being priced, or priced for rates or stays that have changed since.
+  const tableNotice = (table) =>
+    busy && priced[table.id]?.key !== table.key ? (
+      <p className="quiet" data-notice="table-pricing">
+        {t('rates.table.busy')}
+      </p>
+    ) : priced[table.id] && priced[table.id].key !== table.key ? (
+      <p className="warning" data-notice="table-stale">
+        {t('rates.table.stale')}
+      </p>
+    ) : null;
 
   return (
     <>
-      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={table.priced?.at} />
+      <PrintHead t={t} garage={garage} language={language} printedAt={printedAt} readAt={mainTable?.at} />
       <section className="panel" data-form="review-rates" aria-live="polite">
         <div className="lane-panel-head">
           <h2 className="section-title">{t('rates.review')}</h2>
@@ -1252,30 +1432,26 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
             {t('rates.review.nothingChanged')}
           </p>
         ) : null}
+        {save.replaces ? (
+          <p className="quiet" data-notice="replaces-later">
+            {t('rates.review.replaces', { time: at(save.replaces.effective_from) })}
+          </p>
+        ) : null}
         <h3 className="setup-step-name">{t('rates.review.sentences')}</h3>
         <Sentences t={t} language={language} plan={shown} kind="draft" />
         <p data-notice="starts">{startsNow ? t('rates.review.startsNow') : t('rates.review.startsAt', { time: startWords })}</p>
       </section>
 
-      <Calculator t={t} language={language} client={client} garage={garage} stored={plans} draft={draft} changingWhat={what} taxNames={taxNames} onCheckPage />
+      <Calculator t={t} language={language} client={client} garage={garage} stored={plans} idOf={idOf} draft={draft} changingWhat={what} taxNames={taxNames} onCheckPage />
 
       <section className="panel" data-section="price-table">
         <h2 className="section-title">
           <FieldName t={t} name="rates.table" />
         </h2>
-        {busy ? (
-          <p className="quiet" data-notice="table-pricing">
-            {t('rates.table.busy')}
-          </p>
-        ) : null}
-        {table.priced && !current && !busy ? (
-          <p className="warning" data-notice="table-stale">
-            {t('rates.table.stale')}
-          </p>
-        ) : null}
-        {problem && !table.priced ? <ProblemNote t={t} kind={problem} onRetry={() => price().catch(() => {})} /> : null}
-        {table.priced ? <PriceTable t={t} language={language} garage={garage} priced={table.priced} /> : null}
-        {table.priced ? <ListActions t={t} list="priceTable" language={language} client={client} garage={garage} refresh={price} print={print} /> : null}
+        {tableNotice(tables[0])}
+        {problem && !mainTable ? <ProblemNote t={t} kind={problem} onRetry={() => price({ all: true }).catch(() => {})} /> : null}
+        {mainTable ? <PriceTable t={t} language={language} garage={garage} priced={mainTable} /> : null}
+        {mainTable ? <ListActions t={t} list="priceTable" language={language} client={client} garage={garage} refresh={() => price({ all: true })} print={print} /> : null}
         <div className="tax-line-fields no-print" data-add-stay>
           <When t={t} kind="datetime-local" name="rates.try.entry" field="add-entry" id="add-entry" value={extra.entry} onChange={(v) => setExtra((x) => ({ ...x, entry: v }))} />
           <When t={t} kind="datetime-local" name="rates.try.exit" field="add-exit" id="add-exit" value={extra.exit} onChange={(v) => setExtra((x) => ({ ...x, exit: v }))} />
@@ -1284,6 +1460,26 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
           </Act>
         </div>
       </section>
+
+      {save.carried.length || save.own.length ? (
+        <section className="panel" data-section="carried">
+          <h2 className="section-title">{t('rates.review.carried')}</h2>
+          {save.carried.length ? <p className="quiet">{t('rates.review.carriedAbout')}</p> : null}
+          {save.own.map((plan) => (
+            <p key={plan.plan_version} className="quiet" data-notice="own-section" data-starts={plan.effective_from}>
+              {t(draft.section === 'regular' ? 'rates.review.ownRegular' : 'rates.review.ownSpecials', { time: at(plan.effective_from) })}
+            </p>
+          ))}
+          {tables.slice(1).map((table) => (
+            <div key={table.id} className="rate-plan" data-carried={table.id} data-starts={table.plan.effective_from}>
+              <h3 className="setup-step-name">{t('rates.review.carriedAt', { time: at(table.plan.effective_from) })}</h3>
+              <Sentences t={t} language={language} plan={table.plan} kind="carried" />
+              {tableNotice(table)}
+              {priced[table.id] ? <PriceTable t={t} language={language} garage={garage} priced={priced[table.id]} list="price-table-later" /> : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       {findings && findings.length ? (
         <section className="panel" data-section="findings">
@@ -1299,28 +1495,26 @@ function Review({ t, language, client, garage, draft, base, plans, taxNames, onB
       ) : null}
 
       <section className="panel no-print" data-section="confirm">
-        <Tick t={t} tick="checked-prices" on={ticked && current} disabled={!current || blocked} reason={tickReason} onChange={setTicked} words={t('rates.review.tick', { start: startWords })} />
+        <Tick
+          t={t}
+          tick="checked-prices"
+          on={ticked && current}
+          disabled={!current || blocked}
+          reason={tickReason}
+          onChange={setTicked}
+          words={t(save.carried.length ? 'rates.review.tickCarried' : 'rates.review.tick', { start: startWords })}
+        />
         <Act action="confirm-rates" disabled={!canConfirm} reason={confirmReason} onClick={confirm}>
           {saving ? t('rates.review.saving') : t('rates.review.confirm')}
         </Act>
-        {problem && table.priced ? <ProblemNote t={t} kind={problem} /> : null}
+        {problem && mainTable ? <ProblemNote t={t} kind={problem} /> : null}
       </section>
     </>
   );
 }
 
-/**
- * What a priced table was priced for: the plan but its name, with a start of
- * "now" said as "now", and the stays the owner added. Equal keys, same table.
- */
-function draftKey(startsNow, plan, added) {
-  const rest = { ...plan };
-  delete rest.plan_version;
-  return JSON.stringify({ ...rest, effective_from: startsNow ? 'now' : rest.effective_from, added: added.map(({ entry, exit }) => [entry, exit]) });
-}
-
 /** The price table: one row per example stay, as the platform priced it. */
-function PriceTable({ t, language, garage, priced }) {
+function PriceTable({ t, language, garage, priced, list = 'price-table' }) {
   const paging = usePaging(priced.rows.length);
   const money = (minor) => moneyText(minor, garage.currency, language);
   const answerOf = (key) => priced.rows.find((r) => r.why.key === key)?.answer;
@@ -1328,7 +1522,7 @@ function PriceTable({ t, language, garage, priced }) {
   const when = (wall) => localSaid(wall, language);
   return (
     <>
-      <table className="list price-table" data-list="price-table">
+      <table className="list price-table" data-list={list}>
         <thead>
           <tr>
             {['rates.table.cameIn', 'rates.table.left', 'rates.table.length', 'rates.table.rate', 'rates.table.tax', 'rates.table.pays', 'rates.table.special', 'rates.table.test'].map((k) => (
@@ -1359,7 +1553,7 @@ function PriceTable({ t, language, garage, priced }) {
           })}
         </tbody>
       </table>
-      <Pager t={t} language={language} paging={paging} list="price-table" />
+      <Pager t={t} language={language} paging={paging} list={list} />
     </>
   );
 }

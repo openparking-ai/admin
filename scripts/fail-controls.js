@@ -1577,6 +1577,43 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ['check 8: every field left empty saves the rates in force'],
   },
+  // ── U7i fix 1: a change carried into rates scheduled to start later (test/rates-carry.test.js) ──
+  {
+    check: 'U7i fix 1 a later version that set its own regular rates is overwritten',
+    plant: { file: 'src/rates.js', anchor: '    const kept = before === null ? i === 0 : sectionOf(later, section) === sectionOf(before, section);', with: '    const kept = true;' },
+    run: ['node', '--test', 'test/rates-carry.test.js'],
+    names: ['a later version that set its own regular rates keeps them'],
+  },
+  {
+    check: 'U7i fix 1 the carry skipped: no later version rebuilt',
+    plant: { file: 'src/rates.js', anchor: '    const next = kept ? withSection(later, beforeNow, section) : later;', with: '    const next = later;' },
+    run: ['node', '--test', 'test/rates-carry.test.js'],
+    names: ['grace changed before a later version that kept the regular rates'],
+  },
+  {
+    check: "U7i fix 1 a part compared by its keys' order (the platform reorders them)",
+    plant: { file: 'src/rates.js', anchor: '  canon({ rules: (plan?.rules ?? []).filter(IN_SECTION[section])', with: '  JSON.stringify({ rules: (plan?.rules ?? []).filter(IN_SECTION[section])' },
+    run: ['node', '--test', 'test/rates-carry.test.js'],
+    names: ['a part compares by what it says, not by the order of its keys'],
+  },
+  {
+    check: 'U7i fix 1 a save built on the last rates saved, not the ones in force when it starts',
+    plant: { file: 'src/rates.js', anchor: '  return sorted.filter((p) => startOf(p) <= at).at(-1) ?? sorted[0] ?? null;', with: '  return sorted.at(-1) ?? null;' },
+    run: ['node', '--test', 'test/rates-carry.test.js'],
+    names: ['item 5: a save is built on the rates in force when it starts'],
+  },
+  {
+    check: 'U7i fix 1 the plans as they will be keep the versions replaced',
+    plant: { file: 'src/rates.js', anchor: '  return byStart([...(plans ?? []).filter((p) => !gone.has(p)), saved, ...carried.map((c) => c.plan)]);', with: '  return byStart([...(plans ?? []), saved, ...carried.map((c) => c.plan)]);' },
+    run: ['node', '--test', 'test/rates-carry.test.js'],
+    names: ['item 8: the plans as they will be'],
+  },
+  {
+    check: 'U7i fix 1 F3 the days listed with no choice picked',
+    plant: { file: 'src/rates.js', anchor: "  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';", with: "  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';" },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['check 8: nothing prefilled'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -2818,21 +2855,21 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7i-4 a save that skips the check page',
-    plant: { file: 'src/RatesPage.jsx', anchor: "        onSave={() => setReviewing('regular')}", with: "        onSave={() => client.addRatePlan(garage.id, regularDraft.build(formStart(regularTyped, garage), planName(Date.now(), garage.timezone)), { confirmed: true }).then(done)}" },
+    plant: { file: 'src/RatesPage.jsx', anchor: "        onSave={() => setReviewing('regular')}", with: "        onSave={() => client.addRatePlan(garage.id, regularDraft.save(formStart(regularTyped, garage), planName(Date.now(), garage.timezone)).plan, { confirmed: true }).then(done)}" },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 6 the regular rates: the check page prices its table as it opens'],
   },
   {
     check: 'U7i-5 the calculator prices with its own code',
-    plant: { file: 'src/RatesPage.jsx', anchor: '      const out = await client.tryStays(garage.id, { plan, stays: [{ entry, exit }] });', with: '      const hours = Math.ceil((Date.parse(exit) - Date.parse(entry)) / 3600000);\n      const out = { stays: [{ fee_minor: 800 + Math.max(0, hours - 1) * 400, subtotal_minor: 800 + Math.max(0, hours - 1) * 400, minutes: hours * 60, rate_lines: [], tax_lines: [] }] };' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '      const out = await client.tryStays(garage.id, { plan: save?.plan ?? null, carry: save ? carryBody(save, idOf) : [], stays: [{ entry, exit }] });', with: '      const hours = Math.ceil((Date.parse(exit) - Date.parse(entry)) / 3600000);\n      const out = { stays: [{ fee_minor: 800 + Math.max(0, hours - 1) * 400, subtotal_minor: 800 + Math.max(0, hours - 1) * 400, minutes: hours * 60, rate_lines: [], tax_lines: [] }] };' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 5 the calculator asked the platform', 'FAIL 5 one stay, one fee'],
   },
   {
     check: 'U7i-6 the price table priced only by a press again',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  useEffect(() => {\n    if (asking.current === wantKey) return;\n    price().catch(() => {});\n    // `wantKey` is what the table prices: the rates and the stays.\n  }, [wantKey]);\n', with: '' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '  useEffect(() => {\n    price().catch(() => {});\n    // `wantKey` is what the tables price: the rates and the stays.\n  }, [wantKey]);\n', with: '' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 6 the regular rates: the check page prices its table as it opens'],
@@ -2853,14 +2890,14 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7i-9 who saved: a wrong change-log line matched',
-    plant: { file: 'src/RatesPage.jsx', anchor: "          if (line.action !== 'rate_plan.add' || line.subject?.kind !== 'rate_plan' || !ids.has(line.subject.id)) continue;\n          const version = ids.get(line.subject.id);", with: "          if (line.action !== 'rate_plan.add') continue;\n          const version = [...ids.values()].find((v) => !by[v]);" },
+    plant: { file: 'src/RatesPage.jsx', anchor: "          if (line.subject?.kind !== 'rate_plan' || !ids.has(line.subject.id)) continue;\n          const version = ids.get(line.subject.id);", with: "          if (line.action !== 'rate_plan.add') continue;\n          const version = [...ids.values()].find((v) => !by[v]);" },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 9 after three saves'],
   },
   {
     check: 'U7i-9 who saved: "not in the change log" said before the log is read for the rates just saved',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  return { by: state.by, read: state.for === wanted, refresh };', with: '  return { by: state.by, read: state.for !== null, refresh };' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '  return { by: state.by, gone: state.gone, read: state.for === wanted, refresh };', with: '  return { by: state.by, gone: state.gone, read: state.for !== null, refresh };' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 9 a save just made, its change log still being read'],
@@ -2878,6 +2915,63 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 10 en, the check page, pricing again: no wait or progress cursor'],
+  },
+  // ── U7i fix 1: the gate's F1-F3 and a change carried into rates saved to start later ──
+  {
+    check: 'U7i fix 1 F2 the carry skipped: the save sends no later version',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  return [...(save.replaces ? [{ withdraw: idOf(save.replaces) }] : []), ...save.carried.map((c) => ({ withdraw: idOf(c.from), plan: c.plan }))];', with: '  return [];' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 8 fix 1: the calculator asked with the plans as the save leaves them', "FAIL 6 fix 1: the save sends today's rates and the Mar 14 rates rebuilt"],
+  },
+  {
+    check: 'U7i fix 1 F2 the special rates listed from the rates in force only',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const listed = specialsListed(current, later);', with: '  const listed = specialsListed(current, []);' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F2 a special saved to start later is listed'],
+  },
+  {
+    check: 'U7i fix 1 F2 a save built on the rates in force, not the ones in force when it starts',
+    plant: { file: 'src/RatesPage.jsx', anchor: '    const plan = build(baseAt(plans, start), start, name);', with: '    const plan = build(current ?? baseAt(plans, start), start, name);' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 4 fix 1: $9 the first hour from Mar 24, built on the Mar 14 rates as they now are'],
+  },
+  {
+    check: 'U7i fix 1 check 2 a later version that set its own regular rates is overwritten',
+    plant: { file: 'src/rates.js', anchor: '    const kept = before === null ? i === 0 : sectionOf(later, section) === sectionOf(before, section);', with: '    const kept = true;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 2 fix 1: only the Mar 14 rates are rebuilt', 'FAIL 2 fix 1: stored, the Mar 24 rates keep their own'],
+  },
+  {
+    check: 'U7i fix 1 F1 the calculator keeps its answer after the rates change',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const stale = Boolean(answer) && answer.key !== askedFor;', with: '  const stale = false;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F1 $12 typed after it was priced at $15', 'FAIL F1 grace 20 -> 25 typed after the answer', 'FAIL F1 the stay changed after the answer'],
+  },
+  {
+    check: 'U7i fix 1 F3 the days link back, to a field not on the page',
+    plant: { file: 'src/rates.js', anchor: "  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';", with: "  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F3 en, a new special, nothing typed', 'special-days (not on the page)', 'FAIL F3 no choice picked'],
+  },
+  {
+    check: 'U7i fix 1 item 7 the later versions rebuilt not listed on the check page',
+    plant: { file: 'src/RatesPage.jsx', anchor: '      {save.carried.length || save.own.length ? (\n        <section className="panel" data-section="carried">', with: '      {false ? (\n        <section className="panel" data-section="carried">' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 7 fix 1: the Mar 14 rates rebuilt, with a priced table of their own', 'FAIL 2 fix 1: "'],
+  },
+  {
+    check: 'U7i fix 1 item 9 a version replaced before it started not said',
+    plant: { file: 'src/RatesPage.jsx', anchor: '              <ReplacedBy t={t} language={language} garage={garage} savers={savers} plan={plan} />\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 9 fix 1: the Mar 14 rates saved before', 'FAIL 9 fix 1: each of the 4 versions replaced says so'],
   },
 ];
 

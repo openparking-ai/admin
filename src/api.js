@@ -114,6 +114,11 @@ const NAMED = [
   [409, 'plan_version_exists', 'planNameTaken'],
   [409, 'plan_effective_from_taken', 'planStartTaken'],
   [409, 'plan_starts_in_the_past', 'planStartPast'],
+  // U7i fix 1: a later version that started, or was replaced, while the page was open.
+  [409, 'plan_already_started', 'planLaterStarted'],
+  [409, 'plan_already_withdrawn', 'planLaterStarted'],
+  [409, 'plan_not_found', 'planLaterStarted'],
+  [409, 'carry_start_differs', 'planLaterStarted'],
   [409, 'rate_engine_unavailable', 'ratesNotChecked'],
   [409, 'plan_currency_disagrees_with_garage', 'planNotKept'],
   [409, 'plan_does_not_price_garage_space_class', 'planNotKept'],
@@ -557,21 +562,27 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     ratePlans: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
       if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
-      const plans = data.rate_plans.map((row) => object(row.plan));
-      // U7i: each stored row's id, which its change-log line names (who saved it).
+      // U7i fix 1: a set of rates replaced before it started is kept for history and
+      // never priced; `plans` are the ones that price, `replaced` the others.
+      const pricing = data.rate_plans.filter((row) => !row.withdrawn_at);
+      const plans = pricing.map((row) => object(row.plan));
+      const replaced = data.rate_plans.filter((row) => row.withdrawn_at).map((row) => ({ plan: object(row.plan), id: typeof row.id === 'string' ? row.id : null, at: row.withdrawn_at }));
+      // U7i: each stored row's id, which its change-log line names (who saved it), and
+      // which a save names to replace a later version (U7i fix 1).
       const saved = data.rate_plans.map((row) => ({ id: typeof row.id === 'string' ? row.id : null, plan_version: row.plan_version ?? row.plan?.plan_version }));
-      return { plans, spaceClass: data.space_class, saved };
+      return { plans, replaced, spaceClass: data.space_class, saved };
     },
     /**
      * U7g: what cars would pay, priced the way the platform prices a car that
      * leaves, nothing kept. `plan` is new rates not saved yet, or null for the
      * rates saved; `stays` are { entry, exit } in the garage's own time.
      */
-    tryStays: async (garageId, { plan = null, stays }) => {
+    tryStays: async (garageId, { plan = null, stays, carry = [] }) => {
       const data = object(
         await request(`/garages/${encodeURIComponent(garageId)}/rate-plans/try`, {
           method: 'POST',
-          body: plan ? { plan, stays } : { stays },
+          // U7i fix 1: with the later versions the save rebuilds, priced as it would leave them.
+          body: plan ? (carry.length ? { plan, stays, carry } : { plan, stays }) : { stays },
           byStatus: TRY_BY_STATUS,
           named: TRY_NAMED,
         }),
@@ -579,9 +590,19 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       if (!Array.isArray(data.stays) || data.stays.length !== stays.length) throw new Problem('unexpected');
       return { stays: data.stays, draftFindings: Array.isArray(data.draft_findings) ? vetted('plan_has_findings', { findings: data.draft_findings }).findings : [] };
     },
-    /** U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick. */
-    addRatePlan: async (garageId, plan, { confirmed }) =>
-      object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { method: 'POST', body: { plan, confirmed: confirmed === true }, byStatus: PLAN_BY_STATUS })),
+    /**
+     * U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick.
+     * U7i fix 1: `carry` is each later version the save replaces, `{ withdraw, plan }`
+     * (no `plan`: the new rates replace it), all saved together or none.
+     */
+    addRatePlan: async (garageId, plan, { confirmed, carry = [] }) =>
+      object(
+        await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, {
+          method: 'POST',
+          body: carry.length ? { plan, confirmed: confirmed === true, carry } : { plan, confirmed: confirmed === true },
+          byStatus: PLAN_BY_STATUS,
+        }),
+      ),
     /** U7g: open the garage. Refused with the setup steps still missing (`problem.unmet`). */
     openGarage: async (garageId) => object(await request(`/garages/${encodeURIComponent(garageId)}/activate`, { method: 'POST' })),
     taxLists: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS }), 'tax_sets'),

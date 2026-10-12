@@ -96,9 +96,13 @@ test('check 8: nothing prefilled -- the form starts empty, each tick as it is no
   // With no rates at all, every field of the time-based rate is needed.
   const none = formFromPlan(null, 'USD');
   assert.deepEqual(Object.keys(regularProblems(mergeRegular(typedRegular(none), none), garage)).sort(), ['time.firstMinutes', 'time.firstPrice', 'time.nextMinutes', 'time.nextPrice', 'time.rounding']);
-  // A new special: every field needed.
+  // A new special: every field needed -- its days only once a choice is picked, as the
+  // day ticks are drawn only then (U7i fix 1, F3: a link to a field not on the page).
   const fresh = Object.keys(specialProblems(mergeSpecial(typedSpecial(null), null), 'special', garage)).sort();
-  assert.deepEqual(fresh, ['special.charge', 'special.days', 'special.enterBy', 'special.enterFrom', 'special.leaveBy', 'special.name', 'special.nextDay', 'special.preset']);
+  assert.deepEqual(fresh, ['special.charge', 'special.enterBy', 'special.enterFrom', 'special.leaveBy', 'special.name', 'special.nextDay', 'special.preset']);
+  // CONTROL: a choice picked and every day unticked, the days are needed.
+  const picked = Object.keys(specialProblems(mergeSpecial({ ...typedSpecial(null), preset: 'weekdays', days: [] }, null), 'special', garage));
+  assert.ok(picked.includes('special.days') && !picked.includes('special.preset'), picked.join());
 });
 
 test('what the form does not show is kept: a longest stay on the time-based rate, through a change to its price', () => {

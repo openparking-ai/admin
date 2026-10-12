@@ -386,6 +386,61 @@ export async function recordRates(base, { origin, owner, hooks, plans, rest = as
     });
     await rest();
   }
+  // U7i fix 1: a change carried into rates saved to start later, on a garage
+  // of its own -- rates in force now, a later version, then changes saved
+  // before it, each tried as the check page tries it (with its `carry`) and
+  // saved with it; a later version that set its own regular rates; a special
+  // a later version brings, changed with it; and who replaced each one.
+  if (plans.carryAt) {
+    // Built now: the rates in force start the moment they are saved.
+    const c = plans.carryAt(new Date().toISOString());
+    const g = (await call('a garage, for the carry', 'POST', '/garages', c.garage, {}, { quiet: true })).garage.id;
+    const at = `/garages/${g}/rate-plans`;
+    const tryAt = `${at}/try`;
+    const idOf = async (version) => (await call('rates, for their ids', 'GET', at, undefined, {}, { quiet: true })).rate_plans.find((r) => r.plan_version === version).id;
+    const priced = (what, body) => call(`U7i fix 1 ${what}`, 'POST', tryAt, body, {}, { structure: 'priced' });
+    await call('U7i fix 1 rates saved, in force now', 'POST', at, { plan: c.now, confirmed: true }, {}, { quiet: true });
+    await priced('the price table tried, the early bird from Mar 14', { plan: c.early, stays: c.stays.early });
+    await priced('a stay tried, the early bird being added', { plan: c.early, stays: [c.calc.earlyStay] });
+    await call('U7i fix 1 rates saved, the early bird from Mar 14', 'POST', at, { plan: c.early, confirmed: true }, {}, { quiet: true });
+    const grace = { plan: c.grace, carry: [{ withdraw: await idOf(c.early.plan_version), plan: c.graceCarry.carried[0] }] };
+    await priced('the price table tried, grace 20 from Mar 10', { ...grace, stays: c.stays.grace });
+    await priced('the price table tried, the rates from Mar 14 with grace 20', { ...grace, stays: c.stays.grace1 });
+    await priced('a stay tried, grace 20 being changed', { ...grace, stays: [c.calc.graceStay] });
+    await call('U7i fix 1 rates saved, grace 20 carried', 'POST', at, { ...grace, confirmed: true });
+    await priced('the price table tried, their own regular rates from Mar 24', { plan: c.own, stays: c.stays.own });
+    await call('U7i fix 1 rates saved, their own regular rates from Mar 24', 'POST', at, { plan: c.own, confirmed: true }, {}, { quiet: true });
+    const next = { plan: c.next, carry: [{ withdraw: await idOf(c.graceCarry.carried[0].plan_version), plan: c.nextCarry.carried[0] }] };
+    await priced('the price table tried, $5 an hour after from Mar 12', { ...next, stays: c.stays.next });
+    await priced('the price table tried, the rates from Mar 14 with $5', { ...next, stays: c.stays.next1 });
+    await call('U7i fix 1 rates saved, $5 carried, their own kept', 'POST', at, { ...next, confirmed: true });
+    const special = {
+      plan: c.special,
+      carry: [{ withdraw: await idOf(c.specialCarry.replaces) }, { withdraw: await idOf(c.own.plan_version), plan: c.specialCarry.carried[0] }],
+    };
+    await priced('the price table tried, the early bird changed with it', { ...special, stays: c.stays.special });
+    await priced('the price table tried, the rates from Mar 24 with the early bird changed', { ...special, stays: c.stays.special1 });
+    await call('U7i fix 1 rates saved, the early bird changed with it', 'POST', at, { ...special, confirmed: true });
+    await call('U7i fix 1 rates saved, carried into rates that have started', 'POST', at, { plan: c.grace, confirmed: true, carry: [{ withdraw: await idOf(c.now.plan_version), plan: c.own }] }, {}, { normalise: true });
+    const read = await call('U7i fix 1 rates, after the carries', 'GET', at, undefined, {}, { quiet: true });
+    const log = await call('U7i fix 1 changes, after the carries', 'GET', `/garages/${g}/changes`, undefined, {}, { quiet: true });
+    // Each stored row, the ones replaced marked, and who replaced each -- by kind, never the name.
+    state.out.push({
+      what: 'U7i fix 1 the rates replaced, and who replaced them',
+      status: 200,
+      structure: read.rate_plans.map((row) => {
+        const lines = log.changes.filter((l) => l.action === 'rate_plan.withdraw' && l.subject.kind === 'rate_plan' && l.subject.id === row.id);
+        return {
+          plan_version: row.plan_version,
+          keys: Object.keys(row).sort(),
+          replaced: row.withdrawn_at !== null,
+          by: row.withdrawn_by === null ? null : row.withdrawn_by.split(':')[0],
+          lines: lines.map((l) => ({ who: l.who.kind, name: typeof l.who.name, replaced_by: l.after?.replaced_by_version ?? null })),
+        };
+      }),
+    });
+    await rest();
+  }
   // Last, so it holds back nothing above: tries until the platform says "a minute".
   let n = 0;
   for (;;) {

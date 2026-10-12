@@ -533,7 +533,7 @@ export function specialProblems(s, at, garage) {
   if (s.preset === 'dates') {
     if (!s.dates.length || s.dates.some((d) => !DATE.test(d))) out[`${at}.dates`] = 'rates.need.dates';
     else if (new Set(s.dates).size !== s.dates.length) out[`${at}.dates`] = 'rates.need.datesTwice';
-  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';
+  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';
   for (const field of ['enterFrom', 'enterBy', 'leaveBy']) {
     const p = parseClock(s[field]);
     if (p.problem) out[`${at}.${field}`] = `rates.need.clock.${p.problem}`;
@@ -732,6 +732,96 @@ export function sameRates(a, b) {
   return rest(a) === rest(b);
 }
 
+// --- a change carried into the rates that start later (U7i fix 1) ----------
+//
+// The owner's rule (2026-10-12): rates are scheduled to start on a later date;
+// today a change is saved; on that later date the scheduled rates start WITH
+// today's change in them. A save is built on the rates as they will be when it
+// starts, and each later version that kept the part just changed -- the
+// regular rates, or the special rates -- as it was gets the new part; one that
+// set its own keeps it, and the check page says so. The platform withdraws
+// each rebuilt version (it has not started, so it priced nothing) and stores
+// its replacement, all in the save's one transaction (`carry`).
+
+/** The two parts of the rates a save changes. */
+const IN_SECTION = { regular: (r) => REGULAR_TYPES.includes(r.type), specials: (r) => r.type === 'time_window' };
+
+/** A value as text with every object's keys in order: the platform keeps a plan with its keys reordered. */
+const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v ?? null));
+
+/** One part of a plan, as text: equal text, the same part. The specials' order goes with them. */
+export const sectionOf = (plan, section) =>
+  canon({ rules: (plan?.rules ?? []).filter(IN_SECTION[section]).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)), order: section === 'specials' ? (plan?.adjust_order ?? null) : null });
+
+/** `target` with one part taken from `source`: the regular rates first, the specials last, as buildPlan writes them. */
+export function withSection(target, source, section) {
+  const mine = IN_SECTION[section];
+  const rules = section === 'regular'
+    ? [...(source.rules ?? []).filter(mine), ...(target.rules ?? []).filter((r) => !mine(r))]
+    : [...(target.rules ?? []).filter((r) => !mine(r)), ...(source.rules ?? []).filter(mine)];
+  return { ...target, rules, adjust_order: section === 'specials' ? (source.adjust_order ?? null) : (target.adjust_order ?? null) };
+}
+
+const byStart = (plans) => [...(plans ?? [])].sort((a, b) => startOf(a) - startOf(b));
+
+/**
+ * The rates a save starting at `start` is built on: the ones in force then --
+ * a version saved to start later counts once it has started -- or, with none
+ * in force by then, the first that starts after.
+ */
+export function baseAt(plans, start) {
+  const sorted = byStart(plans);
+  const at = Date.parse(start);
+  return sorted.filter((p) => startOf(p) <= at).at(-1) ?? sorted[0] ?? null;
+}
+
+/**
+ * What a save leaves behind, beside the plan it stores (`saved`, built on
+ * `baseAt` its start), for the part it changes:
+ *
+ *   replaces  the later version starting exactly when the save does: the save
+ *             replaces it (built on it);
+ *   carried   each later version rebuilt with the new part, in order, each
+ *             `{ from, plan }` -- `from` the stored version it replaces, `plan`
+ *             at `from`'s own start;
+ *   own       each later version that set its own part, which today's change
+ *             does not reach.
+ *
+ * Each later version is compared with the one before it as stored: kept as it
+ * was, it takes the new part of the one before it as rebuilt. With nothing in
+ * force at the save's start, the first later version is what the save was
+ * built on, and it takes the new part too.
+ */
+export function carryForward(plans, saved, section) {
+  const sorted = byStart(plans);
+  const at = startOf(saved);
+  const upTo = sorted.filter((p) => startOf(p) <= at);
+  const replaces = upTo.find((p) => startOf(p) === at) ?? null;
+  let before = upTo.at(-1) ?? null;
+  let beforeNow = saved;
+  const carried = [];
+  const own = [];
+  sorted.filter((p) => startOf(p) > at).forEach((later, i) => {
+    const kept = before === null ? i === 0 : sectionOf(later, section) === sectionOf(before, section);
+    const next = kept ? withSection(later, beforeNow, section) : later;
+    if (!kept && sectionOf(beforeNow, section) !== sectionOf(before, section)) own.push(later);
+    if (sectionOf(next, section) !== sectionOf(later, section)) carried.push({ from: later, plan: { ...next, plan_version: `${saved.plan_version}-${carried.length + 1}` } });
+    before = later;
+    beforeNow = next;
+  });
+  return { replaces, carried, own };
+}
+
+/**
+ * Every plan as it will be once the save is stored: the stored ones, less
+ * those it replaces, plus the saved one and each rebuilt version. What the
+ * check page and the calculator describe; the platform prices them itself.
+ */
+export function plansAfter(plans, saved, { replaces, carried }) {
+  const gone = new Set([replaces, ...carried.map((c) => c.from)].filter(Boolean));
+  return byStart([...(plans ?? []).filter((p) => !gone.has(p)), saved, ...carried.map((c) => c.plan)]);
+}
+
 /** The sign written before money in the owner's language: "$" for dollars. */
 export function currencySign(currency, language) {
   try {
@@ -741,8 +831,13 @@ export function currencySign(currency, language) {
   }
 }
 
-/** When the form's plan starts: now, or the first moment of the chosen day, in the garage's time. */
-export const formStart = (form, garage, now = Date.now()) => (form.starts === 'day' ? startOfDay(form.day, garage.timezone) : garageInstant(now, garage.timezone));
+/**
+ * When the form's plan starts: now, the first moment of the chosen day, in the
+ * garage's time -- or, for a special saved to start later (`starts: 'at'`),
+ * exactly when the rates it starts with do (U7i fix 1).
+ */
+export const formStart = (form, garage, now = Date.now()) =>
+  form.starts === 'day' ? startOfDay(form.day, garage.timezone) : form.starts === 'at' ? form.at : garageInstant(now, garage.timezone);
 
 // --- the garage's clock ------------------------------------------------------
 

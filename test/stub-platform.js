@@ -1593,6 +1593,36 @@ export async function startStub({ port = 0 } = {}) {
     tried('U7i the price table tried, the regular rates changed', [u.regular, u.early, u.full], u.grace, u.stays.grace);
   }
 
+  // U7i fix 1: a try with a save's `carry` is priced on the plans as that save would leave them.
+  // Each recorded one is found by those plans -- no name, and a start before 2030 said as "in
+  // force" (the rates in force start when they are saved: at the recording, and a past day here)
+  // -- and its stays. Each plan the engine judged whole, by the same rule as above.
+  const FIX = rateSent.carry;
+  const inForce = (plan) => ({ ...withoutName(plan), effective_from: Date.parse(plan.effective_from) < Date.parse('2030-01-01T00:00:00Z') ? 'in force' : plan.effective_from });
+  const docsKey = (docs, stays) => JSON.stringify({ docs: [...docs].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from)).map(inForce), stays });
+  for (const plan of [FIX.now, ...Object.values(FIX.tabled)]) JUDGED.set(engineKey(plan), null);
+  const TRIED_FIX = new Map();
+  const triedFix = (what, docs, stays) => {
+    const a = recordedAnswer(`U7i fix 1 ${what}`);
+    if (a) TRIED_FIX.set(docsKey(docs, stays), { structure: a.structure, docs });
+  };
+  {
+    const { now, early, grace, own, next, special, tabled, calc, stays } = FIX;
+    const g1 = [now, grace, tabled.grace1];
+    const n1 = [now, grace, next, tabled.next1, own];
+    const s1 = [now, grace, next, special, tabled.special1];
+    triedFix('the price table tried, the early bird from Mar 14', [now, early], stays.early);
+    triedFix('a stay tried, the early bird being added', [now, early], [calc.earlyStay]);
+    triedFix('the price table tried, grace 20 from Mar 10', g1, stays.grace);
+    triedFix('the price table tried, the rates from Mar 14 with grace 20', g1, stays.grace1);
+    triedFix('a stay tried, grace 20 being changed', g1, [calc.graceStay]);
+    triedFix('the price table tried, their own regular rates from Mar 24', [...g1, own], stays.own);
+    triedFix('the price table tried, $5 an hour after from Mar 12', n1, stays.next);
+    triedFix('the price table tried, the rates from Mar 14 with $5', n1, stays.next1);
+    triedFix('the price table tried, the early bird changed with it', s1, stays.special);
+    triedFix('the price table tried, the rates from Mar 24 with the early bird changed', s1, stays.special1);
+  }
+
   const RECORDED_NAMED = new Map(['regular', 'early', 'full', 'grace'].map((k) => [rateSent.u7i[k].plan_version, rateSent.u7i[k]]));
   const ENGINE_AWAY_PLAN = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates); the plan was not stored', code: 'rate_engine_unavailable' };
   const ENGINE_AWAY_TRY = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates and stays); nothing was priced', code: 'rate_engine_unavailable' };
@@ -1600,6 +1630,27 @@ export async function startStub({ port = 0 } = {}) {
   const plansOf = (garageId) => {
     if (!plansHeld.has(garageId)) plansHeld.set(garageId, []);
     return plansHeld.get(garageId);
+  };
+  /** The plans that price: every one stored here but those replaced before they started (U7i fix 1). */
+  const pricingOf = (garageId) => plansOf(garageId).filter((r) => !r.withdrawn_at);
+  /** A save's or a try's `carry`, read as the platform's src/ratePlans.js reads it. */
+  const UUIDISH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const carryOf = (raw) => {
+    if (raw === undefined || raw === null) return { list: [] };
+    if (!Array.isArray(raw) || raw.length > 50) return { refused: 'carry is a list of at most 50 { withdraw, plan }: each a later version and the plan that replaces it' };
+    const seen = new Set();
+    const list = [];
+    for (const [i, c] of raw.entries()) {
+      if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.withdraw !== 'string' || !UUIDISH.test(c.withdraw)) {
+        return { refused: `carry[${i}] is { withdraw, plan }: withdraw the id of a stored plan that has not started, plan its replacement` };
+      }
+      if (seen.has(c.withdraw)) return { refused: `carry names plan ${c.withdraw} twice; a plan is replaced once` };
+      seen.add(c.withdraw);
+      if (c.plan !== undefined && c.plan !== null && (typeof c.plan !== 'object' || Array.isArray(c.plan))) return { refused: 'plan is required and must be a JSON object: the plan document, whole' };
+      list.push({ withdraw: c.withdraw, plan: c.plan ?? null });
+    }
+    if (list.filter((c) => c.plan === null).length > 1) return { refused: 'carry names more than one plan the save itself replaces; the save starts at one instant' };
+    return { list };
   };
   const tries = new Map(); // owner -> times of their tries, the last minute
   let planN = 0;
@@ -1613,7 +1664,7 @@ export async function startStub({ port = 0 } = {}) {
   }
   /** The rates step as the platform reads it: plans stored, in force now, and the earliest start. */
   const ratesFacts = (garageId) => {
-    const held = plansOf(garageId);
+    const held = pricingOf(garageId);
     if (!held.length) return null;
     const now = Date.now();
     const starts = held.map((p) => Date.parse(p.effective_from));
@@ -1666,6 +1717,10 @@ export async function startStub({ port = 0 } = {}) {
       tries.set(who.email, [...mine, stamp]);
       const draft = body.plan === undefined ? null : body.plan;
       if (draft !== null && (!draft || typeof draft !== 'object' || Array.isArray(draft))) return answer(res, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' });
+      const carry = carryOf(body.carry);
+      if (carry.refused) return answer(res, 400, { error: carry.refused });
+      if (carry.list.length && draft === null) return answer(res, 400, { error: 'carry is tried with the plan it is saved with: send plan too' });
+      if (carry.list.some((c) => c.plan && !JUDGED.has(engineKey(c.plan)))) return answer(res, 503, ENGINE_AWAY_TRY);
       if (!Array.isArray(body.stays) || body.stays.length < 1 || body.stays.length > 100) return answer(res, 400, { error: "stays is a list of 1 to 100 stays, each { entry, exit } in the garage's own time" });
       if (draft !== null && !JUDGED.has(engineKey(draft))) return answer(res, 503, ENGINE_AWAY_TRY);
       if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
@@ -1675,9 +1730,22 @@ export async function startStub({ port = 0 } = {}) {
         if (wrong) return answer(res, 400, { error: wrong });
         if (stay.exit < stay.entry) return answer(res, 400, { error: `stays[${i}] leaves (${stay.exit}) before it came in (${stay.entry})` });
       }
-      const stored = [...plansOf(garage.id)].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from)).map((r) => r.plan);
+      const pricing = pricingOf(garage.id);
+      const missing = carry.list.find((c) => !pricing.some((r) => r.id === c.withdraw));
+      if (missing) return answer(res, 409, { error: `this garage holds no plan ${missing.withdraw} that prices; a carry replaces a later version not started yet`, code: 'plan_not_found' });
+      const stored = [...pricing].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from)).map((r) => r.plan);
       if (!stored.length && draft === null) return answer(res, 409, { error: 'this garage has no rates yet: send the draft as plan to try it', code: 'no_rate_plan' });
-      const priced = TRIED.get(tryKey(stored, draft, body.stays.map(({ entry, exit }) => ({ entry, exit }))));
+      const staysSent = body.stays.map(({ entry, exit }) => ({ entry, exit }));
+      // U7i fix 1: the plans as the save would leave them, when that is what was recorded.
+      const gone = new Set(carry.list.map((c) => c.withdraw));
+      const after = [...pricing.filter((r) => !gone.has(r.id)).map((r) => r.plan), ...(draft ? [draft] : []), ...carry.list.filter((c) => c.plan).map((c) => c.plan)];
+      const fix = TRIED_FIX.get(docsKey(after, staysSent));
+      if (fix) {
+        // Each plan by its own name here, where the recorded one's stood.
+        const nameOf = new Map(fix.docs.map((d) => [d.plan_version, after.find((p) => JSON.stringify(inForce(p)) === JSON.stringify(inForce(d)))?.plan_version ?? d.plan_version]));
+        return answer(res, 200, { ...fix.structure, stays: fix.structure.stays.map((st) => ({ ...st, plan_version: nameOf.get(st.plan_version) ?? st.plan_version })) });
+      }
+      const priced = carry.list.length ? null : TRIED.get(tryKey(stored, draft, staysSent));
       if (!priced) return answer(res, 503, ENGINE_AWAY_TRY);
       // The page's own name, where a recorded plan's stood: the engine names the plan that priced the stay.
       const named = rateSent.table.plan.plan_version;
@@ -1701,32 +1769,72 @@ export async function startStub({ port = 0 } = {}) {
       gapNext = false;
       return refuse(res, who, 409, JUDGED.get(engineKey(rateSent.gap)), at);
     }
+    const carry = carryOf(body.carry);
+    if (carry.refused) return refuse(res, who, 400, { error: carry.refused }, at);
+    // U7i fix 1: each later version named is withdrawn first, refused by name if it has started.
+    const heldAll = plansOf(garage.id);
+    const withdrawing = [];
+    for (const c of carry.list) {
+      const old = heldAll.find((r) => r.id === c.withdraw);
+      if (!old) return refuse(res, who, 409, { error: `this garage holds no plan ${c.withdraw} to replace`, code: 'plan_not_found' }, at);
+      if (old.withdrawn_at) return refuse(res, who, 409, { error: `the plan ${JSON.stringify(old.plan_version)} was already replaced`, code: 'plan_already_withdrawn' }, at);
+      if (Date.parse(old.effective_from) <= Date.now()) {
+        return refuse(res, who, 409, { error: `the plan ${JSON.stringify(old.plan_version)} started at ${old.effective_from} and may have priced a stay; a plan that has started is never withdrawn`, code: 'plan_already_started' }, at);
+      }
+      const replacement = c.plan ?? plan;
+      if (Date.parse(replacement.effective_from) !== Date.parse(old.effective_from)) {
+        return refuse(res, who, 409, { error: `the plan replacing ${JSON.stringify(old.plan_version)} starts at ${replacement.effective_from}; it replaces a plan starting at ${old.effective_from} and starts then too`, code: 'carry_start_differs' }, at);
+      }
+      withdrawing.push(old);
+    }
     if (!JUDGED.has(engineKey(plan))) return refuse(res, who, 409, ENGINE_AWAY_PLAN, at);
     const findings = JUDGED.get(engineKey(plan));
     if (findings) return refuse(res, who, 409, findings, at);
-    const held = plansOf(garage.id);
+    for (const c of carry.list) if (c.plan && !JUDGED.has(engineKey(c.plan))) return refuse(res, who, 409, ENGINE_AWAY_PLAN, at);
+    const held = heldAll.filter((r) => !r.withdrawn_at && !withdrawing.includes(r));
     if (Date.parse(plan.effective_from) < Date.now() - 60_000) {
       return refuse(res, who, 409, { error: `the plan starts at ${plan.effective_from}, more than 60s before this server's clock (${new Date().toISOString()}); a plan dated back would price cars that are already parked, so it starts now or later`, code: 'plan_starts_in_the_past' }, at);
     }
-    if (held.some((r) => r.plan_version === plan.plan_version)) {
+    if (heldAll.some((r) => r.plan_version === plan.plan_version)) {
       return refuse(res, who, 409, { error: `this garage already holds a plan named ${JSON.stringify(plan.plan_version)}; a changed plan is a new version`, code: 'plan_version_exists' }, at);
     }
     if (held.some((r) => Date.parse(r.effective_from) === Date.parse(plan.effective_from))) {
       return refuse(res, who, 409, { error: `this garage already holds a plan taking effect at ${plan.effective_from}; two versions at one instant would make the version in force at entry ambiguous, which the engine refuses on every stay from then on`, code: 'plan_effective_from_taken' }, at);
     }
-    planN += 1;
-    const row = {
-      id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`,
-      garage_id: garage.id,
-      plan_version: plan.plan_version,
-      effective_from: new Date(plan.effective_from).toISOString(),
-      engine_schema_version: 4,
-      created_at: new Date().toISOString(),
-      plan,
+    for (const c of carry.list.filter((x) => x.plan)) {
+      if (heldAll.some((r) => r.plan_version === c.plan.plan_version) || c.plan.plan_version === plan.plan_version) {
+        return refuse(res, who, 409, { error: `this garage already holds a plan named ${JSON.stringify(c.plan.plan_version)}; a changed plan is a new version`, code: 'plan_version_exists' }, at);
+      }
+    }
+    const newRow = (doc) => {
+      planN += 1;
+      return {
+        id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`,
+        garage_id: garage.id,
+        plan_version: doc.plan_version,
+        effective_from: new Date(doc.effective_from).toISOString(),
+        engine_schema_version: 4,
+        created_at: new Date().toISOString(),
+        withdrawn_at: null,
+        withdrawn_by: null,
+        plan: doc,
+      };
     };
-    held.push(row);
-    line(who, { garageId: garage.id, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true } });
-    return answer(res, 201, { rate_plan: row });
+    const added = (row, extra = {}) => line(who, { garageId: garage.id, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true, ...extra } });
+    // All refusals are behind: now everything, as the platform's one transaction.
+    for (const old of withdrawing) Object.assign(old, { withdrawn_at: new Date().toISOString(), withdrawn_by: `owner:${who.tenant_id}` });
+    const row = newRow(plan);
+    heldAll.push(row);
+    added(row);
+    const carried = carry.list.map((c, i) => {
+      const old = withdrawing[i];
+      const next = c.plan ? newRow(c.plan) : row;
+      if (c.plan) heldAll.push(next);
+      line(who, { garageId: garage.id, action: 'rate_plan.withdraw', subject: { kind: 'rate_plan', id: old.id, name: old.plan_version }, before: { plan_version: old.plan_version, effective_from: old.effective_from }, after: { withdrawn_at: old.withdrawn_at, replaced_by: next.id, replaced_by_version: next.plan_version } });
+      if (c.plan) added(next, { replaces: old.id });
+      return { withdrawn: old, rate_plan: next };
+    });
+    return answer(res, 201, { rate_plan: row, carried });
   }
 
   async function moneyRoutes(req, res, path, who) {
@@ -2066,10 +2174,12 @@ export async function startStub({ port = 0 } = {}) {
     makeGarage: (owner, fields) => makeGarage(owner, fields),
     /** Every rates document saved here, per garage, as sent. */
     ratesSaved: (garageId) => plansOf(garageId).map((r) => r.plan),
+    /** U7i fix 1: every set of rates stored on a garage, as rows, those replaced marked (`withdrawn_at`). */
+    rateRowsAll: (garageId) => plansOf(garageId).map((r) => ({ ...r })),
     /** `plan` stored on the garage as a confirmed save stores it (U7g fix 2: the walk plan, for Try a stay). */
     storeRates: (garageId, plan, who = null) => {
       planN += 1;
-      const row = { id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), plan };
+      const row = { id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), withdrawn_at: null, withdrawn_by: null, plan };
       plansOf(garageId).push(row);
       // U7i: with `who`, its change-log line too, as the save writes it (who saved it, item 11).
       if (who) line(who, { garageId, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true } });

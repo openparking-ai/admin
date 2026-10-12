@@ -10,7 +10,7 @@
 // browser check (scripts/check-rates.js).
 
 import { startOfDay as startOfDayOf } from '../src/taxes.js';
-import { blankForm, blankRate, blankSpecial, buildPlan, formFromPlan, mergeSpecial, regularPlan, specialsPlan, typedRegular } from '../src/rates.js';
+import { blankForm, blankRate, blankSpecial, buildPlan, carryForward, formFromPlan, mergeSpecial, orderedWindows, regularPlan, specialForm, specialsPlan, typedRegular } from '../src/rates.js';
 
 export const ZONE = 'America/New_York';
 export const RECORDED_GARAGE = { name: 'Recorded rates garage', timezone: ZONE, currency: 'USD' };
@@ -201,7 +201,7 @@ export const GAP_DAY = '2030-03-11';
  * their stays, the price table's form with its example stays and one stay of
  * the owner's, rates with a gap, and three the store refuses.
  */
-export function recordedPlans({ buildPlan, startOfDay, tableStays }) {
+export function recordedPlans({ buildPlan, startOfDay, tableStays, inForceFrom = new Date().toISOString() }) {
   const garage = { ...RECORDED_GARAGE };
   const make = (form, name, start = startOfDay(form.day, ZONE)) => buildPlan(form, { garage, spaceClass: 'standard', start, name });
   const forms = FORMS.map((f) => ({ id: f.id, plan: make(f.form, `recorded-${f.id}`), stay: f.stay }));
@@ -244,6 +244,18 @@ export function recordedPlans({ buildPlan, startOfDay, tableStays }) {
       const stays = (plan) => tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit }));
       return { ...docs, stays: { regular: stays(docs.regular), nothing: stays(docs.nothing), early: stays(docs.early), full: stays(docs.full), grace: stays(docs.grace) } };
     })(),
+    // U7i fix 1: a change carried into rates saved to start later -- built
+    // again when it is saved (`carryAt`): the rates in force start then.
+    carryAt: (from) => {
+      const docs = carrySaves({ startOfDay, inForceFrom: from });
+      const stays = (plan) => tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit }));
+      return { ...docs, stays: Object.fromEntries(Object.entries(docs.tabled).map(([k, plan]) => [k, stays(plan)])) };
+    },
+    carry: (() => {
+      const docs = carrySaves({ startOfDay, inForceFrom });
+      const stays = (plan) => tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit }));
+      return { ...docs, stays: Object.fromEntries(Object.entries(docs.tabled).map(([k, plan]) => [k, stays(plan)])) };
+    })(),
     past: make(FORMS[0].form, 'recorded-past', startOfDay('2020-01-06', ZONE)),
     sameStart: make(FORMS[1].form, 'recorded-same-start', forms[0].plan.effective_from),
     sameName: make(FORMS[0].form, 'recorded-a', startOfDay('2030-05-06', ZONE)),
@@ -281,6 +293,75 @@ export function twoSaves({ startOfDay }) {
   const graceTyped = { ...typedRegular(fullNow), grace: { on: true, minutes: '15' }, starts: 'day', day: TWO_SAVE_DAYS.grace };
   const grace = regularPlan(full, graceTyped, fullNow, opts(TWO_SAVE_DAYS.grace, 'u7i-grace'));
   return { regular, nothing, early: withEarly, full, grace };
+}
+
+/**
+ * U7i fix 1: rates in force now, and changes saved while rates are scheduled to
+ * start later, each built by the page's own functions (`carryForward` is what
+ * the page carries a save into the later versions with):
+ *
+ *   now       the table form's regular rates, in force (from `inForceFrom`:
+ *             the moment it is saved on the platform; a past day in the
+ *             browser check, stored on the stand-in's side);
+ *   early     the early bird added, from Mar 14, 2030 (a later version);
+ *   grace     grace 10 -> 20 minutes, from Mar 10: carried into `early`
+ *             (`grace1`, its regular rates the new ones);
+ *   own       the first hour $8 -> $9, from Mar 24, on `grace1`: a later
+ *             version that set its own regular rates;
+ *   next      each hour after $4 -> $5, from Mar 12, on `grace`: carried into
+ *             `grace1` (`next1`); `own` keeps its own regular rates;
+ *   special   the early bird $15 -> $12, starting with it, Mar 14: replaces
+ *             `next1`, and carried into `own` (`special1`), which kept the
+ *             special rates as they were.
+ *
+ * `calc` are the calculator's stays: a 15-minute stay on Mar 20 (free with 20
+ * minutes' grace, $8 with 10) and an early-bird day on Mar 14.
+ */
+export const CARRY_DAYS = { early: '2030-03-14', grace: '2030-03-10', own: '2030-03-24', next: '2030-03-12' };
+export function carrySaves({ startOfDay, inForceFrom }) {
+  const garage = { ...RECORDED_GARAGE, name: 'Recorded carry garage' };
+  const opts = (start, name) => ({ garage, spaceClass: 'standard', start, name });
+  const day = (d) => startOfDay(d, ZONE);
+  const none = formFromPlan(null, garage.currency);
+  const typed = { ...typedRegular(none), time: { ...TABLE_FORM.time }, dayMax: { ...TABLE_FORM.dayMax }, grace: { ...TABLE_FORM.grace } };
+  const now = regularPlan(null, typed, none, opts(inForceFrom, 'u7ifix-now'));
+  const [earlyForm] = TABLE_FORM.specials;
+  const early = specialsPlan(now, { kind: 'add', special: mergeSpecial(earlyForm, null) }, opts(day(CARRY_DAYS.early), 'u7ifix-early'));
+  const regularChange = (base, change, start, name) => {
+    const was = formFromPlan(base, garage.currency);
+    return regularPlan(base, { ...typedRegular(was), ...change(typedRegular(was)) }, was, opts(start, name));
+  };
+  // Each step falls back to the plan before it when the page's functions build nothing to
+  // carry, so that a control planted in them is caught by the check that names it, not by
+  // these fixtures failing to load.
+  const grace = regularChange(now, (t) => ({ grace: { ...t.grace, minutes: '20' } }), day(CARRY_DAYS.grace), 'u7ifix-grace');
+  const graceCarry = carryForward([now, early], grace, 'regular');
+  const grace1 = graceCarry.carried[0]?.plan ?? early;
+  const own = regularChange(grace1, (t) => ({ time: { ...t.time, firstPrice: '9.00' } }), day(CARRY_DAYS.own), 'u7ifix-own');
+  const next = regularChange(grace, (t) => ({ time: { ...t.time, nextPrice: '5.00' } }), day(CARRY_DAYS.next), 'u7ifix-next');
+  const nextCarry = carryForward([now, grace, grace1, own], next, 'regular');
+  const next1 = nextCarry.carried[0]?.plan ?? grace1;
+  // The early bird, listed from Mar 14, changed: it starts with the rates it starts with.
+  const rule = orderedWindows(next1)[0] ?? orderedWindows(early)[0];
+  const changed = mergeSpecial({ ...specialForm(rule, garage.currency), flat: '12.00' }, specialForm(rule, garage.currency));
+  const special = specialsPlan(next1, { kind: 'change', index: 0, special: changed }, opts(next1.effective_from, 'u7ifix-special'));
+  const specialCarry = carryForward([now, grace, next, next1, own], special, 'specials');
+  const special1 = specialCarry.carried[0]?.plan ?? own;
+  return {
+    garage,
+    now,
+    early,
+    grace,
+    graceCarry: { carried: graceCarry.carried.map((c) => c.plan), own: graceCarry.own.map((p) => p.plan_version) },
+    own,
+    next,
+    nextCarry: { carried: nextCarry.carried.map((c) => c.plan), own: nextCarry.own.map((p) => p.plan_version) },
+    special,
+    specialCarry: { replaces: specialCarry.replaces?.plan_version ?? null, carried: specialCarry.carried.map((c) => c.plan), own: specialCarry.own.map((p) => p.plan_version) },
+    // Each table the check page prices, by the plan it is for.
+    tabled: { early, grace, grace1, own, next, next1, special, special1 },
+    calc: { graceStay: { entry: '2030-03-20T10:00', exit: '2030-03-20T10:15' }, earlyStay: { entry: '2030-03-14T07:30', exit: '2030-03-14T17:00' } },
+  };
 }
 
 /** A form's plan, from the start of its own day, as the page builds it. */
