@@ -1,4 +1,4 @@
-// U7i: the Rates page from Gokhan's own walk (2026-10-12) -- the form's model,
+// U7i: the Rates page from the owner's walk (2026-10-12) -- the form's model,
 // measured. Nothing here prices a stay; the prices are the engine's, recorded
 // in test/platform-shapes.json, and scripts/check-rates.js reads them in a browser.
 //

@@ -1558,7 +1558,7 @@ textarea {
   vertical-align: middle;
 }
 
-/* ── U7i: the Rates page from Gokhan's own walk ────────────────────────── */
+/* ── U7i: the Rates page from the owner's walk ────────────────────────── */
 /* Item 1: every section of the form in a whole frame. A fieldset's own frame
    is broken where its legend sits; a floated legend is a plain first line
    inside the frame instead, so the top line is unbroken and the title and its

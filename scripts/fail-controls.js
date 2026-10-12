@@ -2773,7 +2773,7 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 5 each finding in a plain sentence'],
   },
-  // ── U7i: the Rates page from Gokhan's own walk, in a browser (scripts/check-rates.js) ──
+  // ── U7i: the Rates page from the owner's walk, in a browser (scripts/check-rates.js) ──
   {
     check: 'U7i-1 the frames: the default fieldset back (its title on the top line)',
     plant: { file: 'src/styles.css', anchor: 'fieldset.dates > legend {\n  float: left;', with: 'fieldset.dates > legend {\n  float: none;' },

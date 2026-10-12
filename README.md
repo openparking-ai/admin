@@ -223,7 +223,7 @@ The build publishes no source maps.
   "Now" is today. `rate-engine.pin` names the engine the recorded answers came
   from; `npm run check-finding-codes` reads that engine's `ALL_CODES` and holds
   the finding sentences to it, both ways.
-  U7i (Gokhan's own walk of the page, 2026-10-12): **Regular rates** and
+  U7i (the owner's walk of the page, 2026-10-12): **Regular rates** and
   **Special rates** are two sections, each with its own Save; a special is
   added, changed, removed or moved one at a time. Either Save makes new rates
   whole with the other part copied from the rates in force byte for byte

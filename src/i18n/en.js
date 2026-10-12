@@ -1782,7 +1782,7 @@ export default {
   "rates.state.current": "In force now",
   "rates.state.later": "Starts later",
   "rates.state.earlier": "Earlier",
-  // U7i: the Rates page from Gokhan's own walk: two saves, the calculator, nothing prefilled.
+  // U7i: the Rates page from the owner's walk: two saves, the calculator, nothing prefilled.
   "rates.regular": "Regular rates",
   "rates.regular.about": "The time-based rate, the most per day and per week, and free grace.",
   "rates.regular.keep": "Every field starts empty. Type only what changes: a field left empty keeps the value shown beside it.",

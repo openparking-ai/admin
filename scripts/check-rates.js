@@ -46,7 +46,7 @@
 //   F7  a fresh page in Spanish, today typed as the start day, the FIRST press
 //       of Review: the app's own sentence (the form has noValidate).
 //
-//   U7i (Gokhan's own walk, 2026-10-12), checks 1-10 of its brief:
+//   U7i (the owner's walk, 2026-10-12), checks 1-10 of its brief:
 //   1   every frame of the form whole: its top line unbroken, nothing within
 //       12 px of its edges (en, es; 1280, 360 px);
 //   2   three fields missing: three red frames, three named links by the

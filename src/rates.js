@@ -391,7 +391,7 @@ export function specialForm(r, currency) {
 
 // --- what the owner typed, over the rates in force (U7i) --------------------
 //
-// No field starts with a value (Gokhan, 2026-10-12: "no field should look like
+// No field starts with a value (the owner's walk, 2026-10-12: "no field should look like
 // prefilled"). The form holds only what the owner typed; the rates in force are
 // shown beside each field ("Now: $15.00"). A field left empty keeps the value in
 // force, a typed one replaces it. A tick starts as it is now. With no rates in

@@ -1779,7 +1779,7 @@ export default {
   "rates.state.current": "Vigentes ahora",
   "rates.state.later": "Empiezan más adelante",
   "rates.state.earlier": "Anteriores",
-  // U7i: the Rates page from Gokhan's own walk: two saves, the calculator, nothing prefilled.
+  // U7i: the Rates page from the owner's walk: two saves, the calculator, nothing prefilled.
   "rates.regular": "Tarifas normales",
   "rates.regular.about": "La tarifa por tiempo, lo máximo por día y por semana, y la gracia.",
   "rates.regular.keep": "Cada campo empieza vacío. Escriba solo lo que cambia: un campo vacío conserva el valor que se muestra a su lado.",

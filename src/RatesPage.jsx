@@ -56,7 +56,7 @@ import {
  * A garage's rates: the ones in force now, the ones that start later and the
  * ones before, each with when it starts in the garage's own time, who saved and
  * confirmed it, and each in plain sentences. Below them the two parts the owner
- * changes, each with its own Save (U7i, Gokhan 2026-10-12): the regular rates,
+ * changes, each with its own Save (U7i, from the owner's walk, 2026-10-12): the regular rates,
  * and the special rates one by one. Every field starts empty, with the value in
  * force beside it; a field left empty keeps it. A Save opens the check page,
  * which prices a table of example stays by itself, through the platform, for
