@@ -1564,6 +1564,19 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates.test.js'],
     names: ['no "specialLeftLate" stay'],
   },
+  // ── U7i: the form's model (test/rates-two-saves.test.js) ──
+  {
+    check: 'U7i-4 a changed time-based rate loses what the form does not show',
+    plant: { file: 'src/rates.js', anchor: "      const extra = rule.type === 'increment' ? { max_duration_minutes: rule.max_duration_minutes ?? null } : {};", with: '      const extra = {};' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['what the form does not show is kept'],
+  },
+  {
+    check: 'U7i-8 an empty field no longer keeps the value in force',
+    plant: { file: 'src/rates.js', anchor: "const typedOr = (typed, now) => (String(typed ?? '').trim() !== '' ? typed : now);", with: 'const typedOr = (typed) => typed;' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['check 8: every field left empty saves the rates in force'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -2671,7 +2684,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick + .tick {\n  margin-left: -40px;\n}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F2 en, the form, 1280 px', 'days\' centres ticks that day'],
+    names: ['FAIL F2 en, a new special, 1280 px', 'days\' centres ticks that day'],
   },
   {
     check: 'U7g-fix1 F3 Setup not read again after a refused Open',
@@ -2708,7 +2721,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/rates.js', anchor: "      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));", with: '      if (false) parts.push(timeLess(line, rule));' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL E1 the table', 'FAIL E1 try a stay'],
+    names: ['FAIL E1 the table', 'FAIL E1 the calculator'],
   },
   // ── U7g fix 2, in a browser: Try a stay on a plan with a discount (G2), ticks in their box (G4), the start day's first press (F7) ──
   {
@@ -2727,14 +2740,14 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;', with: '.day-ticks {\n  display: flex;\n  flex-wrap: nowrap;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL G4 en, the form, 360 px', 'FAIL G4 es, the form, 360 px'],
+    names: ['FAIL G4 en, a new special, 360 px'],
   },
   {
     check: "U7g-fix2 F7 the browser's own date check put back: its bubble on the first press",
-    plant: { file: 'src/RatesPage.jsx', anchor: '          className="setup-form"\n          noValidate\n', with: '          className="setup-form"\n' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '        className="setup-form"\n        noValidate\n', with: '        className="setup-form"\n' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F7 es, a fresh page, today typed, the first press of Review'],
+    names: ['FAIL F7 es, a fresh page, today typed, the first press of Save'],
   },
   {
     check: 'U7g-12 the tick ignored',
@@ -2745,10 +2758,10 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7g-12 the stale table accepted',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = table.priced !== null && table.priced.key === draftKey(form, shown, table.added);', with: '  const current = table.priced !== null;' },
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = table.priced !== null && table.priced.key === wantKey;', with: '  const current = table.priced !== null;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 12 the stale table: Confirm cannot be pressed'],
+    names: ['FAIL 12 a stay added: Confirm and the tick are locked while the table is priced again'],
   },
   {
     check: "U7g-5 a finding shown in the engine's words, in a browser",
@@ -2759,6 +2772,105 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 5 each finding in a plain sentence'],
+  },
+  // ── U7i: the Rates page from Gokhan's own walk, in a browser (scripts/check-rates.js) ──
+  {
+    check: 'U7i-1 the frames: the default fieldset back (its title on the top line)',
+    plant: { file: 'src/styles.css', anchor: 'fieldset.dates > legend {\n  float: left;', with: 'fieldset.dates > legend {\n  float: none;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 1 en, the regular rates, 1280 px', 'its title sits on the top line'],
+  },
+  {
+    check: 'U7i-2 a missing field: the frame colour back to the old one',
+    plant: { file: 'src/styles.css', anchor: ".field[data-wrong='yes'] .when-box input {\n  border: 2px solid var(--line-wrong);", with: ".field[data-wrong='yes'] .when-box input {\n  border: 1px solid var(--border-2);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 2 en, the regular rates: 3 missing fields, 0 in a red frame'],
+  },
+  {
+    check: 'U7i-2 a missing field: its link jumps nowhere',
+    plant: { file: 'src/RatesPage.jsx', anchor: 'onClick={() => goTo(fieldId(scope, item.at))}', with: 'onClick={() => {}}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 2 en, the regular rates: each of the 3 links goes to its field'],
+  },
+  {
+    check: "U7i-3 a date or time box: the browser's grey digits back",
+    plant: { file: 'src/styles.css', anchor: ".when-box[data-empty='yes'] input:not(:focus),\n.when-box[data-empty='yes'] input:not(:focus)::-webkit-datetime-edit {\n  color: transparent;\n}\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 3 en, no rates yet', 'its own text drawn'],
+  },
+  {
+    check: 'U7i-4 a regular save that drops the specials',
+    plant: { file: 'src/rates.js', anchor: '    if (!REGULAR_TYPES.includes(rule.type)) rules.push(rule);', with: '    if (!REGULAR_TYPES.includes(rule.type)) continue;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 4 the regular rates saved: the specials byte for byte as stored'],
+  },
+  {
+    check: 'U7i-4 a special save that drops the regular rates but the time-based rate',
+    plant: { file: 'src/rates.js', anchor: "    rules: [...rules.filter((r) => r.type !== 'time_window'), ...list],", with: "    rules: [rules.find((r) => r.type === 'increment'), ...list]," },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 4 a special saved: the regular rates byte for byte as stored'],
+  },
+  {
+    check: 'U7i-4 a save that skips the check page',
+    plant: { file: 'src/RatesPage.jsx', anchor: "        onSave={() => setReviewing('regular')}", with: "        onSave={() => client.addRatePlan(garage.id, regularDraft.build(formStart(regularTyped, garage), planName(Date.now(), garage.timezone)), { confirmed: true }).then(done)}" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 6 the regular rates: the check page prices its table as it opens'],
+  },
+  {
+    check: 'U7i-5 the calculator prices with its own code',
+    plant: { file: 'src/RatesPage.jsx', anchor: '      const out = await client.tryStays(garage.id, { plan, stays: [{ entry, exit }] });', with: '      const hours = Math.ceil((Date.parse(exit) - Date.parse(entry)) / 3600000);\n      const out = { stays: [{ fee_minor: 800 + Math.max(0, hours - 1) * 400, subtotal_minor: 800 + Math.max(0, hours - 1) * 400, minutes: hours * 60, rate_lines: [], tax_lines: [] }] };' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 5 the calculator asked the platform', 'FAIL 5 one stay, one fee'],
+  },
+  {
+    check: 'U7i-6 the price table priced only by a press again',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  useEffect(() => {\n    if (asking.current === wantKey) return;\n    price().catch(() => {});\n    // `wantKey` is what the table prices: the rates and the stays.\n  }, [wantKey]);\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 6 the regular rates: the check page prices its table as it opens'],
+  },
+  {
+    check: 'U7i-7 a minutes field without its unit',
+    plant: { file: 'src/RatesPage.jsx', anchor: "  const after = unit === 'minutes' ? t('rates.unit.minutes') : unit === 'percent' ? '%' : null;", with: "  const after = unit === 'percent' ? '%' : null;" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 7 en, the regular rates', 'time-first-minutes shows ""'],
+  },
+  {
+    check: 'U7i-8 the time-based rate prefilled again',
+    plant: { file: 'src/rates.js', anchor: "    time: blankRate(),\n    dayMax: { on: now.dayMax.on, price: '', kind: '' },", with: "    time: { ...now.time },\n    dayMax: { on: now.dayMax.on, price: '', kind: '' }," },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 8 en, the regular rates', 'time-first-minutes=60'],
+  },
+  {
+    check: 'U7i-9 who saved: a wrong change-log line matched',
+    plant: { file: 'src/RatesPage.jsx', anchor: "          if (line.action !== 'rate_plan.add' || line.subject?.kind !== 'rate_plan' || !ids.has(line.subject.id)) continue;\n          const version = ids.get(line.subject.id);", with: "          if (line.action !== 'rate_plan.add') continue;\n          const version = [...ids.values()].find((v) => !by[v]);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 9 after three saves'],
+  },
+  {
+    check: 'U7i-10 a locked button without its reason',
+    plant: { file: 'src/RatesPage.jsx', anchor: '        <span className="locked-reason" data-reason-for={action}>', with: '        <span className="locked-reason" hidden data-reason-for={action}>' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 10 en, no rates yet: ', 'none for: add-special'],
+  },
+  {
+    check: 'U7i-10 the wait cursor back on a locked tick',
+    plant: { file: 'src/styles.css', anchor: '.tick:disabled {\n  cursor: not-allowed;\n}', with: '.tick:disabled {\n  cursor: wait;\n}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 10 en, the check page, pricing again: no wait or progress cursor'],
   },
 ];
 

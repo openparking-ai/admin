@@ -348,6 +348,44 @@ export async function recordRates(base, { origin, owner, hooks, plans, rest = as
     await call(`a stay tried, the walk plan saved, short stay ${i + 1}`, 'POST', `/garages/${walkGarage}/rate-plans/try`, { stays: [stay] }, {}, { structure: 'priced' });
   }
   await rest();
+  // U7i: a garage of its own, saved in two parts as the page saves it now --
+  // the regular rates, then each special on its own -- each save's price
+  // table tried first, beside what is stored by then; the calculator's stay
+  // on the rates being changed and on the rates in force.
+  if (plans.u7i) {
+    const u = plans.u7i;
+    const g = (await call('a garage, for the two saves', 'POST', '/garages', { ...plans.garage, name: 'Recorded two-saves garage' }, {}, { quiet: true })).garage.id;
+    const at = `/garages/${g}/rate-plans`;
+    const tryAt = `${at}/try`;
+    await call('U7i the price table tried, the regular rates', 'POST', tryAt, { plan: u.regular, stays: u.stays.regular }, {}, { structure: 'priced' });
+    await call('U7i rates saved, the regular rates', 'POST', at, { plan: u.regular, confirmed: true }, {}, { quiet: true });
+    await call('U7i the price table tried, nothing changed', 'POST', tryAt, { plan: u.nothing, stays: u.stays.nothing }, {}, { structure: 'priced' });
+    await call('U7i the price table tried, the early bird added', 'POST', tryAt, { plan: u.early, stays: u.stays.early }, {}, { structure: 'priced' });
+    await call('U7i a stay tried, the early bird being added', 'POST', tryAt, { plan: u.early, stays: [plans.table.added] }, {}, { structure: 'priced' });
+    await call('U7i rates saved, the early bird added', 'POST', at, { plan: u.early, confirmed: true }, {}, { quiet: true });
+    await call('U7i the price table tried, the weekend added', 'POST', tryAt, { plan: u.full, stays: u.stays.full }, {}, { structure: 'priced' });
+    await call('U7i the price table tried, the weekend added, with a stay of its own', 'POST', tryAt, { plan: u.full, stays: [...u.stays.full, plans.table.added] }, {}, { structure: 'priced' });
+    await call('U7i a stay tried, the weekend being added', 'POST', tryAt, { plan: u.full, stays: [plans.table.added] }, {}, { structure: 'priced' });
+    await call('U7i rates saved, the weekend added', 'POST', at, { plan: u.full, confirmed: true }, {}, { quiet: true });
+    await call('U7i a stay tried, the rates in force', 'POST', tryAt, { stays: [plans.table.added] }, {}, { structure: 'priced' });
+    await call('U7i a stay tried, less by the hour', 'POST', tryAt, { stays: [plans.table.short] }, {}, { structure: 'priced' });
+    // Then the regular rates changed with the specials in force: kept as they are.
+    await call('U7i the price table tried, the regular rates changed', 'POST', tryAt, { plan: u.grace, stays: u.stays.grace }, {}, { structure: 'priced' });
+    await call('U7i rates saved, the regular rates changed', 'POST', at, { plan: u.grace, confirmed: true }, {}, { quiet: true });
+    const read = await call('U7i rates, after the two saves', 'GET', at, undefined, {}, { structure: 'plans' });
+    const log = await call('U7i changes, after the two saves', 'GET', `/garages/${g}/changes`, undefined, {}, { structure: 'changes' });
+    // Item 11: each stored row's change-log line, matched by the row's id -- who, by kind and
+    // whether named (never the name), and that it says confirmed.
+    state.out.push({
+      what: 'U7i who saved each set of rates',
+      status: 200,
+      structure: read.rate_plans.map((row) => {
+        const lines = log.changes.filter((l) => l.action === 'rate_plan.add' && l.subject.kind === 'rate_plan' && l.subject.id === row.id);
+        return { plan_version: row.plan_version, id: typeof row.id, lines: lines.length, who: lines.map((l) => ({ kind: l.who.kind, name: typeof l.who.name })), confirmed: lines.map((l) => l.after?.confirmed === true), subject_name: lines.map((l) => l.subject.name === row.plan_version) };
+      }),
+    });
+    await rest();
+  }
   // Last, so it holds back nothing above: tries until the platform says "a minute".
   let n = 0;
   for (;;) {

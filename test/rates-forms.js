@@ -9,7 +9,8 @@
 // (test/platform-shapes.js), the form's tests (test/rates.test.js) and the
 // browser check (scripts/check-rates.js).
 
-import { blankForm, blankRate, blankSpecial } from '../src/rates.js';
+import { startOfDay as startOfDayOf } from '../src/taxes.js';
+import { blankForm, blankRate, blankSpecial, buildPlan, formFromPlan, mergeSpecial, regularPlan, specialsPlan, typedRegular } from '../src/rates.js';
 
 export const ZONE = 'America/New_York';
 export const RECORDED_GARAGE = { name: 'Recorded rates garage', timezone: ZONE, currency: 'USD' };
@@ -237,8 +238,50 @@ export function recordedPlans({ buildPlan, startOfDay, tableStays }) {
       { entry: '2030-03-12T10:00', exit: '2030-03-12T12:00' },
       { entry: '2030-03-12T10:00', exit: '2030-03-13T10:01' },
     ],
+    // U7i: the two saves, each with its price table's stays.
+    u7i: (() => {
+      const docs = twoSaves({ startOfDay });
+      const stays = (plan) => tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit }));
+      return { ...docs, stays: { regular: stays(docs.regular), nothing: stays(docs.nothing), early: stays(docs.early), full: stays(docs.full), grace: stays(docs.grace) } };
+    })(),
     past: make(FORMS[0].form, 'recorded-past', startOfDay('2020-01-06', ZONE)),
     sameStart: make(FORMS[1].form, 'recorded-same-start', forms[0].plan.effective_from),
     sameName: make(FORMS[0].form, 'recorded-a', startOfDay('2030-05-06', ZONE)),
   };
 }
+
+/**
+ * U7i: the browser check's garage, saved in two parts as the owner saves it
+ * now -- the regular rates, then each special on its own -- each built by the
+ * page's own functions, as the page builds it from what is typed:
+ *
+ *   regular  the table form's regular rates (no specials), on a garage with none;
+ *   nothing  the regular rates again with every field left empty (never saved);
+ *   early    the early bird added to `regular`;
+ *   full     the weekend added to `early`: the table form's rates, whole;
+ *   grace    then the regular rates changed: 15 minutes free instead of 10, and
+ *            nothing else typed -- the specials stay as `full` has them.
+ *
+ * Each starts at the start of its own day in 2030, so each table is the same
+ * stays every day the check runs.
+ */
+export const TWO_SAVE_DAYS = { regular: '2030-03-02', nothing: '2030-03-03', early: '2030-03-03', full: '2030-03-04', grace: '2030-03-09' };
+export function twoSaves({ startOfDay }) {
+  const garage = { ...RECORDED_GARAGE };
+  const opts = (day, name) => ({ garage, spaceClass: 'standard', start: startOfDay(day, ZONE), name });
+  const none = formFromPlan(null, garage.currency);
+  const typed = { ...typedRegular(none), time: { ...TABLE_FORM.time }, dayMax: { ...TABLE_FORM.dayMax }, grace: { ...TABLE_FORM.grace }, starts: 'day', day: TWO_SAVE_DAYS.regular };
+  const regular = regularPlan(null, typed, none, opts(TWO_SAVE_DAYS.regular, 'u7i-regular'));
+  const inForce = formFromPlan(regular, garage.currency);
+  const nothing = regularPlan(regular, { ...typedRegular(inForce), starts: 'day', day: TWO_SAVE_DAYS.nothing }, inForce, opts(TWO_SAVE_DAYS.nothing, 'u7i-nothing'));
+  const [early, weekend] = TABLE_FORM.specials;
+  const withEarly = specialsPlan(regular, { kind: 'add', special: mergeSpecial(early, null) }, opts(TWO_SAVE_DAYS.early, 'u7i-early'));
+  const full = specialsPlan(withEarly, { kind: 'add', special: mergeSpecial(weekend, null) }, opts(TWO_SAVE_DAYS.full, 'u7i-full'));
+  const fullNow = formFromPlan(full, garage.currency);
+  const graceTyped = { ...typedRegular(fullNow), grace: { on: true, minutes: '15' }, starts: 'day', day: TWO_SAVE_DAYS.grace };
+  const grace = regularPlan(full, graceTyped, fullNow, opts(TWO_SAVE_DAYS.grace, 'u7i-grace'));
+  return { regular, nothing, early: withEarly, full, grace };
+}
+
+/** A form's plan, from the start of its own day, as the page builds it. */
+export const buildPlanOf = (form, name) => buildPlan(form, { garage: { ...RECORDED_GARAGE }, spaceClass: 'standard', start: startOfDayOf(form.day, ZONE), name });

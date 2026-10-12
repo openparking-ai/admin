@@ -557,7 +557,10 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     ratePlans: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
       if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
-      return { plans: data.rate_plans.map((row) => object(row.plan)), spaceClass: data.space_class };
+      const plans = data.rate_plans.map((row) => object(row.plan));
+      // U7i: each stored row's id, which its change-log line names (who saved it).
+      const saved = data.rate_plans.map((row) => ({ id: typeof row.id === 'string' ? row.id : null, plan_version: row.plan_version ?? row.plan?.plan_version }));
+      return { plans, spaceClass: data.space_class, saved };
     },
     /**
      * U7g: what cars would pay, priced the way the platform prices a car that

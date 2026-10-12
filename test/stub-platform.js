@@ -1540,6 +1540,10 @@ export async function startStub({ port = 0 } = {}) {
     [engineKey(rateSent.gap), recordedAnswer('rates saved, with a gap')?.body ?? null],
     ...rateSent.maxes.map((m) => [engineKey(m.plan), null]),
     [engineKey(rateSent.walk.plan), null],
+    // U7i: the two saves (the nothing-changed rates are the regular ones; the weekend added is the table form).
+    [engineKey(rateSent.u7i.regular), null],
+    [engineKey(rateSent.u7i.early), null],
+    [engineKey(rateSent.u7i.grace), null],
   ]);
   /** Each recorded try: what was rateSent (the stored rates, the draft, the stays) and what came back. */
   const tryKey = (stored, draft, stays) => JSON.stringify({ stored: stored.map(withoutName), draft: draft ? withoutName(draft) : null, stays });
@@ -1571,7 +1575,23 @@ export async function startStub({ port = 0 } = {}) {
   for (const m of rateSent.maxes.filter((x) => x.late)) tried(`the price table tried, ${m.id}`, [...formsStored, rateSent.table.plan], m.plan, m.stays);
   tried('the price table tried, the walk plan', [...formsStored, rateSent.table.plan], rateSent.walk.plan, rateSent.walk.stays);
   rateSent.walk.short.forEach((stay, i) => tried(`a stay tried, the walk plan saved, short stay ${i + 1}`, [rateSent.walk.plan], null, [stay]));
+  // U7i: the browser check's garage saved in two parts, each try beside what is stored by then.
+  {
+    const u = rateSent.u7i;
+    const { added, short } = rateSent.table;
+    tried('U7i the price table tried, the regular rates', [], u.regular, u.stays.regular);
+    tried('U7i the price table tried, nothing changed', [u.regular], u.nothing, u.stays.nothing);
+    tried('U7i the price table tried, the early bird added', [u.regular], u.early, u.stays.early);
+    tried('U7i a stay tried, the early bird being added', [u.regular], u.early, [added]);
+    tried('U7i the price table tried, the weekend added', [u.regular, u.early], u.full, u.stays.full);
+    tried('U7i the price table tried, the weekend added, with a stay of its own', [u.regular, u.early], u.full, [...u.stays.full, added]);
+    tried('U7i a stay tried, the weekend being added', [u.regular, u.early], u.full, [added]);
+    tried('U7i a stay tried, the rates in force', [u.regular, u.early, u.full], null, [added]);
+    tried('U7i a stay tried, less by the hour', [u.regular, u.early, u.full], null, [short]);
+    tried('U7i the price table tried, the regular rates changed', [u.regular, u.early, u.full], u.grace, u.stays.grace);
+  }
 
+  const RECORDED_NAMED = new Map(['regular', 'early', 'full', 'grace'].map((k) => [rateSent.u7i[k].plan_version, rateSent.u7i[k]]));
   const ENGINE_AWAY_PLAN = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates); the plan was not stored', code: 'rate_engine_unavailable' };
   const ENGINE_AWAY_TRY = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates and stays); nothing was priced', code: 'rate_engine_unavailable' };
   const plansHeld = new Map(); // garage id -> stored plans, as the platform presents them
@@ -1599,6 +1619,7 @@ export async function startStub({ port = 0 } = {}) {
   };
 
   let gapNext = false;
+  let tryDelay = 0;
   const openingOverride = new Map();
 
   async function rateRoutes(req, res, path, who) {
@@ -1631,6 +1652,8 @@ export async function startStub({ port = 0 } = {}) {
     }
 
     if (m[2] === 'rate-plans/try') {
+      // U7i: a try held back on request, so a check can see the page while it waits.
+      if (tryDelay) await new Promise((resolve) => setTimeout(resolve, tryDelay));
       const stamp = Date.now();
       const mine = (tries.get(who.email) ?? []).filter((t) => stamp - t < 60_000);
       if (mine.length >= 20) {
@@ -1653,10 +1676,17 @@ export async function startStub({ port = 0 } = {}) {
       if (!stored.length && draft === null) return answer(res, 409, { error: 'this garage has no rates yet: send the draft as plan to try it', code: 'no_rate_plan' });
       const priced = TRIED.get(tryKey(stored, draft, body.stays.map(({ entry, exit }) => ({ entry, exit }))));
       if (!priced) return answer(res, 503, ENGINE_AWAY_TRY);
-      // The page's own name, where the recorded table's stood: the engine names the plan that priced the stay.
+      // The page's own name, where a recorded plan's stood: the engine names the plan that priced the stay.
       const named = rateSent.table.plan.plan_version;
       const own = draft?.plan_version ?? plansOf(garage.id).find((r) => engineKey(r.plan) === engineKey(rateSent.table.plan))?.plan_version ?? named;
-      return answer(res, 200, { ...priced, stays: priced.stays.map((st) => (st.plan_version === named ? { ...st, plan_version: own } : st)) });
+      // U7i: a plan recorded by its own name (the two saves): the one sent or stored here that is it, but for the name.
+      const ownOf = (version) => {
+        const ref = RECORDED_NAMED.get(version);
+        if (!ref) return version;
+        const same = [draft, ...plansOf(garage.id).map((r) => r.plan)].filter(Boolean).find((p) => JSON.stringify(withoutName(p)) === JSON.stringify(withoutName(ref)));
+        return same?.plan_version ?? version;
+      };
+      return answer(res, 200, { ...priced, stays: priced.stays.map((st) => (st.plan_version === named ? { ...st, plan_version: own } : { ...st, plan_version: ownOf(st.plan_version) })) });
     }
 
     // POST rate-plans: the confirmation, the document, the garage, the engine, then the store's own refusals.
@@ -2034,10 +2064,23 @@ export async function startStub({ port = 0 } = {}) {
     /** Every rates document saved here, per garage, as sent. */
     ratesSaved: (garageId) => plansOf(garageId).map((r) => r.plan),
     /** `plan` stored on the garage as a confirmed save stores it (U7g fix 2: the walk plan, for Try a stay). */
-    storeRates: (garageId, plan) => {
+    storeRates: (garageId, plan, who = null) => {
       planN += 1;
-      plansOf(garageId).push({ id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), plan });
+      const row = { id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), plan };
+      plansOf(garageId).push(row);
+      // U7i: with `who`, its change-log line too, as the save writes it (who saved it, item 11).
+      if (who) line(who, { garageId, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true } });
     },
+    /** U7i: every try answered `ms` late from now on (0: at once). */
+    delayTries: (ms) => {
+      tryDelay = ms;
+    },
+    /** U7i: every set of rates stored on a garage, as rows: `{ id, plan_version }`. */
+    rateRows: (garageId) => plansOf(garageId).map((r) => ({ id: r.id, plan_version: r.plan_version })),
+    /** U7i: every change-log line of `who`'s account, as written. */
+    lines: (who) => [...linesOf(who)],
+    /** U7i check 5: one stay closed at a real platform's lanes, and the same stay tried there (recorded). */
+    recordedClose: () => JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).rates_close,
     /** What the platform answered a recorded try, as recorded (its `structure`). */
     recordedTry: (what) => recordedAnswer(what)?.structure,
     /** Every owner's tries forgotten, as a minute passing would (the recording waits it out). */

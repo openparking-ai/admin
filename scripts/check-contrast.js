@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 export const MINIMUM = 4.5;
-export const TEXTS = ['--text-primary', '--text-secondary'];
+export const TEXTS = ['--text-primary', '--text-secondary', '--text-wrong'];
 //: Each background, as the layers that make it, bottom first.
 export const BACKGROUNDS = [
   ['--bg-page'],
@@ -30,6 +30,11 @@ export const BACKGROUNDS = [
   ['--bg-panel', '--accent-soft'],
   ['--bg-raised', '--accent-soft'],
 ];
+// Text drawn see-through on purpose, with why: nothing is read in that colour.
+const INVISIBLE = {
+  ".when-box[data-empty='yes'] input:not(:focus)::-webkit-datetime-edit":
+    "an empty date or time box hides the browser's grey digits, which read as a value that is not there; a plain prompt is shown over it (U7i, item 5)",
+};
 const NOT_TEXT = {
   '.brand-name i': {
     why: 'the ".ai" of the wordmark is the logo, set as the site sets it (WCAG 1.4.3 exempts logotypes)',
@@ -108,6 +113,7 @@ export function measure(css) {
     for (const d of m[2].matchAll(/(?:^|;|\s)color\s*:\s*([^;]+);/g)) {
       const value = d[1].trim();
       const listed = NOT_TEXT[selector];
+      if (value === 'transparent' && INVISIBLE[selector]) continue;
       if (!allowed.has(value) && !(listed && value === `var(${listed.colour})`)) strays.push(`${selector}: color: ${value}`);
     }
   }
