@@ -988,6 +988,11 @@ export async function startStub({ port = 0 } = {}) {
     // Asked for by a check: every step's `done` the opposite of what its facts
     // would suggest, so a page that worked a step out for itself shows it.
     if (flipped) for (const st of steps) st.done = !st.done;
+    // A step that went undone while the owner pressed Open (`openingAs` with `goesUndone`).
+    // Every step done but opening (`openingAs` with `allDone`), as the gate's walk had it.
+    if (openingOverride?.get(garage.id)?.allDone) for (const st of steps) if (st.key !== 'open') st.done = true;
+    const undone = openingOverride?.get(garage.id)?.undone ?? [];
+    for (const st of steps) if (undone.includes(st.key)) st.done = false;
     return { garage_id: garage.id, open, takes_any_driver: extra.transient_available, steps };
   }
 
@@ -1533,6 +1538,7 @@ export async function startStub({ port = 0 } = {}) {
     ...rateSent.forms.map((f) => [engineKey(f.plan), null]),
     [engineKey(rateSent.table.plan), null],
     [engineKey(rateSent.gap), recordedAnswer('rates saved, with a gap')?.body ?? null],
+    ...rateSent.maxes.map((m) => [engineKey(m.plan), null]),
   ]);
   /** Each recorded try: what was rateSent (the stored rates, the draft, the stays) and what came back. */
   const tryKey = (stored, draft, stays) => JSON.stringify({ stored: stored.map(withoutName), draft: draft ? withoutName(draft) : null, stays });
@@ -1555,6 +1561,10 @@ export async function startStub({ port = 0 } = {}) {
   tried('a stay tried, the price table form', formsStored, rateSent.table.plan, [rateSent.table.added]);
   tried('a stay tried, the price table form', [], rateSent.table.plan, [rateSent.table.added]);
   tried('a stay tried, the price table form', [rateSent.table.plan], null, [rateSent.table.added]);
+  tried('a stay tried, less by the hour', [rateSent.table.plan], null, [rateSent.table.short]);
+  tried('a stay tried, less by the hour', [...formsStored, rateSent.table.plan], null, [rateSent.table.short]);
+  // U7g fix 1, F1: the gate's three plans, as drafts beside the forms stored when they were recorded.
+  for (const m of rateSent.maxes) tried(`the price table tried, ${m.id}`, formsStored, m.plan, m.stays);
 
   const ENGINE_AWAY_PLAN = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates); the plan was not stored', code: 'rate_engine_unavailable' };
   const ENGINE_AWAY_TRY = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates and stays); nothing was priced', code: 'rate_engine_unavailable' };
@@ -1603,6 +1613,9 @@ export async function startStub({ port = 0 } = {}) {
       if (extra?.opened_at) return answer(res, 200, { garage: { ...garage, activated_at: extra.opened_at }, activated: false });
       const unmet = openingOverride.get(garage.id)?.refuse ?? openingOverride.get(garage.id)?.shown ?? checklist(who, garage).steps.find((st) => st.key === 'open').facts.not_done;
       if (unmet.length) {
+        // The step that went undone is what Setup says from now on, as the platform's own read would.
+        const override = openingOverride.get(garage.id);
+        if (override?.goesUndone) openingOverride.set(garage.id, { ...override, shown: unmet, undone: unmet });
         return refuse(res, who, 409, { error: `the garage cannot open yet; these setup steps are not done: ${unmet.join(', ')}`, code: 'garage_not_activatable', details: { unmet } }, at);
       }
       extra.opened_at = new Date().toISOString();
@@ -2001,7 +2014,10 @@ export async function startStub({ port = 0 } = {}) {
     /**
      * What opening waits for at this garage, for the Open button's checks: the
      * open step's `not_done` shown (`shown`), and what POST activate refuses on
-     * (`refuse`, the same unless said). Null puts back the garage's own.
+     * (`refuse`, the same unless said). `allDone` reads every other step done.
+     * With `goesUndone`, the steps refused on
+     * went undone just as Open was pressed (a lane computer gone quiet): from
+     * the refusal on, Setup reads them not done. Null puts back the garage's own.
      */
     openingAs: (garageId, override) => {
       if (override) openingOverride.set(garageId, override);

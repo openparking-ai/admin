@@ -10,15 +10,24 @@
 //             engine tried -- never the engine's words;
 //   check 11  the price table holds every case for each special of the four
 //             forms that have specials, and every stay starts on or after
-//             the rates do.
+//             the rates do; a special on three typed dates has every case on
+//             each date (fix 1, F5).
+//
+//   U7g fix 1:
+//   F1  the price table's "most per day / per week" rows, on the gate's three
+//       plans: each row the engine's breakdown says it is -- "takes over" where
+//       the most applied and a minute earlier it did not -- and a row is never
+//       called "takes over" when its breakdown says not reached;
+//   E1  where the hour is less than the special, the engine charged the hour,
+//       and the words say so with both amounts, in both languages.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DICTIONARIES } from '../src/i18n/index.js';
-import { FINDING_CODES, buildPlan, findingKey, findingWords, instantOf, planSentences, tableStays } from '../src/rates.js';
+import { FINDING_CODES, buildPlan, caseKey, findingKey, findingWords, instantOf, moneyText, planSentences, specialWords, tableStays } from '../src/rates.js';
 import { startOfDay } from '../src/taxes.js';
-import { FORMS, TABLE_FORM, ZONE, recordedPlans } from './rates-forms.js';
+import { FORMS, GATE_MAX_FORMS, TABLE_FORM, THREE_DATES_FORM, ZONE, recordedPlans } from './rates-forms.js';
 
 const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).rates_answers;
 const answer = (what) => recorded.find((a) => a.what === what);
@@ -49,7 +58,7 @@ test("check 4: the form's sentences say the prices the engine charged", () => {
   assert.match(said('a'), /First hour \$8\.00, then \$4\.00 each hour\..*At most \$30\.00 a day/);
   assert.match(said('b'), /Early bird — Monday to Friday, come in from 6:00 AM to 9:00 AM and leave by 6:00 PM the same day: \$15\.00 for the stay\./);
   assert.match(said('c'), /Weekend — Saturday and Sunday, .* leave by 12:00 PM the next day: \$20\.00 for the stay\./);
-  assert.match(said('d'), /Game day — On Feb 2, 2030, .*: First hour \$15\.00, then \$5\.00 each hour\./);
+  assert.match(said('d'), /Game day — On Feb 2, 2030, .*: First hour \$5\.00, then \$2\.00 each hour\./);
   assert.match(said('e'), /Ten percent off — .*10% off the whole fee .*Two off — .*\$2\.00 off the whole fee .*Discounts and increases apply in the order listed\./);
   assert.match(said('f'), /Free if the car leaves within 10 minutes\./);
 });
@@ -137,4 +146,86 @@ test('check 11: the table the browser check prices is the one recorded, so its p
   const plan = build(TABLE_FORM, 'recorded-table');
   const recordedStays = answer('the price table tried').structure.stays.map(({ entry, exit }) => ({ entry, exit }));
   assert.deepEqual(tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit })), recordedStays);
+});
+
+test('check 11 (fix 1, F5): a special on three typed dates has every case on each of them', () => {
+  const plan = build(THREE_DATES_FORM, 'x');
+  const stays = tableStays(plan, ZONE);
+  const [rule] = plan.rules.filter((r) => r.type === 'time_window');
+  assert.equal(rule.applies_on.dates.length, 3);
+  for (const day of rule.applies_on.dates) {
+    for (const key of ['specialFrom', 'specialBy', 'specialTooEarly', 'specialTooLate', 'specialLeftLate', 'specialShort']) {
+      assert.ok(stays.some((x) => x.why.key === key && x.why.name === rule.label && x.entry.startsWith(day)), `${day}: no "${key}" stay`);
+    }
+  }
+});
+
+/** A recorded price table: its rows as the page builds them, each with what the platform answered. */
+function tableOf(what, plan) {
+  const answered = answer(what).structure.stays;
+  const rows = tableStays(plan, ZONE);
+  assert.deepEqual(rows.map(({ entry, exit }) => ({ entry, exit })), answered.map(({ entry, exit }) => ({ entry, exit })), `${what}: the table recorded is not the one the page builds`);
+  return rows.map((row, i) => ({ ...row, answer: answered[i] }));
+}
+const answerIn = (rows) => (key) => rows.find((r) => r.why.key === key)?.answer;
+const CAPS = ['dayMaxTakes', 'dayMaxBefore', 'weekMaxTakes', 'weekMaxBefore'];
+
+test('F1: on the gate\'s three plans, each "most per day / week" row is what the engine says of that stay', () => {
+  const recordedMaxes = recordedPlans({ buildPlan, startOfDay, tableStays }).maxes;
+  for (const g of GATE_MAX_FORMS) {
+    const plan = build(g.form, `recorded-${g.id}`);
+    assert.deepEqual(plan, recordedMaxes.find((m) => m.id === g.id).plan);
+    const rows = tableOf(`the price table tried, ${g.id}`, plan);
+    const want = CAPS.filter((k) => (k.startsWith('week') ? plan.rules.some((r) => r.type === 'weekly_max') : true));
+    for (const key of want) {
+      const row = rows.find((r) => r.why.key === key);
+      assert.ok(row, `${g.id}: no "${key}" row`);
+      const lines = row.answer.rate_lines.map((l) => l.code);
+      const code = key.startsWith('day') ? 'daily_max' : 'weekly_max';
+      assert.ok(lines.includes(key.endsWith('Takes') ? `${code}.applied` : `${code}.not_reached`), `${g.id}: the "${key}" row (${row.entry} to ${row.exit}) is not where the engine says: ${lines.join(', ')}`);
+      assert.equal(caseKey(row, row.answer, answerIn(rows)), key, `${g.id}: the "${key}" row is labelled otherwise`);
+    }
+  }
+  // And the table form's own (recorded with the browser check's table).
+  const table = tableOf('the price table tried', build(TABLE_FORM, 'recorded-table'));
+  for (const key of ['dayMaxTakes', 'dayMaxBefore']) assert.equal(caseKey(table.find((r) => r.why.key === key), table.find((r) => r.why.key === key).answer, answerIn(table)), key);
+});
+
+test('F1: a row built as "takes over" whose breakdown says not reached is never called "takes over"', () => {
+  const g = GATE_MAX_FORMS[0];
+  const rows = tableOf(`the price table tried, ${g.id}`, build(g.form, `recorded-${g.id}`));
+  const before = rows.find((r) => r.why.key === 'dayMaxBefore');
+  assert.ok(before.answer.rate_lines.some((l) => l.code === 'daily_max.not_reached'));
+  // The gate's finding, as a row: labelled "takes over", priced not reached.
+  const mislabelled = { ...before, why: { key: 'dayMaxTakes' } };
+  const said = caseKey(mislabelled, before.answer, () => undefined);
+  assert.notEqual(said, 'dayMaxTakes', 'a row whose breakdown says not reached is called "takes over"');
+  assert.equal(said, 'dayMaxNotReached');
+  for (const language of ['en', 'es']) assert.ok(DICTIONARIES[language][`rates.test.${said}`], `${language}: ${said} unworded`);
+});
+
+test('E1: where the hour is less than the early bird, the hour was charged, and the words say so with both amounts', () => {
+  const plan = build(TABLE_FORM, 'recorded-table');
+  const rows = tableOf('the price table tried', plan);
+  const short = rows.find((r) => r.why.key === 'specialShort' && r.why.name === 'Early bird');
+  assert.ok(short, 'no short early-bird stay in the table');
+  const line = short.answer.rate_lines.find((l) => l.code === 'time_based_used');
+  assert.ok(line, `the engine did not compare: ${short.answer.rate_lines.map((l) => l.code).join(', ')}`);
+  assert.equal(short.answer.subtotal_minor, 800);
+  assert.equal(line.compared_minor, 1500);
+  assert.equal(short.answer.special, null, 'the platform names a special that was not charged');
+  for (const language of ['en', 'es']) {
+    const words = specialWords(t(language), { ...short.answer, entry: short.entry, exit: short.exit }, plan, language);
+    const want = t(language)('rates.why.timeLess', { name: 'Early bird', time: moneyText(800, 'USD', language), special: moneyText(1500, 'USD', language) });
+    assert.ok(words.includes(want), `${language}: ${words}`);
+  }
+  // And where the early bird is less: it applied, and the words say what the hour would have been.
+  const from = rows.find((r) => r.why.key === 'specialFrom' && r.why.name === 'Early bird');
+  const used = from.answer.rate_lines.find((l) => l.code === 'special_used');
+  assert.ok(used && Number.isInteger(used.compared_minor) && used.compared_minor > 1500, 'the early bird row does not say what the hour would be');
+  assert.ok(specialWords(en, { ...from.answer, entry: from.entry, exit: from.exit }, plan, 'en').includes(en('rates.why.appliedTimeMore', { name: 'Early bird', time: moneyText(used.compared_minor, 'USD', 'en') })));
+  // Try a stay on the rates saved: the same words.
+  const [tried] = answer('a stay tried, less by the hour').structure.stays;
+  assert.equal(tried.subtotal_minor, 800);
+  assert.ok(tried.rate_lines.some((l) => l.code === 'time_based_used' && l.compared_minor === 1500));
 });

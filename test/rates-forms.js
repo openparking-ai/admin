@@ -66,11 +66,14 @@ export const FORMS = [
     id: 'd',
     what: 'an event date at a different time-based rate',
     form: form('2030-01-28', (f) => {
-      f.specials = [special('dates', { name: 'Game day', dates: ['2030-02-02'], enterFrom: '00:00', enterBy: '23:59', leaveBy: '23:59', nextDay: false, charge: 'rate', rate: rate('60', '15.00', '60', '5.00') })];
+      f.specials = [special('dates', { name: 'Game day', dates: ['2030-02-02'], enterFrom: '00:00', enterBy: '23:59', leaveBy: '23:59', nextDay: false, charge: 'rate', rate: rate('60', '5.00', '60', '2.00') })];
     }),
-    // Three and a half hours on the game day: 15.00 + 3 x 5.00 = 30.00.
+    // Three and a half hours on the game day: 5.00 + 3 x 2.00 = 11.00, less than
+    // the hour's 8.00 + 3 x 4.00 = 20.00, so the game-day rate is what is charged
+    // (U7g fix 1: the driver pays the cheaper of a special and the time-based rate;
+    // at 15.00 and 5.00 it was 30.00 and the hour's 20.00 was charged instead).
     stay: { entry: '2030-02-02T18:00', exit: '2030-02-02T21:30' },
-    fee: 3000,
+    fee: 1100,
   },
   {
     id: 'e',
@@ -112,6 +115,43 @@ export const TABLE_FORM = form('2030-03-04', (f) => {
   ];
 });
 
+/**
+ * U7g fix 1, F1: the three plans the gate measured the price table's "most per
+ * day / per week" rows on, each by its own hand: $1 an hour, at most $20 a
+ * calendar day; $8 then $4 an hour, $30 a calendar day, $100 a calendar week;
+ * $2 then $1 an hour, $20 a calendar day, $90 a calendar week from Monday.
+ * Recorded as drafts only (never stored), so their starts are their own.
+ */
+export const GATE_MAX_FORMS = [
+  {
+    id: 'hour1-day20',
+    form: form('2030-04-01', (f) => {
+      f.time = rate('60', '1.00', '60', '1.00');
+      f.dayMax = { on: true, price: '20.00', kind: 'calendar_day' };
+    }),
+  },
+  {
+    id: 'day30-week100',
+    form: form('2030-04-08', (f) => {
+      f.dayMax = { on: true, price: '30.00', kind: 'calendar_day' };
+      f.weekMax = { on: true, price: '100.00', kind: 'calendar_week', startsOn: 'mon' };
+    }),
+  },
+  {
+    id: 'day20-week90',
+    form: form('2030-04-15', (f) => {
+      f.time = rate('60', '2.00', '60', '1.00');
+      f.dayMax = { on: true, price: '20.00', kind: 'calendar_day' };
+      f.weekMax = { on: true, price: '90.00', kind: 'calendar_week', startsOn: 'mon' };
+    }),
+  },
+];
+
+/** U7g fix 1, F5: a holiday special on three typed dates, for the price table's every-date cases (not recorded). */
+export const THREE_DATES_FORM = form('2030-06-03', (f) => {
+  f.specials = [special('dates', { name: 'Holidays', dates: ['2030-07-04', '2030-09-02', '2030-11-28'], enterFrom: '08:00', enterBy: '12:00', leaveBy: '20:00', nextDay: false, charge: 'flat', flat: '12.00' })];
+});
+
 /** A plan with a gap: the time-based rate stops at 24 hours and nothing caps a longer stay. */
 export const GAP_DAY = '2030-03-11';
 
@@ -131,7 +171,17 @@ export function recordedPlans({ buildPlan, startOfDay, tableStays }) {
   return {
     garage,
     forms,
-    table: { plan: tablePlan, stays: tableStays(tablePlan, ZONE).map(({ entry, exit }) => ({ entry, exit })), added: { entry: '2030-03-06T07:00', exit: '2030-03-06T19:00' } },
+    table: {
+      plan: tablePlan,
+      stays: tableStays(tablePlan, ZONE).map(({ entry, exit }) => ({ entry, exit })),
+      added: { entry: '2030-03-06T07:00', exit: '2030-03-06T19:00' },
+      // E1: a Tuesday, an hour inside the early bird's times: $8.00 by the hour against its $15.00.
+      short: { entry: '2030-03-05T07:00', exit: '2030-03-05T08:00' },
+    },
+    maxes: GATE_MAX_FORMS.map((g) => {
+      const plan = make(g.form, `recorded-${g.id}`);
+      return { id: g.id, plan, stays: tableStays(plan, ZONE).map(({ entry, exit }) => ({ entry, exit })) };
+    }),
     gap,
     gapStays: [
       { entry: '2030-03-12T10:00', exit: '2030-03-12T12:00' },

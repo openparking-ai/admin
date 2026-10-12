@@ -398,7 +398,10 @@ function rateProblems(rate, currency, prefix) {
  * form can be built into a plan. The engine still has the last word: a plan
  * it finds a gap in is refused, and every finding is shown in plain words.
  */
-export function formProblems(form, garage) {
+/** The first day a plan may start "from the start of": tomorrow in the garage's time ("Now" covers today). */
+export const firstStartDay = (garage, now = Date.now()) => addDays(wallAt(now, garage.timezone).slice(0, 10), 1);
+
+export function formProblems(form, garage, now = Date.now()) {
   const currency = garage.currency;
   const out = { ...rateProblems(form.time, currency, 'time') };
   if (form.dayMax.on) {
@@ -448,6 +451,8 @@ export function formProblems(form, garage) {
     }
   });
   if (form.starts === 'day' && !startOfDay(form.day, garage.timezone)) out.day = 'rates.need.day';
+  // A start of today or earlier would price cars already parked; the platform refuses it too.
+  else if (form.starts === 'day' && form.day < firstStartDay(garage, now)) out.day = 'rates.need.dayAfterToday';
   return out;
 }
 
@@ -617,6 +622,7 @@ export function tableStays(plan, timeZone) {
   };
   const rules = plan.rules ?? [];
   const windows = rules.filter((r) => r.type === 'time_window');
+  const time = rules.find((r) => r.type === 'increment');
   // An ordinary day: one no special covers by its days, when there is one.
   const covers = (r, day) => (r.applies_on.kind === 'dates' ? r.applies_on.dates.includes(day) : r.applies_on.days.includes(weekdayOf(day)));
   let ordinary = firstDay;
@@ -655,6 +661,11 @@ export function tableStays(plan, timeZone) {
       if (r.enter_from !== '00:00') add(`${day}T${clockPlus(r.enter_from, -1)}`, leave, { key: 'specialTooEarly', name });
       if (r.enter_by !== '23:59') add(`${day}T${clockPlus(r.enter_by, 1)}`, leave, { key: 'specialTooLate', name });
       add(from, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name });
+      // A short stay inside its times: where the time-based rate can cost less
+      // than the special, and the driver pays the less (the engine compares them).
+      if (time && instantOf(wallPlus(from, time.first_period_minutes, timeZone), timeZone) <= instantOf(leave, timeZone)) {
+        add(from, time.first_period_minutes, { key: 'specialShort', name });
+      }
     }
     if (r.applies_on.kind === 'days_of_week' && r.applies_on.days.length < 7) {
       for (let n = 0; n < 7; n += 1) {
@@ -667,27 +678,63 @@ export function tableStays(plan, timeZone) {
     }
   });
 
-  // When the most a day or a week takes over: the first started period whose
-  // charge reaches it, and the one before.
-  const time = rules.find((r) => r.type === 'increment');
+  // When the most a day or a week takes over, and the minute before, counted
+  // the way the engine counts (rate-engine rules/daily_max.py, weekly_max.py):
+  // a day's most is the most times the days the stay touches -- local dates
+  // from midnight in the garage's time, or started 24 hours from entry -- and a
+  // week's is the most times the weeks it touches -- calendar weeks from the
+  // plan's start day, or started 7 days. Either applies only once the charge is
+  // MORE than that. A calendar day or week is tried from its own midnight, so
+  // the first day or week is a whole one. The row's words are then the
+  // engine's own: `caseWords` reads what the breakdown says of each stay.
   const day = rules.find((r) => r.type === 'daily_max');
   const week = rules.find((r) => r.type === 'weekly_max');
-  const chargeAt = (periods) => time.first_period_minor + Math.max(0, periods - 1) * time.repeat_period_minor;
-  const minutesFor = (periods) => time.first_period_minutes + Math.max(0, periods - 1) * time.repeat_period_minutes;
-  if (time && day && time.repeat_period_minor > 0) {
-    let n = 1;
-    while (chargeAt(n) < day.max_minor && n < 10000) n += 1;
-    if (chargeAt(n) >= day.max_minor) {
-      add(at10, minutesFor(n - 1) + 1, { key: 'dayMaxTakes' });
-      if (n > 1) add(at10, minutesFor(n - 1), { key: 'dayMaxBefore' });
+  if (time && (day || week)) {
+    const longest = Math.min(time.max_duration_minutes ?? Infinity, 6 * 10080);
+    const charge = (m) => time.first_period_minor + (m <= time.first_period_minutes ? 0 : Math.ceil((m - time.first_period_minutes) / time.repeat_period_minutes) * time.repeat_period_minor);
+    // The charge only rises as a new period starts: those minutes are where a most can first be passed.
+    const steps = [1];
+    for (let m = time.first_period_minutes + 1; m <= longest && steps.length < 20000; m += time.repeat_period_minutes) steps.push(m);
+    const datesTouched = (entryMs, m) => Math.round((Date.parse(`${wallAt(entryMs + m * 60000, timeZone).slice(0, 10)}T12:00:00Z`) - Date.parse(`${wallAt(entryMs, timeZone).slice(0, 10)}T12:00:00Z`)) / 86400000) + 1;
+    const daysOf = (entryMs, m) => (day.day_boundary === 'calendar_day' ? datesTouched(entryMs, m) : Math.max(1, Math.ceil(m / 1440)));
+    const weekStart = (wallDay) => addDays(wallDay, -((DAYS.indexOf(weekdayOf(wallDay)) - DAYS.indexOf(week.week_starts_on) + 7) % 7));
+    const weeksOf = (entryMs, m) => {
+      if (week.week_boundary !== 'calendar_week') return Math.max(1, Math.ceil(m / 10080));
+      const from = weekStart(wallAt(entryMs, timeZone).slice(0, 10));
+      const to = weekStart(wallAt(entryMs + m * 60000, timeZone).slice(0, 10));
+      return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 604800000) + 1;
+    };
+    const afterDay = (entryMs, m) => (day ? Math.min(charge(m), day.max_minor * daysOf(entryMs, m)) : charge(m));
+    // The first minute at which `passed` holds, from candidates in order; and the one before.
+    const firstPassed = (entryWall, candidates, passed, keys) => {
+      const entryMs = instantOf(entryWall, timeZone);
+      if (entryMs === null) return;
+      const m = candidates.find((c) => c >= 1 && c <= longest && passed(entryMs, c));
+      if (m === undefined) return;
+      add(entryWall, m, { key: keys[0] });
+      if (m > 1) add(entryWall, m - 1, { key: keys[1] });
+    };
+    if (day) {
+      const entry = day.day_boundary === 'calendar_day' ? `${ordinary}T00:00` : at10;
+      firstPassed(entry, steps, (e, m) => charge(m) > day.max_minor * daysOf(e, m), ['dayMaxTakes', 'dayMaxBefore']);
     }
-  }
-  if (week) {
-    const perDay = day ? day.max_minor : time ? chargeAt(Math.ceil(1440 / time.repeat_period_minutes)) : 0;
-    if (perDay > 0) {
-      const days = Math.ceil(week.max_minor / perDay);
-      add(at10, days * 1440, { key: 'weekMaxTakes' });
-      if (days > 1) add(at10, (days - 1) * 1440, { key: 'weekMaxBefore' });
+    if (week) {
+      let weekDay = firstDay;
+      if (week.week_boundary === 'calendar_week') while (weekdayOf(weekDay) !== week.week_starts_on) weekDay = addDays(weekDay, 1);
+      const entry = week.week_boundary === 'calendar_week' ? `${weekDay}T00:00` : at10;
+      // Where the day's most rises too: each new day the stay touches.
+      const entryMs = instantOf(entry, timeZone);
+      const dayEdges = [];
+      if (day && entryMs !== null) {
+        for (let k = 1; k * 1440 <= longest + 1440; k += 1) {
+          if (day.day_boundary === 'calendar_day') {
+            const midnight = instantOf(`${addDays(entry.slice(0, 10), k)}T00:00`, timeZone);
+            if (midnight !== null) dayEdges.push(Math.round((midnight - entryMs) / 60000));
+          } else dayEdges.push(k * 1440 + 1);
+        }
+      }
+      const candidates = [...new Set([...steps, ...dayEdges])].sort((x, y) => x - y);
+      firstPassed(entry, candidates, (e, m) => afterDay(e, m) > week.max_minor * weeksOf(e, m), ['weekMaxTakes', 'weekMaxBefore']);
     }
   }
   return out;
@@ -746,7 +793,18 @@ export function specialWords(t, stay, plan, language) {
   const bases = applied.filter((r) => r.stage === 'QUALIFY');
   const changes = applied.filter((r) => r.stage === 'ADJUST');
   const parts = [];
-  if (bases.length) parts.push(t('rates.why.applied', { name: name(bases[0]) }));
+  // Whether the special or the time-based rate was charged, and what the other
+  // would have been: the engine compares them and charges the less.
+  const compared = lines.find((l) => l.code === 'special_used' || l.code === 'time_based_used');
+  const money = (minor) => moneyText(minor, plan?.currency, language);
+  const charged = stay.subtotal_minor ?? lines.reduce((sum, l) => sum + l.delta_minor, 0);
+  if (bases.length && compared?.code === 'special_used') {
+    parts.push(
+      Number.isInteger(compared.compared_minor)
+        ? t('rates.why.appliedTimeMore', { name: name(bases[0]), time: money(compared.compared_minor) })
+        : t('rates.why.appliedOnly', { name: name(bases[0]) }),
+    );
+  } else if (bases.length) parts.push(t('rates.why.applied', { name: name(bases[0]) }));
   for (const r of changes) parts.push(t('rates.why.applied', { name: name(r) }));
   if (parts.length) return parts.join(' ');
   if (!windows.length) return t('rates.why.noSpecials');
@@ -754,12 +812,50 @@ export function specialWords(t, stay, plan, language) {
   const entry = stay.entry;
   const exit = stay.exit;
   const reasons = windows.map((r) => {
+    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {
+      return t('rates.why.timeLess', { name: name(r), special: money(compared.compared_minor), time: money(charged) });
+    }
     const resolved = lines.find((l) => l.code === 'resolved' && l.rule_id === r.id);
     if (resolved) return t('rates.why.cheaper', { name: name(r) });
+    // Fit, and lost to a cheaper special the time-based rate then also beat.
+    if (compared?.code === 'time_based_used' && r.stage === 'QUALIFY' && missed(r, entry, exit) === 'notFit') return t('rates.why.cheaper', { name: name(r) });
     return t(`rates.why.${missed(r, entry, exit)}`, { name: name(r), day: entry ? dayName(weekdayOf(entry.slice(0, 10)), language) : '' });
   });
   return `${t('rates.why.none')} ${reasons.join(' ')}`;
 }
+
+/**
+ * What a price-table row is there to test, in words -- and for the rows about
+ * the most a day or a week, only what the engine's breakdown of that stay says:
+ * "takes over" when its most applied and the row a minute before did not,
+ * "just before" the other way round, and otherwise what this stay alone shows.
+ * `answerOf(key)` is the priced answer of the row with that case, if any.
+ */
+const CAP_ROWS = {
+  dayMaxTakes: ['daily_max', 'day', 'takes'],
+  dayMaxBefore: ['daily_max', 'day', 'before'],
+  weekMaxTakes: ['weekly_max', 'week', 'takes'],
+  weekMaxBefore: ['weekly_max', 'week', 'before'],
+};
+export function caseKey(row, answer, answerOf) {
+  const cap = CAP_ROWS[row.why.key];
+  if (!cap) return row.why.key;
+  const [code, unit] = cap;
+  const said = (a) => {
+    const lines = a && !a.refused ? (a.rate_lines ?? []) : [];
+    if (lines.some((l) => l.code === `${code}.applied`)) return 'applied';
+    if (lines.some((l) => l.code === `${code}.not_reached`)) return 'not';
+    return null;
+  };
+  const own = said(answer);
+  const turns = said(answerOf(`${unit}MaxTakes`)) === 'applied' && said(answerOf(`${unit}MaxBefore`)) === 'not';
+  if (own === 'applied') return turns && cap[2] === 'takes' ? `${unit}MaxTakes` : `${unit}MaxApplies`;
+  if (own === 'not') return turns && cap[2] === 'before' ? `${unit}MaxBefore` : `${unit}MaxNotReached`;
+  return 'length';
+}
+
+/** The words of `caseKey`. */
+export const caseWords = (t, row, answer, answerOf) => t(`rates.test.${caseKey(row, answer, answerOf)}`, { name: row.why.name ?? '' });
 
 /** The first condition of a special a stay missed, as the engine checks them: the day, the time in, the leaving. */
 function missed(rule, entry, exit) {

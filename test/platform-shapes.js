@@ -317,7 +317,11 @@ export async function recordRates(base, { origin, owner, hooks, plans }) {
   await call('the price table tried', 'POST', tryIt, { plan: plans.table.plan, stays: plans.table.stays }, {}, { structure: 'priced' });
   await call('the price table tried, with a stay of its own', 'POST', tryIt, { plan: plans.table.plan, stays: [...plans.table.stays, plans.table.added] }, {}, { structure: 'priced' });
   await call('a stay tried, the price table form', 'POST', tryIt, { plan: plans.table.plan, stays: [plans.table.added] }, {}, { structure: 'priced' });
+  // U7g fix 1, F1: the gate's three plans, their price tables as drafts.
+  for (const m of plans.maxes) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
   await call('rates saved, the price table form', 'POST', rates, { plan: plans.table.plan, confirmed: true });
+  // U7g fix 1, E1: on the rates saved, a stay the hour prices for less than the early bird.
+  await call('a stay tried, less by the hour', 'POST', tryIt, { stays: [plans.table.short] }, {}, { structure: 'priced' });
   await call('rates saved, with a gap', 'POST', rates, { plan: plans.gap, confirmed: true });
   await call('a stay tried, rates with a gap', 'POST', tryIt, { plan: plans.gap, stays: plans.gapStays }, {}, { structure: 'priced' });
   await call('rates saved, starting in the past', 'POST', rates, { plan: plans.past, confirmed: true }, {}, { normalise: true });

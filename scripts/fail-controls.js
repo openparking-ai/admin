@@ -1478,6 +1478,50 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates.test.js'],
     names: ['en: CONFLICT_NEGATIVE_TOTAL unworded'],
   },
+  // ── U7g fix 1, F6: the finding codes, against the engine's own ALL_CODES at the pin ──
+  {
+    check: 'U7g-fix1 F6 a finding code dropped from these screens',
+    plant: { file: 'src/rates.js', anchor: "  'GAP_NO_TAX_SET_IN_FORCE',\n", with: '' },
+    run: ['node', 'scripts/check-finding-codes.js'],
+    names: ['FAIL GAP_NO_TAX_SET_IN_FORCE: the engine can return it'],
+  },
+  {
+    check: 'U7g-fix1 F6 a finding code added to the engine',
+    plant: { file: 'scripts/check-finding-codes.js', anchor: '  const engineCodes = readEngineCodes(src);', with: "  const engineCodes = [...readEngineCodes(src), 'GAP_A_CODE_THE_ENGINE_GAINED'];" },
+    run: ['node', 'scripts/check-finding-codes.js'],
+    names: ['FAIL GAP_A_CODE_THE_ENGINE_GAINED: the engine can return it'],
+  },
+  // ── U7g fix 1: the price table's "most" rows (F1), every typed date (F5), the cheaper way in words (E1) ──
+  {
+    check: 'U7g-fix1 F1 the most per day worked out as the gate found it: one unbroken day from 10:00',
+    plant: [
+      { file: 'src/rates.js', anchor: "      const entry = day.day_boundary === 'calendar_day' ? `${ordinary}T00:00` : at10;", with: '      const entry = at10;' },
+      { file: 'src/rates.js', anchor: "    const daysOf = (entryMs, m) => (day.day_boundary === 'calendar_day' ? datesTouched(entryMs, m) : Math.max(1, Math.ceil(m / 1440)));", with: '    const daysOf = () => 1;' },
+    ],
+    run: ['node', '--test', 'test/rates.test.js'],
+    // Any change to which stays the table holds is caught first against the recording
+    // (the prices are the engine's, replayed); under the plant, re-recorded from the real
+    // platform, the boundary assertion itself is red too (measured in U7g fix 1's receipt).
+    names: ['the price table tried, hour1-day20: the table recorded is not the one the page builds'],
+  },
+  {
+    check: 'U7g-fix1 F1 a row labelled "takes over" whose breakdown says not reached',
+    plant: { file: 'src/rates.js', anchor: '  if (!cap) return row.why.key;', with: '  return row.why.key;' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['a row whose breakdown says not reached is called "takes over"'],
+  },
+  {
+    check: 'U7g-fix1 F5 only the first typed date kept in the price table',
+    plant: { file: 'src/rates.js', anchor: '      days.push(...r.applies_on.dates);', with: '      days.push(r.applies_on.dates[0]);' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['2030-09-02: no "specialFrom" stay'],
+  },
+  {
+    check: 'U7g-fix1 E1 the hour charged as less than the special, not said',
+    plant: { file: 'src/rates.js', anchor: "    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {", with: '    if (false) {' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['E1: where the hour is less than the early bird'],
+  },
   {
     check: "U7g-11 a special's leave-by case dropped from the price table",
     plant: { file: 'src/rates.js', anchor: "      add(from, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name });\n", with: '' },
@@ -2573,10 +2617,60 @@ const BROWSER_CONTROLS = [
   // ── U7g: the Rates page and the Open button, in a browser (scripts/check-rates.js) ──
   {
     check: 'U7g-6 the Open button pressable with a step missing',
-    plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={notDone.length > 0} aria-disabled={notDone.length > 0}', with: 'disabled={false} aria-disabled={false}' },
+    plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={missing.length > 0} aria-disabled={missing.length > 0}', with: 'disabled={false} aria-disabled={false}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 6 steps missing (drivers, lanes, lane_computers, rates, taxes): Open cannot be pressed'],
+  },
+  // ── U7g fix 1, in a browser: worded ticks (F2), after a refused Open (F3), the real disabled (F4), the start day (F7), the cheaper way (E1) ──
+  {
+    check: 'U7g-fix1 F2 the worded ticks 28px wide again',
+    plant: { file: 'src/styles.css', anchor: '.tick.tick-words {\n  width: auto;', with: '.tick.tick-words {\n  width: 28px;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F2 en, the form, 1280 px', 'FAIL F2 en: the confirmation is'],
+  },
+  {
+    check: 'U7g-fix1 F2 two days of a special drawn over each other',
+    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick + .tick {\n  margin-left: -40px;\n}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F2 en, the form, 1280 px', 'days\' centres ticks that day'],
+  },
+  {
+    check: 'U7g-fix1 F3 Setup not read again after a refused Open',
+    plant: { file: 'src/SetupPage.jsx', anchor: '        await onRefused().catch(() => {});\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F3 refused: Setup read again'],
+  },
+  {
+    check: 'U7g-fix1 F4 the Open button with aria-disabled only',
+    plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={missing.length > 0} aria-disabled={missing.length > 0}', with: 'aria-disabled={missing.length > 0}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 6 steps missing', '(not disabled)', '(a press reached the platform)'],
+  },
+  {
+    check: 'U7g-fix1 F7 a past day offered by the start-day picker',
+    plant: { file: 'src/RatesPage.jsx', anchor: ' min={firstStartDay(garage, ticking.getTime())}', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F7 the start day offers days from tomorrow'],
+  },
+  {
+    check: 'U7g-fix1 F7 a past start day accepted by the form',
+    plant: { file: 'src/rates.js', anchor: "  else if (form.starts === 'day' && form.day < firstStartDay(garage, now)) out.day = 'rates.need.dayAfterToday';\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F7 today as the start day', 'FAIL F7 a past day as the start day'],
+  },
+  {
+    check: 'U7g-fix1 E1 the hour charged as less than the special, not said, in a browser',
+    plant: { file: 'src/rates.js', anchor: "    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {", with: '    if (false) {' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL E1 the table', 'FAIL E1 try a stay'],
   },
   {
     check: 'U7g-12 the tick ignored',

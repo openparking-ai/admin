@@ -193,7 +193,9 @@ The build publishes no source maps.
   platform's `not_done` is empty (every step but alerts); otherwise each
   missing step is listed and leads to where it is done. One confirmation
   ("Once open, the garage stays open. To stop cars, close its lanes."), then
-  `POST /garages/:id/activate`; a refusal lists `details.unmet` in plain words.
+  `POST /garages/:id/activate`; a refusal lists `details.unmet` in plain words
+  and reads Setup again, so the steps above agree with it; the open step then
+  says that one thing (U7g fix 1).
 - **Rates** (U7g): the rates in force, later and earlier, each from when it
   starts in the garage's time, in plain sentences (`src/rates.js`), downloaded
   and printed like every list. **Change rates** starts as a copy of the rates
@@ -213,6 +215,14 @@ The build publishes no source maps.
   `confirmed: true`. Every finding of the rate engine is a plain sentence naming
   what it is about and the car the engine tried. No engine word reaches the
   screen.
+  U7g fix 1: where a special fits but the time-based rate costs the driver
+  less, the engine charges the time-based rate, and the table and Try a stay
+  say so with both amounts. The "most per day / per week" rows are found the
+  way the engine counts days and weeks, and each says only what the engine's
+  breakdown of that stay says. "From the start of" offers days after today;
+  "Now" is today. `rate-engine.pin` names the engine the recorded answers came
+  from; `npm run check-finding-codes` reads that engine's `ALL_CODES` and holds
+  the finding sentences to it, both ways.
 - **Tailgaters** (U7f) are the owner's choice, on Setup, beside the checklist:
   ban tailgaters (off until turned on) and where a banned car is kept out (this
   garage, or all the owner's garages), saved on `PATCH /garages/:id`. **Banned

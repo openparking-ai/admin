@@ -1338,6 +1338,35 @@ textarea {
 .board-prices .tick-box {
   flex-shrink: 0;
 }
+
+/* U7g fix 1: every tick on the Rates form that has words (a special's days, the
+   most per day and per week, grace, the owner's confirmation) is drawn the same
+   way, and may wrap its words but never squeeze them. In U7g they were 28px
+   wide: one word to a line, over the fields below, and a press on Friday
+   landed on Saturday's words. */
+.tick.tick-words {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  gap: 8px;
+  justify-content: flex-start;
+  text-align: left;
+  color: var(--text-primary);
+  font: inherit;
+}
+.tick.tick-words .tick-box {
+  flex-shrink: 0;
+}
+.day-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+[data-section='confirm'] .tick.tick-words {
+  display: flex;
+  margin-bottom: 8px;
+}
 [data-list='board-prices'] {
   margin-top: 14px;
 }

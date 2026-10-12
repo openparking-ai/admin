@@ -19,7 +19,7 @@ import { insideWords } from '../inside.js';
 import { directionKey, openText } from '../lanes.js';
 import { changeText, piecesText, timesWords, whatPieces, whoPieces, whyWords } from '../changes.js';
 import { garageDateTime, garageTime, heardFrom, localSaid } from '../time.js';
-import { arrange, findingWords, lengthWords, moneyText, planSentences, specialWords } from '../rates.js';
+import { arrange, caseWords, findingWords, lengthWords, moneyText, planSentences, specialWords } from '../rates.js';
 import { alertNames, canEmail, canText, languageWords } from '../alerts.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
@@ -345,6 +345,7 @@ export function ratesFile({ t, language, garage, data, readAt }) {
 export function priceTableFile({ t, language, garage, data, readAt }) {
   const { title, lines } = head(t, 'priceTable', garage, language, readAt);
   const money = (minor) => moneyText(minor, garage.currency, language);
+  const answerOf = (key) => data.rows.find((r) => r.why.key === key)?.answer;
   const rows = data.rows.map((row) => {
     const a = row.answer;
     const priced = a && !a.refused;
@@ -357,7 +358,7 @@ export function priceTableFile({ t, language, garage, data, readAt }) {
       { text: priced ? (a.taxes_stated === false ? t('rates.table.noTax') : money(tax)) : NOTHING },
       { text: priced ? money(a.fee_minor) : t('rates.table.noPrice') },
       { text: priced ? specialWords(t, { ...a, entry: row.entry, exit: row.exit }, data.plan, language) : (a?.findings ?? []).map((f) => findingWords(t, f, data.plan, garage.timezone, language)).join(' ') },
-      { text: t(`rates.test.${row.why.key}`, { name: row.why.name ?? '' }) },
+      { text: caseWords(t, row, a, answerOf) },
     ];
   });
   return { list: 'priceTable', title, garage: garage.name, lines, columns: columnsOf(t, 'priceTable'), rows, empty: rows.length === 0 ? t('rates.table.notPriced') : null };

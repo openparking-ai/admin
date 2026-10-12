@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices).",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -6491,6 +6491,13 @@
                 "rule_id": "special-10",
                 "text": "Early bird 15.00 USD (entered Tue 15 Jan between 06:00 and 09:00, exited by 18:00, day span same_day) -- replaces the time-based charge",
                 "delta_minor": 1500
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 44.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 4400
               }
             ],
             "tax_lines": [],
@@ -6812,6 +6819,13 @@
                 "rule_id": "special-10",
                 "text": "Weekend 20.00 USD (entered Sat 26 Jan between 00:00 and 23:59, exited by 12:00, day span next_day) -- replaces the time-based charge",
                 "delta_minor": 2000
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 104.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 10400
               }
             ],
             "tax_lines": [],
@@ -7137,20 +7151,27 @@
               {
                 "code": "increment.first_period",
                 "rule_id": "special-10",
-                "text": "Time-based: first hour 15.00 USD",
-                "delta_minor": 1500
+                "text": "Time-based: first hour 5.00 USD",
+                "delta_minor": 500
               },
               {
                 "code": "increment.repeat_periods",
                 "rule_id": "special-10",
-                "text": "Time-based: 3 additional hours at 5.00 USD = 15.00 USD",
-                "delta_minor": 1500
+                "text": "Time-based: 3 additional hours at 2.00 USD = 6.00 USD",
+                "delta_minor": 600
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Game day 11.00 USD used: by the time-based rate this stay would be 20.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 2000
               }
             ],
             "tax_lines": [],
             "taxes_stated": false,
-            "subtotal_minor": 3000,
-            "fee_minor": 3000
+            "subtotal_minor": 1100,
+            "fee_minor": 1100
           }
         ]
       }
@@ -8167,6 +8188,13 @@
                 "rule_id": "special-10",
                 "text": "Early bird 15.00 USD (entered Tue 15 Jan between 06:00 and 09:00, exited by 18:00, day span same_day) -- replaces the time-based charge",
                 "delta_minor": 1500
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 44.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 4400
               }
             ],
             "tax_lines": [],
@@ -8199,6 +8227,13 @@
                 "rule_id": "special-10",
                 "text": "Weekend 20.00 USD (entered Sat 26 Jan between 00:00 and 23:59, exited by 12:00, day span next_day) -- replaces the time-based charge",
                 "delta_minor": 2000
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 104.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 10400
               }
             ],
             "tax_lines": [],
@@ -8235,20 +8270,27 @@
               {
                 "code": "increment.first_period",
                 "rule_id": "special-10",
-                "text": "Time-based: first hour 15.00 USD",
-                "delta_minor": 1500
+                "text": "Time-based: first hour 5.00 USD",
+                "delta_minor": 500
               },
               {
                 "code": "increment.repeat_periods",
                 "rule_id": "special-10",
-                "text": "Time-based: 3 additional hours at 5.00 USD = 15.00 USD",
-                "delta_minor": 1500
+                "text": "Time-based: 3 additional hours at 2.00 USD = 6.00 USD",
+                "delta_minor": 600
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Game day 11.00 USD used: by the time-based rate this stay would be 20.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 2000
               }
             ],
             "tax_lines": [],
             "taxes_stated": false,
-            "subtotal_minor": 3000,
-            "fee_minor": 3000
+            "subtotal_minor": 1100,
+            "fee_minor": 1100
           },
           {
             "entry": "2030-02-05T10:00",
@@ -9185,6 +9227,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 15.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -9235,6 +9284,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 15.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -9420,6 +9476,60 @@
             "fee_minor": 3000
           },
           {
+            "entry": "2030-03-04T06:00",
+            "exit": "2030-03-04T07:00",
+            "entry_at": "2030-03-04T11:00:00.000Z",
+            "exit_at": "2030-03-04T12:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-table",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 06:00 Mon 04 Mar, 60 minutes, space class 'standard', plan recorded-table",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 60 min, which is 50 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_window.not_applied",
+                "rule_id": "special-11",
+                "text": "Weekend NOT applied: Monday is not one of sat, sun. All of its conditions must hold, so the stay prices on the time-based rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_based_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD not used: by the time-based rate 8.00 USD is less (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 1500
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
             "entry": "2030-03-09T06:00",
             "exit": "2030-03-09T18:00",
             "entry_at": "2030-03-09T11:00:00.000Z",
@@ -9462,6 +9572,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -9512,6 +9629,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, 2 days) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 60.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 6000
               }
             ],
             "tax_lines": [],
@@ -9562,6 +9686,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, 2 days) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 52.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 5200
               }
             ],
             "tax_lines": [],
@@ -9629,6 +9760,60 @@
             "fee_minor": 6000
           },
           {
+            "entry": "2030-03-09T00:00",
+            "exit": "2030-03-09T01:00",
+            "entry_at": "2030-03-09T05:00:00.000Z",
+            "exit_at": "2030-03-09T06:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-table",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Sat 09 Mar, 60 minutes, space class 'standard', plan recorded-table",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 60 min, which is 50 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_window.not_applied",
+                "rule_id": "special-10",
+                "text": "Early bird NOT applied: Saturday is not one of mon, tue, wed, thu, fri; entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_based_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD not used: by the time-based rate 8.00 USD is less (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 2000
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
             "entry": "2030-03-04T00:00",
             "exit": "2030-03-05T12:00",
             "entry_at": "2030-03-04T05:00:00.000Z",
@@ -9688,10 +9873,10 @@
             "fee_minor": 6000
           },
           {
-            "entry": "2030-03-04T10:00",
-            "exit": "2030-03-04T16:01",
-            "entry_at": "2030-03-04T15:00:00.000Z",
-            "exit_at": "2030-03-04T21:01:00.000Z",
+            "entry": "2030-03-04T00:00",
+            "exit": "2030-03-04T06:01",
+            "entry_at": "2030-03-04T05:00:00.000Z",
+            "exit_at": "2030-03-04T11:01:00.000Z",
             "minutes": 361,
             "refused": false,
             "plan_version": "recorded-table",
@@ -9701,7 +9886,7 @@
               {
                 "code": "stay",
                 "rule_id": null,
-                "text": "Entered 10:00 Mon 04 Mar, 361 minutes, space class 'standard', plan recorded-table",
+                "text": "Entered 00:00 Mon 04 Mar, 361 minutes, space class 'standard', plan recorded-table",
                 "delta_minor": 0
               },
               {
@@ -9713,7 +9898,7 @@
               {
                 "code": "time_window.not_applied",
                 "rule_id": "special-10",
-                "text": "Early bird NOT applied: entry 10:00 is after the 09:00 entry limit. All of its conditions must hold, so the stay prices on the time-based rate",
+                "text": "Early bird NOT applied: entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
                 "delta_minor": 0
               },
               {
@@ -9747,10 +9932,10 @@
             "fee_minor": 3000
           },
           {
-            "entry": "2030-03-04T10:00",
-            "exit": "2030-03-04T16:00",
-            "entry_at": "2030-03-04T15:00:00.000Z",
-            "exit_at": "2030-03-04T21:00:00.000Z",
+            "entry": "2030-03-04T00:00",
+            "exit": "2030-03-04T06:00",
+            "entry_at": "2030-03-04T05:00:00.000Z",
+            "exit_at": "2030-03-04T11:00:00.000Z",
             "minutes": 360,
             "refused": false,
             "plan_version": "recorded-table",
@@ -9760,7 +9945,7 @@
               {
                 "code": "stay",
                 "rule_id": null,
-                "text": "Entered 10:00 Mon 04 Mar, 360 minutes, space class 'standard', plan recorded-table",
+                "text": "Entered 00:00 Mon 04 Mar, 360 minutes, space class 'standard', plan recorded-table",
                 "delta_minor": 0
               },
               {
@@ -9772,7 +9957,7 @@
               {
                 "code": "time_window.not_applied",
                 "rule_id": "special-10",
-                "text": "Early bird NOT applied: entry 10:00 is after the 09:00 entry limit. All of its conditions must hold, so the stay prices on the time-based rate",
+                "text": "Early bird NOT applied: entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
                 "delta_minor": 0
               },
               {
@@ -10652,6 +10837,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 15.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -10702,6 +10894,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 15.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -10887,6 +11086,60 @@
             "fee_minor": 3000
           },
           {
+            "entry": "2030-03-04T06:00",
+            "exit": "2030-03-04T07:00",
+            "entry_at": "2030-03-04T11:00:00.000Z",
+            "exit_at": "2030-03-04T12:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-table",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 06:00 Mon 04 Mar, 60 minutes, space class 'standard', plan recorded-table",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 60 min, which is 50 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_window.not_applied",
+                "rule_id": "special-11",
+                "text": "Weekend NOT applied: Monday is not one of sat, sun. All of its conditions must hold, so the stay prices on the time-based rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_based_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD not used: by the time-based rate 8.00 USD is less (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 1500
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
             "entry": "2030-03-09T06:00",
             "exit": "2030-03-09T18:00",
             "entry_at": "2030-03-09T11:00:00.000Z",
@@ -10929,6 +11182,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 30.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 3000
               }
             ],
             "tax_lines": [],
@@ -10979,6 +11239,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, 2 days) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 60.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 6000
               }
             ],
             "tax_lines": [],
@@ -11029,6 +11296,13 @@
                 "rule_id": "most-a-day",
                 "text": "Daily max 30.00 USD (calendar_day, 2 days) not reached: the charge so far is 20.00 USD",
                 "delta_minor": 0
+              },
+              {
+                "code": "special_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD used: by the time-based rate this stay would be 52.00 USD (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 5200
               }
             ],
             "tax_lines": [],
@@ -11096,6 +11370,60 @@
             "fee_minor": 6000
           },
           {
+            "entry": "2030-03-09T00:00",
+            "exit": "2030-03-09T01:00",
+            "entry_at": "2030-03-09T05:00:00.000Z",
+            "exit_at": "2030-03-09T06:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-table",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Sat 09 Mar, 60 minutes, space class 'standard', plan recorded-table",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 60 min, which is 50 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_window.not_applied",
+                "rule_id": "special-10",
+                "text": "Early bird NOT applied: Saturday is not one of mon, tue, wed, thu, fri; entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_based_used",
+                "rule_id": "special-11",
+                "text": "Weekend 20.00 USD not used: by the time-based rate 8.00 USD is less (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 2000
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
             "entry": "2030-03-04T00:00",
             "exit": "2030-03-05T12:00",
             "entry_at": "2030-03-04T05:00:00.000Z",
@@ -11155,10 +11483,10 @@
             "fee_minor": 6000
           },
           {
-            "entry": "2030-03-04T10:00",
-            "exit": "2030-03-04T16:01",
-            "entry_at": "2030-03-04T15:00:00.000Z",
-            "exit_at": "2030-03-04T21:01:00.000Z",
+            "entry": "2030-03-04T00:00",
+            "exit": "2030-03-04T06:01",
+            "entry_at": "2030-03-04T05:00:00.000Z",
+            "exit_at": "2030-03-04T11:01:00.000Z",
             "minutes": 361,
             "refused": false,
             "plan_version": "recorded-table",
@@ -11168,7 +11496,7 @@
               {
                 "code": "stay",
                 "rule_id": null,
-                "text": "Entered 10:00 Mon 04 Mar, 361 minutes, space class 'standard', plan recorded-table",
+                "text": "Entered 00:00 Mon 04 Mar, 361 minutes, space class 'standard', plan recorded-table",
                 "delta_minor": 0
               },
               {
@@ -11180,7 +11508,7 @@
               {
                 "code": "time_window.not_applied",
                 "rule_id": "special-10",
-                "text": "Early bird NOT applied: entry 10:00 is after the 09:00 entry limit. All of its conditions must hold, so the stay prices on the time-based rate",
+                "text": "Early bird NOT applied: entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
                 "delta_minor": 0
               },
               {
@@ -11214,10 +11542,10 @@
             "fee_minor": 3000
           },
           {
-            "entry": "2030-03-04T10:00",
-            "exit": "2030-03-04T16:00",
-            "entry_at": "2030-03-04T15:00:00.000Z",
-            "exit_at": "2030-03-04T21:00:00.000Z",
+            "entry": "2030-03-04T00:00",
+            "exit": "2030-03-04T06:00",
+            "entry_at": "2030-03-04T05:00:00.000Z",
+            "exit_at": "2030-03-04T11:00:00.000Z",
             "minutes": 360,
             "refused": false,
             "plan_version": "recorded-table",
@@ -11227,7 +11555,7 @@
               {
                 "code": "stay",
                 "rule_id": null,
-                "text": "Entered 10:00 Mon 04 Mar, 360 minutes, space class 'standard', plan recorded-table",
+                "text": "Entered 00:00 Mon 04 Mar, 360 minutes, space class 'standard', plan recorded-table",
                 "delta_minor": 0
               },
               {
@@ -11239,7 +11567,7 @@
               {
                 "code": "time_window.not_applied",
                 "rule_id": "special-10",
-                "text": "Early bird NOT applied: entry 10:00 is after the 09:00 entry limit. All of its conditions must hold, so the stay prices on the time-based rate",
+                "text": "Early bird NOT applied: entry 00:00 is before the 06:00 entry window opens. All of its conditions must hold, so the stay prices on the time-based rate",
                 "delta_minor": 0
               },
               {
@@ -11400,6 +11728,2198 @@
             "taxes_stated": false,
             "subtotal_minor": 3000,
             "fee_minor": 3000
+          }
+        ]
+      }
+    },
+    {
+      "what": "the price table tried, hour1-day20",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T10:10",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T14:10:00.000Z",
+            "minutes": 10,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 10 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 1.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 100,
+            "fee_minor": 100
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T10:30",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T14:30:00.000Z",
+            "minutes": 30,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 30 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 1.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 100,
+            "fee_minor": 100
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T11:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T15:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 60 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 1.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 100,
+            "fee_minor": 100
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T11:01",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T15:01:00.000Z",
+            "minutes": 61,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 61 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 1.00 USD = 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 200,
+            "fee_minor": 200
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T12:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T16:00:00.000Z",
+            "minutes": 120,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 120 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 1.00 USD = 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 200,
+            "fee_minor": 200
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T13:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T17:00:00.000Z",
+            "minutes": 180,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 180 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 2 additional hours at 1.00 USD = 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 3.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 300,
+            "fee_minor": 300
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T15:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T19:00:00.000Z",
+            "minutes": 300,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 300 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 4 additional hours at 1.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 5.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 500,
+            "fee_minor": 500
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T18:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-01T22:00:00.000Z",
+            "minutes": 480,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 480 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 7 additional hours at 1.00 USD = 7.00 USD",
+                "delta_minor": 700
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-01T22:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-02T02:00:00.000Z",
+            "minutes": 720,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 720 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 11 additional hours at 1.00 USD = 11.00 USD",
+                "delta_minor": 1100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1200,
+            "fee_minor": 1200
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-02T10:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-02T14:00:00.000Z",
+            "minutes": 1440,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 1440 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 23 additional hours at 1.00 USD = 23.00 USD",
+                "delta_minor": 2300
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 2 days) not reached: the charge so far is 24.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2400,
+            "fee_minor": 2400
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-02T11:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-02T15:00:00.000Z",
+            "minutes": 1500,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 1500 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 24 additional hours at 1.00 USD = 24.00 USD",
+                "delta_minor": 2400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 2 days) not reached: the charge so far is 25.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2500,
+            "fee_minor": 2500
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-03T10:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-03T14:00:00.000Z",
+            "minutes": 2880,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 2880 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 47 additional hours at 1.00 USD = 47.00 USD",
+                "delta_minor": 4700
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 3 days) not reached: the charge so far is 48.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 4800,
+            "fee_minor": 4800
+          },
+          {
+            "entry": "2030-04-01T10:00",
+            "exit": "2030-04-08T10:00",
+            "entry_at": "2030-04-01T14:00:00.000Z",
+            "exit_at": "2030-04-08T14:00:00.000Z",
+            "minutes": 10080,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 01 Apr, 10080 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 167 additional hours at 1.00 USD = 167.00 USD",
+                "delta_minor": 16700
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day) applied over 8 days: 168.00 USD reduced to 160.00 USD",
+                "delta_minor": -800
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 16000,
+            "fee_minor": 16000
+          },
+          {
+            "entry": "2030-04-01T00:00",
+            "exit": "2030-04-01T20:01",
+            "entry_at": "2030-04-01T04:00:00.000Z",
+            "exit_at": "2030-04-02T00:01:00.000Z",
+            "minutes": 1201,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 01 Apr, 1201 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 20 additional hours at 1.00 USD = 20.00 USD",
+                "delta_minor": 2000
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day) applied over the day: 21.00 USD reduced to 20.00 USD",
+                "delta_minor": -100
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2000,
+            "fee_minor": 2000
+          },
+          {
+            "entry": "2030-04-01T00:00",
+            "exit": "2030-04-01T20:00",
+            "entry_at": "2030-04-01T04:00:00.000Z",
+            "exit_at": "2030-04-02T00:00:00.000Z",
+            "minutes": 1200,
+            "refused": false,
+            "plan_version": "recorded-hour1-day20",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 01 Apr, 1200 minutes, space class 'standard', plan recorded-hour1-day20",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 19 additional hours at 1.00 USD = 19.00 USD",
+                "delta_minor": 1900
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 20.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2000,
+            "fee_minor": 2000
+          }
+        ]
+      }
+    },
+    {
+      "what": "the price table tried, day30-week100",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T10:10",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T14:10:00.000Z",
+            "minutes": 10,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 10 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T10:30",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T14:30:00.000Z",
+            "minutes": 30,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 30 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T11:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T15:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 60 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T11:01",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T15:01:00.000Z",
+            "minutes": 61,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 61 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 4.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1200,
+            "fee_minor": 1200
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T12:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T16:00:00.000Z",
+            "minutes": 120,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 120 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 4.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1200,
+            "fee_minor": 1200
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T13:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T17:00:00.000Z",
+            "minutes": 180,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 180 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 2 additional hours at 4.00 USD = 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 16.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 16.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1600,
+            "fee_minor": 1600
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T15:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T19:00:00.000Z",
+            "minutes": 300,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 300 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 4 additional hours at 4.00 USD = 16.00 USD",
+                "delta_minor": 1600
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 24.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 24.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2400,
+            "fee_minor": 2400
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T18:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-08T22:00:00.000Z",
+            "minutes": 480,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 480 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 7 additional hours at 4.00 USD = 28.00 USD",
+                "delta_minor": 2800
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over the day: 36.00 USD reduced to 30.00 USD",
+                "delta_minor": -600
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 30.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 3000,
+            "fee_minor": 3000
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-08T22:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-09T02:00:00.000Z",
+            "minutes": 720,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 720 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 11 additional hours at 4.00 USD = 44.00 USD",
+                "delta_minor": 4400
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over the day: 52.00 USD reduced to 30.00 USD",
+                "delta_minor": -2200
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 30.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 3000,
+            "fee_minor": 3000
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-09T10:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-09T14:00:00.000Z",
+            "minutes": 1440,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 1440 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 23 additional hours at 4.00 USD = 92.00 USD",
+                "delta_minor": 9200
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 2 days: 100.00 USD reduced to 60.00 USD",
+                "delta_minor": -4000
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 60.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 6000,
+            "fee_minor": 6000
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-09T11:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-09T15:00:00.000Z",
+            "minutes": 1500,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 1500 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 24 additional hours at 4.00 USD = 96.00 USD",
+                "delta_minor": 9600
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 2 days: 104.00 USD reduced to 60.00 USD",
+                "delta_minor": -4400
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 60.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 6000,
+            "fee_minor": 6000
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-10T10:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-10T14:00:00.000Z",
+            "minutes": 2880,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 2880 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 47 additional hours at 4.00 USD = 188.00 USD",
+                "delta_minor": 18800
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 3 days: 196.00 USD reduced to 90.00 USD",
+                "delta_minor": -10600
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 90.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 9000,
+            "fee_minor": 9000
+          },
+          {
+            "entry": "2030-04-08T10:00",
+            "exit": "2030-04-15T10:00",
+            "entry_at": "2030-04-08T14:00:00.000Z",
+            "exit_at": "2030-04-15T14:00:00.000Z",
+            "minutes": 10080,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 08 Apr, 10080 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 167 additional hours at 4.00 USD = 668.00 USD",
+                "delta_minor": 66800
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 8 days: 676.00 USD reduced to 240.00 USD",
+                "delta_minor": -43600
+              },
+              {
+                "code": "weekly_max.applied",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week) applied over 2 weeks: 240.00 USD reduced to 200.00 USD",
+                "delta_minor": -4000
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 20000,
+            "fee_minor": 20000
+          },
+          {
+            "entry": "2030-04-08T00:00",
+            "exit": "2030-04-08T06:01",
+            "entry_at": "2030-04-08T04:00:00.000Z",
+            "exit_at": "2030-04-08T10:01:00.000Z",
+            "minutes": 361,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 08 Apr, 361 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 6 additional hours at 4.00 USD = 24.00 USD",
+                "delta_minor": 2400
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over the day: 32.00 USD reduced to 30.00 USD",
+                "delta_minor": -200
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 30.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 3000,
+            "fee_minor": 3000
+          },
+          {
+            "entry": "2030-04-08T00:00",
+            "exit": "2030-04-08T06:00",
+            "entry_at": "2030-04-08T04:00:00.000Z",
+            "exit_at": "2030-04-08T10:00:00.000Z",
+            "minutes": 360,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 08 Apr, 360 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 5 additional hours at 4.00 USD = 20.00 USD",
+                "delta_minor": 2000
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 28.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 28.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2800,
+            "fee_minor": 2800
+          },
+          {
+            "entry": "2030-04-08T00:00",
+            "exit": "2030-04-11T00:00",
+            "entry_at": "2030-04-08T04:00:00.000Z",
+            "exit_at": "2030-04-11T04:00:00.000Z",
+            "minutes": 4320,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 08 Apr, 4320 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 71 additional hours at 4.00 USD = 284.00 USD",
+                "delta_minor": 28400
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 4 days: 292.00 USD reduced to 120.00 USD",
+                "delta_minor": -17200
+              },
+              {
+                "code": "weekly_max.applied",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week) applied over the week: 120.00 USD reduced to 100.00 USD",
+                "delta_minor": -2000
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 10000,
+            "fee_minor": 10000
+          },
+          {
+            "entry": "2030-04-08T00:00",
+            "exit": "2030-04-10T23:59",
+            "entry_at": "2030-04-08T04:00:00.000Z",
+            "exit_at": "2030-04-11T03:59:00.000Z",
+            "minutes": 4319,
+            "refused": false,
+            "plan_version": "recorded-day30-week100",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 08 Apr, 4319 minutes, space class 'standard', plan recorded-day30-week100",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 71 additional hours at 4.00 USD = 284.00 USD",
+                "delta_minor": 28400
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day) applied over 3 days: 292.00 USD reduced to 90.00 USD",
+                "delta_minor": -20200
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 100.00 USD (calendar_week, the week) not reached: the charge so far is 90.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 9000,
+            "fee_minor": 9000
+          }
+        ]
+      }
+    },
+    {
+      "what": "the price table tried, day20-week90",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T10:10",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T14:10:00.000Z",
+            "minutes": 10,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 10 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 200,
+            "fee_minor": 200
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T10:30",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T14:30:00.000Z",
+            "minutes": 30,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 30 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 200,
+            "fee_minor": 200
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T11:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T15:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 60 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 2.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 200,
+            "fee_minor": 200
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T11:01",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T15:01:00.000Z",
+            "minutes": 61,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 61 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 1.00 USD = 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 3.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 3.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 300,
+            "fee_minor": 300
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T12:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T16:00:00.000Z",
+            "minutes": 120,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 120 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 1.00 USD = 1.00 USD",
+                "delta_minor": 100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 3.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 3.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 300,
+            "fee_minor": 300
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T13:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T17:00:00.000Z",
+            "minutes": 180,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 180 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 2 additional hours at 1.00 USD = 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 4.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 4.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 400,
+            "fee_minor": 400
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T15:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T19:00:00.000Z",
+            "minutes": 300,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 300 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 4 additional hours at 1.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 6.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 6.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 600,
+            "fee_minor": 600
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T18:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-15T22:00:00.000Z",
+            "minutes": 480,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 480 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 7 additional hours at 1.00 USD = 7.00 USD",
+                "delta_minor": 700
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 9.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 9.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 900,
+            "fee_minor": 900
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-15T22:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-16T02:00:00.000Z",
+            "minutes": 720,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 720 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 11 additional hours at 1.00 USD = 11.00 USD",
+                "delta_minor": 1100
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 13.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 13.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1300,
+            "fee_minor": 1300
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-16T10:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-16T14:00:00.000Z",
+            "minutes": 1440,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 1440 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 23 additional hours at 1.00 USD = 23.00 USD",
+                "delta_minor": 2300
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 2 days) not reached: the charge so far is 25.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 25.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2500,
+            "fee_minor": 2500
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-16T11:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-16T15:00:00.000Z",
+            "minutes": 1500,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 1500 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 24 additional hours at 1.00 USD = 24.00 USD",
+                "delta_minor": 2400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 2 days) not reached: the charge so far is 26.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 26.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2600,
+            "fee_minor": 2600
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-17T10:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-17T14:00:00.000Z",
+            "minutes": 2880,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 2880 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 47 additional hours at 1.00 USD = 47.00 USD",
+                "delta_minor": 4700
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 3 days) not reached: the charge so far is 49.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 49.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 4900,
+            "fee_minor": 4900
+          },
+          {
+            "entry": "2030-04-15T10:00",
+            "exit": "2030-04-22T10:00",
+            "entry_at": "2030-04-15T14:00:00.000Z",
+            "exit_at": "2030-04-22T14:00:00.000Z",
+            "minutes": 10080,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Mon 15 Apr, 10080 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 167 additional hours at 1.00 USD = 167.00 USD",
+                "delta_minor": 16700
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day) applied over 8 days: 169.00 USD reduced to 160.00 USD",
+                "delta_minor": -900
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, 2 weeks) not reached: the charge so far is 160.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 16000,
+            "fee_minor": 16000
+          },
+          {
+            "entry": "2030-04-15T00:00",
+            "exit": "2030-04-15T19:01",
+            "entry_at": "2030-04-15T04:00:00.000Z",
+            "exit_at": "2030-04-15T23:01:00.000Z",
+            "minutes": 1141,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 15 Apr, 1141 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 19 additional hours at 1.00 USD = 19.00 USD",
+                "delta_minor": 1900
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day) applied over the day: 21.00 USD reduced to 20.00 USD",
+                "delta_minor": -100
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 20.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2000,
+            "fee_minor": 2000
+          },
+          {
+            "entry": "2030-04-15T00:00",
+            "exit": "2030-04-15T19:00",
+            "entry_at": "2030-04-15T04:00:00.000Z",
+            "exit_at": "2030-04-15T23:00:00.000Z",
+            "minutes": 1140,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 15 Apr, 1140 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 18 additional hours at 1.00 USD = 18.00 USD",
+                "delta_minor": 1800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, the day) not reached: the charge so far is 20.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 20.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 2000,
+            "fee_minor": 2000
+          },
+          {
+            "entry": "2030-04-15T00:00",
+            "exit": "2030-04-19T00:00",
+            "entry_at": "2030-04-15T04:00:00.000Z",
+            "exit_at": "2030-04-19T04:00:00.000Z",
+            "minutes": 5760,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 15 Apr, 5760 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 95 additional hours at 1.00 USD = 95.00 USD",
+                "delta_minor": 9500
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day, 5 days) not reached: the charge so far is 97.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "weekly_max.applied",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week) applied over the week: 97.00 USD reduced to 90.00 USD",
+                "delta_minor": -700
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 9000,
+            "fee_minor": 9000
+          },
+          {
+            "entry": "2030-04-15T00:00",
+            "exit": "2030-04-18T23:59",
+            "entry_at": "2030-04-15T04:00:00.000Z",
+            "exit_at": "2030-04-19T03:59:00.000Z",
+            "minutes": 5759,
+            "refused": false,
+            "plan_version": "recorded-day20-week90",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 00:00 Mon 15 Apr, 5759 minutes, space class 'standard', plan recorded-day20-week90",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 2.00 USD",
+                "delta_minor": 200
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 95 additional hours at 1.00 USD = 95.00 USD",
+                "delta_minor": 9500
+              },
+              {
+                "code": "daily_max.applied",
+                "rule_id": "most-a-day",
+                "text": "Daily max 20.00 USD (calendar_day) applied over 4 days: 97.00 USD reduced to 80.00 USD",
+                "delta_minor": -1700
+              },
+              {
+                "code": "weekly_max.not_reached",
+                "rule_id": "most-a-week",
+                "text": "Weekly max 90.00 USD (calendar_week, the week) not reached: the charge so far is 80.00 USD",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 8000,
+            "fee_minor": 8000
           }
         ]
       }
@@ -11690,6 +14210,71 @@
             }
           }
         }
+      }
+    },
+    {
+      "what": "a stay tried, less by the hour",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2030-03-05T07:00",
+            "exit": "2030-03-05T08:00",
+            "entry_at": "2030-03-05T12:00:00.000Z",
+            "exit_at": "2030-03-05T13:00:00.000Z",
+            "minutes": 60,
+            "refused": false,
+            "plan_version": "recorded-table",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 07:00 Tue 05 Mar, 60 minutes, space class 'standard', plan recorded-table",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 60 min, which is 50 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_window.not_applied",
+                "rule_id": "special-11",
+                "text": "Weekend NOT applied: Tuesday is not one of sat, sun. All of its conditions must hold, so the stay prices on the time-based rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 8.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "time_based_used",
+                "rule_id": "special-10",
+                "text": "Early bird 15.00 USD not used: by the time-based rate 8.00 USD is less (plan resolves QUALIFY by cheapest_wins)",
+                "delta_minor": 0,
+                "compared_minor": 1500
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 800,
+            "fee_minor": 800
+          }
+        ]
       }
     },
     {
@@ -12083,8 +14668,8 @@
                   "effect": {
                     "kind": "rate",
                     "rounding": "ceil",
-                    "first_period_minor": 1500,
-                    "repeat_period_minor": 500,
+                    "first_period_minor": 500,
+                    "repeat_period_minor": 200,
                     "first_period_minutes": 60,
                     "max_duration_minutes": null,
                     "repeat_period_minutes": 60

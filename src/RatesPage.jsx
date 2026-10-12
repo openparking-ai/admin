@@ -19,8 +19,11 @@ import {
   arrange,
   blankSpecial,
   buildPlan,
+  caseKey,
+  caseWords,
   dayName,
   findingWords,
+  firstStartDay,
   formFromPlan,
   formProblems,
   formStart,
@@ -287,10 +290,13 @@ function TriedStay({ t, language, garage, stay, plan, taxNames }) {
   );
 }
 
-/** A tick: on or off, as every tick on these screens is drawn (a button, so a print can say it in words). */
+/**
+ * A tick with its words beside it: on or off, as every tick on these screens is
+ * drawn (a button, so a print can say it in words), as wide as its words.
+ */
 function Tick({ t, on, onChange, words, tick, disabled = false }) {
   return (
-    <button type="button" role="checkbox" aria-checked={on} className="tick" data-tick={tick} disabled={disabled} onClick={() => onChange(!on)}>
+    <button type="button" role="checkbox" aria-checked={on} className="tick tick-words" data-tick={tick} disabled={disabled} onClick={() => onChange(!on)}>
       <span aria-hidden="true" className="tick-box" data-on={on ? 'yes' : 'no'} />
       <span aria-hidden="true" className="print-word" data-print={on ? 'yes' : 'no'}>
         {on ? t('yes') : t('no')}
@@ -366,7 +372,8 @@ function ChangeRates({ t, language, client, garage, spaceClass, from, taxNames, 
   const [tried, setTried] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const name = useRef(planName(Date.now(), garage.timezone));
-  const problems = formProblems(form, garage);
+  const ticking = useNow();
+  const problems = formProblems(form, garage, ticking.getTime());
   const ready = Object.keys(problems).length === 0;
   const set = (part) => (value) => setForm((f) => ({ ...f, [part]: value }));
   const draft = useMemo(() => {
@@ -518,7 +525,7 @@ function ChangeRates({ t, language, client, garage, spaceClass, from, taxNames, 
           {form.starts === 'day' ? (
             <label className="field">
               <FieldName t={t} name="rates.day" />
-              <input type="date" data-field="rates-day" value={form.day} onChange={(e) => set('day')(e.target.value)} />
+              <input type="date" data-field="rates-day" min={firstStartDay(garage, ticking.getTime())} value={form.day} onChange={(e) => set('day')(e.target.value)} />
             </label>
           ) : null}
           <Problem t={t} problems={problems} at="day" tried={tried} />
@@ -821,6 +828,7 @@ function draftKey(form, plan, added) {
 function PriceTable({ t, language, garage, priced }) {
   const paging = usePaging(priced.rows.length);
   const money = (minor) => moneyText(minor, garage.currency, language);
+  const answerOf = (key) => priced.rows.find((r) => r.why.key === key)?.answer;
   // Each time is already the garage's own clock.
   const when = (wall) => localSaid(wall, language);
   return (
@@ -840,7 +848,7 @@ function PriceTable({ t, language, garage, priced }) {
             const a = row.answer;
             const taxMinor = a && !a.refused ? (a.tax_lines ?? []).reduce((sum, l) => sum + l.delta_minor, 0) : null;
             return (
-              <tr key={i} className={paging.row(i)} data-row={i + 1} data-fee={a && !a.refused ? a.fee_minor : undefined} data-why={row.why.key}>
+              <tr key={i} className={paging.row(i)} data-row={i + 1} data-fee={a && !a.refused ? a.fee_minor : undefined} data-why={row.why.key} data-says={caseKey(row, a, answerOf)}>
                 <td>{when(row.entry)}</td>
                 <td>{when(row.exit)}</td>
                 <td>{lengthWords(t, a?.minutes ?? 0)}</td>
@@ -849,7 +857,7 @@ function PriceTable({ t, language, garage, priced }) {
                 <td className="money">{a && !a.refused ? money(a.fee_minor) : t('rates.table.noPrice')}</td>
                 <td>{a ? (a.refused ? (a.findings ?? []).map((f) => findingWords(t, f, priced.plan, garage.timezone, language)).join(' ') : specialWords(t, { ...a, entry: row.entry, exit: row.exit }, priced.plan, language)) : ''}</td>
                 <td>
-                  <bdi>{t(`rates.test.${row.why.key}`, { name: row.why.name ?? '' })}</bdi>
+                  <bdi>{caseWords(t, row, a, answerOf)}</bdi>
                 </td>
               </tr>
             );

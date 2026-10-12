@@ -41,7 +41,7 @@ export default function SetupPage({ t, language, client, garage }) {
               </span>
             </div>
             <ul className="setup-facts">
-              {factLines(t, step, garage, language, now).map((line, i) => (
+              {(step.key === 'open' && !setup.data.open && (step.facts?.not_done ?? []).length ? [] : factLines(t, step, garage, language, now)).map((line, i) => (
                 <li key={i}>
                   {line.text}
                   {line.names ? (
@@ -54,7 +54,7 @@ export default function SetupPage({ t, language, client, garage }) {
               ))}
             </ul>
             <Where t={t} step={step} />
-            {step.key === 'open' && !setup.data.open ? <OpenGarage t={t} client={client} garage={garage} notDone={step.facts?.not_done ?? []} onOpened={setup.retry} /> : null}
+            {step.key === 'open' && !setup.data.open ? <OpenGarage t={t} client={client} garage={garage} notDone={step.facts?.not_done ?? []} onOpened={setup.retry} onRefused={setup.refresh} /> : null}
             {step.key === 'drivers' ? (
               <Opens t={t} opener={step.facts?.transient_available === undefined || step.facts?.transient_available === null ? 'setup.drivers.answer' : 'setup.drivers.change'} action="open-drivers">
                 {(close) => <DriversQuestion t={t} client={client} garage={garage} answered={step.facts?.transient_available ?? null} onSaved={setup.retry} onClose={close} />}
@@ -194,12 +194,17 @@ function StepLink({ t, stepKey }) {
  * Pressing it asks once -- once open, it stays open -- and a refusal lists,
  * in plain words, what the platform says is still missing.
  */
-function OpenGarage({ t, client, garage, notDone, onOpened }) {
+/**
+ * The Open button, and what is still missing, said ONCE: the open step shows
+ * no fact line of its own while this list is shown. A refused Open reads Setup
+ * again, so the checklist above says what the refusal says (U7g fix 1, F3).
+ */
+function OpenGarage({ t, client, garage, notDone, onOpened, onRefused }) {
   const [asking, setAsking] = useState(false);
   const [opening, setOpening] = useState(false);
   const [problem, setProblem] = useState(null);
   const [refusedOn, setRefusedOn] = useState(null);
-  const missing = refusedOn ?? notDone;
+  const missing = refusedOn ? [...new Set([...notDone, ...refusedOn])] : notDone;
 
   const open = async () => {
     setOpening(true);
@@ -209,8 +214,11 @@ function OpenGarage({ t, client, garage, notDone, onOpened }) {
       onOpened();
     } catch (p) {
       if (p.kind === STALE || p.kind === 'ended') return;
-      setProblem(p.kind);
-      if (p.kind === 'notReadyToOpen') setRefusedOn(p.unmet ?? []);
+      if (p.kind === 'notReadyToOpen') {
+        // The list below is the message; Setup is read again so the steps above agree with it.
+        setRefusedOn(p.unmet ?? []);
+        await onRefused().catch(() => {});
+      } else setProblem(p.kind);
       setAsking(false);
       setOpening(false);
     }
@@ -246,7 +254,7 @@ function OpenGarage({ t, client, garage, notDone, onOpened }) {
         </div>
       ) : (
         <p className="opens">
-          <button type="button" className="primary-button" data-action="open-garage" disabled={notDone.length > 0} aria-disabled={notDone.length > 0} onClick={() => setAsking(true)}>
+          <button type="button" className="primary-button" data-action="open-garage" disabled={missing.length > 0} aria-disabled={missing.length > 0} onClick={() => setAsking(true)}>
             {t('setup.open.button')}
           </button>
         </p>
