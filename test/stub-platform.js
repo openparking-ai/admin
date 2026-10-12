@@ -1539,6 +1539,7 @@ export async function startStub({ port = 0 } = {}) {
     [engineKey(rateSent.table.plan), null],
     [engineKey(rateSent.gap), recordedAnswer('rates saved, with a gap')?.body ?? null],
     ...rateSent.maxes.map((m) => [engineKey(m.plan), null]),
+    [engineKey(rateSent.walk.plan), null],
   ]);
   /** Each recorded try: what was rateSent (the stored rates, the draft, the stays) and what came back. */
   const tryKey = (stored, draft, stays) => JSON.stringify({ stored: stored.map(withoutName), draft: draft ? withoutName(draft) : null, stays });
@@ -1564,7 +1565,12 @@ export async function startStub({ port = 0 } = {}) {
   tried('a stay tried, less by the hour', [rateSent.table.plan], null, [rateSent.table.short]);
   tried('a stay tried, less by the hour', [...formsStored, rateSent.table.plan], null, [rateSent.table.short]);
   // U7g fix 1, F1: the gate's three plans, as drafts beside the forms stored when they were recorded.
-  for (const m of rateSent.maxes) tried(`the price table tried, ${m.id}`, formsStored, m.plan, m.stays);
+  for (const m of rateSent.maxes.filter((x) => !x.late)) tried(`the price table tried, ${m.id}`, formsStored, m.plan, m.stays);
+  // U7g fix 2: the equal-most plans and the walk plan, tried after the table's rates were saved;
+  // and Try a stay on a garage holding only the walk plan.
+  for (const m of rateSent.maxes.filter((x) => x.late)) tried(`the price table tried, ${m.id}`, [...formsStored, rateSent.table.plan], m.plan, m.stays);
+  tried('the price table tried, the walk plan', [...formsStored, rateSent.table.plan], rateSent.walk.plan, rateSent.walk.stays);
+  rateSent.walk.short.forEach((stay, i) => tried(`a stay tried, the walk plan saved, short stay ${i + 1}`, [rateSent.walk.plan], null, [stay]));
 
   const ENGINE_AWAY_PLAN = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates); the plan was not stored', code: 'rate_engine_unavailable' };
   const ENGINE_AWAY_TRY = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates and stays); nothing was priced', code: 'rate_engine_unavailable' };
@@ -2027,6 +2033,15 @@ export async function startStub({ port = 0 } = {}) {
     makeGarage: (owner, fields) => makeGarage(owner, fields),
     /** Every rates document saved here, per garage, as sent. */
     ratesSaved: (garageId) => plansOf(garageId).map((r) => r.plan),
+    /** `plan` stored on the garage as a confirmed save stores it (U7g fix 2: the walk plan, for Try a stay). */
+    storeRates: (garageId, plan) => {
+      planN += 1;
+      plansOf(garageId).push({ id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), plan });
+    },
+    /** What the platform answered a recorded try, as recorded (its `structure`). */
+    recordedTry: (what) => recordedAnswer(what)?.structure,
+    /** Every owner's tries forgotten, as a minute passing would (the recording waits it out). */
+    forgetTries: () => tries.clear(),
     // ── U7f ──
     /** A tailgater listed at this garage, as the platform lists one; its row as the Banned cars read answers it. */
     listTailgater,

@@ -1758,6 +1758,8 @@ export default {
   "rates.why.tooLate": "{name}: came in after Come in by.",
   "rates.why.leftLate": "{name}: left after Leave by.",
   "rates.why.notFit": "{name} did not fit this stay.",
+  "rates.why.dayMax": "The most per day was charged.",
+  "rates.why.weekMax": "The most per week was charged.",
   "rates.review": "Check the new rates",
   "rates.review.sentences": "The new rates",
   "rates.review.startsNow": "They start as soon as you confirm.",

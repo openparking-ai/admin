@@ -20,6 +20,15 @@
 //       called "takes over" when its breakdown says not reached;
 //   E1  where the hour is less than the special, the engine charged the hour,
 //       and the words say so with both amounts, in both languages.
+//
+//   U7g fix 2:
+//   G2  on the re-gate's walk plan (a discount and a service fee), every row
+//       says every line of its breakdown that has words, none left out because
+//       another is there, in the breakdown's order -- the table, the file the
+//       download and print are made from, and Try a stay on each short stay;
+//   G3  every most per day and per week a recorded plan sets has a "takes
+//       over" row the engine says applied, on four plans where an hour lands
+//       EXACTLY on the most ($10 an hour, at most $100).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +36,8 @@ import { readFileSync } from 'node:fs';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { FINDING_CODES, buildPlan, caseKey, findingKey, findingWords, instantOf, moneyText, planSentences, specialWords, tableStays } from '../src/rates.js';
 import { startOfDay } from '../src/taxes.js';
-import { FORMS, GATE_MAX_FORMS, TABLE_FORM, THREE_DATES_FORM, ZONE, recordedPlans } from './rates-forms.js';
+import { EQUAL_MAX_FORMS, FORMS, GATE_MAX_FORMS, TABLE_FORM, THREE_DATES_FORM, WALK_FORM, ZONE, recordedPlans } from './rates-forms.js';
+import { priceTableFile } from '../src/files/model.js';
 
 const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).rates_answers;
 const answer = (what) => recorded.find((a) => a.what === what);
@@ -170,13 +180,13 @@ function tableOf(what, plan) {
 const answerIn = (rows) => (key) => rows.find((r) => r.why.key === key)?.answer;
 const CAPS = ['dayMaxTakes', 'dayMaxBefore', 'weekMaxTakes', 'weekMaxBefore'];
 
-test('F1: on the gate\'s three plans, each "most per day / week" row is what the engine says of that stay', () => {
+test('F1 (and fix 2, G3): on the gate\'s three plans and the four where an hour lands on the most, each "most per day / week" row is what the engine says of that stay', () => {
   const recordedMaxes = recordedPlans({ buildPlan, startOfDay, tableStays }).maxes;
-  for (const g of GATE_MAX_FORMS) {
+  for (const g of [...GATE_MAX_FORMS, ...EQUAL_MAX_FORMS]) {
     const plan = build(g.form, `recorded-${g.id}`);
     assert.deepEqual(plan, recordedMaxes.find((m) => m.id === g.id).plan);
     const rows = tableOf(`the price table tried, ${g.id}`, plan);
-    const want = CAPS.filter((k) => (k.startsWith('week') ? plan.rules.some((r) => r.type === 'weekly_max') : true));
+    const want = CAPS.filter((k) => plan.rules.some((r) => r.type === (k.startsWith('week') ? 'weekly_max' : 'daily_max')));
     for (const key of want) {
       const row = rows.find((r) => r.why.key === key);
       assert.ok(row, `${g.id}: no "${key}" row`);
@@ -228,4 +238,109 @@ test('E1: where the hour is less than the early bird, the hour was charged, and 
   const [tried] = answer('a stay tried, less by the hour').structure.stays;
   assert.equal(tried.subtotal_minor, 800);
   assert.ok(tried.rate_lines.some((l) => l.code === 'time_based_used' && l.compared_minor === 1500));
+});
+
+// ── U7g fix 2 ────────────────────────────────────────────────────────────────
+
+/** The sentence each line of a priced stay's breakdown has, in the breakdown's order (G2). */
+function wordedLines(tr, plan, a, language) {
+  const windows = plan.rules.filter((r) => r.type === 'time_window');
+  const nameOf = (id) => {
+    const r = windows.find((w) => w.id === id);
+    return r.label;
+  };
+  const money = (minor) => moneyText(minor, 'USD', language);
+  const used = a.rate_lines.find((l) => l.code === 'special_used');
+  const out = [];
+  for (const l of a.rate_lines) {
+    const rule = windows.find((w) => w.id === l.rule_id);
+    if (l.code === 'grace.applied') out.push(tr('rates.why.grace'));
+    else if (l.code === 'time_window.applied' && rule.stage === 'QUALIFY' && used?.rule_id === rule.id) out.push(tr('rates.why.appliedTimeMore', { name: nameOf(l.rule_id), time: money(used.compared_minor) }));
+    else if (l.code === 'time_window.applied') out.push(tr('rates.why.applied', { name: nameOf(l.rule_id) }));
+    else if (l.code === 'time_based_used') out.push(tr('rates.why.timeLess', { name: nameOf(l.rule_id), special: money(l.compared_minor), time: money(a.subtotal_minor) }));
+    else if (l.code === 'daily_max.applied') out.push(tr('rates.why.dayMax'));
+    else if (l.code === 'weekly_max.applied') out.push(tr('rates.why.weekMax'));
+  }
+  return out;
+}
+
+test('G2: on the walk plan (a discount and a service fee), every row says every line that has words, in the breakdown\'s order', () => {
+  const plan = build(WALK_FORM, 'recorded-walk');
+  assert.deepEqual(plan, recordedPlans({ buildPlan, startOfDay, tableStays }).walk.plan);
+  const rows = tableOf('the price table tried, the walk plan', plan);
+  let compared = 0;
+  const shortRows = [];
+  for (const language of ['en', 'es']) {
+    const tr = t(language);
+    const file = priceTableFile({ t: tr, language, garage: { ...garage, name: 'Walk' }, data: { rows, plan }, readAt: Date.parse('2030-05-27T12:00:00Z') });
+    rows.forEach((row, i) => {
+      const a = row.answer;
+      assert.equal(a.refused, false, `row ${i + 1} refused`);
+      const words = specialWords(tr, { ...a, entry: row.entry, exit: row.exit }, plan, language);
+      // The download and the print are built from the same file: the same words.
+      assert.equal(file.rows[i][6].text, words, `${language} row ${i + 1}: the file says otherwise`);
+      let at = -1;
+      for (const sentence of wordedLines(tr, plan, a, language)) {
+        assert.ok(words.includes(sentence), `G2: on the walk plan, ${language} row ${i + 1} (${row.entry} to ${row.exit}, ${row.why.key} ${row.why.name ?? ''}): "${sentence}" is not said: "${words}"`);
+        const found = words.indexOf(sentence, at + 1);
+        assert.ok(found > at, `G2: on the walk plan, ${language} row ${i + 1}: "${sentence}" is not in the order of the breakdown: "${words}"`);
+        at = found;
+      }
+      if (a.rate_lines.some((l) => l.code === 'time_based_used')) {
+        if (language === 'en') compared += 1;
+        if (row.why.key === 'specialShort' && language === 'en') shortRows.push(row.why.name);
+      }
+    });
+  }
+  // The control: the walk plan reaches the case at all, with a discount and a fee on the same rows.
+  assert.ok(compared >= 10, `only ${compared} rows were charged by the hour as less`);
+  assert.deepEqual(shortRows.sort(), ['Early bird', 'Game night', 'Game night', 'Game night', 'Weekend nights'], `the five short stays: ${shortRows.join(', ')}`);
+  const adjusted = rows.filter((r) => r.answer.rate_lines.some((l) => l.code === 'time_based_used') && r.answer.rate_lines.filter((l) => l.code === 'time_window.applied').length === 2);
+  assert.ok(adjusted.length >= 5, 'no row has the hour less AND both the discount and the fee');
+});
+
+test('G2: on the walk plan saved, Try a stay says the hour was less on each short stay', () => {
+  const plan = build(WALK_FORM, 'recorded-walk');
+  const { short } = recordedPlans({ buildPlan, startOfDay, tableStays }).walk;
+  assert.equal(short.length, 5);
+  short.forEach((stay, i) => {
+    const [a] = answer(`a stay tried, the walk plan saved, short stay ${i + 1}`).structure.stays;
+    const line = a.rate_lines.find((l) => l.code === 'time_based_used');
+    assert.ok(line, `short stay ${i + 1}: the engine did not charge the hour`);
+    for (const language of ['en', 'es']) {
+      const words = specialWords(t(language), { ...a, entry: stay.entry, exit: stay.exit }, plan, language);
+      const name = plan.rules.find((r) => r.id === line.rule_id).label;
+      const want = t(language)('rates.why.timeLess', { name, special: moneyText(line.compared_minor, 'USD', language), time: moneyText(a.subtotal_minor, 'USD', language) });
+      assert.ok(words.includes(want), `G2: on the walk plan saved, ${language} short stay ${i + 1}: "${words}"`);
+    }
+  });
+});
+
+test('G3: every most per day and per week a recorded plan sets has a "takes over" row the engine says applied', () => {
+  const plans = recordedPlans({ buildPlan, startOfDay, tableStays });
+  const tables = [
+    ...plans.maxes.map((m) => [`the price table tried, ${m.id}`, m.plan]),
+    ['the price table tried', plans.table.plan],
+    ['the price table tried, the walk plan', plans.walk.plan],
+  ];
+  let checked = 0;
+  for (const [what, plan] of tables) {
+    const rows = tableOf(what, plan);
+    for (const [type, unit] of [['daily_max', 'day'], ['weekly_max', 'week']]) {
+      if (!plan.rules.some((r) => r.type === type)) continue;
+      const takes = rows.find((r) => r.why.key === `${unit}MaxTakes`);
+      assert.ok(takes, `${what}: no "${unit}MaxTakes" row`);
+      const codes = takes.answer.rate_lines.map((l) => l.code);
+      assert.ok(codes.includes(`${type}.applied`), `G3 ${what}: the "${unit}MaxTakes" row (${takes.entry} to ${takes.exit}) is not where the engine applies the most: ${codes.join(', ')}`);
+      assert.equal(caseKey(takes, takes.answer, answerIn(rows)), `${unit}MaxTakes`, `${what}: the takes-over row is not called "takes over"`);
+      checked += 1;
+    }
+  }
+  // The control: the equal-most plans are among those checked, each where the hour lands on $100.
+  for (const g of EQUAL_MAX_FORMS) {
+    const rows = tableOf(`the price table tried, ${g.id}`, build(g.form, `recorded-${g.id}`));
+    const before = rows.find((r) => /MaxBefore$/.test(r.why.key));
+    assert.equal(before.answer.subtotal_minor, 10000, `${g.id}: the row before does not charge exactly the most`);
+  }
+  assert.ok(checked >= 12, `only ${checked} mosts checked`);
 });

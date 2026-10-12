@@ -298,7 +298,7 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
  * and every refusal the Rates page and the Open button can meet. `hooks.lanes`
  * gives the new garage a way in and a way out (nothing about opening is ready).
  */
-export async function recordRates(base, { origin, owner, hooks, plans }) {
+export async function recordRates(base, { origin, owner, hooks, plans, rest = async () => {} }) {
   const { state, call } = recorder(base, origin);
   await call('sign-in, for the rates', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
   state.garage = (await call('a garage, for the rates', 'POST', '/garages', plans.garage, {}, { quiet: true })).garage.id;
@@ -318,7 +318,7 @@ export async function recordRates(base, { origin, owner, hooks, plans }) {
   await call('the price table tried, with a stay of its own', 'POST', tryIt, { plan: plans.table.plan, stays: [...plans.table.stays, plans.table.added] }, {}, { structure: 'priced' });
   await call('a stay tried, the price table form', 'POST', tryIt, { plan: plans.table.plan, stays: [plans.table.added] }, {}, { structure: 'priced' });
   // U7g fix 1, F1: the gate's three plans, their price tables as drafts.
-  for (const m of plans.maxes) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
+  for (const m of plans.maxes.filter((x) => !x.late)) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
   await call('rates saved, the price table form', 'POST', rates, { plan: plans.table.plan, confirmed: true });
   // U7g fix 1, E1: on the rates saved, a stay the hour prices for less than the early bird.
   await call('a stay tried, less by the hour', 'POST', tryIt, { stays: [plans.table.short] }, {}, { structure: 'priced' });
@@ -334,6 +334,20 @@ export async function recordRates(base, { origin, owner, hooks, plans }) {
   await call('setup, with rates saved', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'setup' });
   await call('the garage opened, with steps missing', 'POST', '/garages/{garage}/activate');
   await call('changes, after the rates', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  // U7g fix 2. The tries below would pass the platform's 20 a minute: `rest`
+  // waits the minute out (the recording) or forgets the tries (the stand-in).
+  await rest();
+  // G3: the plans whose hours land exactly on the most, their price tables as drafts.
+  for (const m of plans.maxes.filter((x) => x.late)) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
+  // G2: the re-gate's walk plan (a discount and a service fee), its price table as a draft,
+  // then saved on a garage of its own and each short stay tried on it.
+  await call('the price table tried, the walk plan', 'POST', tryIt, { plan: plans.walk.plan, stays: plans.walk.stays }, {}, { structure: 'priced' });
+  const walkGarage = (await call('a garage, for the walk plan', 'POST', '/garages', { ...plans.garage, name: 'Recorded walk garage' }, {}, { quiet: true })).garage.id;
+  await call('rates saved, the walk plan', 'POST', `/garages/${walkGarage}/rate-plans`, { plan: plans.walk.plan, confirmed: true }, {}, { quiet: true });
+  for (const [i, stay] of plans.walk.short.entries()) {
+    await call(`a stay tried, the walk plan saved, short stay ${i + 1}`, 'POST', `/garages/${walkGarage}/rate-plans/try`, { stays: [stay] }, {}, { structure: 'priced' });
+  }
+  await rest();
   // Last, so it holds back nothing above: tries until the platform says "a minute".
   let n = 0;
   for (;;) {

@@ -37,6 +37,15 @@
 //   E1  the price table says, in words, where the time-based rate was charged
 //       because it was less than the special.
 //
+//   U7g fix 2:
+//   G2  Try a stay on the re-gate's walk plan saved (a discount and a service
+//       fee on every stay), each short stay, English and Spanish: the words say
+//       the hour was less, though the discount and the fee applied too;
+//   G4  every tick and every field inside its own box -- its special's, and the
+//       panel -- in English and Spanish, at 1280 and 360 px;
+//   F7  a fresh page in Spanish, today typed as the start day, the FIRST press
+//       of Review: the app's own sentence (the form has noValidate).
+//
 //   node scripts/check-rates.js
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -72,6 +81,9 @@ const RIVERSIDE = stub.makeGarage(A, { name: 'Rates check garage', timezone: 'Am
 // A second, with nothing stored, for the Spanish pass over the form (F2).
 const SPANISH = stub.makeGarage(A, { name: 'Rates check garage es', timezone: 'America/New_York', currency: 'USD' });
 const recorded = recordedPlans({ buildPlan, startOfDay, tableStays });
+// A third, holding only the re-gate's walk plan (a discount and a service fee), for Try a stay (fix 2, G2).
+const WALK = stub.makeGarage(A, { name: 'Rates check walk garage', timezone: 'America/New_York', currency: 'USD' });
+stub.storeRates(WALK.id, recorded.walk.plan);
 const server = await preview({ root: ROOT, logLevel: 'silent', preview: { port: 4363, strictPort: false, host: '127.0.0.1', proxy: { '/api': { target: stub.url } } } });
 const base = server.resolvedUrls.local[0];
 stub.allowOrigin(new URL(base).origin);
@@ -115,9 +127,21 @@ async function ticksHold(page, where) {
       });
       for (const f of fields) if (!tk.contains(f) && meet(a, f.getBoundingClientRect())) over.push(`${tk.dataset.tick} over ${f.dataset.field ?? f.dataset.action ?? f.tagName}`);
     });
-    return { n: ticks.length, over };
+    // G4: each tick and each field inside its own box -- a special's box, and the panel --
+    // not only free of the others: a row of days that will not wrap runs off the side.
+    const outside = [];
+    for (const el of [...ticks, ...fields]) {
+      const a = el.classList.contains('tick-words') ? drawn(el) : el.getBoundingClientRect();
+      const a2 = { l: a.l ?? a.left, r: a.r ?? a.right };
+      for (const box of [el.closest('[data-special-at]'), el.closest('.panel')].filter(Boolean)) {
+        const b = box.getBoundingClientRect();
+        if (a2.r > b.right + 0.5 || a2.l < b.left - 0.5) outside.push(`${el.dataset.tick ?? el.dataset.field ?? el.dataset.action ?? el.tagName} past ${box.dataset.specialAt ? `special ${box.dataset.specialAt}` : 'the panel'} by ${Math.round(Math.max(a2.r - b.right, b.left - a2.l))} px`);
+      }
+    }
+    return { n: ticks.length, over, outside };
   });
   check(r.n > 0 && r.over.length === 0, `F2 ${where}: ${r.n} ticks with words, none over another tick or a field${r.over.length ? `: ${r.over.slice(0, 4).join('; ')}` : ''}`);
+  check(r.outside.length === 0, `G4 ${where}: every tick and field inside its own box${r.outside.length ? `: ${r.outside.slice(0, 4).join('; ')}` : ''}`);
   // A real press at each day's centre, then back.
   const days = await page.$$eval('main [data-tick^="day-"]', (els) => els.map((e, i) => ({ i, tick: e.dataset.tick })));
   const wrong = [];
@@ -208,6 +232,39 @@ async function fillRest(page, f, words) {
   }
   await page.click('[data-control="starts"] [data-value="day"]');
   await set(page, '[data-field="rates-day"]', f.day);
+}
+
+/**
+ * G2 (fix 2): Try a stay on the walk plan saved, each short stay the table holds:
+ * the hour was charged as less, and the words say so though the discount and the
+ * fee applied too. In a page of its own, in the owner's language as it stands.
+ */
+async function walkTries(language, words) {
+  const ctx = await browser.newContext({ locale: language === 'es' ? 'es-US' : 'en-US', timezoneId: 'Asia/Tokyo', viewport: { width: 1360, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto(base);
+  await p.waitForSelector('.page-title');
+  await p.fill('input[name="email"]', A.email);
+  await p.fill('input[name="password"]', A.password);
+  await p.click('button[type="submit"]');
+  await p.click(`.garage-choice[data-garage="${WALK.id}"]`);
+  await p.waitForSelector('.nav');
+  await go(p, '#/rates', words['page.rates.title']);
+  const windows = recorded.walk.plan.rules.filter((r) => r.type === 'time_window');
+  for (const [i, stay] of recorded.walk.short.entries()) {
+    const [a] = stub.recordedTry(`a stay tried, the walk plan saved, short stay ${i + 1}`).stays;
+    const line = a.rate_lines.find((l) => l.code === 'time_based_used');
+    const want = fill(words['rates.why.timeLess'], { name: windows.find((r) => r.id === line.rule_id).label, special: moneyText(line.compared_minor, 'USD', language), time: moneyText(a.subtotal_minor, 'USD', language) });
+    await set(p, '[data-field="try-entry"]', stay.entry);
+    await set(p, '[data-field="try-exit"]', stay.exit);
+    // Each try answered afresh: every short stay costs the same, so an old answer would read alike.
+    const [res] = await Promise.all([p.waitForResponse((r) => r.url().endsWith('/rate-plans/try'), { timeout: 5000 }), p.click('[data-action="try-stay"]')]);
+    const priced = res.status() === 200 && (await settles(p, (fee) => document.querySelector('[data-tried="priced"]')?.dataset.fee === fee, String(a.fee_minor)));
+    const said = (await p.textContent('[data-special-words]').catch(() => '')) ?? '';
+    const adjusted = a.rate_lines.filter((l) => l.code === 'time_window.applied').length;
+    check(priced && said.includes(want) && adjusted === 2, `G2 ${language} try a stay on the walk plan, short stay ${i + 1} (${stay.entry}): "${said}"`);
+  }
+  await ctx.close();
 }
 
 try {
@@ -413,6 +470,9 @@ try {
   check(await fits(), '360 px: Setup has no sideways scrolling');
   await page.setViewportSize({ width: 1360, height: 900 });
 
+  // ── G2 (fix 2): Try a stay on the walk plan, a discount and a fee on every stay ──
+  await walkTries('en', EN);
+
   // ── Spanish: the findings and the Open refusal in the other language ────
   await chooseOnSettings(page, 'language', 'es');
   await page.click('.nav-item[href="#/rates"]');
@@ -435,6 +495,15 @@ try {
   await es.waitForSelector('[data-form="change-rates"]');
   await fillForm(es, TABLE_FORM);
   await fillRest(es, TABLE_FORM, ES);
+  // F7 (fix 2): today typed as the start day, and Review pressed for the FIRST time on
+  // this page: the app's own sentence, in Spanish -- never the browser's bubble.
+  await set(es, '[data-field="rates-day"]', today);
+  await es.click('[data-action="review-rates"]');
+  check(
+    (await settles(es, (w) => document.querySelector('[data-problem-at="day"]')?.textContent.includes(w), ES['rates.need.dayAfterToday'])) && !(await es.$('[data-form="review-rates"]')),
+    `F7 es, a fresh page, today typed, the first press of Review: "${ES['rates.need.dayAfterToday']}"`,
+  );
+  await set(es, '[data-field="rates-day"]', TABLE_FORM.day);
   await formTicksHold(es, 'es');
   await es.click('[data-action="review-rates"]');
   await es.click('[data-action="price-table"]');
@@ -443,6 +512,7 @@ try {
   const esLess = fill(ES['rates.why.timeLess'], { name: 'Early bird', time: moneyText(800, 'USD', 'es'), special: moneyText(1500, 'USD', 'es') });
   check(esShort.some((x) => x.includes(esLess)), `E1 es: the table says "${esLess}" (${esShort.find((x) => x.startsWith('Early bird'))})`);
   await confirmTickHolds(es, 'es');
+  await walkTries('es', ES);
 } catch (err) {
   failures.push(`the check stopped: ${err.message}`);
   console.error(err);

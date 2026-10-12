@@ -125,7 +125,7 @@ test('the stand-in answers the rates, the try and the Open button as the platfor
   const stub = await startStub();
   try {
     stub.allowOrigin(ORIGIN);
-    const answers = await recordRates(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans({ buildPlan, startOfDay, tableStays }) });
+    const answers = await recordRates(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans({ buildPlan, startOfDay, tableStays }), rest: async () => stub.forgetTries() });
     assert.deepEqual(answers.map((a) => a.what), recorded.rates_answers.map((a) => a.what));
     for (const [i, real] of recorded.rates_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {

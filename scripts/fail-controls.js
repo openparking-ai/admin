@@ -1518,9 +1518,45 @@ const CONTROLS = [
   },
   {
     check: 'U7g-fix1 E1 the hour charged as less than the special, not said',
-    plant: { file: 'src/rates.js', anchor: "    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {", with: '    if (false) {' },
+    plant: { file: 'src/rates.js', anchor: "      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));", with: '      if (false) parts.push(timeLess(line, rule));' },
     run: ['node', '--test', 'test/rates.test.js'],
     names: ['E1: where the hour is less than the early bird'],
+  },
+  // ── U7g fix 2: the cheaper-way words whatever else applied (G2), the most at equality (G3) ──
+  {
+    check: 'U7g-fix2 G2 the early return put back: the comparison line unread once a discount applied',
+    plant: {
+      file: 'src/rates.js',
+      anchor: '  if (appliedSome) {\n    const parts = [];\n',
+      with: "  if (appliedSome) {\n    const adjusts = lines.filter((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'ADJUST');\n    if (adjusts.length && !lines.some((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'QUALIFY')) return adjusts.map((l) => t('rates.why.applied', { name: name(windowOf(l)) })).join(' ');\n    const parts = [];\n",
+    },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['G2: on the walk plan', 'Early bird fit, but the time-based rate is less'],
+  },
+  {
+    check: 'U7g-fix2 G2 the discounts and increases read before the other lines',
+    plant: { file: 'src/rates.js', anchor: '    for (const line of lines) {\n      const rule = windowOf(line);\n      if (line.code === \'grace.applied\')', with: "    for (const line of [...lines].sort((a, b) => (windowOf(b)?.stage === 'ADJUST') - (windowOf(a)?.stage === 'ADJUST'))) {\n      const rule = windowOf(line);\n      if (line.code === 'grace.applied')" },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['G2: on the walk plan', 'not in the order of the breakdown'],
+  },
+  {
+    check: 'U7g-fix2 G2 the comparison line not read at all when something applied',
+    plant: { file: 'src/rates.js', anchor: "      } else if (line.code === 'time_based_used' && rule) parts.push(timeLess(line, rule));", with: '      }' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['G2: on the walk plan'],
+  },
+  {
+    check: 'U7g-fix2 G3 the most per week said to take over where the charge only EQUALS it',
+    plant: { file: 'src/rates.js', anchor: '(e, m) => afterDay(e, m) > week.max_minor * weeksOf(e, m)', with: '(e, m) => afterDay(e, m) >= week.max_minor * weeksOf(e, m)' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ['the price table tried, hour10-week100-7d: the table recorded is not the one the page builds'],
+  },
+  {
+    check: 'U7g-fix2 G3 the most per day said to take over where the charge only EQUALS it',
+    plant: { file: 'src/rates.js', anchor: '(e, m) => charge(m) > day.max_minor * daysOf(e, m)', with: '(e, m) => charge(m) >= day.max_minor * daysOf(e, m)' },
+    run: ['node', '--test', 'test/rates.test.js'],
+    // The gate's $1 an hour, at most $20 a day lands on the most too, and is read first.
+    names: ['the price table tried, hour1-day20: the table recorded is not the one the page builds'],
   },
   {
     check: "U7g-11 a special's leave-by case dropped from the price table",
@@ -2663,14 +2699,42 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/rates.js', anchor: "  else if (form.starts === 'day' && form.day < firstStartDay(garage, now)) out.day = 'rates.need.dayAfterToday';\n", with: '' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F7 today as the start day', 'FAIL F7 a past day as the start day'],
+    // Since fix 2 the form has noValidate, so under this plant the review opens on
+    // "today" and the past day after it is never typed: today is the line it names.
+    names: ['FAIL F7 today as the start day'],
   },
   {
     check: 'U7g-fix1 E1 the hour charged as less than the special, not said, in a browser',
-    plant: { file: 'src/rates.js', anchor: "    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {", with: '    if (false) {' },
+    plant: { file: 'src/rates.js', anchor: "      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));", with: '      if (false) parts.push(timeLess(line, rule));' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL E1 the table', 'FAIL E1 try a stay'],
+  },
+  // ── U7g fix 2, in a browser: Try a stay on a plan with a discount (G2), ticks in their box (G4), the start day's first press (F7) ──
+  {
+    check: 'U7g-fix2 G2 the early return put back, in a browser: Try a stay on the walk plan',
+    plant: {
+      file: 'src/rates.js',
+      anchor: '  if (appliedSome) {\n    const parts = [];\n',
+      with: "  if (appliedSome) {\n    const adjusts = lines.filter((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'ADJUST');\n    if (adjusts.length && !lines.some((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'QUALIFY')) return adjusts.map((l) => t('rates.why.applied', { name: name(windowOf(l)) })).join(' ');\n    const parts = [];\n",
+    },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL G2 en try a stay on the walk plan, short stay 1', 'FAIL G2 es try a stay on the walk plan, short stay 5'],
+  },
+  {
+    check: "U7g-fix2 G4 a special's days on one line, running off its box at 360 px",
+    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;', with: '.day-ticks {\n  display: flex;\n  flex-wrap: nowrap;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL G4 en, the form, 360 px', 'FAIL G4 es, the form, 360 px'],
+  },
+  {
+    check: "U7g-fix2 F7 the browser's own date check put back: its bubble on the first press",
+    plant: { file: 'src/RatesPage.jsx', anchor: '          className="setup-form"\n          noValidate\n', with: '          className="setup-form"\n' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F7 es, a fresh page, today typed, the first press of Review'],
   },
   {
     check: 'U7g-12 the tick ignored',

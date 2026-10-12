@@ -25,6 +25,8 @@ const answers = await recordRates(PLATFORM, {
   origin: ORIGIN,
   owner: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
   plans: recordedPlans({ buildPlan, startOfDay, tableStays }),
+  // The platform allows 20 tries a minute: wait the minute out.
+  rest: () => new Promise((resolve) => setTimeout(resolve, 61_000)),
 });
 shapes.recorded_from = `${shapes.recorded_from} ${RECORDED_FROM}`;
 shapes.rates_answers = answers;

@@ -786,42 +786,52 @@ export function specialWords(t, stay, plan, language) {
   const rules = plan?.rules ?? [];
   const windows = rules.filter((r) => r.type === 'time_window');
   const name = (rule) => specialName(t, rule, windows.indexOf(rule));
+  const windowOf = (line) => windows.find((r) => r.id === line.rule_id);
   const lines = stay.rate_lines ?? [];
-  const graced = lines.some((l) => l.code === 'grace.applied');
-  if (graced) return t('rates.why.grace');
-  const applied = lines.filter((l) => l.code === 'time_window.applied').map((l) => windows.find((r) => r.id === l.rule_id)).filter(Boolean);
-  const bases = applied.filter((r) => r.stage === 'QUALIFY');
-  const changes = applied.filter((r) => r.stage === 'ADJUST');
-  const parts = [];
-  // Whether the special or the time-based rate was charged, and what the other
-  // would have been: the engine compares them and charges the less.
-  const compared = lines.find((l) => l.code === 'special_used' || l.code === 'time_based_used');
   const money = (minor) => moneyText(minor, plan?.currency, language);
   const charged = stay.subtotal_minor ?? lines.reduce((sum, l) => sum + l.delta_minor, 0);
-  if (bases.length && compared?.code === 'special_used') {
-    parts.push(
-      Number.isInteger(compared.compared_minor)
-        ? t('rates.why.appliedTimeMore', { name: name(bases[0]), time: money(compared.compared_minor) })
-        : t('rates.why.appliedOnly', { name: name(bases[0]) }),
-    );
-  } else if (bases.length) parts.push(t('rates.why.applied', { name: name(bases[0]) }));
-  for (const r of changes) parts.push(t('rates.why.applied', { name: name(r) }));
-  if (parts.length) return parts.join(' ');
-  if (!windows.length) return t('rates.why.noSpecials');
-  // None applied: why, for each special of the plan.
+  // Whether the special or the time-based rate was charged, and what the other
+  // would have been: the engine compares them and charges the less.
+  const used = lines.find((l) => l.code === 'special_used');
+  const timeLess = (line, rule) => t('rates.why.timeLess', { name: name(rule), special: money(line.compared_minor), time: money(charged) });
+  const capWords = (line) => (line.code === 'daily_max.applied' ? t('rates.why.dayMax') : line.code === 'weekly_max.applied' ? t('rates.why.weekMax') : null);
+  // Every line of the breakdown that has words, in the breakdown's order, and
+  // none of them left out because another is there: a special or grace that
+  // applied, a discount or increase, the most a day or a week, and the line
+  // saying the time-based rate was less.
+  const appliedSome = lines.some((l) => l.code === 'grace.applied' || (l.code === 'time_window.applied' && windowOf(l)));
+  if (appliedSome) {
+    const parts = [];
+    for (const line of lines) {
+      const rule = windowOf(line);
+      if (line.code === 'grace.applied') parts.push(t('rates.why.grace'));
+      else if (line.code === 'time_window.applied' && rule) {
+        if (rule.stage === 'QUALIFY' && used?.rule_id === rule.id) {
+          parts.push(Number.isInteger(used.compared_minor) ? t('rates.why.appliedTimeMore', { name: name(rule), time: money(used.compared_minor) }) : t('rates.why.appliedOnly', { name: name(rule) }));
+        } else parts.push(t('rates.why.applied', { name: name(rule) }));
+      } else if (line.code === 'time_based_used' && rule) parts.push(timeLess(line, rule));
+      else if (capWords(line)) parts.push(capWords(line));
+    }
+    return parts.join(' ');
+  }
+  // None applied: why, for each special of the plan, in the breakdown's order
+  // (the engine's line for each), then any the breakdown does not mention.
   const entry = stay.entry;
   const exit = stay.exit;
-  const reasons = windows.map((r) => {
-    if (compared?.code === 'time_based_used' && compared.rule_id === r.id) {
-      return t('rates.why.timeLess', { name: name(r), special: money(compared.compared_minor), time: money(charged) });
-    }
-    const resolved = lines.find((l) => l.code === 'resolved' && l.rule_id === r.id);
-    if (resolved) return t('rates.why.cheaper', { name: name(r) });
-    // Fit, and lost to a cheaper special the time-based rate then also beat.
-    if (compared?.code === 'time_based_used' && r.stage === 'QUALIFY' && missed(r, entry, exit) === 'notFit') return t('rates.why.cheaper', { name: name(r) });
-    return t(`rates.why.${missed(r, entry, exit)}`, { name: name(r), day: entry ? dayName(weekdayOf(entry.slice(0, 10)), language) : '' });
-  });
-  return `${t('rates.why.none')} ${reasons.join(' ')}`;
+  const parts = [t(windows.length ? 'rates.why.none' : 'rates.why.noSpecials')];
+  const spoken = new Set();
+  const reason = (r) => t(`rates.why.${missed(r, entry, exit)}`, { name: name(r), day: entry ? dayName(weekdayOf(entry.slice(0, 10)), language) : '' });
+  for (const line of lines) {
+    const rule = windowOf(line);
+    if (rule && !spoken.has(rule.id)) {
+      spoken.add(rule.id);
+      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));
+      else if (line.code === 'resolved') parts.push(t('rates.why.cheaper', { name: name(rule) }));
+      else parts.push(reason(rule));
+    } else if (capWords(line)) parts.push(capWords(line));
+  }
+  for (const r of windows) if (!spoken.has(r.id)) parts.push(reason(r));
+  return parts.join(' ');
 }
 
 /**

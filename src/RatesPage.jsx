@@ -419,8 +419,12 @@ function ChangeRates({ t, language, client, garage, spaceClass, from, taxNames, 
           </button>
         </div>
         {from ? <p className="quiet">{t('rates.formCopy')}</p> : null}
+        {/* noValidate: the form says what is wrong itself, in the owner's language
+            (the start day among it); the browser's own bubble would stop the first
+            press before it could (U7g fix 2, F7). */}
         <form
           className="setup-form"
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             setTried(true);

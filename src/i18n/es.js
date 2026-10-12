@@ -1755,6 +1755,8 @@ export default {
   "rates.why.tooLate": "{name}: entró después de Entrar hasta.",
   "rates.why.leftLate": "{name}: salió después de Salir a más tardar.",
   "rates.why.notFit": "{name} no servía para esta estadía.",
+  "rates.why.dayMax": "Se cobró el máximo por día.",
+  "rates.why.weekMax": "Se cobró el máximo por semana.",
   "rates.review": "Revise las tarifas nuevas",
   "rates.review.sentences": "Las tarifas nuevas",
   "rates.review.startsNow": "Empiezan en cuanto usted confirme.",
