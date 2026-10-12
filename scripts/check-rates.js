@@ -417,6 +417,8 @@ async function nothingPrefilled(page, within, where, words) {
 
 /** Item 11 / check 9: each set of rates listed names who saved and confirmed it, and when -- its own change-log line. */
 async function saversHold(page, where) {
+  // The change log is read after the rates: wait for each set of rates to say who saved it.
+  await settles(page, (n) => document.querySelectorAll('[data-saved-at]').length === n, stub.rateRows(RIVERSIDE.id).length);
   const shownBy = await page.$$eval('[data-saved-by]', (els) => els.map((e) => ({ version: e.dataset.planVersion, name: e.dataset.savedBy, at: e.dataset.savedAt, text: e.textContent })));
   const rows = stub.rateRows(RIVERSIDE.id);
   const log = stub.lines(A).filter((l) => l.action === 'rate_plan.add');
@@ -642,8 +644,13 @@ try {
   check(sentEarly && regularRules(sentEarly.plan) === regularRules(stored1), '4 a special saved: the regular rates byte for byte as stored');
   check(sentEarly && sentEarly.stays.length === recorded.u7i.stays.early.length, `4 the table prices the rates whole: the early bird's rows are in it (${sentEarly?.stays.length} stays)`);
   await page.click('[data-tick="checked-prices"]');
+  // The change log read slowly (CI, 2026-10-12): the rates just saved are never said to be missing from it.
+  stub.delayChanges(1500);
   await page.click('[data-action="confirm-rates"]');
   check(await settles(page, () => document.querySelectorAll('[data-section="later"] [data-plan="later"]').length === 2), 'saved: two sets of rates starting later');
+  const tooSoon = await page.$$eval('[data-saved-by="unknown"]', (els) => els.length);
+  stub.delayChanges(0);
+  check(tooSoon === 0, `9 a save just made, its change log still being read: no set of rates said to be missing from it (${tooSoon})`);
 
   // ── The weekend added: the table form's rates, whole ───────────────────
   await page.click('[data-action="add-special"]');

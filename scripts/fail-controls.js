@@ -2681,7 +2681,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7g-fix1 F2 two days of a special drawn over each other',
-    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick + .tick {\n  margin-left: -40px;\n}' },
+    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick-row + .tick-row {\n  margin-left: -40px;\n}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL F2 en, a new special, 1280 px', 'days\' centres ticks that day'],
@@ -2857,6 +2857,13 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 9 after three saves'],
+  },
+  {
+    check: 'U7i-9 who saved: "not in the change log" said before the log is read for the rates just saved',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  return { by: state.by, read: state.for === wanted, refresh };', with: '  return { by: state.by, read: state.for !== null, refresh };' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 9 a save just made, its change log still being read'],
   },
   {
     check: 'U7i-10 a locked button without its reason',

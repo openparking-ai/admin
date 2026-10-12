@@ -255,7 +255,8 @@ const SAVER_PAGES = 40;
  * plan_version }]`. By plan version: `{ name, kind, at, confirmed }`, or absent.
  */
 function useSavers(client, garage, saved) {
-  const [state, setState] = useState({ by: {}, read: false });
+  // `for`: the sets of rates the lookup was made for; until it is the current ones, nothing is said.
+  const [state, setState] = useState({ by: {}, for: null });
   const [attempt, setAttempt] = useState(0);
   const wanted = useMemo(() => (saved ?? []).map((s) => `${s.id}:${s.plan_version}`).join(), [saved]);
   useEffect(() => {
@@ -275,21 +276,22 @@ function useSavers(client, garage, saved) {
         if (!out.next) break;
         after = out.next;
       }
-      if (live) setState({ by, read: true });
-    })().catch(() => live && setState({ by: {}, read: true }));
+      if (live) setState({ by, for: wanted });
+    })().catch(() => live && setState({ by: {}, for: wanted }));
     return () => {
       live = false;
     };
     // `wanted` stands for `saved`: the same sets of rates are not looked up again.
   }, [client, garage.id, wanted, attempt]);
   const refresh = useCallback(() => setAttempt((n) => n + 1), []);
-  return { ...state, refresh };
+  return { by: state.by, read: state.for === wanted, refresh };
 }
 
 /** "Saved and confirmed by Pat on Oct 12, 2026, 2:10 PM", from the change log. */
 function SavedBy({ t, language, garage, savers, plan }) {
-  if (!savers.read) return null;
   const s = savers.by[plan.plan_version];
+  // Not found is said only once the lookup is for these very rates: a save just made is looked up first.
+  if (!s && !savers.read) return null;
   if (!s) {
     return (
       <p className="quiet saved-by" data-saved-by="unknown" data-plan-version={plan.plan_version}>

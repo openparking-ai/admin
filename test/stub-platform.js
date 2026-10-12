@@ -1029,6 +1029,8 @@ export async function startStub({ port = 0 } = {}) {
         if (m[3]) return answer(res, 404, { error: 'not found' });
         return answer(res, 200, { setup: checklist(who, garage) });
       }
+      // U7i: the change log read held back on request, so a check can see the page while it waits.
+      if (changesDelay && m[2] === 'changes') await new Promise((resolve) => setTimeout(resolve, changesDelay));
       const outcome = m[2] === 'changes' ? 'done' : 'refused';
       const mine = linesOf(who).filter((l) => (l.garage_id === garage.id || l.garage_id === null) && l.outcome === outcome);
       const all = mine.slice().reverse();
@@ -1620,6 +1622,7 @@ export async function startStub({ port = 0 } = {}) {
 
   let gapNext = false;
   let tryDelay = 0;
+  let changesDelay = 0;
   const openingOverride = new Map();
 
   async function rateRoutes(req, res, path, who) {
@@ -2074,6 +2077,10 @@ export async function startStub({ port = 0 } = {}) {
     /** U7i: every try answered `ms` late from now on (0: at once). */
     delayTries: (ms) => {
       tryDelay = ms;
+    },
+    /** U7i: every change-log read answered `ms` late from now on (0: at once). */
+    delayChanges: (ms) => {
+      changesDelay = ms;
     },
     /** U7i: every set of rates stored on a garage, as rows: `{ id, plan_version }`. */
     rateRows: (garageId) => plansOf(garageId).map((r) => ({ id: r.id, plan_version: r.plan_version })),
