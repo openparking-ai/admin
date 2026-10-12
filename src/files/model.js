@@ -18,7 +18,8 @@
 import { insideWords } from '../inside.js';
 import { directionKey, openText } from '../lanes.js';
 import { changeText, piecesText, timesWords, whatPieces, whoPieces, whyWords } from '../changes.js';
-import { garageDateTime, garageTime, heardFrom } from '../time.js';
+import { garageDateTime, garageTime, heardFrom, localSaid } from '../time.js';
+import { arrange, caseWords, findingWords, lengthWords, moneyText, planSentences, specialWords } from '../rates.js';
 import { alertNames, canEmail, canText, languageWords } from '../alerts.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
@@ -76,6 +77,23 @@ export const COLUMNS = {
     { key: 'refused.last', width: 0.17 },
   ],
   // U6: the lane and the reader as typed, each time as "Mar 10, 2026, 3:41 PM", and "Sigue conectado".
+  // U7g: each thing a set of rates charges, one row each, with when they start.
+  rates: [
+    { key: 'rates.col.starts', width: 0.22 },
+    { key: 'rates.col.state', width: 0.16 },
+    { key: 'rates.charges', width: 0.62 },
+  ],
+  // U7g: the price table, as priced when Download was clicked.
+  priceTable: [
+    { key: 'rates.table.cameIn', width: 0.13 },
+    { key: 'rates.table.left', width: 0.13 },
+    { key: 'rates.table.length', width: 0.1 },
+    { key: 'rates.table.rate', width: 0.09 },
+    { key: 'rates.table.tax', width: 0.09 },
+    { key: 'rates.table.pays', width: 0.09 },
+    { key: 'rates.table.special', width: 0.21 },
+    { key: 'rates.table.test', width: 0.16 },
+  ],
   readers: [
     { key: 'readers.histLane', width: 0.26 },
     { key: 'readers.histReader', width: 0.26 },
@@ -112,6 +130,7 @@ const time = (value, garage, language) => ({
 
 /** A list's title: its page's, or for the refused attempts, their own section's. */
 const titleOf = (t, list) => (list === 'refused' ? t('refused.title') : t(`page.${list}.title`));
+
 
 function head(t, list, garage, language, readAt) {
   return {
@@ -303,7 +322,49 @@ export function readersFile({ t, language, garage, data, readAt }) {
   };
 }
 
-export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile, readers: readersFile };
+/**
+ * U7g: the garage's rates. One row per thing each set charges, in plain
+ * sentences: the ones that start later, the ones in force, then the earlier
+ * ones -- each with when it starts, in the garage's time.
+ */
+export function ratesFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'rates', garage, language, readAt);
+  const { current, later, earlier } = arrange(data.plans, readAt);
+  const groups = [...later.map((p) => [p, 'later']), ...(current ? [[current, 'current']] : []), ...earlier.map((p) => [p, 'earlier'])];
+  const rows = groups.flatMap(([plan, state]) =>
+    planSentences(t, plan, language).map((s) => [
+      time(plan.effective_from, garage, language),
+      { text: t(`rates.state.${state}`) },
+      { text: s.name ? `${s.name} — ${s.text}` : s.text },
+    ]),
+  );
+  return { list: 'rates', title, garage: garage.name, lines, columns: columnsOf(t, 'rates'), rows, empty: rows.length === 0 ? t('rates.none') : null };
+}
+
+/** U7g: the price table, one row per example stay, as the platform priced it when Download was clicked. */
+export function priceTableFile({ t, language, garage, data, readAt }) {
+  const { title, lines } = head(t, 'priceTable', garage, language, readAt);
+  const money = (minor) => moneyText(minor, garage.currency, language);
+  const answerOf = (key) => data.rows.find((r) => r.why.key === key)?.answer;
+  const rows = data.rows.map((row) => {
+    const a = row.answer;
+    const priced = a && !a.refused;
+    const tax = priced ? (a.tax_lines ?? []).reduce((sum, l) => sum + l.delta_minor, 0) : null;
+    return [
+      { text: localSaid(row.entry, language) ?? row.entry },
+      { text: localSaid(row.exit, language) ?? row.exit },
+      { text: lengthWords(t, a?.minutes ?? 0) },
+      { text: priced ? money(a.subtotal_minor) : t('rates.table.noPrice') },
+      { text: priced ? (a.taxes_stated === false ? t('rates.table.noTax') : money(tax)) : NOTHING },
+      { text: priced ? money(a.fee_minor) : t('rates.table.noPrice') },
+      { text: priced ? specialWords(t, { ...a, entry: row.entry, exit: row.exit }, data.plan, language) : (a?.findings ?? []).map((f) => findingWords(t, f, data.plan, garage.timezone, language)).join(' ') },
+      { text: caseWords(t, row, a, answerOf) },
+    ];
+  });
+  return { list: 'priceTable', title, garage: garage.name, lines, columns: columnsOf(t, 'priceTable'), rows, empty: rows.length === 0 ? t('rates.table.notPriced') : null };
+}
+
+export const FILES = { inside: insideFile, lanes: lanesFile, changes: changesFile, refused: refusedFile, alerts: alertsFile, readers: readersFile, rates: ratesFile, priceTable: priceTableFile };
 
 // Characters a computer refuses in a file name, and control characters.
 const REFUSED_IN_NAMES = /[/\\:*?"<>|\p{Cc}\p{Cf}]/gu;

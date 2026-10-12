@@ -31,7 +31,7 @@ export default function SetupPage({ t, language, client, garage }) {
       </p>
       <ol className="setup-steps">
         {steps.map((step) => (
-          <li key={step.key} className="setup-step" data-step={step.key} data-done={step.done ? 'yes' : 'no'}>
+          <li key={step.key} id={`setup-step-${step.key}`} className="setup-step" data-step={step.key} data-done={step.done ? 'yes' : 'no'}>
             <div className="setup-step-head">
               <h3 className="setup-step-name">
                 <FieldName t={t} name={`setup.step.${step.key}`} />
@@ -41,7 +41,7 @@ export default function SetupPage({ t, language, client, garage }) {
               </span>
             </div>
             <ul className="setup-facts">
-              {factLines(t, step, garage, language, now).map((line, i) => (
+              {(step.key === 'open' && !setup.data.open && (step.facts?.not_done ?? []).length ? [] : factLines(t, step, garage, language, now)).map((line, i) => (
                 <li key={i}>
                   {line.text}
                   {line.names ? (
@@ -54,6 +54,7 @@ export default function SetupPage({ t, language, client, garage }) {
               ))}
             </ul>
             <Where t={t} step={step} />
+            {step.key === 'open' && !setup.data.open ? <OpenGarage t={t} client={client} garage={garage} notDone={step.facts?.not_done ?? []} onOpened={setup.retry} onRefused={setup.refresh} /> : null}
             {step.key === 'drivers' ? (
               <Opens t={t} opener={step.facts?.transient_available === undefined || step.facts?.transient_available === null ? 'setup.drivers.answer' : 'setup.drivers.change'} action="open-drivers">
                 {(close) => <DriversQuestion t={t} client={client} garage={garage} answered={step.facts?.transient_available ?? null} onSaved={setup.retry} onClose={close} />}
@@ -161,6 +162,105 @@ function TailgaterQuestion({ t, client, garage, was, onSaved, onClose }) {
       </div>
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
     </form>
+  );
+}
+
+/**
+ * Where a step that is still missing is done: its page, or its place on this
+ * page (the drivers answer).
+ */
+function StepLink({ t, stepKey }) {
+  const where = WHERE[stepKey] ?? {};
+  const words = t('setup.open.goTo', { step: t(`setup.step.${stepKey}`) });
+  if (where.page) {
+    const page = PAGES.find((p) => p.id === where.page);
+    return (
+      <a href={hashFor(page)} data-go={page.id} data-missing={stepKey}>
+        {words}
+      </a>
+    );
+  }
+  return (
+    <button type="button" className="link-button" data-missing={stepKey} onClick={() => document.getElementById(`setup-step-${stepKey}`)?.scrollIntoView({ block: 'start' })}>
+      {words}
+    </button>
+  );
+}
+
+/**
+ * U7g: Open the garage. Shown while it is not open; pressable only when
+ * nothing is missing (the platform's `not_done`, the list its Open refuses
+ * on); otherwise it lists what is missing, each going to where it is done.
+ * Pressing it asks once -- once open, it stays open -- and a refusal lists,
+ * in plain words, what the platform says is still missing.
+ */
+/**
+ * The Open button, and what is still missing, said ONCE: the open step shows
+ * no fact line of its own while this list is shown. A refused Open reads Setup
+ * again, so the checklist above says what the refusal says (U7g fix 1, F3).
+ */
+function OpenGarage({ t, client, garage, notDone, onOpened, onRefused }) {
+  const [asking, setAsking] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [problem, setProblem] = useState(null);
+  const [refusedOn, setRefusedOn] = useState(null);
+  const missing = refusedOn ? [...new Set([...notDone, ...refusedOn])] : notDone;
+
+  const open = async () => {
+    setOpening(true);
+    setProblem(null);
+    try {
+      await client.openGarage(garage.id);
+      onOpened();
+    } catch (p) {
+      if (p.kind === STALE || p.kind === 'ended') return;
+      if (p.kind === 'notReadyToOpen') {
+        // The list below is the message; Setup is read again so the steps above agree with it.
+        setRefusedOn(p.unmet ?? []);
+        await onRefused().catch(() => {});
+      } else setProblem(p.kind);
+      setAsking(false);
+      setOpening(false);
+    }
+  };
+
+  return (
+    <div className="open-garage no-print" data-section="open-garage">
+      {missing.length ? (
+        <div data-notice={refusedOn ? 'open-refused' : 'open-missing'}>
+          <p>{refusedOn ? t('setup.open.refused') : t('setup.open.missing')}</p>
+          <ul className="setup-facts">
+            {missing.map((k) => (
+              <li key={k} data-still-missing={k}>
+                <StepLink t={t} stepKey={k} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {asking ? (
+        <div className="setup-question" data-question="open">
+          <p className="warning" data-notice="open-stays-open">
+            {t('setup.open.confirm')}
+          </p>
+          <div className="lane-actions">
+            <button type="button" className="primary-button" data-action="open-yes" disabled={opening} onClick={open}>
+              {opening ? t('setup.open.opening') : t('setup.open.yes')}
+            </button>
+            <button type="button" className="link-button" data-action="open-no" disabled={opening} onClick={() => setAsking(false)}>
+              {t('setup.open.no')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="opens">
+          <button type="button" className="primary-button" data-action="open-garage" disabled={missing.length > 0} aria-disabled={missing.length > 0} onClick={() => setAsking(true)}>
+            {t('setup.open.button')}
+          </button>
+        </p>
+      )}
+      {problem ? <ProblemNote t={t} kind={problem} /> : null}
+    </div>
   );
 }
 

@@ -50,6 +50,7 @@ const PAGE_OF = {
   'SettingsPage.jsx': 'page.settings.title',
   'GaragesPage.jsx': 'page.garages.title',
   'BannedPage.jsx': 'page.banned.title',
+  'RatesPage.jsx': 'page.rates.title',
   // U7d-2: the screens an emailed link or a forgotten password opens.
   'InviteScreen.jsx': 'invite.title',
   'ForgotScreen.jsx': 'forgot.title',

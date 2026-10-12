@@ -33,8 +33,9 @@ const first = (language, query) => search(buildIndex(language), query)[0];
 test('the other words a person might type', () => {
   assert.equal(first('en', 'tax').id, 'taxes');
   assert.equal(first('es', 'impuestos').id, 'taxes');
-  assert.equal(first('en', 'monthly rate').id, 'rates');
-  assert.equal(first('es', 'tarifa mensual').id, 'rates');
+  // U7g: Rates holds what a driver pays to park; monthly prices stay with monthly billing.
+  assert.equal(first('en', 'early bird').id, 'rates');
+  assert.equal(first('es', 'tarifa especial').id, 'rates');
   assert.equal(first('en', 'payout').id, 'paid');
   assert.equal(first('es', 'deposito').id, 'paid');
   assert.equal(first('en', 'dark').id, 'night');

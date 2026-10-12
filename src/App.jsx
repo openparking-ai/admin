@@ -21,6 +21,7 @@ import ChangesPage from './ChangesPage.jsx';
 import AlertsPage from './AlertsPage.jsx';
 import DrawingsPage from './DrawingsPage.jsx';
 import TaxesPage from './TaxesPage.jsx';
+import RatesPage from './RatesPage.jsx';
 import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
@@ -29,7 +30,7 @@ import BannedPage from './BannedPage.jsx';
 // Home, Garages and Settings are drawn apart: Home and Garages list every garage, and Settings is about these pages, not a garage.
 const PAGE_BODIES = {
   setup: SetupPage, lanes: LanesPage, inside: InsidePage, changes: ChangesPage, alerts: AlertsPage, drawings: DrawingsPage,
-  taxes: TaxesPage, paid: GettingPaidPage, readers: CardReadersPage, banned: BannedPage,
+  rates: RatesPage, taxes: TaxesPage, paid: GettingPaidPage, readers: CardReadersPage, banned: BannedPage,
 };
 
 /** The page in the address; a page's old address is put right, in place (U7a: Garage View). */

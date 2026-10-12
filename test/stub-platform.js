@@ -83,6 +83,10 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { CURRENCY_CODES } from '../src/garages.js';
+import { readFileSync } from 'node:fs';
+import { buildPlan, tableStays } from '../src/rates.js';
+import { startOfDay } from '../src/taxes.js';
+import { recordedPlans } from './rates-forms.js';
 
 const MINUTE = 60_000;
 
@@ -960,7 +964,8 @@ export async function startStub({ port = 0 } = {}) {
       { key: 'drivers', done: extra.transient_available !== null, facts: { transient_available: extra.transient_available } },
       { key: 'lanes', done: entry.length > 0 && exit.length > 0, facts: { entry_lanes: entry.length, exit_lanes: exit.length, closed_lanes: lanes.filter((l) => l.closed).map(laneLine) } },
       { key: 'lane_computers', done: lanes.length > 0 && computers.every((c) => c.state === 'working'), facts: { quiet_minutes: quiet, lanes: lanes.length, working: computers.filter((c) => c.state === 'working').length, not_working: computers.filter((c) => c.state !== 'working') } },
-      { key: 'rates', done: extra.rates.in_force > 0, facts: extra.rates },
+      // U7g: from the rates stored here, once there are any; before, as the check set them.
+      { key: 'rates', done: (ratesFacts(garage.id) ?? extra.rates).in_force > 0, facts: ratesFacts(garage.id) ?? extra.rates },
     ];
     // U6: the taxes and the account as the stand-in holds them, read as the platform's activation readout reads them.
     const held = moneyOf(garage.id);
@@ -979,10 +984,15 @@ export async function startStub({ port = 0 } = {}) {
     const told = ALERT_KEYS.map((key) => ({ key, by_text: people.filter((p) => p.by_text.includes(key)).length, by_email: people.filter((p) => p.by_email.includes(key)).length }));
     steps.push({ key: 'alerts', done: told.every((a) => a.by_text + a.by_email > 0), facts: { people: people.length, alerts: told, nobody_told: told.filter((a) => a.by_text + a.by_email === 0).map((a) => a.key) } });
     const open = extra.opened_at !== null;
-    steps.push({ key: 'open', done: open, facts: { open, opened_at: extra.opened_at, required_missing: Object.keys(gate).filter((k) => !gate[k]), not_done: notDone } });
+    steps.push({ key: 'open', done: open, facts: { open, opened_at: extra.opened_at, required_missing: Object.keys(gate).filter((k) => !gate[k]), not_done: openingOverride?.get(garage.id)?.shown ?? notDone } });
     // Asked for by a check: every step's `done` the opposite of what its facts
     // would suggest, so a page that worked a step out for itself shows it.
     if (flipped) for (const st of steps) st.done = !st.done;
+    // A step that went undone while the owner pressed Open (`openingAs` with `goesUndone`).
+    // Every step done but opening (`openingAs` with `allDone`), as the gate's walk had it.
+    if (openingOverride?.get(garage.id)?.allDone) for (const st of steps) if (st.key !== 'open') st.done = true;
+    const undone = openingOverride?.get(garage.id)?.undone ?? [];
+    for (const st of steps) if (undone.includes(st.key)) st.done = false;
     return { garage_id: garage.id, open, takes_any_driver: extra.transient_available, steps };
   }
 
@@ -1499,6 +1509,193 @@ export async function startStub({ port = 0 } = {}) {
     return { before, after: { ...side } };
   };
 
+  // ── U7g ───────────────────────────────────────────────────────────────────
+  // Rates, trying a stay, and opening the garage, as the platform's
+  // src/ratePlans.js and its routes answer them. The stand-in has no rate
+  // engine: what the engine said -- each price, and whether rates can be
+  // saved -- is REPLAYED from test/platform-shapes.json (`rates_answers`),
+  // recorded from the platform with the engine at its pin, for exactly the
+  // rates and stays recorded (test/rates-forms.js builds them with the page's
+  // own buildPlan). Rates or stays not recorded have no answer here, and say
+  // so as the platform says the engine is away.
+  const RECORDED = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).rates_answers ?? [];
+  const recordedAnswer = (what) => RECORDED.find((a) => a.what === what);
+  const rateSent = recordedPlans({ buildPlan, startOfDay, tableStays });
+  /** Rates as the engine judges them: all but the name and the start, which it does not read to find a gap. */
+  const engineKey = (plan) => {
+    const rest = { ...plan };
+    delete rest.plan_version;
+    delete rest.effective_from;
+    return JSON.stringify(rest);
+  };
+  const withoutName = (plan) => {
+    const rest = { ...plan };
+    delete rest.plan_version;
+    return rest;
+  };
+  /** What the engine said of each set of rates rateSent: whole, or its findings (the recorded 409). */
+  const JUDGED = new Map([
+    ...rateSent.forms.map((f) => [engineKey(f.plan), null]),
+    [engineKey(rateSent.table.plan), null],
+    [engineKey(rateSent.gap), recordedAnswer('rates saved, with a gap')?.body ?? null],
+    ...rateSent.maxes.map((m) => [engineKey(m.plan), null]),
+    [engineKey(rateSent.walk.plan), null],
+  ]);
+  /** Each recorded try: what was rateSent (the stored rates, the draft, the stays) and what came back. */
+  const tryKey = (stored, draft, stays) => JSON.stringify({ stored: stored.map(withoutName), draft: draft ? withoutName(draft) : null, stays });
+  const formsStored = rateSent.forms.map((f) => f.plan);
+  const TRIED = new Map();
+  const tried = (what, stored, draft, stays) => {
+    const a = recordedAnswer(what);
+    if (a) TRIED.set(tryKey(stored, draft, stays), a.structure);
+  };
+  rateSent.forms.forEach((f, i) => tried(`a stay tried, form ${f.id}`, formsStored.slice(0, i), f.plan, [f.stay]));
+  tried('a stay tried, on the rates saved', formsStored, null, rateSent.forms.map((f) => f.stay));
+  tried('the price table tried', formsStored, rateSent.table.plan, rateSent.table.stays);
+  tried('the price table tried, with a stay of its own', formsStored, rateSent.table.plan, [...rateSent.table.stays, rateSent.table.added]);
+  // A fresh garage (the browser check's) tries the table with nothing stored: the same prices,
+  // as nothing stored starts on or before the table's own start.
+  tried('the price table tried', [], rateSent.table.plan, rateSent.table.stays);
+  tried('the price table tried, with a stay of its own', [], rateSent.table.plan, [...rateSent.table.stays, rateSent.table.added]);
+  tried('a stay tried, rates with a gap', [...formsStored, rateSent.table.plan], rateSent.gap, rateSent.gapStays);
+  // The browser check's own try, on the table's form: as a draft on a garage with nothing stored, and as the rates stored.
+  tried('a stay tried, the price table form', formsStored, rateSent.table.plan, [rateSent.table.added]);
+  tried('a stay tried, the price table form', [], rateSent.table.plan, [rateSent.table.added]);
+  tried('a stay tried, the price table form', [rateSent.table.plan], null, [rateSent.table.added]);
+  tried('a stay tried, less by the hour', [rateSent.table.plan], null, [rateSent.table.short]);
+  tried('a stay tried, less by the hour', [...formsStored, rateSent.table.plan], null, [rateSent.table.short]);
+  // U7g fix 1, F1: the gate's three plans, as drafts beside the forms stored when they were recorded.
+  for (const m of rateSent.maxes.filter((x) => !x.late)) tried(`the price table tried, ${m.id}`, formsStored, m.plan, m.stays);
+  // U7g fix 2: the equal-most plans and the walk plan, tried after the table's rates were saved;
+  // and Try a stay on a garage holding only the walk plan.
+  for (const m of rateSent.maxes.filter((x) => x.late)) tried(`the price table tried, ${m.id}`, [...formsStored, rateSent.table.plan], m.plan, m.stays);
+  tried('the price table tried, the walk plan', [...formsStored, rateSent.table.plan], rateSent.walk.plan, rateSent.walk.stays);
+  rateSent.walk.short.forEach((stay, i) => tried(`a stay tried, the walk plan saved, short stay ${i + 1}`, [rateSent.walk.plan], null, [stay]));
+
+  const ENGINE_AWAY_PLAN = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates); the plan was not stored', code: 'rate_engine_unavailable' };
+  const ENGINE_AWAY_TRY = { error: 'the rate engine at the stand-in could not be reached (no recorded answer for these rates and stays); nothing was priced', code: 'rate_engine_unavailable' };
+  const plansHeld = new Map(); // garage id -> stored plans, as the platform presents them
+  const plansOf = (garageId) => {
+    if (!plansHeld.has(garageId)) plansHeld.set(garageId, []);
+    return plansHeld.get(garageId);
+  };
+  const tries = new Map(); // owner -> times of their tries, the last minute
+  let planN = 0;
+  const LOCAL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+  /** A stay's time as the platform's src/garageTime.js reads it, or its sentence. */
+  function stayTime(local, label) {
+    if (typeof local !== 'string' || !LOCAL_TIME.test(local)) return `${label} is a date and time in the garage's own time, written YYYY-MM-DDTHH:MM, not ${JSON.stringify(local)}`;
+    const m = LOCAL_TIME.exec(local);
+    if (new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])).toISOString().slice(0, 16) !== local) return `${label} ${local} is not a real date and time`;
+    return null;
+  }
+  /** The rates step as the platform reads it: plans stored, in force now, and the earliest start. */
+  const ratesFacts = (garageId) => {
+    const held = plansOf(garageId);
+    if (!held.length) return null;
+    const now = Date.now();
+    const starts = held.map((p) => Date.parse(p.effective_from));
+    return { stored: held.length, in_force: starts.filter((t) => t <= now).length, earliest: new Date(Math.min(...starts)).toISOString() };
+  };
+
+  let gapNext = false;
+  const openingOverride = new Map();
+
+  async function rateRoutes(req, res, path, who) {
+    const m = /^\/api\/v1\/garages\/([^/]+)\/(rate-plans|rate-plans\/try|activate)$/.exec(path);
+    if (!m || !(req.method === 'POST' || (req.method === 'GET' && m[2] === 'rate-plans'))) return undefined;
+    const garage = who.garages.find((g) => g.id === m[1]);
+    const at = { garageId: garage?.id ?? null, action: m[2] === 'activate' ? 'garage.open' : 'rate_plan.add', subject: garage ? { kind: 'garage', id: garage.id, name: garage.name } : { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' };
+
+    if (req.method === 'GET') {
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      return answer(res, 200, { rate_plans: [...plansOf(garage.id)].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from) || a.plan_version.localeCompare(b.plan_version)), space_class: 'standard' });
+    }
+    const body = (await readBody(req)) ?? {};
+
+    if (m[2] === 'activate') {
+      if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, at);
+      const extra = setups[garage.id];
+      if (extra?.opened_at) return answer(res, 200, { garage: { ...garage, activated_at: extra.opened_at }, activated: false });
+      const unmet = openingOverride.get(garage.id)?.refuse ?? openingOverride.get(garage.id)?.shown ?? checklist(who, garage).steps.find((st) => st.key === 'open').facts.not_done;
+      if (unmet.length) {
+        // The step that went undone is what Setup says from now on, as the platform's own read would.
+        const override = openingOverride.get(garage.id);
+        if (override?.goesUndone) openingOverride.set(garage.id, { ...override, shown: unmet, undone: unmet });
+        return refuse(res, who, 409, { error: `the garage cannot open yet; these setup steps are not done: ${unmet.join(', ')}`, code: 'garage_not_activatable', details: { unmet } }, at);
+      }
+      extra.opened_at = new Date().toISOString();
+      garage.live = true;
+      line(who, { garageId: garage.id, action: 'garage.open', subject: at.subject, before: { open: false }, after: { open: true } });
+      return answer(res, 201, { garage: { ...garage, activated_at: extra.opened_at }, activated: true });
+    }
+
+    if (m[2] === 'rate-plans/try') {
+      const stamp = Date.now();
+      const mine = (tries.get(who.email) ?? []).filter((t) => stamp - t < 60_000);
+      if (mine.length >= 20) {
+        tries.set(who.email, mine);
+        return answer(res, 429, { error: 'at most 20 tries a minute; wait a minute and try again', code: 'too_many_tries' });
+      }
+      tries.set(who.email, [...mine, stamp]);
+      const draft = body.plan === undefined ? null : body.plan;
+      if (draft !== null && (!draft || typeof draft !== 'object' || Array.isArray(draft))) return answer(res, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' });
+      if (!Array.isArray(body.stays) || body.stays.length < 1 || body.stays.length > 100) return answer(res, 400, { error: "stays is a list of 1 to 100 stays, each { entry, exit } in the garage's own time" });
+      if (draft !== null && !JUDGED.has(engineKey(draft))) return answer(res, 503, ENGINE_AWAY_TRY);
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      for (const [i, stay] of body.stays.entries()) {
+        if (!stay || typeof stay !== 'object' || Array.isArray(stay)) return answer(res, 400, { error: `stays[${i}] is { entry, exit }, each a date and time in the garage's own time` });
+        const wrong = stayTime(stay.entry, `stays[${i}].entry`) ?? stayTime(stay.exit, `stays[${i}].exit`);
+        if (wrong) return answer(res, 400, { error: wrong });
+        if (stay.exit < stay.entry) return answer(res, 400, { error: `stays[${i}] leaves (${stay.exit}) before it came in (${stay.entry})` });
+      }
+      const stored = [...plansOf(garage.id)].sort((a, b) => Date.parse(a.effective_from) - Date.parse(b.effective_from)).map((r) => r.plan);
+      if (!stored.length && draft === null) return answer(res, 409, { error: 'this garage has no rates yet: send the draft as plan to try it', code: 'no_rate_plan' });
+      const priced = TRIED.get(tryKey(stored, draft, body.stays.map(({ entry, exit }) => ({ entry, exit }))));
+      if (!priced) return answer(res, 503, ENGINE_AWAY_TRY);
+      // The page's own name, where the recorded table's stood: the engine names the plan that priced the stay.
+      const named = rateSent.table.plan.plan_version;
+      const own = draft?.plan_version ?? plansOf(garage.id).find((r) => engineKey(r.plan) === engineKey(rateSent.table.plan))?.plan_version ?? named;
+      return answer(res, 200, { ...priced, stays: priced.stays.map((st) => (st.plan_version === named ? { ...st, plan_version: own } : st)) });
+    }
+
+    // POST rate-plans: the confirmation, the document, the garage, the engine, then the store's own refusals.
+    if (body.confirmed !== true) return refuse(res, who, 400, { error: 'rates are saved only once the owner has checked the prices they charge and confirmed them: send confirmed: true', code: 'not_confirmed' }, at);
+    const plan = body.plan;
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return refuse(res, who, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' }, at);
+    if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, at);
+    if (gapNext) {
+      gapNext = false;
+      return refuse(res, who, 409, JUDGED.get(engineKey(rateSent.gap)), at);
+    }
+    if (!JUDGED.has(engineKey(plan))) return refuse(res, who, 409, ENGINE_AWAY_PLAN, at);
+    const findings = JUDGED.get(engineKey(plan));
+    if (findings) return refuse(res, who, 409, findings, at);
+    const held = plansOf(garage.id);
+    if (Date.parse(plan.effective_from) < Date.now() - 60_000) {
+      return refuse(res, who, 409, { error: `the plan starts at ${plan.effective_from}, more than 60s before this server's clock (${new Date().toISOString()}); a plan dated back would price cars that are already parked, so it starts now or later`, code: 'plan_starts_in_the_past' }, at);
+    }
+    if (held.some((r) => r.plan_version === plan.plan_version)) {
+      return refuse(res, who, 409, { error: `this garage already holds a plan named ${JSON.stringify(plan.plan_version)}; a changed plan is a new version`, code: 'plan_version_exists' }, at);
+    }
+    if (held.some((r) => Date.parse(r.effective_from) === Date.parse(plan.effective_from))) {
+      return refuse(res, who, 409, { error: `this garage already holds a plan taking effect at ${plan.effective_from}; two versions at one instant would make the version in force at entry ambiguous, which the engine refuses on every stay from then on`, code: 'plan_effective_from_taken' }, at);
+    }
+    planN += 1;
+    const row = {
+      id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`,
+      garage_id: garage.id,
+      plan_version: plan.plan_version,
+      effective_from: new Date(plan.effective_from).toISOString(),
+      engine_schema_version: 4,
+      created_at: new Date().toISOString(),
+      plan,
+    };
+    held.push(row);
+    line(who, { garageId: garage.id, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true } });
+    return answer(res, 201, { rate_plan: row });
+  }
+
   async function moneyRoutes(req, res, path, who) {
     const route = MONEY.find(([method, re]) => method === req.method && re.test(path));
     if (!route) return undefined;
@@ -1692,6 +1889,8 @@ export async function startStub({ port = 0 } = {}) {
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
     if (path === '/api/v1/garages' && req.method === 'POST') return addGarage(req, res, who);
 
+    const u7g = await rateRoutes(req, res, path, who);
+    if (u7g !== undefined) return u7g;
     const u6 = await moneyRoutes(req, res, path, who);
     if (u6 !== undefined) return u6;
     const u4 = await setupRoutes(req, res, path, who);
@@ -1813,6 +2012,36 @@ export async function startStub({ port = 0 } = {}) {
     setDrivers: (garageId, takes) => {
       setups[garageId].transient_available = takes;
     },
+    // ── U7g ──
+    /** The next rates saved are judged as the rates with a gap were: the platform's recorded findings. */
+    gapNextSave: () => {
+      gapNext = true;
+    },
+    /**
+     * What opening waits for at this garage, for the Open button's checks: the
+     * open step's `not_done` shown (`shown`), and what POST activate refuses on
+     * (`refuse`, the same unless said). `allDone` reads every other step done.
+     * With `goesUndone`, the steps refused on
+     * went undone just as Open was pressed (a lane computer gone quiet): from
+     * the refusal on, Setup reads them not done. Null puts back the garage's own.
+     */
+    openingAs: (garageId, override) => {
+      if (override) openingOverride.set(garageId, override);
+      else openingOverride.delete(garageId);
+    },
+    /** A garage made on `owner`'s account as POST /garages makes one; its row. */
+    makeGarage: (owner, fields) => makeGarage(owner, fields),
+    /** Every rates document saved here, per garage, as sent. */
+    ratesSaved: (garageId) => plansOf(garageId).map((r) => r.plan),
+    /** `plan` stored on the garage as a confirmed save stores it (U7g fix 2: the walk plan, for Try a stay). */
+    storeRates: (garageId, plan) => {
+      planN += 1;
+      plansOf(garageId).push({ id: `d7${String(planN).padStart(6, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, plan_version: plan.plan_version, effective_from: new Date(plan.effective_from).toISOString(), engine_schema_version: 4, created_at: new Date().toISOString(), plan });
+    },
+    /** What the platform answered a recorded try, as recorded (its `structure`). */
+    recordedTry: (what) => recordedAnswer(what)?.structure,
+    /** Every owner's tries forgotten, as a minute passing would (the recording waits it out). */
+    forgetTries: () => tries.clear(),
     // ── U7f ──
     /** A tailgater listed at this garage, as the platform lists one; its row as the Banned cars read answers it. */
     listTailgater,

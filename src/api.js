@@ -33,6 +33,9 @@ export const PROBLEM_KINDS = [
   'passwordRule', 'linkTooMany', 'linkBusy',
   'inviteUsed', 'inviteExpired', 'inviteReplaced', 'inviteInvalid', 'inviteTaken', 'inviteEmailTaken',
   'resetUsed', 'resetExpired', 'resetReplaced', 'resetInvalid',
+  // U7g: rates, trying a stay, and opening the garage.
+  'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'ratesNotChecked', 'planNotKept',
+  'notConfirmed', 'noRatesYet', 'tooManyTries', 'tryRefused', 'notReadyToOpen',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -106,7 +109,59 @@ const NAMED = [
   [400, 'garage_name_refused', 'garageRefused'],
   [400, 'garage_currency_refused', 'garageRefused'],
   [400, 'garage_timezone_refused', 'garageRefused'],
+  // U7g, as the platform's src/ratePlans.js and src/app.js name them.
+  [409, 'plan_has_findings', 'planFindings'],
+  [409, 'plan_version_exists', 'planNameTaken'],
+  [409, 'plan_effective_from_taken', 'planStartTaken'],
+  [409, 'plan_starts_in_the_past', 'planStartPast'],
+  [409, 'rate_engine_unavailable', 'ratesNotChecked'],
+  [409, 'plan_currency_disagrees_with_garage', 'planNotKept'],
+  [409, 'plan_does_not_price_garage_space_class', 'planNotKept'],
+  [400, 'not_confirmed', 'notConfirmed'],
+  [409, 'no_rate_plan', 'noRatesYet'],
+  [429, 'too_many_tries', 'tooManyTries'],
+  [409, 'garage_not_activatable', 'notReadyToOpen'],
 ];
+
+/**
+ * U7g: the plan routes' refusals that carry no code, by status: rates the
+ * engine could not read are a 400 holding the engine's own sentence, and a
+ * stay the try could not read a 400 holding the platform's; a garage not
+ * found is a 404. The platform's text is never kept.
+ */
+const PLAN_BY_STATUS = { 400: 'planRefused', 404: 'garageNotFound' };
+const TRY_BY_STATUS = { 400: 'tryRefused', 404: 'garageNotFound' };
+/** The try answers "no engine to ask" as a 503, which elsewhere is the taxes' words. */
+const TRY_NAMED = [[503, 'rate_engine_unavailable', 'ratesNotChecked']];
+
+/**
+ * What a refusal carries that the screens show in their own words: the
+ * engine's findings, each only its code, the rules it names and the stay
+ * that found it -- never its sentence; and the setup steps still missing,
+ * each only its key. Anything else is dropped.
+ */
+const STEP_KEY = /^[a-z_]{1,40}$/;
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?([+-]\d{2}:\d{2}|Z)$/;
+function vetted(code, details) {
+  if (code === 'plan_has_findings' && Array.isArray(details?.findings)) {
+    return {
+      findings: details.findings
+        .filter((f) => f && typeof f.code === 'string')
+        .map((f) => ({
+          code: f.code,
+          rule_ids: Array.isArray(f.rule_ids) ? f.rule_ids.filter((id) => typeof id === 'string') : [],
+          probe:
+            f.probe && INSTANT.test(String(f.probe.entry_at)) && INSTANT.test(String(f.probe.exit_at))
+              ? { entry_at: f.probe.entry_at, exit_at: f.probe.exit_at }
+              : null,
+        })),
+    };
+  }
+  if (code === 'garage_not_activatable' && Array.isArray(details?.unmet)) {
+    return { unmet: details.unmet.filter((k) => typeof k === 'string' && STEP_KEY.test(k)) };
+  }
+  return {};
+}
 
 /**
  * The tax routes' refusals that carry no code, by status: a list the rate
@@ -161,9 +216,11 @@ const GATEWAY = [502, 503, 504];
 export const STALE = 'stale';
 
 export class Problem extends Error {
-  constructor(kind) {
+  constructor(kind, carried = {}) {
     super(kind);
     this.kind = kind;
+    // U7g: only what `vetted` let through -- codes and keys the screens word.
+    Object.assign(this, carried);
   }
 }
 
@@ -205,7 +262,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
    * first load, as the platform holds every door's answer to its floor --
    * does not throw it away.
    */
-  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false } = {}) {
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false, named: ownNames = [] } = {}) {
     const asked = epoch;
     const stale = (at) => (sessionless ? null : staleSince(at));
     let res;
@@ -258,7 +315,8 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       if (res.status === 400 && SCREEN_TEXT.includes(code) && Array.isArray(data.details?.characters) && data.details.characters.length) {
         throw new Problem('screenCharacters');
       }
-      const named = NAMED.find(([status, name]) => status === res.status && name === code)?.[2];
+      const named = [...ownNames, ...NAMED].find(([status, name]) => status === res.status && name === code)?.[2];
+      if (named) throw new Problem(named, vetted(code, data.details));
       // A route whose refusals carry no code says which words each status has (TAX_BY_STATUS).
       const byRoute = code === undefined && fromPlatform && byStatus ? byStatus[res.status] : undefined;
       throw new Problem(named ?? byRoute ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
@@ -492,6 +550,37 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      * its lines, as the platform keeps them. Nothing here picks the one in
      * force for a fee: that is the rate engine's.
      */
+    /**
+     * U7g: the garage's rate plans, every one, and the kind of space its stays
+     * are priced as (a plan the Rates form builds declares it).
+     */
+    ratePlans: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
+      if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
+      return { plans: data.rate_plans.map((row) => object(row.plan)), spaceClass: data.space_class };
+    },
+    /**
+     * U7g: what cars would pay, priced the way the platform prices a car that
+     * leaves, nothing kept. `plan` is new rates not saved yet, or null for the
+     * rates saved; `stays` are { entry, exit } in the garage's own time.
+     */
+    tryStays: async (garageId, { plan = null, stays }) => {
+      const data = object(
+        await request(`/garages/${encodeURIComponent(garageId)}/rate-plans/try`, {
+          method: 'POST',
+          body: plan ? { plan, stays } : { stays },
+          byStatus: TRY_BY_STATUS,
+          named: TRY_NAMED,
+        }),
+      );
+      if (!Array.isArray(data.stays) || data.stays.length !== stays.length) throw new Problem('unexpected');
+      return { stays: data.stays, draftFindings: Array.isArray(data.draft_findings) ? vetted('plan_has_findings', { findings: data.draft_findings }).findings : [] };
+    },
+    /** U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick. */
+    addRatePlan: async (garageId, plan, { confirmed }) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { method: 'POST', body: { plan, confirmed: confirmed === true }, byStatus: PLAN_BY_STATUS })),
+    /** U7g: open the garage. Refused with the setup steps still missing (`problem.unmet`). */
+    openGarage: async (garageId) => object(await request(`/garages/${encodeURIComponent(garageId)}/activate`, { method: 'POST' })),
     taxLists: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS }), 'tax_sets'),
     /**
      * State a new list of taxes: `{ effective_from, rules }`, an empty `rules`

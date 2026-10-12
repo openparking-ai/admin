@@ -189,6 +189,40 @@ The build publishes no source maps.
   "This can't be set from here yet." Nothing here decides a step (`src/setup.js` only words it). The
   question "Does this garage take drivers without a pass?" is answered there;
   once answered it can be changed, never taken back to unanswered.
+  **Open the garage** (U7g) is the open step's button: pressable only when the
+  platform's `not_done` is empty (every step but alerts); otherwise each
+  missing step is listed and leads to where it is done. One confirmation
+  ("Once open, the garage stays open. To stop cars, close its lanes."), then
+  `POST /garages/:id/activate`; a refusal lists `details.unmet` in plain words
+  and reads Setup again, so the steps above agree with it; the open step then
+  says that one thing (U7g fix 1).
+- **Rates** (U7g): the rates in force, later and earlier, each from when it
+  starts in the garage's time, in plain sentences (`src/rates.js`), downloaded
+  and printed like every list. **Change rates** starts as a copy of the rates
+  in force: a time-based rate, at most per day and per week, a free grace
+  period, and special rates added one by one (Weekdays, Weekends, Evenings,
+  Mornings, Every day, Holiday or event dates; the days ticked and changeable;
+  come in from and by, leave by, the same or the next day; one price, a
+  different time-based rate, or a discount or increase in the order listed).
+  The page builds the plan document itself. **Try a stay** prices one stay
+  through the platform (`POST /garages/:id/rate-plans/try`), on the rates in
+  force or the ones being entered. **Check prices and save** opens a review: the
+  sentences, a **price table** of example stays priced in one try (lengths, the
+  grace edge, each special just inside and outside its times, on its days and
+  a day it is not for, each typed date, where the most per day or week takes
+  over, and stays the owner adds), and only once it is priced for exactly these
+  rates, the tick "I checked these prices…" and **Confirm**, which sends
+  `confirmed: true`. Every finding of the rate engine is a plain sentence naming
+  what it is about and the car the engine tried. No engine word reaches the
+  screen.
+  U7g fix 1: where a special fits but the time-based rate costs the driver
+  less, the engine charges the time-based rate, and the table and Try a stay
+  say so with both amounts. The "most per day / per week" rows are found the
+  way the engine counts days and weeks, and each says only what the engine's
+  breakdown of that stay says. "From the start of" offers days after today;
+  "Now" is today. `rate-engine.pin` names the engine the recorded answers came
+  from; `npm run check-finding-codes` reads that engine's `ALL_CODES` and holds
+  the finding sentences to it, both ways.
 - **Tailgaters** (U7f) are the owner's choice, on Setup, beside the checklist:
   ban tailgaters (off until turned on) and where a banned car is kept out (this
   garage, or all the owner's garages), saved on `PATCH /garages/:id`. **Banned
@@ -324,6 +358,7 @@ name it.
 | Download Excel, Download PDF and Print in a browser, against the stand-in, both languages, day and night, every file read back: the file is the list on screen, garage time, a fresh read for each click, a failed read and a 401 make no file, one click one file, the page policy unchanged and never broken; the same odd stored text through the screen, Print, both files, the file names and the notice, nothing in a name turning the words around it | `npm run build && npm run check-downloads` |
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
+| Rates and the Open button (U7g) in a browser, against the stand-in, whose prices are the rate engine's as recorded from the platform (`test/record-rates.js`, `rates_answers` in `test/platform-shapes.json`): the form filled by hand sends exactly the document it builds, the price table's prices row for row, findings in plain words in both languages with the review kept, saved only ticked and confirmed, a table made stale by an added stay refused until priced again, the Rates list and the price table downloaded and printed, Open only with nothing missing, its one confirmation, a refusal in plain words, and the time it opened | `npm run build && npm run check-rates` |
 | Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
 | The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
 | The change log sorted and chosen from (U7b), in a browser against the stand-in, both languages, with 312 changes and 57 refused attempts of many kinds: sorted each way, every line in that order across every page, none missed or repeated, and Excel, PDF and Print in that order; ticks only for kinds and reasons the log holds; two ticked, every line shown one of them, the count saying so, and Excel, PDF and Print holding exactly those and naming the choice; one drawing at a time, View, PDF and Print each that sheet only and the same as in the whole set; refused attempts one line a row at 1280 px, whole when pointed at, focused and printed; who gets which alert at most 20 rows a page, printed whole; Getting paid's Cancel at the right | `npm run build && npm run check-choices` |

@@ -1338,6 +1338,35 @@ textarea {
 .board-prices .tick-box {
   flex-shrink: 0;
 }
+
+/* U7g fix 1: every tick on the Rates form that has words (a special's days, the
+   most per day and per week, grace, the owner's confirmation) is drawn the same
+   way, and may wrap its words but never squeeze them. In U7g they were 28px
+   wide: one word to a line, over the fields below, and a press on Friday
+   landed on Saturday's words. */
+.tick.tick-words {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  gap: 8px;
+  justify-content: flex-start;
+  text-align: left;
+  color: var(--text-primary);
+  font: inherit;
+}
+.tick.tick-words .tick-box {
+  flex-shrink: 0;
+}
+.day-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+[data-section='confirm'] .tick.tick-words {
+  display: flex;
+  margin-bottom: 8px;
+}
 [data-list='board-prices'] {
   margin-top: 14px;
 }
@@ -1516,4 +1545,49 @@ textarea {
   border-radius: 4px;
   margin-right: 6px;
   vertical-align: middle;
+}
+
+/* ── A phone (U7g): the frame stacks, nothing is wider than the screen ───── */
+/* Above 720 px the frame is as it was. Below, the pages list sits above the
+   page, wrapping, and a wide list scrolls inside its own panel, never the page. */
+@media screen and (max-width: 720px) {
+  .shell {
+    flex-direction: column;
+    min-width: 0;
+  }
+  .sidebar {
+    width: auto;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border-1);
+    padding: 12px 16px;
+  }
+  .nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .topbar {
+    position: static;
+    padding: 12px 16px;
+  }
+  .topbar-owner {
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+  .garage-current {
+    white-space: normal;
+  }
+  .panel {
+    padding: 16px 14px;
+    overflow-x: auto;
+  }
+  .tax-line-fields,
+  .rate-fields .tax-line-fields {
+    flex-wrap: wrap;
+  }
+  .field input,
+  .field select {
+    max-width: 100%;
+  }
 }
