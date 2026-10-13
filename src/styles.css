@@ -1600,6 +1600,29 @@ textarea {
   margin-top: 12px;
   background: transparent;
 }
+/* A group of the host's pages in the side menu: its name, then its pages a step in. */
+.nav-group-name {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: start;
+}
+.nav-group-mark {
+  width: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.nav-sub .nav-item {
+  padding-inline-start: 42px;
+}
+.extra-page .extra-frame {
+  margin-top: 0;
+}
 .extra-section .quiet {
   margin-bottom: 4px;
 }

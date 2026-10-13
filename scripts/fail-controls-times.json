@@ -233,7 +233,11 @@
     "U7d2 an invite used, said as \"something went wrong\"": 1,
     "U7g-5 a finding code with no sentence of its own": 3,
     "U7g-fix1 E1 the hour charged as less than the special, not said": 4,
-    "U7g-11 a special's leave-by case dropped from the price table": 3
+    "U7g-11 a special's leave-by case dropped from the price table": 3,
+    "extras: a page naming a group the file does not name is drawn": 1,
+    "extras: a group list longer than allowed gives groups": 1,
+    "extras: a group with no name in both languages is kept": 1,
+    "extras: any address names a menu page": 1
   },
   "browser": {
     "6 no request leaves the page": 57,
@@ -377,6 +381,9 @@
     "U7g-fix1 F3 Setup not read again after a refused Open": 22,
     "U7g-12 the tick ignored": 17,
     "extras: the frame does not follow its page's height (browser)": 9,
-    "extras: the step is not read again when its page says something changed (browser)": 21
+    "extras: the step is not read again when its page says something changed (browser)": 21,
+    "extras: a menu page draws its frame before a garage is chosen (browser)": 9,
+    "extras: the group's name is read as markup (browser)": 9,
+    "extras: a malformed group list still draws the menu page (browser)": 9
   }
 }
