@@ -1614,8 +1614,8 @@ textarea {
 .nav-group-mark {
   width: 18px;
   text-align: center;
-  font-size: 12px;
   color: var(--text-secondary);
+  font-size: 12px;
 }
 .nav-sub .nav-item {
   padding-inline-start: 42px;
