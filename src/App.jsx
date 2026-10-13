@@ -15,7 +15,7 @@ import { GaragePicker, ProblemNote } from './parts.jsx';
 import Home from './Home.jsx';
 import SettingsPage, { Choosers } from './SettingsPage.jsx';
 import LanesPage from './LanesPage.jsx';
-import InsidePage from './InsidePage.jsx';
+import { InsidePageWithExtras as InsidePage } from './InsidePage.jsx';
 import SetupPage from './SetupPage.jsx';
 import ChangesPage from './ChangesPage.jsx';
 import AlertsPage from './AlertsPage.jsx';
@@ -26,6 +26,7 @@ import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 import BannedPage from './BannedPage.jsx';
+import { loadExtraPages } from './extras.js';
 
 // Home, Garages and Settings are drawn apart: Home and Garages list every garage, and Settings is about these pages, not a garage.
 const PAGE_BODIES = {
@@ -79,6 +80,15 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   const [languageNotKept, setLanguageNotKept] = useState(false);
   const [themeChoice, setThemeChoice] = useState(theme.choice);
   const [owner, dispatch] = useReducer(ownerReducer, EMPTY_OWNER);
+  // Extra pages from the host, read once at start (src/extras.js): none when the host serves no file.
+  const [extras, setExtras] = useState([]);
+  useEffect(() => {
+    let live = true;
+    loadExtraPages().then((pages) => live && setExtras(pages));
+    return () => {
+      live = false;
+    };
+  }, []);
   const signedInNow = useRef(false);
   // The language picked on the sign-in screen, if one was: kept on the
   // profile of whoever signs in from it.
@@ -332,7 +342,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   } else if (!garage) {
     content = <GaragePicker t={t} language={language} garages={owner.garages} onChoose={choose} />;
   } else if (Body) {
-    content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} />;
+    content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} extras={extras} look={themeChoice} />;
   } else {
     content = (
       <p className="quiet" data-notice="not-yet">

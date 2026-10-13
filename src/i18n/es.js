@@ -201,6 +201,10 @@ export default {
   "page.changes.title": "Registro de cambios",
   "page.changes.purpose": "Cada cambio hecho a este estacionamiento: quién lo hizo, qué cambió y cuándo. Los intentos rechazados van aparte, más abajo.",
   "page.changes.words": "registro de cambios, cambios, registro, historial, quién cambió, auditoría, rechazado, intentos",
+  // Páginas adicionales del anfitrión (src/extras.js): un paso más en Configuración, una sección dentro de una página.
+  "extra.open": "Abrir",
+  "extra.close": "Cerrar",
+  "extra.notRead": "No se pudo leer ahora si esto está hecho.",
   "setup.isOpen": "Este garaje está abierto; los pasos de abajo muestran cómo está preparado.",
   "setup.count": "{done} de {steps} pasos hechos",
   "setup.done": "Hecho",

@@ -1,0 +1,28 @@
+{
+  "pages": [
+    {
+      "id": "example-extra",
+      "prefixes": ["/example-extra/", "/api/example-extra/"],
+      "page": "/example-extra/",
+      "title": { "en": "An example page", "es": "Una página de ejemplo" },
+      "purpose": { "en": "What the example shows.", "es": "Lo que muestra el ejemplo." },
+      "setup": { "status": "/api/example-extra/garages/{garage}/status" }
+    },
+    {
+      "id": "example-section",
+      "prefixes": ["/example-extra/"],
+      "page": "/example-extra/",
+      "title": { "en": "<script>alert(1)</script> example section", "es": "Sección de ejemplo" },
+      "purpose": { "en": "A section inside this page.", "es": "Una sección dentro de esta página." },
+      "section": { "page": "inside" }
+    },
+    {
+      "id": "refused-elsewhere",
+      "prefixes": ["/example-extra/"],
+      "page": "//evil.example/example-extra/",
+      "title": { "en": "Never drawn", "es": "Nunca se dibuja" },
+      "purpose": { "en": "Its path is another host's.", "es": "Su ruta es de otro anfitrión." },
+      "section": { "page": "inside" }
+    }
+  ]
+}
