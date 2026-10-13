@@ -48,7 +48,8 @@ export const BANNED_PHRASES = [
 
 /** Plain things a garage owner says, whose words would be refused alone. */
 // U5: the truck the installer drawings are sized on, by its model name.
-export const ALLOWED_PHRASES = ['server room', 'sala de servidores', 'f 150'];
+// U7i: a percent's range, as the approved Rates page says it.
+export const ALLOWED_PHRASES = ['server room', 'sala de servidores', 'f 150', 'from 0.01 to 100', 'de 0.01 a 100'];
 
 const STATUS_NUMBER = /^[1-5]\d\d$/;
 

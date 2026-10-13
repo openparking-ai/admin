@@ -479,7 +479,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
 
         <main className="content" id="content">
           <h1 className="page-title">{menuEntry ? <bdi>{words(menuEntry.title)}</bdi> : t(`page.${page.id}.title`)}</h1>
-          <p className="page-purpose">{menuEntry ? <bdi>{words(menuEntry.purpose)}</bdi> : t(`page.${page.id}.purpose`)}</p>
+          {page.noPurpose ? null : <p className="page-purpose">{menuEntry ? <bdi>{words(menuEntry.purpose)}</bdi> : t(`page.${page.id}.purpose`)}</p>}
           {languageNotKept ? (
             <p className="problem-note" role="status" data-notice="language-not-kept">
               {t('language.notKept')}

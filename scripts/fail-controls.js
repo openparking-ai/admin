@@ -1520,13 +1520,13 @@ const CONTROLS = [
     check: 'U7g-4 a wrong field in the document',
     plant: { file: 'src/rates.js', anchor: "max_minor: parseMoney(form.dayMax.price, currency).minor, day_boundary: form.dayMax.kind });", with: "max_minor: parseMoney(form.dayMax.price, currency).minor * 10, day_boundary: form.dayMax.kind });" },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['form a (hourly and the most per day) builds a different document from the one the platform stored'],
+    names: ['the document: the approved rates build exactly the documents'],
   },
   {
     check: 'U7g-4 the order of two discounts lost',
-    plant: { file: 'src/rates.js', anchor: '    adjust_order: adjustIds.length ? adjustIds : null,', with: '    adjust_order: adjustIds.length ? [...adjustIds].reverse() : null,' },
-    run: ['node', '--test', 'test/rates.test.js'],
-    names: ['form e (a 10% discount, then a 2.00 discount) builds a different document'],
+    plant: { file: 'src/rates.js', anchor: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);", with: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id).reverse();" },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['two discounts apply in the order listed'],
   },
   {
     check: "U7g-4 a finding shown in the engine's words",
@@ -1538,7 +1538,7 @@ const CONTROLS = [
     check: 'U7g-5 a finding code with no sentence of its own',
     plant: { file: 'src/i18n/en.js', anchor: '  "rates.finding.CONFLICT_NEGATIVE_TOTAL": "These rates would charge less than nothing.",\n', with: '' },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['en: CONFLICT_NEGATIVE_TOTAL unworded'],
+    names: ['en: no sentence for CONFLICT_NEGATIVE_TOTAL'],
   },
   // ── U7g fix 1, F6: the finding codes, against the engine's own ALL_CODES at the pin ──
   {
@@ -1554,77 +1554,69 @@ const CONTROLS = [
     names: ['FAIL GAP_A_CODE_THE_ENGINE_GAINED: the engine can return it'],
   },
   // ── U7g fix 1: the price table's "most" rows (F1), every typed date (F5), the cheaper way in words (E1) ──
-  {
-    check: 'U7g-fix1 F1 the most per day worked out as the gate found it: one unbroken day from 10:00',
-    plant: [
-      { file: 'src/rates.js', anchor: "      const entry = day.day_boundary === 'calendar_day' ? `${ordinary}T00:00` : at10;", with: '      const entry = at10;' },
-      { file: 'src/rates.js', anchor: "    const daysOf = (entryMs, m) => (day.day_boundary === 'calendar_day' ? datesTouched(entryMs, m) : Math.max(1, Math.ceil(m / 1440)));", with: '    const daysOf = () => 1;' },
-    ],
-    run: ['node', '--test', 'test/rates.test.js'],
-    // Any change to which stays the table holds is caught first against the recording
-    // (the prices are the engine's, replayed); under the plant, re-recorded from the real
-    // platform, the boundary assertion itself is red too (measured in U7g fix 1's receipt).
-    names: ['the price table tried, hour1-day20: the table recorded is not the one the page builds'],
-  },
-  {
-    check: 'U7g-fix1 F1 a row labelled "takes over" whose breakdown says not reached',
-    plant: { file: 'src/rates.js', anchor: '  if (!cap) return row.why.key;', with: '  return row.why.key;' },
-    run: ['node', '--test', 'test/rates.test.js'],
-    names: ['a row whose breakdown says not reached is called "takes over"'],
-  },
-  {
-    check: 'U7g-fix1 F5 only the first typed date kept in the price table',
-    plant: { file: 'src/rates.js', anchor: '      days.push(...r.applies_on.dates);', with: '      days.push(r.applies_on.dates[0]);' },
-    run: ['node', '--test', 'test/rates.test.js'],
-    names: ['2030-09-02: no "specialFrom" stay'],
-  },
-  {
-    check: 'U7g-fix1 E1 the hour charged as less than the special, not said',
-    plant: { file: 'src/rates.js', anchor: "      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));", with: '      if (false) parts.push(timeLess(line, rule));' },
-    run: ['node', '--test', 'test/rates.test.js'],
-    names: ['E1: where the hour is less than the early bird'],
-  },
   // ── U7g fix 2: the cheaper-way words whatever else applied (G2), the most at equality (G3) ──
+  // ── U7i: the form's model (test/rates-two-saves.test.js) ──
   {
-    check: 'U7g-fix2 G2 the early return put back: the comparison line unread once a discount applied',
-    plant: {
-      file: 'src/rates.js',
-      anchor: '  if (appliedSome) {\n    const parts = [];\n',
-      with: "  if (appliedSome) {\n    const adjusts = lines.filter((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'ADJUST');\n    if (adjusts.length && !lines.some((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'QUALIFY')) return adjusts.map((l) => t('rates.why.applied', { name: name(windowOf(l)) })).join(' ');\n    const parts = [];\n",
-    },
-    run: ['node', '--test', 'test/rates.test.js'],
-    names: ['G2: on the walk plan', 'Early bird fit, but the time-based rate is less'],
+    check: 'U7i-4 a changed time-based rate loses what the form does not show',
+    plant: { file: 'src/rates.js', anchor: "      const extra = rule.type === 'increment' ? { max_duration_minutes: rule.max_duration_minutes ?? null } : {};", with: '      const extra = {};' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['what the form does not show is kept'],
   },
   {
-    check: 'U7g-fix2 G2 the discounts and increases read before the other lines',
-    plant: { file: 'src/rates.js', anchor: '    for (const line of lines) {\n      const rule = windowOf(line);\n      if (line.code === \'grace.applied\')', with: "    for (const line of [...lines].sort((a, b) => (windowOf(b)?.stage === 'ADJUST') - (windowOf(a)?.stage === 'ADJUST'))) {\n      const rule = windowOf(line);\n      if (line.code === 'grace.applied')" },
+    check: 'U7i-8 an empty field no longer keeps the value in force',
+    plant: { file: 'src/rates.js', anchor: "const typedOr = (typed, now) => (String(typed ?? '').trim() !== '' ? typed : now);", with: 'const typedOr = (typed) => typed;' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['check 8: every field left empty is the rates in force'],
+  },
+  // ── U7i fix 1: a change carried into rates scheduled to start later (test/rates-carry.test.js) ──
+  {
+    check: 'U7i fix 1 F3 the days listed with no choice picked',
+    plant: { file: 'src/rates.js', anchor: "  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';", with: "  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';" },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['check 8: nothing prefilled'],
+  },
+  // ── U7i, the approved page: the breakdown, the words, the table, the plan written ──
+  {
+    check: "U7i the lines a max brings down shown beside it again",
+    plant: { file: "src/rates.js", anchor: "    if (i < lastCap && line.delta_minor !== 0) return;\n", with: "" },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['G2: on the walk plan', 'not in the order of the breakdown'],
+    names: ["the words: a stay's lines and its special rate"],
   },
   {
-    check: 'U7g-fix2 G2 the comparison line not read at all when something applied',
-    plant: { file: 'src/rates.js', anchor: "      } else if (line.code === 'time_based_used' && rule) parts.push(timeLess(line, rule));", with: '      }' },
+    check: "U7i a special that did not fit left unsaid",
+    plant: { file: "src/rates.js", anchor: "  const notFit = windows.filter((r) => !fit(r))", with: "  const notFit = windows.filter(() => false)" },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['G2: on the walk plan'],
+    names: ["the words: a stay's lines and its special rate"],
   },
   {
-    check: 'U7g-fix2 G3 the most per week said to take over where the charge only EQUALS it',
-    plant: { file: 'src/rates.js', anchor: '(e, m) => afterDay(e, m) > week.max_minor * weeksOf(e, m)', with: '(e, m) => afterDay(e, m) >= week.max_minor * weeksOf(e, m)' },
+    check: "U7i the time-based rate cheaper, said as the special applied",
+    plant: { file: "src/rates.js", anchor: "    else parts.push(t('rates.why.timeLess', { name: name(best), special: money(timeUsed.compared_minor) }));", with: "    else parts.push(t('rates.why.appliedTimeMore', { name: name(best), time: money(timeUsed.compared_minor) }));" },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['the price table tried, hour10-week100-7d: the table recorded is not the one the page builds'],
+    names: ["the words: a stay's lines and its special rate"],
   },
   {
-    check: 'U7g-fix2 G3 the most per day said to take over where the charge only EQUALS it',
-    plant: { file: 'src/rates.js', anchor: '(e, m) => charge(m) > day.max_minor * daysOf(e, m)', with: '(e, m) => charge(m) >= day.max_minor * daysOf(e, m)' },
+    check: "U7i a plan written without a started period charged in full",
+    plant: { file: "src/rates.js", anchor: "  rounding: PERIOD_ROUNDING,\n", with: "" },
     run: ['node', '--test', 'test/rates.test.js'],
-    // The gate's $1 an hour, at most $20 a day lands on the most too, and is read first.
-    names: ['the price table tried, hour1-day20: the table recorded is not the one the page builds'],
+    names: ["the document: the approved rates build exactly the documents"],
   },
   {
-    check: "U7g-11 a special's leave-by case dropped from the price table",
-    plant: { file: 'src/rates.js', anchor: "      add(from, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name });\n", with: '' },
+    check: "U7i a special's leave-by case dropped from the price table",
+    plant: { file: "src/rates.js", anchor: "    if (instantOf(leave, timeZone) !== null) add(`${d}T${r.enter_from}`, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name, id: r.id });\n", with: "" },
     run: ['node', '--test', 'test/rates.test.js'],
-    names: ['no "specialLeftLate" stay'],
+    names: ["the table: the approved page's stays"],
+  },
+  {
+    check: "U7i a special's stays taken from today, before the table was made",
+    plant: { file: "src/rates.js", anchor: "    for (let n = 1; n <= 400 && d === null; n += 1)", with: "    for (let n = 0; n <= 400 && d === null; n += 1)" },
+    run: ['node', '--test', 'test/rates.test.js'],
+    names: ["the table: the approved page's stays"],
+  },
+  {
+    check: "U7i a removed special's id left in the order of discounts",
+    plant: { file: "src/rates.js", anchor: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);", with: "  const adjust = (base.adjust_order ?? []).concat(list.filter((r) => r.stage === 'ADJUST').map((r) => r.id)).filter((v, i, a) => a.indexOf(v) === i);" },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ["the specials, one by one"],
   },
 ];
 
@@ -2758,7 +2750,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={missing.length > 0} aria-disabled={missing.length > 0}', with: 'disabled={false} aria-disabled={false}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 6 steps missing (drivers, lanes, lane_computers, rates, taxes): Open cannot be pressed'],
+    names: ['FAIL 6 steps missing'],
   },
   // ── U7g fix 1, in a browser: worded ticks (F2), after a refused Open (F3), the real disabled (F4), the start day (F7), the cheaper way (E1) ──
   {
@@ -2766,14 +2758,16 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.tick.tick-words {\n  width: auto;', with: '.tick.tick-words {\n  width: 28px;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F2 en, the form, 1280 px', 'FAIL F2 en: the confirmation is'],
+    // U7i, the approved page: each tick on a row of its own, so a narrow tick overlaps nothing in the form;
+    // the confirmation's words, squeezed, run to many lines.
+    names: ['FAIL F2 es: the confirmation is'],
   },
   {
     check: 'U7g-fix1 F2 two days of a special drawn over each other',
-    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick + .tick {\n  margin-left: -40px;\n}' },
+    plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}', with: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px 18px;\n}\n.day-ticks .tick-row + .tick-row {\n  margin-left: -40px;\n}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F2 en, the form, 1280 px', 'days\' centres ticks that day'],
+    names: ['FAIL F2 en, a new special, 1280 px', 'days\' centres ticks that day'],
   },
   {
     check: 'U7g-fix1 F3 Setup not read again after a refused Open',
@@ -2789,68 +2783,13 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 6 steps missing', '(not disabled)', '(a press reached the platform)'],
   },
-  {
-    check: 'U7g-fix1 F7 a past day offered by the start-day picker',
-    plant: { file: 'src/RatesPage.jsx', anchor: ' min={firstStartDay(garage, ticking.getTime())}', with: '' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F7 the start day offers days from tomorrow'],
-  },
-  {
-    check: 'U7g-fix1 F7 a past start day accepted by the form',
-    plant: { file: 'src/rates.js', anchor: "  else if (form.starts === 'day' && form.day < firstStartDay(garage, now)) out.day = 'rates.need.dayAfterToday';\n", with: '' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    // Since fix 2 the form has noValidate, so under this plant the review opens on
-    // "today" and the past day after it is never typed: today is the line it names.
-    names: ['FAIL F7 today as the start day'],
-  },
-  {
-    check: 'U7g-fix1 E1 the hour charged as less than the special, not said, in a browser',
-    plant: { file: 'src/rates.js', anchor: "      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));", with: '      if (false) parts.push(timeLess(line, rule));' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL E1 the table', 'FAIL E1 try a stay'],
-  },
   // ── U7g fix 2, in a browser: Try a stay on a plan with a discount (G2), ticks in their box (G4), the start day's first press (F7) ──
-  {
-    check: 'U7g-fix2 G2 the early return put back, in a browser: Try a stay on the walk plan',
-    plant: {
-      file: 'src/rates.js',
-      anchor: '  if (appliedSome) {\n    const parts = [];\n',
-      with: "  if (appliedSome) {\n    const adjusts = lines.filter((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'ADJUST');\n    if (adjusts.length && !lines.some((l) => l.code === 'time_window.applied' && windowOf(l)?.stage === 'QUALIFY')) return adjusts.map((l) => t('rates.why.applied', { name: name(windowOf(l)) })).join(' ');\n    const parts = [];\n",
-    },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL G2 en try a stay on the walk plan, short stay 1', 'FAIL G2 es try a stay on the walk plan, short stay 5'],
-  },
   {
     check: "U7g-fix2 G4 a special's days on one line, running off its box at 360 px",
     plant: { file: 'src/styles.css', anchor: '.day-ticks {\n  display: flex;\n  flex-wrap: wrap;', with: '.day-ticks {\n  display: flex;\n  flex-wrap: nowrap;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL G4 en, the form, 360 px', 'FAIL G4 es, the form, 360 px'],
-  },
-  {
-    check: "U7g-fix2 F7 the browser's own date check put back: its bubble on the first press",
-    plant: { file: 'src/RatesPage.jsx', anchor: '          className="setup-form"\n          noValidate\n', with: '          className="setup-form"\n' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F7 es, a fresh page, today typed, the first press of Review'],
-  },
-  {
-    check: 'U7g-12 the tick ignored',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  const canConfirm = current && ticked && !saving', with: '  const canConfirm = current && !saving' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 12 priced but not ticked: Confirm cannot be pressed'],
-  },
-  {
-    check: 'U7g-12 the stale table accepted',
-    plant: { file: 'src/RatesPage.jsx', anchor: '  const current = table.priced !== null && table.priced.key === draftKey(form, shown, table.added);', with: '  const current = table.priced !== null;' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 12 the stale table: Confirm cannot be pressed'],
+    names: ['FAIL G4 en, a new special, 360 px'],
   },
   {
     check: "U7g-5 a finding shown in the engine's words, in a browser",
@@ -2861,6 +2800,191 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL 5 each finding in a plain sentence'],
+  },
+  // ── U7i: the Rates page from the owner's walk, in a browser (scripts/check-rates.js) ──
+  {
+    check: 'U7i-1 the frames: the default fieldset back (its title on the top line)',
+    plant: { file: 'src/styles.css', anchor: 'fieldset.dates > legend {\n  float: left;', with: 'fieldset.dates > legend {\n  float: none;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 1 en, the regular rates, 1280 px', 'its title sits on the top line'],
+  },
+  {
+    check: 'U7i-2 a missing field: the frame colour back to the old one',
+    plant: { file: 'src/styles.css', anchor: ".field[data-wrong='yes'] .when-box input {\n  border: 2px solid var(--line-wrong);", with: ".field[data-wrong='yes'] .when-box input {\n  border: 1px solid var(--border-2);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 2 en, the regular rates: 3 missing fields, 0 in a red frame'],
+  },
+  {
+    check: 'U7i-2 a missing field: its link jumps nowhere',
+    plant: { file: 'src/RatesPage.jsx', anchor: 'onClick={() => goTo(fieldId(scope, item.at))}', with: 'onClick={() => {}}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 2 en, the regular rates: each of the 3 links goes to its field'],
+  },
+  {
+    check: "U7i-3 a date or time box: the browser's grey digits back",
+    plant: { file: 'src/styles.css', anchor: ".when-box[data-empty='yes'] input:not(:focus),\n.when-box[data-empty='yes'] input:not(:focus)::-webkit-datetime-edit {\n  color: transparent;\n}\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 3 en, no rates yet', 'its own text drawn'],
+  },
+  {
+    check: 'U7i-4 a regular save that drops the specials',
+    plant: { file: 'src/rates.js', anchor: '    if (!REGULAR_TYPES.includes(rule.type)) rules.push(rule);', with: '    if (!REGULAR_TYPES.includes(rule.type)) continue;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 4 the regular rates saved: the specials byte for byte as stored'],
+  },
+  {
+    check: 'U7i-4 a special save that drops the regular rates but the time-based rate',
+    plant: { file: 'src/rates.js', anchor: "    rules: [...rules.filter((r) => r.type !== 'time_window'), ...list],", with: "    rules: [rules.find((r) => r.type === 'increment'), ...list]," },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 4 a special saved: the regular rates byte for byte as stored'],
+  },
+  {
+    check: 'U7i-7 a minutes field without its unit',
+    plant: { file: 'src/RatesPage.jsx', anchor: "  const after = unit === 'minutes' ? t('rates.unit.minutes') : unit === 'percent' ? '%' : null;", with: "  const after = unit === 'percent' ? '%' : null;" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 7 en, the regular rates', 'time-first-minutes shows ""'],
+  },
+  {
+    check: 'U7i-8 the time-based rate prefilled again',
+    plant: { file: 'src/rates.js', anchor: "    time: blankRate(),\n    dayMax: { on: now.dayMax.on, price: '', kind: '' },", with: "    time: { ...now.time },\n    dayMax: { on: now.dayMax.on, price: '', kind: '' }," },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 8 en, the regular rates', 'time-first-minutes=60'],
+  },
+  {
+    check: 'U7i-10 a locked button without its reason',
+    plant: { file: 'src/RatesPage.jsx', anchor: '        <span className="locked-reason" data-reason-for={action}>', with: '        <span className="locked-reason" hidden data-reason-for={action}>' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 10 en, no rates yet: ', 'none for: add-special'],
+  },
+  {
+    check: 'U7i-10 the wait cursor back on a locked button',
+    plant: { file: 'src/styles.css', anchor: '.act-row .primary-button:disabled,\n.act-row .link-button:disabled {\n  opacity: 0.45;\n  cursor: not-allowed;\n}', with: '.act-row .primary-button:disabled,\n.act-row .link-button:disabled {\n  opacity: 0.45;\n  cursor: wait;\n}' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL 10 en, the check page before the tick: no wait or progress cursor'],
+  },
+  // ── U7i fix 1: the gate's F1-F3 and a change carried into rates saved to start later ──
+  {
+    check: 'U7i fix 1 F1 the calculator keeps its answer after the rates change',
+    plant: { file: 'src/RatesPage.jsx', anchor: '  const stale = Boolean(answer) && answer.key !== askedFor;', with: '  const stale = false;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F1 the special changed after the answer'],
+  },
+  {
+    check: 'U7i fix 1 F3 the days link back, to a field not on the page',
+    plant: { file: 'src/rates.js', anchor: "  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';", with: "  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ['FAIL F3 a new special, nothing picked'],
+  },
+  // ── U7i, the approved page, in a browser ──
+  {
+    check: "U7i-12 the tick ignored",
+    plant: { file: "src/RatesPage.jsx", anchor: "  const canConfirm = current_ && ticked && !saving && !blocked;", with: "  const canConfirm = current_ && !saving && !blocked;" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 10 priced, not ticked: Confirm cannot be pressed"],
+  },
+  {
+    check: "U7i-12 a table being priced again accepted",
+    plant: { file: "src/RatesPage.jsx", anchor: "  const canConfirm = current_ && ticked && !saving && !blocked;", with: "  const canConfirm = ticked && !saving && !blocked;" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 12 a stay added while ticked"],
+  },
+  {
+    check: "U7i-4 the check page skipped: the regular rates never checked",
+    plant: { file: "src/RatesPage.jsx", anchor: "          else setReviewing({ kind: 'regular' });", with: "          else setReviewing(null);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 6 the regular rates: the check page prices its table as it opens"],
+  },
+  {
+    check: "U7i-1 one table price worked out on the page, not by the engine",
+    plant: { file: "src/RatesPage.jsx", anchor: "data-fee={a && !a.refused ? a.fee_minor : undefined}", with: "data-fee={a && !a.refused ? (a.rate_lines ?? []).filter((l) => l.code.startsWith('increment')).reduce((sum, l) => sum + l.delta_minor, 0) || a.fee_minor : undefined}" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 1 the engine's prices, row for row"],
+  },
+  {
+    check: "U7i-1 the calculator's price worked out on the page, not by the engine",
+    plant: { file: "src/RatesPage.jsx", anchor: "    <div className=\"tried\" data-tried=\"priced\" data-fee={stay.fee_minor}>", with: "    <div className=\"tried\" data-tried=\"priced\" data-fee={(stay.rate_lines ?? []).filter((l) => l.code.startsWith('increment')).reduce((sum, l) => sum + l.delta_minor, 0) || stay.fee_minor}>" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 1 the calculator, current rates, dayMax"],
+  },
+  {
+    check: "U7i-6 the price table priced only by a press again",
+    plant: { file: "src/RatesPage.jsx", anchor: "  useEffect(() => {\n    price().catch(() => {});\n  }, [key]);\n", with: "" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 6 the regular rates: the check page prices its table as it opens"],
+  },
+  {
+    check: "U7i-9 who set it: a wrong change-log line matched",
+    plant: { file: "src/RatesPage.jsx", anchor: "          const version = ids.get(line.subject.id);", with: "          const version = [...ids.values()][([...ids.keys()].indexOf(line.subject.id) + 1) % ids.size];" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 9 after five saves"],
+  },
+  {
+    check: "U7i-9 who set it: \"not in the change log\" said before the log is read",
+    plant: { file: "src/RatesPage.jsx", anchor: "  if (!s && !savers.read) return null;\n  if (!s) {", with: "  if (!s) {" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 9 a save just made, its change log still being read"],
+  },
+  {
+    check: "U7i P1 the rates saved to start an hour after Confirm",
+    plant: { file: "src/rates.js", anchor: "export const startNow = (_garage, now = Date.now()) => new Date(now).toISOString();", with: "export const startNow = (_garage, now = Date.now()) => new Date(now + 3600_000).toISOString();" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL saved: back on the Rates page"],
+  },
+  {
+    check: "U7i P2 the rates checked against ignored: the newest sent at Confirm",
+    plant: { file: "src/RatesPage.jsx", anchor: "      await client.addRatePlan(garage.id, { ...priced.plan, effective_from: start }, { confirmed: true, basedOn });", with: "      await client.addRatePlan(garage.id, { ...priced.plan, effective_from: start }, { confirmed: true, basedOn: (await client.ratePlans(garage.id)).saved.at(-1)?.id ?? null });" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL P2 refused"],
+  },
+  {
+    check: "U7i the notice's first sentence not bold",
+    plant: { file: "src/RatesPage.jsx", anchor: "          <b>{t('rates.review.noticeBold')}</b> {t('rates.review.noticeRest')}", with: "          {t('rates.review.noticeBold')} {t('rates.review.noticeRest')}" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 8 the notice above the tick, its first sentence bold"],
+  },
+  {
+    check: "U7i a line under the Rates title again",
+    plant: { file: "src/pages.js", anchor: "  { id: 'rates', path: '/rates', icon: 'rate', noPurpose: true },", with: "  { id: 'rates', path: '/rates', icon: 'rate' }," },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL the title alone: no line under \"Rates\""],
+  },
+  {
+    check: "U7i nothing typed: the rates in force checked and saved again",
+    plant: { file: "src/RatesPage.jsx", anchor: "          if (current && regularUntouched(regularTyped, nowForm)) setNothing(true);", with: "          if (false) setNothing(true);" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 8 every field empty"],
+  },
+  {
+    check: "U7i the max per day's breakdown: the lines it brings down shown again",
+    plant: { file: "src/rates.js", anchor: "    if (i < lastCap && line.delta_minor !== 0) return;\n", with: "" },
+    before: BUILD,
+    run: ['node', 'scripts/check-rates.js'],
+    names: ["FAIL 5 32 h 30"],
   },
 ];
 

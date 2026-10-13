@@ -2,9 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordRates, signInAnswer } from './platform-shapes.js';
-import { recordedPlans } from './rates-forms.js';
-import { buildPlan, tableStays } from '../src/rates.js';
-import { startOfDay } from '../src/taxes.js';
+import { STAY_LIST, recordedPlans } from './rates-forms.js';
 import { startStub } from './stub-platform.js';
 
 // The stand-in the checks run against answers as the real platform does: the
@@ -125,7 +123,7 @@ test('the stand-in answers the rates, the try and the Open button as the platfor
   const stub = await startStub();
   try {
     stub.allowOrigin(ORIGIN);
-    const answers = await recordRates(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans({ buildPlan, startOfDay, tableStays }), rest: async () => stub.forgetTries() });
+    const answers = await recordRates(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans(), stays: STAY_LIST, rest: async () => stub.forgetTries() });
     assert.deepEqual(answers.map((a) => a.what), recorded.rates_answers.map((a) => a.what));
     for (const [i, real] of recorded.rates_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {

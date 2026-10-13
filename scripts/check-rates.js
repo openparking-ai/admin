@@ -1,50 +1,47 @@
 #!/usr/bin/env node
-/* global document, window */
-// The Rates page and the Open button, in a real browser (U7g).
+/* global document, window, getComputedStyle, NodeFilter */
+// The Rates page and the Open button, in a real browser (U7g; U7i, the page
+// approved on 2026-10-13, with nothing scheduled).
 //
 // Serves dist/ (run `npm run build` first) with /api sent to the stand-in
-// platform (test/stub-platform.js), whose prices are the rate engine's,
-// replayed from test/platform-shapes.json as recorded from the platform. In
-// Chromium, with the browser in Tokyo time and the garage in Chicago's:
+// platform (test/stub-platform.js), which asks the rate engine at this
+// repository's pin for every judgement and every price, as the platform does.
+// In Chromium, with the browser in Tokyo time and the garage in New York's:
 //
-//   check 4   the form, filled in by hand as test/rates-forms.js's table form,
-//             sends exactly the document the page builds from that form; the
-//             price table shows the engine's prices, row for row;
-//   check 5   rates the engine finds a gap in: every finding a plain sentence,
-//             in English and in Spanish, none of the engine's words, and the
-//             review kept;
-//   check 6   the Open button: not pressable while a step is missing, each
-//             missing step listed and leading to where it is done; pressable
-//             when nothing is; one confirmation; a refusal listed in plain
-//             words; once open, the step says since when;
-//   check 7   the Rates list and the price table: Download Excel, Download PDF
-//             and Print, each a file of the list;
-//   check 12  saving needs the tick and Confirm: nothing is sent before; a
-//             stay added after pricing makes the table stale and Confirm
-//             unpressable until it is priced again; the save says confirmed.
-//
-//   U7g fix 1:
-//   F2  every tick with words (a special's days, the most per day and per
-//       week, grace, the confirmation), in English and Spanish, at 1280 and
-//       360 px: no tick's words over another tick or a field; a press at each
-//       day's centre ticks that day; the confirmation in at most three lines
-//       at 1280 px;
-//   F3  Open refused because a lane computer went quiet as it was pressed:
-//       ONE message on the open step, and Setup read again, so the checklist
-//       above no longer says that step is done;
-//   F4  check 6 reads the button's real `disabled`, and a press sends nothing;
-//   F7  the start day offers only days after today;
-//   E1  the price table says, in words, where the time-based rate was charged
-//       because it was less than the special.
-//
-//   U7g fix 2:
-//   G2  Try a stay on the re-gate's walk plan saved (a discount and a service
-//       fee on every stay), each short stay, English and Spanish: the words say
-//       the hour was less, though the discount and the fee applied too;
-//   G4  every tick and every field inside its own box -- its special's, and the
-//       panel -- in English and Spanish, at 1280 and 360 px;
-//   F7  a fresh page in Spanish, today typed as the start day, the FIRST press
-//       of Review: the app's own sentence (the form has noValidate).
+//   the page   no rates: the three parts and the calculator, Add a special rate
+//              locked with its reason; Current rates with who set them, in the
+//              approved page's words; the title alone, no line under it;
+//   2          fields missing: a red frame and a red sentence on each, each
+//              named in a link by the button, the first focused, each link
+//              going to its field (a new special's too, every link a field on
+//              the page);
+//   3          no date or time box shows digits before a pick; nothing to
+//              choose a start with -- rates start when Confirm is pressed, and
+//              the save says so (its start within a minute of the press);
+//   4          each save sends exactly the document the page builds, the other
+//              part byte for byte as stored, and names the rates it was
+//              checked against (based_on);
+//   5          the calculator on the current rates and on the rates being
+//              changed: what the engine charged, the approved page's lines --
+//              one "Max per day, 2 days at $100.00" line and "By the hour it
+//              would be $1,300.00." -- and its special-rate words; an answer
+//              greyed when what it priced changes;
+//   6          the check page prices its table as it opens and when a stay is
+//              added; its rows the approved page's; its steps, the one to do
+//              marked; what changes, old then new;
+//   7          a "$", "minutes" or "%" inside every number's box; the price
+//              table and the Rates list downloaded and printed;
+//   8          every field empty on opening with its value in force under it;
+//              all left empty: "Nothing to save.", no check page;
+//   9          the current rates and each earlier set say who set them, and
+//              when, from their own change-log line;
+//   10         no wait cursor anywhere; every locked control with its reason
+//              beside it; Confirm locked until the tick, then its sentence;
+//   P2         rates saved by someone else while the check page is open: the
+//              Confirm refused with the sentence, the page reads and prices
+//              again, what was typed kept, and the next Confirm saves;
+//   F2/G4      every tick with words over nothing and inside its box, in both
+//              languages, at 1280 and 360 px; the Open button as U7g left it.
 //
 //   node scripts/check-rates.js
 
@@ -56,9 +53,9 @@ import { preview } from 'vite';
 import { chromium } from 'playwright';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { startStub } from '../test/stub-platform.js';
-import { TABLE_FORM, recordedPlans } from '../test/rates-forms.js';
-import { buildPlan, moneyText, tableStays } from '../src/rates.js';
-import { startOfDay } from '../src/taxes.js';
+import { EARLY_BIRD, REGULAR_FORM, STAYS } from '../test/rates-forms.js';
+import { buildPlan, specialsPlan } from '../src/rates.js';
+import { garageDateTime } from '../src/time.js';
 import { chooseOnSettings } from './on-settings.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -76,14 +73,11 @@ const fill = (text, values = {}) => text.replace(/\{(\w+)\}/g, (_, k) => String(
 
 const stub = await startStub();
 const A = stub.data.a;
-// A garage made for this check, in the zone and money the rates were recorded in.
-const RIVERSIDE = stub.makeGarage(A, { name: 'Rates check garage', timezone: 'America/New_York', currency: 'USD' });
-// A second, with nothing stored, for the Spanish pass over the form (F2).
-const SPANISH = stub.makeGarage(A, { name: 'Rates check garage es', timezone: 'America/New_York', currency: 'USD' });
-const recorded = recordedPlans({ buildPlan, startOfDay, tableStays });
-// A third, holding only the re-gate's walk plan (a discount and a service fee), for Try a stay (fix 2, G2).
-const WALK = stub.makeGarage(A, { name: 'Rates check walk garage', timezone: 'America/New_York', currency: 'USD' });
-stub.storeRates(WALK.id, recorded.walk.plan);
+const ZONE = 'America/New_York';
+// A garage made for this check, and a second with nothing stored, for the Spanish pass.
+const RIVERSIDE = stub.makeGarage(A, { name: 'Rates check garage', timezone: ZONE, currency: 'USD' });
+const SPANISH = stub.makeGarage(A, { name: 'Rates check garage es', timezone: ZONE, currency: 'USD' });
+const GARAGE = { timezone: ZONE, currency: 'USD' };
 const server = await preview({ root: ROOT, logLevel: 'silent', preview: { port: 4363, strictPort: false, host: '127.0.0.1', proxy: { '/api': { target: stub.url } } } });
 const base = server.resolvedUrls.local[0];
 stub.allowOrigin(new URL(base).origin);
@@ -92,7 +86,7 @@ const requests = [];
 
 const settles = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 5000 }).then(() => true, () => false);
 const bodyText = (page) => page.evaluate(() => document.body.innerText);
-const ENGINE_WORDS = /GAP_|CONFLICT_|FAULT_|cheapest|QUALIFY|ACCUMULATE|increment|time_window|max_duration|plan_version|nothing prices/i;
+const ENGINE_WORDS = /GAP_|CONFLICT_|FAULT_|cheapest|QUALIFY|ACCUMULATE|increment|time_window|max_duration|plan_version|nothing prices|daily_max|weekly_max/i;
 
 async function go(page, hash, title) {
   await page.click(`.nav-item[href="${hash}"]`);
@@ -133,9 +127,9 @@ async function ticksHold(page, where) {
     for (const el of [...ticks, ...fields]) {
       const a = el.classList.contains('tick-words') ? drawn(el) : el.getBoundingClientRect();
       const a2 = { l: a.l ?? a.left, r: a.r ?? a.right };
-      for (const box of [el.closest('[data-special-at]'), el.closest('.panel')].filter(Boolean)) {
+      for (const box of [el.closest('.special-editor, [data-special-in-force]'), el.closest('.panel')].filter(Boolean)) {
         const b = box.getBoundingClientRect();
-        if (a2.r > b.right + 0.5 || a2.l < b.left - 0.5) outside.push(`${el.dataset.tick ?? el.dataset.field ?? el.dataset.action ?? el.tagName} past ${box.dataset.specialAt ? `special ${box.dataset.specialAt}` : 'the panel'} by ${Math.round(Math.max(a2.r - b.right, b.left - a2.l))} px`);
+        if (a2.r > b.right + 0.5 || a2.l < b.left - 0.5) outside.push(`${el.dataset.tick ?? el.dataset.field ?? el.dataset.action ?? el.tagName} past ${box.matches('.special-editor, [data-special-in-force]') ? 'its special' : 'the panel'} by ${Math.round(Math.max(a2.r - b.right, b.left - a2.l))} px`);
       }
     }
     return { n: ticks.length, over, outside };
@@ -200,72 +194,269 @@ async function confirmTickHolds(page, language) {
   await page.setViewportSize({ width: 1360, height: 900 });
 }
 
-/** The form's time-based rate filled in by hand as `f`, the table form: what the browser check prices. */
-async function fillForm(page, f) {
-  await set(page, '[data-field="time-first-minutes"]', f.time.firstMinutes);
-  await set(page, '[data-field="time-first-price"]', f.time.firstPrice);
-  await set(page, '[data-field="time-next-minutes"]', f.time.nextMinutes);
-  await set(page, '[data-field="time-next-price"]', f.time.nextPrice);
-}
 
-/** The rest of the table form, the start day included. `words` is the language's dictionary. */
-async function fillRest(page, f, words) {
-  await pick(page, '[data-field="time-rounding"]', 'ceil');
-  await page.click('[data-tick="day-max-on"]');
-  await set(page, '[data-field="day-max-price"]', f.dayMax.price);
-  await pick(page, '[data-field="day-max-kind"]', f.dayMax.kind);
-  await page.click('[data-tick="grace-on"]');
-  await set(page, '[data-field="grace-minutes"]', f.grace.minutes);
-  for (const [i, s] of f.specials.entries()) {
-    await page.click('[data-action="add-special"]');
-    const at = `[data-special-at="${i + 1}"]`;
-    await set(page, `${at} [data-field="special-name"]`, s.name);
-    await pick(page, `${at} [data-field="special-preset"]`, s.preset);
-    const ticked = await page.$$eval(`${at} [data-tick^="day-"][aria-checked="true"]`, (els) => els.map((e) => e.dataset.tick.slice(4)));
-    check(ticked.join() === s.days.join(), `special ${i + 1}: "${words[`rates.preset.${s.preset}`]}" ticks its days: ${ticked.join(', ')}`);
-    await set(page, `${at} [data-field="special-enter-from"]`, s.enterFrom);
-    await set(page, `${at} [data-field="special-enter-by"]`, s.enterBy);
-    await set(page, `${at} [data-field="special-leave-by"]`, s.leaveBy);
-    await page.click(`${at} [data-control="next-day"] [data-value="${s.nextDay}"]`);
-    await pick(page, `${at} [data-field="special-charge"]`, s.charge);
-    await set(page, `${at} [data-field="special-flat"]`, s.flat);
-  }
-  await page.click('[data-control="starts"] [data-value="day"]');
-  await set(page, '[data-field="rates-day"]', f.day);
+/**
+ * Check 1: every frame of the form -- each part of the regular rates, each
+ * special's box -- with its top line unbroken (no title sitting on it) and no
+ * text or field within 12 px of its edges.
+ */
+async function framesHold(page, where) {
+  const r = await page.evaluate(() => {
+    const shown = (el) => {
+      const b = el.getBoundingClientRect();
+      return b.width > 0 && b.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    };
+    const frames = [...document.querySelectorAll('main fieldset.rates-part, main .special-editor, main .special-in-force')].filter(shown);
+    const bad = [];
+    for (const f of frames) {
+      const box = f.getBoundingClientRect();
+      const cs = getComputedStyle(f);
+      const top = box.top + parseFloat(cs.borderTopWidth);
+      const name = f.dataset.part ?? (f.dataset.editing ? `the special being ${f.dataset.editing === 'add' ? 'added' : 'changed'}` : `special ${f.dataset.specialInForce}`);
+      const legend = f.querySelector(':scope > legend');
+      if (legend && shown(legend) && legend.getBoundingClientRect().top < top - 0.5) bad.push(`${name}: its title sits on the top line`);
+      // Every piece of text, and every field, at least 12 px inside the frame.
+      const pieces = [];
+      const walker = document.createTreeWalker(f, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!n.textContent.trim() || !shown(n.parentElement)) continue;
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        for (const rect of range.getClientRects()) if (rect.width > 0) pieces.push({ rect, what: n.textContent.trim().slice(0, 24) });
+      }
+      for (const el of f.querySelectorAll('input, select, button, .unit-box')) if (shown(el)) pieces.push({ rect: el.getBoundingClientRect(), what: el.dataset.field ?? el.dataset.tick ?? el.dataset.action ?? el.tagName });
+      for (const { rect, what } of pieces) {
+        const gap = Math.min(rect.left - box.left, box.right - rect.right, rect.top - box.top, box.bottom - rect.bottom);
+        if (gap < 12 - 0.5) bad.push(`${name}: "${what}" ${Math.round(gap)} px from the edge`);
+      }
+    }
+    return { n: frames.length, bad };
+  });
+  check(r.n > 0 && r.bad.length === 0, `1 ${where}: ${r.n} frames, each top line whole and nothing within 12 px of an edge${r.bad.length ? `: ${r.bad.slice(0, 4).join('; ')}` : ''}`);
 }
 
 /**
- * G2 (fix 2): Try a stay on the walk plan saved, each short stay the table holds:
- * the hour was charged as less, and the words say so though the discount and the
- * fee applied too. In a page of its own, in the owner's language as it stands.
+ * Check 3: no date or time box shows digits before a pick -- its value empty,
+ * its own text not drawn, a plain prompt shown -- and a picked one in full dark text.
  */
-async function walkTries(language, words) {
-  const ctx = await browser.newContext({ locale: language === 'es' ? 'es-US' : 'en-US', timezoneId: 'Asia/Tokyo', viewport: { width: 1360, height: 900 } });
-  const p = await ctx.newPage();
-  await p.goto(base);
-  await p.waitForSelector('.page-title');
-  await p.fill('input[name="email"]', A.email);
-  await p.fill('input[name="password"]', A.password);
-  await p.click('button[type="submit"]');
-  await p.click(`.garage-choice[data-garage="${WALK.id}"]`);
-  await p.waitForSelector('.nav');
-  await go(p, '#/rates', words['page.rates.title']);
-  const windows = recorded.walk.plan.rules.filter((r) => r.type === 'time_window');
-  for (const [i, stay] of recorded.walk.short.entries()) {
-    const [a] = stub.recordedTry(`a stay tried, the walk plan saved, short stay ${i + 1}`).stays;
-    const line = a.rate_lines.find((l) => l.code === 'time_based_used');
-    const want = fill(words['rates.why.timeLess'], { name: windows.find((r) => r.id === line.rule_id).label, special: moneyText(line.compared_minor, 'USD', language), time: moneyText(a.subtotal_minor, 'USD', language) });
-    await set(p, '[data-field="try-entry"]', stay.entry);
-    await set(p, '[data-field="try-exit"]', stay.exit);
-    // Each try answered afresh: every short stay costs the same, so an old answer would read alike.
-    const [res] = await Promise.all([p.waitForResponse((r) => r.url().endsWith('/rate-plans/try'), { timeout: 5000 }), p.click('[data-action="try-stay"]')]);
-    const priced = res.status() === 200 && (await settles(p, (fee) => document.querySelector('[data-tried="priced"]')?.dataset.fee === fee, String(a.fee_minor)));
-    const said = (await p.textContent('[data-special-words]').catch(() => '')) ?? '';
-    const adjusted = a.rate_lines.filter((l) => l.code === 'time_window.applied').length;
-    check(priced && said.includes(want) && adjusted === 2, `G2 ${language} try a stay on the walk plan, short stay ${i + 1} (${stay.entry}): "${said}"`);
-  }
-  await ctx.close();
+async function datesHold(page, where) {
+  await page.evaluate(() => document.activeElement?.blur());
+  const r = await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('main input[type="date"], main input[type="time"], main input[type="datetime-local"]')].filter((el) => el.getBoundingClientRect().width > 0);
+    const primary = getComputedStyle(document.body).color;
+    const bad = [];
+    let empty = 0;
+    for (const el of boxes) {
+      const prompt = el.parentElement.querySelector('.when-prompt');
+      const promptShown = prompt && getComputedStyle(prompt).display !== 'none';
+      const colour = getComputedStyle(el).color;
+      const drawn = !/rgba\(0, 0, 0, 0\)|transparent/.test(colour);
+      const name = el.dataset.field;
+      if (el.value === '') {
+        empty += 1;
+        if (drawn) bad.push(`${name} empty, its own text drawn (${colour})`);
+        if (!promptShown) bad.push(`${name} empty, no prompt`);
+      } else {
+        if (colour !== primary) bad.push(`${name} picked, in ${colour}, not the dark text ${primary}`);
+        if (promptShown) bad.push(`${name} picked, the prompt still shown`);
+      }
+    }
+    return { n: boxes.length, empty, bad, prompts: [...new Set(boxes.map((el) => el.parentElement.querySelector('.when-prompt')?.textContent))] };
+  });
+  check(r.n > 0 && r.bad.length === 0, `3 ${where}: ${r.n} date and time boxes (${r.empty} empty, each "${r.prompts.join('" / "')}"), none showing digits before a pick${r.bad.length ? `: ${r.bad.slice(0, 4).join('; ')}` : ''}`);
 }
+
+/**
+ * Check 10: nothing on the page has a wait or progress cursor, and every
+ * locked control has its reason beside it, in its own row (a pager's arrow
+ * has the page it is on, said beside it).
+ */
+async function lockedHold(page, where, { atLeast = 1 } = {}) {
+  const r = await page.evaluate(() => {
+    const shown = (el) => el.getBoundingClientRect().width > 0;
+    const waits = [...document.querySelectorAll('main *')].filter((el) => shown(el) && /wait|progress/.test(getComputedStyle(el).cursor)).map((el) => el.dataset.action ?? el.dataset.tick ?? el.tagName);
+    const locked = [...document.querySelectorAll('main button:disabled, main input:disabled, main select:disabled')].filter(shown);
+    const silent = [];
+    for (const el of locked) {
+      if (el.closest('.pager')?.querySelector('.pager-where')) continue;
+      const key = el.dataset.action ?? el.dataset.tick;
+      const row = el.closest('.act-row, .tick-row');
+      const reason = row?.querySelector(`[data-reason-for="${key}"]`);
+      if (!reason || !shown(reason) || !reason.textContent.trim()) silent.push(key ?? el.tagName);
+    }
+    return { waits, locked: locked.length, silent };
+  });
+  check(r.waits.length === 0, `10 ${where}: no wait or progress cursor${r.waits.length ? `: ${r.waits.slice(0, 4).join(', ')}` : ''}`);
+  check(r.locked >= atLeast && r.silent.length === 0, `10 ${where}: ${r.locked} locked control(s), each with its reason beside it${r.silent.length ? `; none for: ${r.silent.join(', ')}` : ''}`);
+}
+
+/** Check 7: every money field shows "$", every minutes field "minutes", every percent "%", inside its box. */
+const MONEY = ['time-first-price', 'time-next-price', 'day-max-price', 'week-max-price', 'special-flat', 'special-rate-first-price', 'special-rate-next-price'];
+const MINUTES = ['time-first-minutes', 'time-next-minutes', 'grace-minutes', 'special-rate-first-minutes', 'special-rate-next-minutes'];
+async function unitsHold(page, where, words, extra = {}) {
+  const want = { ...Object.fromEntries(MONEY.map((f) => [f, '$'])), ...Object.fromEntries(MINUTES.map((f) => [f, words['rates.unit.minutes']])), ...extra };
+  const r = await page.evaluate((want) => {
+    const out = [];
+    for (const [field, unit] of Object.entries(want)) {
+      for (const el of document.querySelectorAll(`main input[data-field="${field}"]`)) {
+        if (el.getBoundingClientRect().width === 0) continue;
+        const box = el.closest('.unit-box');
+        const said = box ? [...box.querySelectorAll('[data-unit-text]')].filter((u) => u.getBoundingClientRect().width > 0).map((u) => u.textContent) : [];
+        const inside = box && [...box.querySelectorAll('[data-unit-text]')].every((u) => {
+          const a = u.getBoundingClientRect();
+          const b = box.getBoundingClientRect();
+          return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;
+        });
+        out.push({ field, unit, said, ok: said.length === 1 && said[0] === unit && inside });
+      }
+    }
+    return out;
+  }, want);
+  const bad = r.filter((x) => !x.ok);
+  check(r.length > 0 && bad.length === 0, `7 ${where}: ${r.length} number fields, each with its unit inside its box${bad.length ? `: ${bad.map((x) => `${x.field} shows "${x.said.join('')}", not "${x.unit}"`).slice(0, 4).join('; ')}` : ''}`);
+}
+
+/**
+ * Check 8: on opening, no field holds a value; each has the value in force
+ * beside it ("Now: ..."), and each tick says how it is now.
+ */
+async function nothingPrefilled(page, within, where, words) {
+  const r = await page.evaluate(
+    ({ within, now }) => {
+      const area = document.querySelector(within);
+      const fields = [...area.querySelectorAll('input[type="text"], select, input[type="time"], input[type="date"]')].filter((el) => el.getBoundingClientRect().width > 0 && el.dataset.field !== 'rates-day');
+      const filled = fields.filter((el) => el.value !== '').map((el) => `${el.dataset.field}=${el.value}`);
+      const noNow = fields.filter((el) => !el.closest('label')?.querySelector('[data-now]')?.textContent.startsWith(now)).map((el) => el.dataset.field);
+      const ticks = [...area.querySelectorAll(':scope fieldset.rates-part [data-tick]')];
+      const tickNoNow = ticks.filter((tk) => !tk.closest('fieldset').querySelector(':scope > [data-now]')?.textContent.startsWith(now)).map((tk) => tk.dataset.tick);
+      return { n: fields.length, filled, noNow, ticks: ticks.length, tickNoNow };
+    },
+    { within, now: words['rates.now'].split('{')[0] },
+  );
+  check(r.n > 0 && r.filled.length === 0, `8 ${where}: ${r.n} fields, none prefilled${r.filled.length ? `: ${r.filled.join(', ')}` : ''}`);
+  check(r.noNow.length === 0 && r.tickNoNow.length === 0, `8 ${where}: each field and each of ${r.ticks} ticks says its value in force beside it${r.noNow.length + r.tickNoNow.length ? `; none for: ${[...r.noNow, ...r.tickNoNow].join(', ')}` : ''}`);
+}
+
+/** Check 2: a Save pressed with fields missing: a red frame and a red sentence on each, each named in a link by the Save, and focus on the first. */
+async function missingHold(page, within, want, where) {
+  const r = await page.evaluate(
+    ({ within, want }) => {
+      const area = document.querySelector(within);
+      const line = getComputedStyle(document.documentElement).getPropertyValue('--line-wrong').trim();
+      const probe = document.createElement('span');
+      probe.style.color = line;
+      document.body.append(probe);
+      const red = getComputedStyle(probe).color;
+      probe.remove();
+      const framed = want.filter((field) => {
+        const el = area.querySelector(`[data-field="${field}"]`);
+        const frame = el.closest('.unit-box') ?? el;
+        const sentence = el.closest('.field')?.querySelector('.field-wrong');
+        return getComputedStyle(frame).borderTopColor === red && parseFloat(getComputedStyle(frame).borderTopWidth) >= 2 && sentence && getComputedStyle(sentence).color !== getComputedStyle(document.body).color;
+      });
+      const links = [...area.querySelectorAll('[data-notice="form-not-ready"] [data-goes-to]')].map((b) => ({ to: b.dataset.goesTo, text: b.textContent }));
+      const ids = want.map((field) => area.querySelector(`[data-field="${field}"]`).id);
+      return { framed, links, ids, focused: document.activeElement?.id ?? null };
+    },
+    { within, want },
+  );
+  check(r.framed.length === want.length, `2 ${where}: ${want.length} missing fields, ${r.framed.length} in a red frame with a red sentence (${r.framed.join(', ')})`);
+  check(r.links.length === want.length && r.links.every((l, i) => l.to === r.ids[i] && l.text.trim().length > 0), `2 ${where}: the Save lists each by name: ${r.links.map((l) => `"${l.text}"`).join(', ')}`);
+  check(r.focused === r.ids[0], `2 ${where}: the page moves to the first (${r.focused})`);
+  // Each link jumps to its field.
+  const jumped = [];
+  for (const [i, link] of r.links.entries()) {
+    await page.click(`${within} [data-goes-to="${link.to}"]`);
+    const at = await page.evaluate(() => document.activeElement?.id ?? null);
+    if (at === r.ids[i]) jumped.push(i);
+  }
+  check(jumped.length === want.length, `2 ${where}: each of the ${want.length} links goes to its field (${jumped.length} did)`);
+}
+
+/**
+ * F3 (U7i fix 1), the class: every link in every missing-fields list on the
+ * page resolves to an element that is drawn, and a press moves into it.
+ */
+async function linksHaveTargets(page, where) {
+  const links = await page.$$eval('[data-notice="form-not-ready"] [data-goes-to]', (els) => els.map((b) => b.dataset.goesTo));
+  const missing = [];
+  for (const to of links) {
+    const drawn = await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      const b = el.getBoundingClientRect();
+      return b.width > 0 && b.height > 0;
+    }, to);
+    if (!drawn) {
+      missing.push(`${to} (not on the page)`);
+      continue;
+    }
+    await page.click(`[data-notice="form-not-ready"] [data-goes-to="${to}"]`);
+    const inside = await page.evaluate((id) => {
+      const el = document.getElementById(id);
+      return Boolean(el && document.activeElement && (el === document.activeElement || el.contains(document.activeElement)));
+    }, to);
+    if (!inside) missing.push(`${to} (the press moved nowhere)`);
+  }
+  // Known-present: the list this is called on has links.
+  check(links.length > 0 && missing.length === 0, `F3 ${where}: each of ${links.length} links in the missing-fields list goes to a field on the page${missing.length ? `: ${missing.join('; ')}` : ''}`);
+}
+
+/** Item 11 / check 9: each set of rates shown names who set it, and when -- its own change-log line. */
+async function saversHold(page, where, garage) {
+  const rows = stub.rateRows(garage.id);
+  // The change log is read after the rates: wait for each set of rates to say who set it.
+  await settles(page, (n) => document.querySelectorAll('[data-saved-at]').length === n, rows.length);
+  const shownBy = await page.$$eval('[data-saved-by]', (els) => els.map((e) => ({ version: e.dataset.planVersion, name: e.dataset.savedBy, at: e.dataset.savedAt, text: e.textContent, bold: e.querySelector('b')?.textContent ?? null })));
+  const log = stub.lines(A).filter((l) => l.action === 'rate_plan.add');
+  const wrong = [];
+  for (const row of rows) {
+    const line = log.find((l) => l.subject.id === row.id);
+    const s = shownBy.find((x) => x.version === row.plan_version);
+    const want = line && fill(EN['rates.setBy'], { name: line.who.name, when: garageDateTime(line.at, ZONE, 'en') });
+    if (!s || !line || s.name !== line.who.name || s.at !== line.at || s.text !== want || s.bold !== line.who.name) wrong.push(`${row.plan_version}: shows "${s?.text}", its line says "${want}"`);
+  }
+  check(rows.length > 0 && shownBy.length === rows.length && wrong.length === 0, `9 ${where}: each of ${rows.length} sets of rates says "Set by <owner, bold> on <when>", from its own line${wrong.length ? `: ${wrong.slice(0, 2).join('; ')}` : ''}`);
+}
+
+/** The check page open and its table priced by itself, no press: the try it sent. */
+async function reviewPriced(page, what) {
+  const opened = await settles(page, () => Boolean(document.querySelector('[data-form="review-rates"]')));
+  const priced = await settles(page, () => document.querySelectorAll('[data-list="price-table"] tbody tr').length > 0 && !document.querySelector('[data-notice="table-pricing"]'));
+  check(opened && priced, `6 ${what}: the check page prices its table as it opens, with no press`);
+  const tried = requests.filter((r) => r.path.endsWith('/rate-plans/try') && JSON.parse(r.body || '{}').stays?.length > 1).at(-1);
+  return tried ? JSON.parse(tried.body) : null;
+}
+
+/** The table's rows: what each is there to check, and what the engine charged. */
+const tableRows = (page) => page.$$eval('[data-list="price-table"] tbody tr', (rows) => rows.map((r) => ({ why: r.dataset.why, fee: Number(r.dataset.fee), entry: r.dataset.entry, exit: r.dataset.exit, pays: r.cells[5].textContent, says: r.cells[6].textContent, checks: r.cells[7].textContent })));
+
+/** The steps on the check page, the one to do starred: "1 2* 3". */
+const steps = (page) => page.$$eval('[data-steps] li', (els) => els.map((e) => `${e.dataset.step}${e.dataset.current === 'yes' ? '*' : ''}`).join(' '));
+
+/** The calculator's answer for a stay, by the rates chosen. */
+async function calculate(page, stay, source = null) {
+  const calc = '[data-section="calculator"]';
+  if (source) await page.click(`${calc} [data-control="calc-rates"] [data-value="${source}"]`);
+  await page.fill(`${calc} [data-field="try-entry"]`, stay.entry);
+  await page.fill(`${calc} [data-field="try-exit"]`, stay.exit);
+  const [res] = await Promise.all([page.waitForResponse((r) => r.url().endsWith('/rate-plans/try'), { timeout: 15000 }), page.click(`${calc} [data-action="try-stay"]`)]);
+  await settles(page, () => Boolean(document.querySelector('[data-section="calculator"] [data-tried]')) && document.querySelector('[data-section="calculator"] [data-stale]')?.dataset.stale === 'no');
+  return {
+    status: res.status(),
+    fee: Number(await page.getAttribute(`${calc} [data-tried="priced"]`, 'data-fee').catch(() => NaN)),
+    pays: await page.textContent(`${calc} .tried-pays`).catch(() => null),
+    lines: await page.$$eval(`${calc} .tried-lines tr`, (rows) => rows.map((r) => [r.cells[0].textContent, r.cells[1].textContent])),
+    byHour: await page.textContent(`${calc} [data-by-hour]`).catch(() => null),
+    says: await page.textContent(`${calc} [data-special-words]`).catch(() => null),
+    nothingSaved: await page.textContent(`${calc} [data-tried="priced"] > p:first-child`).catch(() => null),
+  };
+}
+
+const built = (form, name = 'x') => buildPlan(form, { garage: GARAGE, spaceClass: 'standard', start: 'x', name });
+/** Two plans the same but for their names and starts. */
+const sameRates = (a, b) => JSON.stringify({ ...a, plan_version: null, effective_from: null }) === JSON.stringify({ ...b, plan_version: null, effective_from: null });
+const lastSave = () => JSON.parse(requests.filter((r) => r.method === 'POST' && r.path.endsWith('/rate-plans')).at(-1)?.body || '{}');
 
 try {
   const context = await browser.newContext({ locale: 'en-US', timezoneId: 'Asia/Tokyo', acceptDownloads: true, viewport: { width: 1360, height: 900 } });
@@ -284,78 +475,175 @@ try {
   await page.click('button[type="submit"]');
   await page.click(`.garage-choice[data-garage="${RIVERSIDE.id}"]`);
   await page.waitForSelector('.nav');
+  const writes = () => requests.filter((r) => r.method === 'POST' && r.path.endsWith('/rate-plans')).length;
+  const tries = () => requests.filter((r) => r.path.endsWith('/rate-plans/try')).length;
+  const REG = '[data-section="regular"]';
+  const SPECIALS = '[data-section="specials"]';
+  const calc = '[data-section="calculator"]';
 
   // ── The Rates page, with no rates ──────────────────────────────────────
   check(await go(page, '#/rates', EN['page.rates.title']), 'Rates is in the navigation');
+  check((await page.locator('.page-purpose').count()) === 0, 'the title alone: no line under "Rates"');
   check(await settles(page, (w) => document.querySelector('[data-state]')?.textContent === w, EN['rates.none']), `no rates: "${EN['rates.none']}"`);
   check((await page.$$('[data-action="download-excel"]')).length === 0, 'no rates: no Download or Print');
+  check(Boolean(await page.$(REG)) && Boolean(await page.$(SPECIALS)) && Boolean(await page.$(calc)), 'the regular rates and the special rates, each with its own button, and the price calculator');
+  check((await page.textContent(`${SPECIALS} [data-reason-for="add-special"]`).catch(() => '')) === EN['rates.specials.regularFirst'], `10 no rates yet: Add a special rate is locked, "${EN['rates.specials.regularFirst']}"`);
+  await lockedHold(page, 'en, no rates yet', { atLeast: 2 });
+  await datesHold(page, 'en, no rates yet');
+  // Check 3: nothing to choose a start with, anywhere.
+  check((await page.$$('[data-control="starts"], [data-field="rates-day"], [data-section="later"]')).length === 0 && !(await bodyText(page)).includes('start later'), '3 no start to choose and no rates starting later');
 
-  // ── The form, filled in by hand as the table form ──────────────────────
-  await page.click('[data-action="change-rates"]');
-  await page.waitForSelector('[data-form="change-rates"]');
-  const f = TABLE_FORM;
-  await fillForm(page, f);
-  // Nothing is chosen for the owner: the review is refused until it is.
-  await page.click('[data-action="review-rates"]');
-  check(await settles(page, () => Boolean(document.querySelector('[data-problem-at="time.rounding"]'))), 'a started period is not chosen for the owner: asked for');
-  await fillRest(page, f, EN);
-  // F7: the start day offers only days after today, and a day that is not is refused.
-  await page.click('[data-control="starts"] [data-value="day"]');
-  const min = await page.getAttribute('[data-field="rates-day"]', 'min');
-  const tomorrow = await page.evaluate((zone) => {
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    return new Date(Date.parse(`${today}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
-  }, RIVERSIDE.timezone);
-  check(min === tomorrow, `F7 the start day offers days from tomorrow in the garage's time (${min}, tomorrow ${tomorrow})`);
-  const today = new Date(Date.parse(`${tomorrow}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
-  for (const [day, what] of [[today, 'today'], ['2020-01-06', 'a past day']]) {
-    await set(page, '[data-field="rates-day"]', day);
-    await page.click('[data-action="review-rates"]');
-    check(await settles(page, (w) => document.querySelector('[data-problem-at="day"]')?.textContent.includes(w), EN['rates.need.dayAfterToday']) && !(await page.$('[data-form="review-rates"]')), `F7 ${what} as the start day: refused, "${EN['rates.need.dayAfterToday']}"`);
-  }
-  await set(page, '[data-field="rates-day"]', f.day);
-  await formTicksHold(page, 'en');
-  await page.click('[data-action="review-rates"]');
-  check(await settles(page, () => Boolean(document.querySelector('[data-form="review-rates"]'))), 'the form, filled, opens the review');
-  const sentences = await page.$$eval('[data-sentences="draft"] li', (els) => els.map((e) => e.textContent));
-  check(sentences.some((x) => x.includes('First hour $8.00, then $4.00 each hour.')) && sentences.some((x) => x.startsWith('Early bird')), `the review says the rates in plain sentences: ${sentences.length}`);
-  check(!ENGINE_WORDS.test(await bodyText(page)), 'no engine word on the review');
-
-  // ── Check 12: nothing saved before the table is priced, ticked and confirmed ──
-  const writes = () => requests.filter((r) => r.method === 'POST' && r.path.endsWith('/rate-plans')).length;
-  check(await page.isDisabled('[data-action="confirm-rates"]'), '12 Confirm cannot be pressed before the table is priced');
-  await page.click('[data-action="price-table"]');
-  check(await settles(page, () => document.querySelectorAll('[data-list="price-table"] tbody tr').length > 0), 'the price table is priced');
-  const tried = requests.filter((r) => r.path.endsWith('/rate-plans/try')).at(-1);
-  const sentPlan = JSON.parse(tried.body).plan;
-  const want = { ...recorded.table.plan, plan_version: sentPlan.plan_version };
-  check(JSON.stringify(sentPlan) === JSON.stringify(want), '4 the form sends exactly the document the page builds from it (the one recorded)');
-  const fees = await page.$$eval('[data-list="price-table"] tbody tr', (rows) => rows.map((r) => Number(r.dataset.fee)));
-  check(fees.length === recorded.table.stays.length && fees[0] === 0 && fees.includes(1500) && fees.includes(2000), `4 the table holds the engine's prices, row for row (${fees.length} stays)`);
-  // E1: a short stay inside the early bird's times, where the hour is less than it: the words say so.
-  const short = await page.$$eval('[data-list="price-table"] tbody tr[data-why="specialShort"]', (rows) => rows.map((r) => ({ fee: Number(r.dataset.fee), says: r.cells[6].textContent })));
-  const earlyShort = short.find((r) => r.says.includes('Early bird fit'));
-  const timeLess = fill(EN['rates.why.timeLess'], { name: 'Early bird', time: moneyText(800, 'USD', 'en'), special: moneyText(1500, 'USD', 'en') });
-  check(earlyShort?.fee === 800 && earlyShort.says.includes(timeLess), `E1 the table: "${earlyShort?.says}" (${earlyShort?.fee})`);
-  // F1: the rows about the most per day say what the engine's breakdown of each says.
-  const capRows = await page.$$eval('[data-list="price-table"] tbody tr[data-why^="dayMax"]', (rows) => rows.map((r) => `${r.dataset.why}=${r.dataset.says}`));
-  check(capRows.join() === 'dayMaxTakes=dayMaxTakes,dayMaxBefore=dayMaxBefore', `F1 the most per day: ${capRows.join(', ')}`);
-  await confirmTickHolds(page, 'en');
-  check(await page.isDisabled('[data-action="confirm-rates"]'), '12 priced but not ticked: Confirm cannot be pressed');
-  await page.click('[data-action="confirm-rates"]', { force: true }).catch(() => {});
-  check(writes() === 0, '12 the tick ignored: nothing is sent');
+  // ── The regular rates, three left missing (check 2) ───────────────────
+  await set(page, '[data-field="time-first-minutes"]', REGULAR_FORM.time.firstMinutes);
+  await page.click('[data-action="save-regular"]');
+  await missingHold(page, REG, ['time-first-price', 'time-next-minutes', 'time-next-price'], 'en, the regular rates');
+  check(!(await page.$('[data-form="review-rates"]')) && writes() === 0 && tries() === 0, '2 with fields missing: no check page, nothing sent');
+  check((await page.textContent(`${REG} [data-notice="form-not-ready"] p`)) === fill(EN['rates.missing.many'], { count: 3 }), `2 "${fill(EN['rates.missing.many'], { count: 3 })}"`);
+  await set(page, '[data-field="time-first-price"]', REGULAR_FORM.time.firstPrice);
+  await set(page, '[data-field="time-next-minutes"]', REGULAR_FORM.time.nextMinutes);
+  await set(page, '[data-field="time-next-price"]', REGULAR_FORM.time.nextPrice);
+  await page.click('[data-tick="day-max-on"]');
+  await set(page, '[data-field="day-max-price"]', REGULAR_FORM.dayMax.price);
+  await pick(page, '[data-field="day-max-kind"]', REGULAR_FORM.dayMax.kind);
+  await page.click('[data-tick="grace-on"]');
+  await set(page, '[data-field="grace-minutes"]', REGULAR_FORM.grace.minutes);
+  check(!(await page.$('[data-field="time-rounding"]')) && !EN['rates.time.rounding'], '3 no "A period that has started" box');
+  await unitsHold(page, 'en, the regular rates', EN);
+  await page.click('[data-action="save-regular"]');
+  const regTry = await reviewPriced(page, 'the regular rates');
+  check(regTry && sameRates(regTry.plan, built(REGULAR_FORM)), '4 the regular rates: the check page prices exactly the document the page builds');
+  check(regTry && regTry.plan.rules.find((r) => r.type === 'increment').rounding === 'ceil', '3 a started period charged in full, said by no box');
+  check((await steps(page)) === '1 2* 3', `10 the check page's steps, the one to do marked: ${await steps(page)}`);
+  check(await page.isDisabled('[data-action="confirm-rates"]'), '10 priced, not ticked: Confirm cannot be pressed');
+  check((await page.textContent('[data-reason-for="confirm-rates"]').catch(() => '')) === EN['rates.review.needTick'], `10 Confirm locked: "${EN['rates.review.needTick']}"`);
+  check((await page.textContent('[data-notice="takes-effect"]')) === `${EN['rates.review.noticeBold']} ${EN['rates.review.noticeRest']}` && (await page.textContent('[data-notice="takes-effect"] b', { timeout: 2000 }).catch(() => null)) === EN['rates.review.noticeBold'], '8 the notice above the tick, its first sentence bold');
+  check((await page.textContent('[data-tick="checked-prices"] > span:last-child')) === EN['rates.review.tick'], `8 the tick: "${EN['rates.review.tick']}"`);
+  const regRows = await tableRows(page);
+  check(
+    regRows.map((r) => r.why).join() === 'graceInside,graceOver,firstPeriod,nextPeriod,length,length,length,length,length,dayMax,dayAndHour,twoDays,week',
+    `6 the approved page's rows: ${regRows.map((r) => r.why).join(', ')}`,
+  );
+  check(regRows.map((r) => r.fee).join() === '0,800,800,1200,1200,1600,2400,3000,3000,6000,6000,9000,24000', `1 the engine's prices, row for row, the approved page's: ${regRows.map((r) => r.fee).join(', ')}`);
+  check(regRows.every((r) => r.pays === `$${(r.fee / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`), '1 each "Driver pays" says the engine\'s fee');
+  check(writes() === 0, '10 nothing saved before Confirm');
+  await lockedHold(page, 'en, the check page before the tick');
   await page.click('[data-tick="checked-prices"]');
-  check(!(await page.isDisabled('[data-action="confirm-rates"]')), '12 ticked: Confirm can be pressed');
-  // A stay added after pricing: the table is stale until it is priced again.
-  await set(page, '[data-field="add-entry"]', recorded.table.added.entry);
-  await set(page, '[data-field="add-exit"]', recorded.table.added.exit);
-  await page.click('[data-action="add-stay"]');
-  check(await settles(page, () => Boolean(document.querySelector('[data-notice="table-stale"]'))), '12 a stay added after pricing: the table says it must be priced again');
-  check(await page.isDisabled('[data-action="confirm-rates"]'), '12 the stale table: Confirm cannot be pressed');
-  await page.click('[data-action="price-table"]');
-  check(await settles(page, () => !document.querySelector('[data-notice="table-stale"]')), '12 priced again: the table is current');
+  check((await steps(page)) === '1 2 3*' && !(await page.isDisabled('[data-action="confirm-rates"]')), `10 ticked: Confirm can be pressed, step 3 marked: ${await steps(page)}`);
+  check((await page.textContent('[data-reason-for="confirm-rates"]').catch(() => '')) === EN['rates.review.confirmSays'], `10 ticked: "${EN['rates.review.confirmSays']}"`);
+  const pressedAt = Date.now();
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'saved: back on the Rates page');
+  const save1 = lastSave();
+  check(save1.confirmed === true && save1.based_on === null && Math.abs(Date.parse(save1.plan.effective_from) - pressedAt) < 60_000, `3 the save starts when Confirm is pressed and was checked against no rates (${save1.plan?.effective_from}, based_on ${save1.based_on})`);
+  const savedSays = await page.textContent('[data-notice="saved"]');
+  check(savedSays === fill(EN['rates.saved'], { time: garageDateTime(save1.plan.effective_from, ZONE, 'en') }), `"${savedSays}"`);
+  check((await page.textContent('[data-state="current"]')).startsWith(fill(EN['rates.since'], { time: garageDateTime(save1.plan.effective_from, ZONE, 'en') })), 'Current rates: "Current since …", the garage\'s time');
+  const sentences = await page.$$eval('[data-sentences="current"] li', (els) => els.map((e) => e.textContent));
+  check(sentences.join(' | ') === 'First hour $8.00, then $4.00 each hour. | Max $30.00 per day (a calendar day, midnight to midnight). | Free if the car leaves within 10 minutes.', `the approved page's sentences: ${sentences.join(' | ')}`);
+  await saversHold(page, 'after the first save', RIVERSIDE);
 
-  // ── Check 7: the price table downloaded and printed ────────────────────
+  // ── Check 8: the form opens empty; all left empty, "Nothing to save." ─────
+  await nothingPrefilled(page, REG, 'en, the regular rates', EN);
+  const beforeNothing = tries();
+  await page.click('[data-action="save-regular"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="nothing-to-save"]'))), `8 every field empty: "${EN['rates.nothingToSave']}"`);
+  check(!(await page.$('[data-form="review-rates"]')) && tries() === beforeNothing, '8 nothing to save: no check page, nothing priced');
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    await framesHold(page, `en, the regular rates, ${width} px`);
+  }
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await formTicksHold(page, 'en');
+
+  // ── A special added: every field needed, then the early bird ───────────
+  // The platform's 20 tries a minute: the minute let pass, as the recording does.
+  stub.forgetTries();
+  await page.click('[data-action="add-special"]');
+  await page.waitForSelector('[data-editing="add"]');
+  await page.click('[data-action="save-special"]');
+  const newMissing = await page.$$eval('[data-editing="add"] [data-notice="form-not-ready"] li', (els) => els.length);
+  check(newMissing === 7, `2 a new special: every field needed, ${newMissing} named by its button`);
+  await linksHaveTargets(page, 'a new special, nothing picked');
+  await set(page, '[data-editing="add"] [data-field="special-name"]', EARLY_BIRD.name);
+  await pick(page, '[data-editing="add"] [data-field="special-preset"]', EARLY_BIRD.preset);
+  const ticked = await page.$$eval('[data-editing="add"] [data-tick^="day-"][aria-checked="true"]', (els) => els.map((e) => e.dataset.tick.slice(4)));
+  check(ticked.join() === 'mon,tue,wed,thu,fri', `"${EN['rates.preset.weekdays']}" ticks Monday to Friday: ${ticked.join(', ')}`);
+  await set(page, '[data-editing="add"] [data-field="special-enter-from"]', EARLY_BIRD.enterFrom);
+  await set(page, '[data-editing="add"] [data-field="special-enter-by"]', EARLY_BIRD.enterBy);
+  await page.click('[data-editing="add"] [data-control="next-day"] [data-value="false"]');
+  await page.click('[data-action="save-special"]');
+  await missingHold(page, '[data-editing="add"]', ['special-leave-by', 'special-charge'], 'en, a special with two missing');
+  await set(page, '[data-editing="add"] [data-field="special-leave-by"]', EARLY_BIRD.leaveBy);
+  await pick(page, '[data-editing="add"] [data-field="special-charge"]', 'adjust');
+  await pick(page, '[data-editing="add"] [data-field="special-amount-kind"]', 'percent');
+  await unitsHold(page, 'en, a percent', EN, { 'special-amount': '%' });
+  await pick(page, '[data-editing="add"] [data-field="special-charge"]', 'rate');
+  await unitsHold(page, 'en, its own hourly rate', EN);
+  await pick(page, '[data-editing="add"] [data-field="special-charge"]', 'flat');
+  await set(page, '[data-editing="add"] [data-field="special-flat"]', EARLY_BIRD.flat);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await ticksHold(page, 'en, a new special, 1280 px');
+  await page.setViewportSize({ width: 360, height: 900 });
+  await ticksHold(page, 'en, a new special, 360 px');
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await datesHold(page, 'en, a special being added');
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    await framesHold(page, `en, a special being added, ${width} px`);
+  }
+  await page.setViewportSize({ width: 1360, height: 900 });
+  // Check 5 before it is saved: the calculator on the rates being changed.
+  const early = await calculate(page, STAYS.early, 'changing');
+  check(early.fee === STAYS.early.fee && early.says === 'Early bird applied. By the time-based rate this stay would be $30.00.', `5 the rates being changed, the early bird: ${early.fee}, "${early.says}"`);
+  check(early.nothingSaved === EN['rates.calc.nothingSaved'] && early.pays === 'The driver pays $12.00.', `5 "${early.nothingSaved}" "${early.pays}"`);
+  check(writes() === 1, '5 the calculator saves nothing');
+  // F1: the special changed after the answer: the answer greyed, and says so.
+  await set(page, '[data-editing="add"] [data-field="special-flat"]', '13');
+  check(await settles(page, () => document.querySelector('[data-section="calculator"] [data-stale]')?.dataset.stale === 'yes' && Boolean(document.querySelector('[data-notice="calc-stale"]'))), 'F1 the special changed after the answer: greyed, and said');
+  await set(page, '[data-editing="add"] [data-field="special-flat"]', EARLY_BIRD.flat);
+  check(await settles(page, () => document.querySelector('[data-section="calculator"] [data-stale]')?.dataset.stale === 'no'), 'F1 control: typed back, the answer is for these rates again');
+  await page.click('[data-action="save-special"]');
+  const earlyTry = await reviewPriced(page, 'the early bird added');
+  const stored1 = stub.ratesSaved(RIVERSIDE.id)[0];
+  const wantEarly = specialsPlan(stored1, { kind: 'add', special: EARLY_BIRD }, { garage: GARAGE, spaceClass: 'standard', start: 'x', name: 'x' });
+  check(earlyTry && sameRates(earlyTry.plan, wantEarly), '4 the early bird added: exactly the document the page builds');
+  const regularOf = (p) => JSON.stringify(p.rules.filter((r) => r.type !== 'time_window'));
+  check(earlyTry && regularOf(earlyTry.plan) === regularOf(stored1), '4 a special saved: the regular rates byte for byte as stored');
+  check((await page.textContent('[data-notice="what-changes"]')) === fill(EN['rates.review.whatAdd'], { name: 'Early bird' }), '6 what this save does, in one sentence');
+  const change1 = await page.$$eval('[data-changes] .change-row', (els) => els.map((e) => [...e.children].map((c) => c.textContent).join('|')));
+  check(change1.join() === `Early bird|${EN['rates.change.none']}|→|${EN['rates.change.added']}`, `6 what changes: ${change1.join(', ')}`);
+  const earlyRows = await tableRows(page);
+  const byWhy = (why) => earlyRows.filter((r) => r.why === why);
+  check(
+    byWhy('specialFrom')[0]?.fee === 1200 && byWhy('specialBy')[0]?.fee === 1200 && byWhy('specialTooEarly')[0]?.fee === 3000 && byWhy('specialTooLate')[0]?.fee === 3000 && byWhy('specialLeftLate')[0]?.fee === 3000,
+    `1 the early bird's rows: ${earlyRows.filter((r) => r.why.startsWith('special')).map((r) => `${r.why} ${r.fee}`).join(', ')}`,
+  );
+  check(byWhy('specialFrom')[0]?.says === 'Early bird applied. By the time-based rate this stay would be $30.00.' && byWhy('specialTooEarly')[0]?.says === 'None. Early bird: came in before Come in from. The max per day was charged.', `the approved page's words: "${byWhy('specialTooEarly')[0]?.says}"`);
+  check(byWhy('length')[0]?.says === 'None. Early bird: not for a Saturday.', `"${byWhy('length')[0]?.says}"`);
+  check(!ENGINE_WORDS.test(await bodyText(page)), 'no engine word on the check page');
+  // Check 6: a stay added prices the table again by itself.
+  const triesBefore = tries();
+  await set(page, '[data-field="add-entry"]', STAYS.earlyBeaten.entry);
+  await set(page, '[data-field="add-exit"]', STAYS.earlyBeaten.exit);
+  await page.click('[data-action="add-stay"]');
+  check(await settles(page, () => document.querySelector('[data-list="price-table"] tbody tr:last-child')?.dataset.why === 'added' && !document.querySelector('[data-notice="table-pricing"]')), '6 a stay added: the table prices again, by itself');
+  const added = (await tableRows(page)).at(-1);
+  check(tries() === triesBefore + 1 && added.fee === 800 && added.checks === EN['rates.test.added'] && added.says === 'None. Early bird would be $12.00; the time-based rate is cheaper.', `6 one try; the stay added: ${added.fee}, "${added.says}"`);
+  // Ticked, then a stay added and priced slowly: Confirm locked while the table is priced again, the reason beside it.
+  await page.click('[data-tick="checked-prices"]');
+  stub.delayTries(1500);
+  await set(page, '[data-field="add-entry"]', STAYS.plain.entry);
+  await set(page, '[data-field="add-exit"]', STAYS.plain.exit);
+  await page.click('[data-action="add-stay"]');
+  const waiting = await settles(page, () => Boolean(document.querySelector('[data-notice="table-pricing"]')));
+  check(
+    waiting && (await page.isDisabled('[data-action="confirm-rates"]')) && (await page.textContent('[data-reason-for="confirm-rates"]').catch(() => '')) === EN['rates.table.busy'] && (await steps(page)) === '1* 2 3',
+    `12 a stay added while ticked: Confirm locked until the table is priced again, "${EN['rates.table.busy']}", step 1 marked`,
+  );
+  stub.delayTries(0);
+  check(await settles(page, () => !document.querySelector('[data-notice="table-pricing"]') && !document.querySelector('[data-action="confirm-rates"]').disabled), '12 priced again: Confirm can be pressed');
+  await page.click('[data-tick="checked-prices"]');
+  // Check 7: the price table downloaded and printed.
   for (const what of ['excel', 'pdf']) {
     const [download] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click(`[data-section="price-table"] [data-action="download-${what}"]`)]);
     const name = download.suggestedFilename();
@@ -364,22 +652,103 @@ try {
   }
   await page.click('[data-section="price-table"] [data-action="print"]');
   check(await settles(page, () => window.__printed === 1), '7 the price table prints');
-
-  // ── Check 5: rates the engine finds a gap in ────────────────────────────
-  if (!(await page.$eval('[data-tick="checked-prices"]', (e) => e.getAttribute('aria-checked') === 'true'))) await page.click('[data-tick="checked-prices"]');
+  await confirmTickHolds(page, 'en');
+  // Findings: rates the engine finds a gap in, refused at Confirm, each in a plain sentence.
+  await page.click('[data-tick="checked-prices"]');
   stub.gapNextSave();
   await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-section="confirm"] [data-problem="planFindings"]'))), 'the gap: refused, in plain words, the check page kept');
   check(await settles(page, () => document.querySelectorAll('[data-section="findings"] li').length > 0), '5 the gap: its findings are listed');
   const findingText = await page.$$eval('[data-section="findings"] li', (els) => els.map((e) => e.textContent));
-  check(findingText.every((x) => x.startsWith(EN['rates.finding.GAP_STAY_EXCEEDS_MAX_DURATION']) && !ENGINE_WORDS.test(x)), `5 each finding in a plain sentence: "${findingText[0]}"`);
-  check(Boolean(await page.$('[data-form="review-rates"]')), '5 the review is kept');
-
-  // ── Saved: the confirmation sent, the list shows it ────────────────────
+  check(findingText.length > 0 && findingText.every((x) => x.startsWith(EN['rates.finding.GAP_STAY_EXCEEDS_MAX_DURATION']) && !ENGINE_WORDS.test(x)), `5 each finding in a plain sentence: "${findingText[0]}"`);
+  check(!ENGINE_WORDS.test(await bodyText(page)), 'the gap: no engine word');
+  // The change log read slowly (CI, 2026-10-12): the rates just saved are never said to be missing from it.
+  stub.delayChanges(1500);
   await page.click('[data-action="confirm-rates"]');
-  check(await settles(page, () => Boolean(document.querySelector('[data-section="later"]'))), 'saved: the rates show as starting later');
-  const save = requests.filter((r) => r.method === 'POST' && r.path.endsWith('/rate-plans')).at(-1);
-  check(JSON.parse(save.body).confirmed === true, '12 the save says confirmed');
-  check(stub.ratesSaved(RIVERSIDE.id).length === 1, 'one set of rates saved');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'the early bird saved');
+  let tooSoon = 0;
+  for (let i = 0; i < 12; i += 1) {
+    tooSoon += await page.locator('[data-saved-by="unknown"]').count();
+    await page.waitForTimeout(100);
+  }
+  stub.delayChanges(0);
+  check(tooSoon === 0, `9 a save just made, its change log still being read: no set of rates said to be missing from it (${tooSoon})`);
+  const rows1 = stub.rateRows(RIVERSIDE.id);
+  check(lastSave().based_on === rows1[0].id, '4 the save names the rates it was checked against (the first)');
+  // ── The regular rates changed with a special in force: the specials kept byte for byte ──
+  stub.forgetTries();
+  await set(page, '[data-field="grace-minutes"]', '25');
+  await page.click('[data-action="save-regular"]');
+  const graceTry = await reviewPriced(page, 'the regular rates changed');
+  const specialsOf = (p) => JSON.stringify({ windows: p.rules.filter((r) => r.type === 'time_window'), order: p.adjust_order });
+  check(graceTry && specialsOf(graceTry.plan) === specialsOf(stub.ratesSaved(RIVERSIDE.id).at(-1)) && graceTry.plan.rules.find((r) => r.type === 'grace').minutes === 25, '4 the regular rates saved: the specials byte for byte as stored');
+  await page.click('[data-tick="checked-prices"]');
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'grace 25 saved');
+
+  // ── Check 5: the calculator on the current rates, five kinds of stay ───
+  // The platform's 20 tries a minute: the minute let pass, as the recording does.
+  stub.forgetTries();
+  for (const [kind, stay] of Object.entries(STAYS).filter(([k]) => k !== 'maxDays')) {
+    const a = await calculate(page, stay, 'force');
+    check(a.status === 200 && a.fee === stay.fee, `1 the calculator, current rates, ${kind}: ${a.fee} (the approved page: ${stay.fee})${a.status === 200 ? '' : `, HTTP ${a.status}`}${Number.isNaN(a.fee) ? ` -- ${await page.textContent(calc)}` : ''}`);
+  }
+  const capped = await calculate(page, STAYS.dayMax, 'force');
+  check(capped.lines.map((l) => l.join(' ')).join(' / ') === 'Max per day $30.00 / Total $30.00' && capped.byHour === 'By the hour it would be $52.00.', `the max per day: ${capped.lines.map((l) => l.join(' ')).join(' / ')}; "${capped.byHour}"`);
+  // Check 6 of the brief: the max breakdown, on rates being changed.
+  await set(page, '[data-field="time-first-price"]', '40');
+  await set(page, '[data-field="time-next-minutes"]', '15');
+  await set(page, '[data-field="time-next-price"]', '10');
+  await set(page, '[data-field="day-max-price"]', '100');
+  const max = await calculate(page, STAYS.maxDays, 'changing');
+  check(max.lines.map((l) => l.join(' ')).join(' / ') === 'Max per day, 2 days at $100.00 $200.00 / Total $200.00' && max.byHour === 'By the hour it would be $1,300.00.', `5 32 h 30: ${max.lines.map((l) => l.join(' ')).join(' / ')}; "${max.byHour}"`);
+  await page.click('[data-action="clear-regular"]');
+  check((await page.inputValue('[data-field="time-first-price"]')) === '', 'Clear what I typed: the fields empty again');
+
+  // ── A special changed: empty, its value in force under each field ──────
+  // The platform's 20 tries a minute: the minute let pass, as the recording does.
+  stub.forgetTries();
+  await page.click(`${SPECIALS} [data-special-in-force="1"] [data-action="change-special"]`);
+  await page.waitForSelector('[data-editing="change"]');
+  await nothingPrefilled(page, '[data-editing="change"]', 'en, a special being changed', EN);
+  await page.click('[data-action="save-special"]');
+  check(await settles(page, (w) => document.querySelector('[data-editing="change"] [data-notice="form-not-ready"]')?.textContent.includes(w), EN['rates.nothingToSave.special']), `8 a special changed by nothing: "${EN['rates.nothingToSave.special']}"`);
+  await set(page, '[data-editing="change"] [data-field="special-flat"]', '15');
+  await page.click('[data-action="save-special"]');
+  await reviewPriced(page, 'the early bird changed');
+  const change2 = await page.$$eval('[data-changes] .change-row', (els) => els.map((e) => ({ was: e.querySelector('.change-was').textContent, is: e.querySelector('.change-is').textContent, struck: getComputedStyle(e.querySelector('.change-was')).textDecorationLine })));
+  check(change2.length === 1 && change2[0].was.endsWith('$12.00 for the stay.') && change2[0].is.endsWith('$15.00 for the stay.') && change2[0].struck.includes('line-through'), `6 what changes: the old struck through, then the new (${change2[0]?.was} → ${change2[0]?.is})`);
+
+  // ── P2: rates saved by someone else while this check page is open ──────
+  const rows2 = stub.rateRows(RIVERSIDE.id);
+  const other = { ...stub.ratesSaved(RIVERSIDE.id).at(-1), plan_version: 'saved-elsewhere', effective_from: new Date().toISOString() };
+  other.rules = other.rules.map((r) => (r.type === 'grace' ? { ...r, minutes: 20 } : r));
+  stub.storeRates(RIVERSIDE.id, other, A);
+  await page.click('[data-tick="checked-prices"]');
+  const before = stub.rateRows(RIVERSIDE.id).length;
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, (w) => document.querySelector('[data-form="review-rates"] [data-problem="ratesChanged"]')?.textContent === w, EN['problem.ratesChanged']), `P2 refused: "${EN['problem.ratesChanged']}"`);
+  check(stub.rateRows(RIVERSIDE.id).length === before && lastSave().based_on === rows2.at(-1).id, 'P2 nothing stored by the refused Confirm');
+  check(await settles(page, () => [...document.querySelectorAll('[data-sentences="draft"] li')].some((li) => li.textContent.includes('20 minutes')) && [...document.querySelectorAll('[data-sentences="draft"] li')].some((li) => li.textContent.includes('$15.00 for the stay'))), 'P2 read again: the new rates hold the other save (20 minutes) and what was typed ($15)');
+  check(await settles(page, () => document.querySelector('[data-tick="checked-prices"]')?.getAttribute('aria-checked') === 'false' && Boolean(document.querySelector('[data-list="price-table"]'))), 'P2 priced again, the tick to give again');
+  await page.click('[data-tick="checked-prices"]');
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'P2 confirmed again: saved');
+  check(lastSave().based_on === stub.rateRows(RIVERSIDE.id).at(-2).id, 'P2 the save names the rates saved meanwhile');
+  await saversHold(page, 'after five saves (one elsewhere)', RIVERSIDE);
+  const earlier = await page.$$eval('[data-plan="earlier"] .rate-plan-when', (els) => els.map((e) => e.textContent));
+  check(earlier.length === 4 && earlier.every((x) => x.startsWith('From ')), `earlier rates, newest first: ${earlier.length}`);
+
+
+  // ── Remove: straight to the check page ─────────────────────────────────
+  // The platform's 20 tries a minute: the minute let pass, as the recording does.
+  stub.forgetTries();
+  await page.click(`${SPECIALS} [data-special-in-force="1"] [data-action="remove-special"]`);
+  await reviewPriced(page, 'the early bird removed');
+  check((await page.textContent('[data-notice="what-changes"]')) === fill(EN['rates.review.whatRemove'], { name: 'Early bird' }), '6 removing: one sentence');
+  await page.click('[data-tick="checked-prices"]');
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, (w) => document.querySelector('[data-section="specials"]')?.textContent.includes(w), EN['rates.specials.none']), 'removed: no special rates');
 
   // ── Check 7: the Rates list downloaded and printed ─────────────────────
   for (const what of ['excel', 'pdf']) {
@@ -389,22 +758,7 @@ try {
   await page.click('[data-section="in-force"] [data-action="print"]');
   check(await settles(page, () => window.__printed === 2), '7 the Rates list prints');
 
-  // ── Try a stay, on the rates saved ─────────────────────────────────────
-  await set(page, '[data-field="try-entry"]', recorded.table.added.entry);
-  await set(page, '[data-field="try-exit"]', recorded.table.added.exit);
-  await page.click('[data-action="try-stay"]');
-  check(await settles(page, () => Boolean(document.querySelector('[data-tried="priced"]'))), 'try a stay: priced');
-  const pays = await page.textContent('.tried-pays').catch(() => '');
-  check(/^The driver pays \$\d+\.\d\d\.$/.test(pays ?? ''), `try a stay: "${pays}"`);
-  // E1: a stay the hour prices for less than the early bird: the line, in words.
-  await set(page, '[data-field="try-entry"]', recorded.table.short.entry);
-  await set(page, '[data-field="try-exit"]', recorded.table.short.exit);
-  await page.click('[data-action="try-stay"]');
-  check(await settles(page, () => document.querySelector('[data-tried="priced"]')?.dataset.fee === '800'), 'E1 try a stay, less by the hour: priced at $8.00');
-  const lessWords = await page.textContent('[data-special-words]').catch(() => '');
-  check((lessWords ?? '').includes(timeLess), `E1 try a stay: "${lessWords}"`);
-
-  // ── Check 6: the Open button ───────────────────────────────────────────
+  // ── Check 6 (U7g): the Open button ─────────────────────────────────────
   await go(page, '#/setup', EN['page.setup.title']);
   await page.waitForSelector('[data-step="open"]');
   const missing = await page.$$eval('[data-still-missing]', (els) => els.map((e) => e.dataset.stillMissing));
@@ -434,7 +788,6 @@ try {
   check((await page.textContent('[data-notice="open-stays-open"]')) === EN['setup.open.confirm'], '6 one confirmation: once open, it stays open');
   await page.click('[data-action="open-yes"]');
   check(await settles(page, () => Boolean(document.querySelector('[data-notice="open-refused"] [data-still-missing="lane_computers"]'))), '6 refused: what is missing listed in plain words');
-  // F3: one message on the open step, and Setup read again: the step above is not Done any more.
   check(await settles(page, () => document.querySelector('[data-step="lane_computers"]')?.dataset.done === 'no'), 'F3 refused: Setup read again, "Lanes connected" is not Done above');
   const openStep = await page.$eval('[data-step="open"]', (el) => ({
     notices: [...el.querySelectorAll('[data-notice]')].map((n) => n.dataset.notice),
@@ -456,32 +809,33 @@ try {
   check(since?.startsWith('Open since'), `6 once open, the step says since when: "${since}"`);
   check(!(await page.$('[data-action="open-garage"]')), '6 once open, no Open button');
 
-  // ── 360 px: the page, the form with a special, and Setup fit a phone's width ──
+  // ── 360 px: the page, the regular rates, the calculator, a special, and Setup fit a phone's width ──
   await page.setViewportSize({ width: 360, height: 780 });
   const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  const inside = (sel) => page.$eval(sel, (el) => el.getBoundingClientRect().right <= window.innerWidth + 0.5 && el.scrollWidth <= el.clientWidth + 1);
   await go(page, '#/rates', EN['page.rates.title']);
   check(await fits(), '360 px: the Rates page has no sideways scrolling');
-  await page.click('[data-action="change-rates"]');
+  check((await inside(REG)) && (await inside('[data-section="calculator"]')), '360 px: the regular rates and the calculator fit the screen');
   await page.click('[data-action="add-special"]');
-  await page.selectOption('[data-special-at="1"] [data-field="special-preset"]', 'weekends');
-  check(await fits(), '360 px: the form with a special has no sideways scrolling');
-  await page.click('[data-action="close-panel"]');
+  await page.selectOption('[data-editing="add"] [data-field="special-preset"]', 'weekends');
+  check(await fits(), '360 px: a special being added has no sideways scrolling');
+  await page.click('[data-action="cancel-special"]');
   await go(page, '#/setup', EN['page.setup.title']);
   check(await fits(), '360 px: Setup has no sideways scrolling');
   await page.setViewportSize({ width: 1360, height: 900 });
 
-  // ── G2 (fix 2): Try a stay on the walk plan, a discount and a fee on every stay ──
-  await walkTries('en', EN);
-
-  // ── Spanish: the findings and the Open refusal in the other language ────
+  // ── Spanish: the Rates page in the other language ──────────────────────
   await chooseOnSettings(page, 'language', 'es');
   await page.click('.nav-item[href="#/rates"]');
   check(await settles(page, (t) => document.querySelector('.page-title')?.textContent === t, ES['page.rates.title']), 'es: Tarifas');
   // The words as written (innerText follows a CSS capitalisation).
   const esText = await page.evaluate(() => document.querySelector('main').textContent);
-  check(esText.includes(ES['rates.inForce']) && !ENGINE_WORDS.test(esText), `es: the Rates page in Spanish, no engine word${ENGINE_WORDS.test(esText) ? `: "${esText.match(ENGINE_WORDS)[0]}"` : ''}${esText.includes(ES['rates.inForce']) ? '' : '; no "Tarifas vigentes"'}`);
+  check(esText.includes(ES['rates.inForce']) && !ENGINE_WORDS.test(esText), `es: the Rates page in Spanish, no engine word${ENGINE_WORDS.test(esText) ? `: "${esText.match(ENGINE_WORDS)[0]}"` : ''}`);
+  await nothingPrefilled(page, REG, 'es, the regular rates', ES);
+  await unitsHold(page, 'es, the regular rates', ES);
 
   // ── F2 in Spanish: the form's ticks and the confirmation, on a garage with nothing stored ──
+  stub.forgetTries();
   const es = await (await browser.newContext({ locale: 'es-US', timezoneId: 'Asia/Tokyo', viewport: { width: 1360, height: 900 } })).newPage();
   await es.goto(base);
   await es.waitForSelector('.page-title');
@@ -491,28 +845,29 @@ try {
   await es.click(`.garage-choice[data-garage="${SPANISH.id}"]`);
   await es.waitForSelector('.nav');
   await go(es, '#/rates', ES['page.rates.title']);
-  await es.click('[data-action="change-rates"]');
-  await es.waitForSelector('[data-form="change-rates"]');
-  await fillForm(es, TABLE_FORM);
-  await fillRest(es, TABLE_FORM, ES);
-  // F7 (fix 2): today typed as the start day, and Review pressed for the FIRST time on
-  // this page: the app's own sentence, in Spanish -- never the browser's bubble.
-  await set(es, '[data-field="rates-day"]', today);
-  await es.click('[data-action="review-rates"]');
-  check(
-    (await settles(es, (w) => document.querySelector('[data-problem-at="day"]')?.textContent.includes(w), ES['rates.need.dayAfterToday'])) && !(await es.$('[data-form="review-rates"]')),
-    `F7 es, a fresh page, today typed, the first press of Review: "${ES['rates.need.dayAfterToday']}"`,
-  );
-  await set(es, '[data-field="rates-day"]', TABLE_FORM.day);
+  await datesHold(es, 'es, no rates yet');
+  await set(es, '[data-field="time-first-minutes"]', REGULAR_FORM.time.firstMinutes);
+  await set(es, '[data-field="time-first-price"]', REGULAR_FORM.time.firstPrice);
+  await set(es, '[data-field="time-next-minutes"]', REGULAR_FORM.time.nextMinutes);
+  await set(es, '[data-field="time-next-price"]', REGULAR_FORM.time.nextPrice);
+  await es.click('[data-tick="day-max-on"]');
+  await set(es, '[data-field="day-max-price"]', REGULAR_FORM.dayMax.price);
+  await pick(es, '[data-field="day-max-kind"]', REGULAR_FORM.dayMax.kind);
   await formTicksHold(es, 'es');
-  await es.click('[data-action="review-rates"]');
-  await es.click('[data-action="price-table"]');
-  check(await settles(es, () => document.querySelectorAll('[data-list="price-table"] tbody tr').length > 0), 'es: the price table is priced');
-  const esShort = await es.$$eval('[data-list="price-table"] tbody tr[data-why="specialShort"]', (rows) => rows.map((r) => r.cells[6].textContent));
-  const esLess = fill(ES['rates.why.timeLess'], { name: 'Early bird', time: moneyText(800, 'USD', 'es'), special: moneyText(1500, 'USD', 'es') });
-  check(esShort.some((x) => x.includes(esLess)), `E1 es: the table says "${esLess}" (${esShort.find((x) => x.startsWith('Early bird'))})`);
+  for (const width of [1280, 360]) {
+    await es.setViewportSize({ width, height: 900 });
+    await framesHold(es, `es, the regular rates, ${width} px`);
+  }
+  await es.setViewportSize({ width: 1360, height: 900 });
+  await es.click('[data-action="save-regular"]');
+  await reviewPriced(es, 'es, the regular rates');
   await confirmTickHolds(es, 'es');
-  await walkTries('es', ES);
+  await lockedHold(es, 'es, the check page before the tick');
+  const esSays = await es.$$eval('[data-list="price-table"] tbody tr', (rows) => rows.map((r) => r.cells[6].textContent));
+  check(esSays.length > 0 && esSays.every((x) => x && !/[{}]/.test(x)) && !ENGINE_WORDS.test(esSays.join(' ')), `es: the table's special-rate words, in Spanish: "${esSays[0]}"`);
+  await es.click('[data-tick="checked-prices"]');
+  await es.click('[data-action="confirm-rates"]');
+  check(await settles(es, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'es: saved');
 } catch (err) {
   failures.push(`the check stopped: ${err.message}`);
   console.error(err);
@@ -528,4 +883,3 @@ if (failures.length) {
   console.error(failures.map((x) => `  - ${x}`).join('\n'));
   process.exit(1);
 }
-console.log(fill('rates and the Open button -- {n} checks', { n: passed }));

@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 export const MINIMUM = 4.5;
-export const TEXTS = ['--text-primary', '--text-secondary'];
+export const TEXTS = ['--text-primary', '--text-secondary', '--text-wrong'];
 //: Each background, as the layers that make it, bottom first.
 export const BACKGROUNDS = [
   ['--bg-page'],
@@ -30,6 +30,17 @@ export const BACKGROUNDS = [
   ['--bg-panel', '--accent-soft'],
   ['--bg-raised', '--accent-soft'],
 ];
+// Text drawn see-through on purpose, with why: nothing is read in that colour.
+const INVISIBLE = {
+  ".when-box[data-empty='yes'] input:not(:focus)::-webkit-datetime-edit":
+    "an empty date or time box hides the browser's grey digits, which read as a value that is not there; a plain prompt is shown over it (U7i, item 5)",
+};
+// U7i: light text on a dark fill, the approved Rates page's main buttons and a step done --
+// measured and held to the minimum like every other text, on the one background each sits on.
+const INVERSE = {
+  "[data-section='confirm'] .primary-button": { colour: '--bg-page', on: '--text-primary' },
+  ".steps li[data-done='yes'] .step-n": { colour: '--bg-page', on: '--text-primary' },
+};
 const NOT_TEXT = {
   '.brand-name i': {
     why: 'the ".ai" of the wordmark is the logo, set as the site sets it (WCAG 1.4.3 exempts logotypes)',
@@ -94,6 +105,10 @@ export function measure(css) {
         rows.push({ look, text, bg: bgNames.join(' + '), ratio: ratio(over(colour(vars, `var(${text})`), bg), bg) });
       }
     }
+    for (const [selector, e] of Object.entries(INVERSE)) {
+      const bg = layered(vars, [e.on]);
+      rows.push({ look, text: `${e.colour} (${selector})`, bg: e.on, ratio: ratio(over(colour(vars, `var(${e.colour})`), bg), bg) });
+    }
     for (const [selector, e] of Object.entries(NOT_TEXT)) {
       for (const on of e.on) {
         const bg = layered(vars, [on]);
@@ -108,7 +123,9 @@ export function measure(css) {
     for (const d of m[2].matchAll(/(?:^|;|\s)color\s*:\s*([^;]+);/g)) {
       const value = d[1].trim();
       const listed = NOT_TEXT[selector];
-      if (!allowed.has(value) && !(listed && value === `var(${listed.colour})`)) strays.push(`${selector}: color: ${value}`);
+      if (value === 'transparent' && INVISIBLE[selector]) continue;
+      const inverse = Object.entries(INVERSE).find(([sel]) => selector.split(',').map((x) => x.trim()).includes(sel))?.[1];
+      if (!allowed.has(value) && !(listed && value === `var(${listed.colour})`) && !(inverse && value === `var(${inverse.colour})`)) strays.push(`${selector}: color: ${value}`);
     }
   }
   return { rows, exempt, strays };
