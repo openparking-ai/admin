@@ -2656,7 +2656,9 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/styles.css', anchor: '.tick.tick-words {\n  width: auto;', with: '.tick.tick-words {\n  width: 28px;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F2 en, the form, 1280 px', 'FAIL F2 en: the confirmation is'],
+    // U7i, the approved page: each tick on a row of its own, so a narrow tick overlaps nothing in the form;
+    // the confirmation's words, squeezed, run to many lines.
+    names: ['FAIL F2 es: the confirmation is'],
   },
   {
     check: 'U7g-fix1 F2 two days of a special drawn over each other',

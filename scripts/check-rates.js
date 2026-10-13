@@ -581,7 +581,8 @@ try {
   await unitsHold(page, 'en, its own hourly rate', EN);
   await pick(page, '[data-editing="add"] [data-field="special-charge"]', 'flat');
   await set(page, '[data-editing="add"] [data-field="special-flat"]', EARLY_BIRD.flat);
-  await ticksHold(page, 'en, a special being added, 1360 px');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await ticksHold(page, 'en, a new special, 1280 px');
   await page.setViewportSize({ width: 360, height: 900 });
   await ticksHold(page, 'en, a new special, 360 px');
   await page.setViewportSize({ width: 1360, height: 900 });
