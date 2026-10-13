@@ -262,12 +262,13 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
    * first load, as the platform holds every door's answer to its floor --
    * does not throw it away.
    */
-  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false, named: ownNames = [] } = {}) {
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false, named: ownNames = [], whole = false } = {}) {
     const asked = epoch;
     const stale = (at) => (sessionless ? null : staleSince(at));
     let res;
     try {
-      res = await fetchFn(`${BASE}${path}`, {
+      // `whole`: a path of this origin outside the platform's doors (a host's extra page, src/extras.js).
+      res = await fetchFn(whole ? path : `${BASE}${path}`, {
         method,
         credentials: 'same-origin',
         cache: 'no-store',
@@ -407,6 +408,14 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      */
     epoch: () => epoch,
     /** Be told of every sign-out and every 401. Returns the way to stop. */
+    /**
+     * One read of a path of this origin that is not the platform's: a host's extra page
+     * saying whether its step is done (src/extras.js). The same cookie, the same 401 rule,
+     * the same epoch; the body as JSON, or a Problem.
+     */
+    readOwn(path) {
+      return request(path, { whole: true });
+    },
     listen(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);

@@ -220,6 +220,8 @@ jobs:
 
       - name: The built site in a browser, signed in; no request leaves it; the page policy holds
         run: npm run check-browser
+      - name: Extra pages from the host, framed inside the site; this origin only; the page policy holds
+        run: npm run check-extras
 
       - name: Every page that prints reads right with the browser's default print (backgrounds off)
         run: npm run check-print

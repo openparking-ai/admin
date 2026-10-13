@@ -78,13 +78,50 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 113, 632); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 113, 636); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 110, 629); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 110, 633); only the last is ever shown'],
+  },
+  // Extra pages from the host (src/extras.js): each refusal red on its plant.
+  {
+    check: 'extras: a path of another host is accepted',
+    plant: { file: 'src/extras.js', anchor: "    if (!text.startsWith('/') || text.startsWith('//')) return false;", with: "    if (!text.startsWith('/')) return false;" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a path is this origin\'s, or it is refused'],
+  },
+  {
+    check: 'extras: a path outside the listed prefix is accepted',
+    plant: { file: 'src/extras.js', anchor: '  const under = (p) => ownPath(p) && prefixes.some((prefix) => p.startsWith(prefix));', with: '  const under = (p) => ownPath(p);' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a path is this origin\'s, or it is refused'],
+  },
+  {
+    check: 'extras: a message from another origin is acted on',
+    plant: { file: 'src/extras.js', anchor: '  if (!event || event.origin !== origin) return null;', with: '  if (!event) return null;' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a message is acted on from this origin only'],
+  },
+  {
+    check: 'extras: a height of a million is taken',
+    plant: { file: 'src/extras.js', anchor: '    if (typeof m.height !== \'number\' || !Number.isFinite(m.height) || m.height < 0 || m.height > MAX_HEIGHT) return null;', with: '    if (typeof m.height !== \'number\') return null;' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a message is acted on from this origin only'],
+  },
+  {
+    check: 'extras: a malformed file draws something',
+    plant: { file: 'src/extras.js', anchor: "  if (!file || typeof file !== 'object' || !Array.isArray(file.pages) || file.pages.length > 20) return [];", with: "  if (!file || typeof file !== 'object' || !Array.isArray(file.pages)) return [];" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a malformed file gives none'],
+  },
+  {
+    check: 'extras: an entry whose path is another host\'s is still drawn',
+    plant: { file: 'src/extras.js', anchor: '  if (!under(raw.page)) return null;', with: '  if (typeof raw.page !== \'string\') return null;' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a path is this origin\'s, or it is refused'],
   },
   {
     check: '4 Quick Find finds every page in both languages',
@@ -1567,6 +1604,21 @@ const CONTROLS = [
 ];
 
 const BROWSER_CONTROLS = [
+  // Extra pages from the host, in a browser: the frame follows its page, a change re-reads the step.
+  {
+    check: 'extras: the frame does not follow its page\'s height (browser)',
+    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.height !== undefined) setHeight(m.height);', with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL the frame grew with its page'],
+  },
+  {
+    check: 'extras: the step is not read again when its page says something changed (browser)',
+    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.changed) onChanged?.();', with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL after the page said something changed, the step was read again: done'],
+  },
   // U7f, check 6: no screen offers adding a car to the banned list by hand.
   {
     check: 'U7f a button that adds a car to the banned list',

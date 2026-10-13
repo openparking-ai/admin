@@ -6,6 +6,7 @@ import {
 } from './changes.js';
 import FieldName from './FieldName.jsx';
 import ListActions from './ListActions.jsx';
+import { ExtraSections } from './ExtraPages.jsx';
 
 /** Pieces of words, each stored text kept apart on its own. */
 function Pieces({ pieces }) {
@@ -53,7 +54,7 @@ function useWhole(client, garageId, what) {
  * pages on screen, Download and Print all follow the choices, and hold every
  * line that matches; the print's head and the file's say what was chosen.
  */
-export default function ChangesPage({ t, language, client, garage }) {
+export default function ChangesPage({ t, language, client, garage, extras = [], look = 'auto' }) {
   const { printedAt, print } = usePrint();
   const changes = useWhole(client, garage.id, 'changes');
   const refused = useWhole(client, garage.id, 'refused');
@@ -62,6 +63,8 @@ export default function ChangesPage({ t, language, client, garage }) {
     <>
       <ChangesList t={t} language={language} client={client} garage={garage} pages={changes} printedAt={printedAt} print={print} />
       <RefusedList t={t} language={language} client={client} garage={garage} pages={refused} printedAt={printedAt} print={print} />
+      {/* The host's own sections, if its extra-pages file names any for this page (src/extras.js). */}
+      <ExtraSections extras={extras} page="changes" garage={garage} language={language} look={look} />
     </>
   );
 }

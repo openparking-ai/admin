@@ -39,6 +39,7 @@
     "check-cache-order": "node scripts/check-cache-order.js",
     "check-removed-person": "node scripts/check-removed-person.js",
     "check-first-load": "node scripts/check-first-load.js",
+    "check-extras": "node scripts/check-extras.js",
     "check-rates": "node scripts/check-rates.js",
     "check-finding-codes": "node scripts/check-finding-codes.js",
     "fail-controls": "node scripts/fail-controls.js",

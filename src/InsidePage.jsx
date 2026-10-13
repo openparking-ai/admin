@@ -4,10 +4,12 @@ import { InsideCounts } from './Home.jsx';
 import { garageTime } from './time.js';
 import FieldName from './FieldName.jsx';
 import ListActions from './ListActions.jsx';
+import { ExtraSections } from './ExtraPages.jsx';
 
 /**
  * Garage View: the open stays, oldest first, as the platform returns them,
- * twenty at a time. Read only. (Its garage map comes in a later round.)
+ * twenty at a time. Read only. Below it, the host's own sections, if its
+ * extra-pages file names any for this page (src/extras.js).
  */
 export default function InsidePage({ t, language, client, garage }) {
   const { printedAt, print } = usePrint();
@@ -70,5 +72,15 @@ export default function InsidePage({ t, language, client, garage }) {
       )}
       <Pager t={t} language={language} paging={paging} list="inside" />
     </section>
+  );
+}
+
+/** Garage View with the host's sections under it. */
+export function InsidePageWithExtras(props) {
+  return (
+    <>
+      <InsidePage {...props} />
+      <ExtraSections extras={props.extras ?? []} page="inside" garage={props.garage} language={props.language} look={props.look ?? 'auto'} />
+    </>
   );
 }

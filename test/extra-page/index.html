@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Example extra page</title>
+    <style>
+      body { margin: 0; padding: 12px; font-family: sans-serif; }
+      [data-theme="night"] body { background: #111; color: #eee; }
+      .box { padding: 16px; border: 1px solid currentColor; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <p data-garage></p>
+      <p data-language></p>
+      <p data-look></p>
+      <button type="button" data-action="grow">Grow</button>
+      <button type="button" data-action="change">Change something</button>
+      <div data-filler></div>
+    </div>
+    <script src="./page.js"></script>
+  </body>
+</html>

@@ -204,6 +204,10 @@ export default {
   "page.changes.title": "Change log",
   "page.changes.purpose": "Every change made to this garage: who made it, what changed, and when. Refused attempts are kept apart, below.",
   "page.changes.words": "change log, changes, log, history, who changed, audit, record, refused, attempts",
+  // Extra pages from the host (src/extras.js): one more step of Setup, a section inside a page.
+  "extra.open": "Open",
+  "extra.close": "Close",
+  "extra.notRead": "Whether this is done could not be read right now.",
   "setup.isOpen": "This garage is open; the steps below show how it is set up.",
   "setup.count": "{done} of {steps} steps done",
   "setup.done": "Done",

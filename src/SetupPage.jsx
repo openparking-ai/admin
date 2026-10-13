@@ -4,20 +4,25 @@ import { STALE } from './api.js';
 import { WHERE, factLines } from './setup.js';
 import { PAGES, hashFor } from './pages.js';
 import FieldName from './FieldName.jsx';
+import { ExtraStep } from './ExtraPages.jsx';
 
 /**
  * The garage's setup checklist, as the platform works it out: each step's
  * name and what it is, done or not yet, the facts in plain words, and where
  * it is done. Nothing here decides whether a step is done.
  */
-export default function SetupPage({ t, language, client, garage }) {
+export default function SetupPage({ t, language, client, garage, extras = [], look = 'auto' }) {
   const now = useNow();
   const setup = useGarageRead(useCallback((id) => client.setup(id), [client]), garage.id);
+  // The host's steps (src/extras.js), each counted once its status is read.
+  const extraSteps = extras.filter((e) => e.setup);
+  const [extraStatus, setExtraStatus] = useState({});
+  const onStatus = useCallback((id, status) => setExtraStatus((was) => ({ ...was, [id]: status })), []);
 
   if (setup.problem) return <ProblemNote t={t} kind={setup.problem} onRetry={setup.retry} />;
   if (!setup.data) return <p className="quiet">{t('loading')}</p>;
   const steps = setup.data.steps;
-  const done = steps.filter((s) => s.done).length;
+  const done = steps.filter((s) => s.done).length + extraSteps.filter((e) => extraStatus[e.id]?.done === true).length;
 
   return (
     <section className="panel" data-list="setup">
@@ -27,7 +32,7 @@ export default function SetupPage({ t, language, client, garage }) {
         </p>
       ) : null}
       <p className="setup-count" data-count={done}>
-        {t('setup.count', { done, steps: steps.length })}
+        {t('setup.count', { done, steps: steps.length + extraSteps.length })}
       </p>
       <ol className="setup-steps">
         {steps.map((step) => (
@@ -61,6 +66,9 @@ export default function SetupPage({ t, language, client, garage }) {
               </Opens>
             ) : null}
           </li>
+        ))}
+        {extraSteps.map((entry) => (
+          <ExtraStep key={entry.id} t={t} client={client} entry={entry} garage={garage} language={language} look={look} onStatus={onStatus} />
         ))}
       </ol>
       <TailgaterSettings t={t} client={client} garage={garage} />

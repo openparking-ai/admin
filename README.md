@@ -379,3 +379,18 @@ The file makers use jsPDF and fflate, both MIT.
 ---
 
 Built by 72 Knots Method by 72Knots.ai
+
+## Extra pages from the host
+
+A host that serves this site may serve pages of its own beside it and say so in one file
+at its origin, `/extra-pages.json` (`src/extras.js`). Each entry names a page of this
+origin, its name and purpose in both languages, and where it shows: one more step of
+Setup (with a path that answers whether it is done and one line of facts), or a section
+inside Garage View or the Change log. The site draws the page in a same-origin frame
+inside its own page, hands it the chosen garage, the language and the look (in the
+address, then by message), and sizes the frame to what the page says of itself. A path
+that is not this origin's -- another host, a scheme, a backslash, an encoded form of
+either, or outside the entry's listed prefix -- refuses the entry; names are shown as
+text; a message from a frame counts only from this origin and in the expected shape; the
+file absent or malformed changes nothing. `npm run check-extras` walks it in a browser
+with a made-up extra page (`test/extra-page/`).

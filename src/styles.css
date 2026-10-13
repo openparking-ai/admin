@@ -1591,3 +1591,20 @@ textarea {
     max-width: 100%;
   }
 }
+
+/* ── Extra pages from the host, framed inside a page (src/extras.js) ─────── */
+.extra-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  margin-top: 12px;
+  background: transparent;
+}
+.extra-section .quiet {
+  margin-bottom: 4px;
+}
+@media print {
+  .extra-frame {
+    display: none;
+  }
+}
