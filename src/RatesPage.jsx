@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pager, PrintHead, ProblemNote, Segmented, useGarageRead, useNow, usePaging, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
 import ListActions from './ListActions.jsx';
-import FieldName from './FieldName.jsx';
+import FieldName, { FieldAbout } from './FieldName.jsx';
 import { garageDateTime, localSaid, zoneSaid } from './time.js';
 import {
   ADJUST_ROUNDINGS,
@@ -517,10 +517,13 @@ function When({ t, kind, field, id, value, onChange, problem, name, now = null, 
   if (bare) {
     // One of a list (a special's dates): its name is the list's own, above it.
     return (
-      <span className="when-box" data-empty={empty}>
-        <input type={kind} id={id} data-field={field} aria-label={t(name)} value={value} onChange={(e) => onChange(e.target.value)} />
-        {prompt}
-      </span>
+      <>
+        <span className="when-box" data-empty={empty}>
+          <input type={kind} id={id} data-field={field} aria-label={t(name)} value={value} onChange={(e) => onChange(e.target.value)} />
+          {prompt}
+        </span>
+        <FieldAbout t={t} name={name} />
+      </>
     );
   }
   return (
@@ -713,6 +716,22 @@ function RateFields({ t, language, garage, rate, now, onChange, prefix, scope, p
       <Text t={t} language={language} garage={garage} name={`${names}.nextMinutes`} field={`${df}-next-minutes`} id={id('nextMinutes')} value={rate.nextMinutes} onChange={set('nextMinutes')} unit="minutes" now={now && nowMinutes(t, now.nextMinutes)} problem={p('nextMinutes')} inputMode="numeric" maxLength={5} />
       <Text t={t} language={language} garage={garage} name={`${names}.nextPrice`} field={`${df}-next-price`} id={id('nextPrice')} value={rate.nextPrice} onChange={set('nextPrice')} unit="money" now={now && nowMoney(now.nextPrice, garage, language)} problem={p('nextPrice')} />
     </div>
+  );
+}
+
+/**
+ * A section's title and the approved page's sentence under it, drawn as a
+ * field's name and description are -- for the two sections whose sentence is
+ * longer than a field's description may be (the calculator, the price table).
+ */
+function SectionName({ t, name }) {
+  return (
+    <>
+      <span className="field-name">{t(name)}</span>
+      <span className="field-about" data-about={`${name}.intro`}>
+        {t(`${name}.intro`)}
+      </span>
+    </>
   );
 }
 
@@ -1092,10 +1111,10 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
   return (
     <section className={`panel${onCheckPage ? '' : ' no-print'}`} data-section="calculator" aria-live="polite">
       <h2 className="section-title">
-        <FieldName t={t} name="rates.calc" />
+        <SectionName t={t} name="rates.calc" />
       </h2>
       <div className="chooser" data-chooser="calc-rates">
-        <BoxName t={t} name="rates.calc.which" />
+        <FieldName t={t} name="rates.calc.which" />
         <Segmented
           label={t('rates.calc.which')}
           value={source}
@@ -1229,7 +1248,15 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
   const [extra, setExtra] = useState({ entry: '', exit: '' });
   const [addSaid, setAddSaid] = useState(null);
   const name = useRef(planName(Date.now(), garage.timezone));
+  // The moment the new rates are priced from: when the page opened, and again
+  // whenever the rates are read anew (another owner saved), so the new rates
+  // always start after every rates stored.
   const opened = useRef(Date.now());
+  const openedOn = useRef(basedOn);
+  if (openedOn.current !== basedOn) {
+    openedOn.current = basedOn;
+    opened.current = Date.now();
+  }
   const asking = useRef(null);
   const { printedAt, print } = usePrint();
 
@@ -1360,7 +1387,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
 
       <section className="panel" data-section="price-table">
         <h2 className="section-title">
-          <FieldName t={t} name="rates.table" />
+          <SectionName t={t} name="rates.table" />
         </h2>
         {busy && !current_ ? (
           <p className="quiet" data-notice="table-pricing">

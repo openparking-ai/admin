@@ -31,8 +31,9 @@ export default {
   'page.readers.words': 'card reader, reader, readers, card, credit card, tap, pay at the lane',
 
   'page.rates.title': 'Rates',
-  'page.rates.purpose': "What a driver pays to park here: your rates and special rates.",
-  'page.rates.words': "rate, rates, price, prices, pricing, how much, special rate, early bird, weekend rate, event rate, max per day, grace, price calculator, price table",
+  'page.rates.purpose': 'What a driver pays to park here: your rates and special rates.',
+  'page.rates.words':
+    'rate, rates, price, prices, pricing, how much, special rate, early bird, weekend rate, event rate, max per day, grace, price calculator, price table',
 
   'page.taxes.title': 'Taxes and fees',
   'page.taxes.purpose': 'The taxes and fees your garage adds to what a driver pays.',
@@ -1655,7 +1656,7 @@ export default {
   "rates.line.other": "Another charge",
   "rates.line.tax": "Tax",
   "rates.table": "Price table",
-  "rates.table.about": "Example stays priced by the new rates, the way cars will be charged. It prices itself; add any stay you want to see.",
+  "rates.table.intro": "Example stays priced by the new rates, the way cars will be charged. It prices itself; add any stay you want to see.",
   "rates.table.busy": "Pricing…",
   "rates.table.stale": "You changed the rates after this table was priced. Price it again before you confirm.",
   "rates.table.add": "Add this stay to the table",
@@ -1750,7 +1751,7 @@ export default {
   "rates.when.date": "Pick a date",
   "rates.when.time": "Pick a time",
   "rates.calc": "Price calculator",
-  "rates.calc.about": "Work out what a car pays: pick when it came in and when it left. Try as many as you like.",
+  "rates.calc.intro": "Work out what a car pays: pick when it came in and when it left. Try as many as you like.",
   "rates.calc.which": "Priced by",
   "rates.calc.which.about": "The current rates, or the rates you are changing and have not saved.",
   "rates.calc.force": "Current rates",

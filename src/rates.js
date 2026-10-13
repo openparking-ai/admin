@@ -789,8 +789,12 @@ export function currencySign(currency, language) {
   }
 }
 
-/** When new rates start: now, the garage's instant -- the moment Confirm is pressed (U7i: nothing is scheduled). */
-export const startNow = (garage, now = Date.now()) => garageInstant(now, garage.timezone);
+/**
+ * When new rates start: the moment Confirm is pressed (U7i: nothing is
+ * scheduled), to the millisecond -- two plans of a garage never share an
+ * instant, and a save made a moment ago is not met at the same second.
+ */
+export const startNow = (_garage, now = Date.now()) => new Date(now).toISOString();
 
 // --- the garage's clock ------------------------------------------------------
 

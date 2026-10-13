@@ -1699,17 +1699,16 @@ export async function startStub({ port = 0 } = {}) {
     const plan = body.plan;
     if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return refuse(res, who, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' }, at);
     if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, at);
+    // gapNextSave: these rates judged as if their time-based rate stopped at a day -- the engine's own findings.
+    const gap = gapNext ? { ...plan, rules: (plan.rules ?? []).filter((r) => r.type !== 'daily_max' && r.type !== 'weekly_max').map((r) => (r.type === 'increment' ? { ...r, max_duration_minutes: 1440 } : r)) } : null;
+    gapNext = false;
     let judged;
     try {
-      judged = await judge(plan);
+      judged = await judge(gap ?? plan);
     } catch {
       return refuse(res, who, 409, RATES_ENGINE_AWAY('the plan was not stored'), at);
     }
     if (judged.invalid) return refuse(res, who, 400, { error: judged.invalid }, at);
-    if (gapNext) {
-      gapNext = false;
-      if (!judged.findings) return refuse(res, who, 409, { error: 'the plan cannot price every stay it covers', code: 'plan_has_findings', details: { findings: [] } }, at);
-    }
     if (judged.findings) return refuse(res, who, 409, judged.findings, at);
     // U7i: nothing is scheduled -- rates start when they are saved.
     const now = Date.now();
@@ -2062,7 +2061,7 @@ export async function startStub({ port = 0 } = {}) {
       setups[garageId].transient_available = takes;
     },
     // ── U7g ──
-    /** The next rates saved are judged as the rates with a gap were: the platform's recorded findings. */
+    /** The next rates saved are judged as if their time-based rate stopped at a day: the engine's own findings. */
     gapNextSave: () => {
       gapNext = true;
     },

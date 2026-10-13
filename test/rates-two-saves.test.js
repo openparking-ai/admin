@@ -123,3 +123,11 @@ test('item 11: the platform wrote one change-log line for each save, naming its 
     assert.deepEqual(l.subject_name, [true]);
   }
 });
+
+test('two discounts apply in the order listed: the 10% first, then the $2.00, as the owner put them', () => {
+  const two = specialsPlan(docs.other, { kind: 'add', special: mergeSpecial({ ...blankSpecial('everyDay'), name: 'Two off', enterFrom: '00:00', enterBy: '23:59', leaveBy: '23:59', nextDay: true, charge: 'adjust', adjust: { direction: 'discount', kind: 'fixed', value: '2', rounding: '' } }) }, opts('', 'two'));
+  const listed = orderedWindows(two).filter((r) => r.stage === 'ADJUST').map((r) => r.label);
+  assert.deepEqual(listed, ['Members', 'Two off']);
+  assert.deepEqual(two.adjust_order, orderedWindows(two).filter((r) => r.stage === 'ADJUST').map((r) => r.id));
+  assert.deepEqual(two.adjust_order.map((id) => two.rules.find((r) => r.id === id).label), ['Members', 'Two off']);
+});

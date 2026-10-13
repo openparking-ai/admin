@@ -48,6 +48,9 @@ export const SAME_ON_PURPOSE = {
   'zone.metlakatla': 'Alaska and Metlakatla are written the same in both languages',
   'zone.yakutat': 'Alaska and Yakutat are written the same in both languages',
   'zone.nome': 'Alaska and Nome are written the same in both languages',
+  // U7i: the Rates page.
+  'rates.line.total': '"Total" is the same word in both languages',
+  'rates.change.period': 'a period in minutes and its price: "min" is the same in both languages',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');

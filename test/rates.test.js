@@ -117,7 +117,7 @@ test('findings: every code the engine can return has its own sentence, in both l
     const gap = answer('rates saved, with a gap').body.details.findings;
     for (const f of gap) {
       const said = findingWords(tt, f, plans.gap, ZONE, language);
-      assert.ok(!ENGINE_WORDS.test(said), said);
+      assert.ok(!ENGINE_WORDS.test(said) && said.startsWith(tt(findingKey(f.code))) && !said.includes(f.text), `the engine's own sentence reached the screen: ${said}`);
     }
   }
 });
