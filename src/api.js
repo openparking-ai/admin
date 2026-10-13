@@ -34,7 +34,7 @@ export const PROBLEM_KINDS = [
   'inviteUsed', 'inviteExpired', 'inviteReplaced', 'inviteInvalid', 'inviteTaken', 'inviteEmailTaken',
   'resetUsed', 'resetExpired', 'resetReplaced', 'resetInvalid',
   // U7g: rates, trying a stay, and opening the garage.
-  'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'ratesNotChecked', 'planNotKept',
+  'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'planStartLater', 'ratesChanged', 'ratesNotChecked', 'planNotKept',
   'notConfirmed', 'noRatesYet', 'tooManyTries', 'tryRefused', 'notReadyToOpen',
 ];
 
@@ -114,11 +114,9 @@ const NAMED = [
   [409, 'plan_version_exists', 'planNameTaken'],
   [409, 'plan_effective_from_taken', 'planStartTaken'],
   [409, 'plan_starts_in_the_past', 'planStartPast'],
-  // U7i fix 1: a later version that started, or was replaced, while the page was open.
-  [409, 'plan_already_started', 'planLaterStarted'],
-  [409, 'plan_already_withdrawn', 'planLaterStarted'],
-  [409, 'plan_not_found', 'planLaterStarted'],
-  [409, 'carry_start_differs', 'planLaterStarted'],
+  // U7i: nothing is scheduled, and the rates checked must still be the newest.
+  [422, 'rates_start_when_saved', 'planStartLater'],
+  [409, 'rates_changed_since_check', 'ratesChanged'],
   [409, 'rate_engine_unavailable', 'ratesNotChecked'],
   [409, 'plan_currency_disagrees_with_garage', 'planNotKept'],
   [409, 'plan_does_not_price_garage_space_class', 'planNotKept'],
@@ -562,27 +560,22 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     ratePlans: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
       if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
-      // U7i fix 1: a set of rates replaced before it started is kept for history and
-      // never priced; `plans` are the ones that price, `replaced` the others.
-      const pricing = data.rate_plans.filter((row) => !row.withdrawn_at);
-      const plans = pricing.map((row) => object(row.plan));
-      const replaced = data.rate_plans.filter((row) => row.withdrawn_at).map((row) => ({ plan: object(row.plan), id: typeof row.id === 'string' ? row.id : null, at: row.withdrawn_at }));
+      const plans = data.rate_plans.map((row) => object(row.plan));
       // U7i: each stored row's id, which its change-log line names (who saved it), and
-      // which a save names to replace a later version (U7i fix 1).
+      // which a save names as the rates it was checked against (`based_on`).
       const saved = data.rate_plans.map((row) => ({ id: typeof row.id === 'string' ? row.id : null, plan_version: row.plan_version ?? row.plan?.plan_version }));
-      return { plans, replaced, spaceClass: data.space_class, saved };
+      return { plans, spaceClass: data.space_class, saved };
     },
     /**
      * U7g: what cars would pay, priced the way the platform prices a car that
      * leaves, nothing kept. `plan` is new rates not saved yet, or null for the
      * rates saved; `stays` are { entry, exit } in the garage's own time.
      */
-    tryStays: async (garageId, { plan = null, stays, carry = [] }) => {
+    tryStays: async (garageId, { plan = null, stays }) => {
       const data = object(
         await request(`/garages/${encodeURIComponent(garageId)}/rate-plans/try`, {
           method: 'POST',
-          // U7i fix 1: with the later versions the save rebuilds, priced as it would leave them.
-          body: plan ? (carry.length ? { plan, stays, carry } : { plan, stays }) : { stays },
+          body: plan ? { plan, stays } : { stays },
           byStatus: TRY_BY_STATUS,
           named: TRY_NAMED,
         }),
@@ -592,14 +585,15 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     },
     /**
      * U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick.
-     * U7i fix 1: `carry` is each later version the save replaces, `{ withdraw, plan }`
-     * (no `plan`: the new rates replace it), all saved together or none.
+     * U7i: `basedOn` is the id of the rates in force when the prices were
+     * checked (null for none); the platform refuses the save if any other rates
+     * were stored since (`ratesChanged`).
      */
-    addRatePlan: async (garageId, plan, { confirmed, carry = [] }) =>
+    addRatePlan: async (garageId, plan, { confirmed, basedOn = null }) =>
       object(
         await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, {
           method: 'POST',
-          body: carry.length ? { plan, confirmed: confirmed === true, carry } : { plan, confirmed: confirmed === true },
+          body: { plan, confirmed: confirmed === true, based_on: basedOn },
           byStatus: PLAN_BY_STATUS,
         }),
       ),

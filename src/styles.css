@@ -1773,13 +1773,152 @@ fieldset.dates[data-wrong='yes'],
 .special-list .special-in-force > p {
   margin: 0;
 }
-.special-editor {
-  width: 100%;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-1);
-}
 .saved-by {
   margin: 4px 0 8px;
+}
+/* U7i, the approved page: the main button of each step dark, the others as every button. */
+.secondary-button {
+  padding: 11px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+[data-section='regular'] .primary-button,
+.special-editor .primary-button,
+[data-section='confirm'] .primary-button {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  border-color: var(--text-primary);
+}
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.rates-state {
+  margin: 0;
+}
+.rate-sentences-title {
+  margin: 12px 0 2px;
+}
+.rate-sentences ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rate-sentences ul.small,
+.small {
+  font-size: 13px;
+}
+.rate-plan {
+  border-top: 1px solid var(--border-1);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.rate-plan-when {
+  font-weight: 700;
+  margin: 0;
+}
+/* A note in its own box: what a save does to cars already parked. */
+.rates-note {
+  max-width: 70ch;
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+}
+.confirm-notice {
+  border-color: var(--accent);
+}
+.saved-note {
+  margin-top: 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-2);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+.special-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.special-list .special-in-force {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.special-words {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.special-words > .special-name {
+  display: block;
+}
+[data-section='specials'] > .act-row,
+[data-section='specials'] > .special-editor {
+  margin-top: 14px;
+}
+/* What changes: the old value struck through, then the new. */
+.change-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.change-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.change-was {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+.change-is {
+  font-weight: 700;
+}
+.change-arrow {
+  color: var(--text-secondary);
+}
+.calc-fields {
+  align-items: flex-end;
+}
+.tried-pays {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 2px 0;
+}
+.tried-total td {
+  border-top: 1px solid var(--border-2);
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.price-table tr.added-row td {
+  background: var(--accent-soft);
+}
+.steps li[data-done='yes'] .step-n {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  border-color: var(--text-primary);
+}
+@media screen and (max-width: 720px) {
+  .change-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .change-arrow {
+    display: none;
+  }
 }
 
 /* ── A phone (U7g): the frame stacks, nothing is wider than the screen ───── */

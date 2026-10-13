@@ -11,7 +11,8 @@ export const PAGES = [
   { id: 'lanes', path: '/lanes', icon: 'lane' },
   { id: 'drawings', path: '/installer-drawings', icon: 'drawings' },
   { id: 'readers', path: '/card-readers', icon: 'card' },
-  { id: 'rates', path: '/rates', icon: 'rate' },
+  // U7i: the approved Rates page has its title alone, no line under it.
+  { id: 'rates', path: '/rates', icon: 'rate', noPurpose: true },
   { id: 'taxes', path: '/taxes', icon: 'tax' },
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
   // U7a: Garage View, once "Cars inside": its old address still opens it.
