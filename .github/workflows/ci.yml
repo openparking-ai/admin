@@ -262,13 +262,14 @@ jobs:
         run: node .github/scripts/check-no-sibling-names.js --worktree
 
   browser-controls:
-    name: browser-controls (${{ matrix.shard }}/9)
+    name: browser-controls (${{ matrix.shard }}/16)
     # The browser checks, shown failing first. Copies, each with one break,
     # must each fail naming it: an outside font link, a raw code let through,
     # the clear skipped on sign-out, an inline script, the browser's time zone
     # used, and the rest listed in scripts/fail-controls.js -- the downloads'
-    # among them. Spread over 9 runners by their measured minutes (the ninth
-    # added for U7i fix 1's eight controls and its longer rates check);
+    # among them. Spread over 16 runners by their measured minutes (U7i, the
+    # approved page: about 210 minutes of controls, measured on run
+    # 38376795331, where 9 shards each ran into the 25-minute limit);
     # `browser` below proves the shards add up to one whole run.
     runs-on: ubuntu-24.04
     # Measured: the slowest run of this job, about twice over. A hang stops here, not at GitHub's 6 hours.
@@ -276,7 +277,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
@@ -287,7 +288,7 @@ jobs:
           ubuntu-release: noble
           browser: 'true'
       - name: The browser checks, shown failing first (this shard)
-        run: npm run fail-controls-browser -- --shard ${{ matrix.shard }}/9
+        run: npm run fail-controls-browser -- --shard ${{ matrix.shard }}/16
       - name: This shard's report
         # After a failed check too, never after a refused cache (U5 fix 18).
         if: "!cancelled() && steps.environment.outcome == 'success'"

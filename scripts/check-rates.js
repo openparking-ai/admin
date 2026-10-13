@@ -516,7 +516,7 @@ try {
   check((await steps(page)) === '1 2* 3', `10 the check page's steps, the one to do marked: ${await steps(page)}`);
   check(await page.isDisabled('[data-action="confirm-rates"]'), '10 priced, not ticked: Confirm cannot be pressed');
   check((await page.textContent('[data-reason-for="confirm-rates"]').catch(() => '')) === EN['rates.review.needTick'], `10 Confirm locked: "${EN['rates.review.needTick']}"`);
-  check((await page.textContent('[data-notice="takes-effect"]')) === `${EN['rates.review.noticeBold']} ${EN['rates.review.noticeRest']}` && (await page.textContent('[data-notice="takes-effect"] b')) === EN['rates.review.noticeBold'], '8 the notice above the tick, its first sentence bold');
+  check((await page.textContent('[data-notice="takes-effect"]')) === `${EN['rates.review.noticeBold']} ${EN['rates.review.noticeRest']}` && (await page.textContent('[data-notice="takes-effect"] b', { timeout: 2000 }).catch(() => null)) === EN['rates.review.noticeBold'], '8 the notice above the tick, its first sentence bold');
   check((await page.textContent('[data-tick="checked-prices"] > span:last-child')) === EN['rates.review.tick'], `8 the tick: "${EN['rates.review.tick']}"`);
   const regRows = await tableRows(page);
   check(
@@ -582,6 +582,9 @@ try {
   await pick(page, '[data-editing="add"] [data-field="special-charge"]', 'flat');
   await set(page, '[data-editing="add"] [data-field="special-flat"]', EARLY_BIRD.flat);
   await ticksHold(page, 'en, a special being added, 1360 px');
+  await page.setViewportSize({ width: 360, height: 900 });
+  await ticksHold(page, 'en, a new special, 360 px');
+  await page.setViewportSize({ width: 1360, height: 900 });
   await datesHold(page, 'en, a special being added');
   for (const width of [1280, 360]) {
     await page.setViewportSize({ width, height: 900 });
@@ -602,7 +605,9 @@ try {
   const earlyTry = await reviewPriced(page, 'the early bird added');
   const stored1 = stub.ratesSaved(RIVERSIDE.id)[0];
   const wantEarly = specialsPlan(stored1, { kind: 'add', special: EARLY_BIRD }, { garage: GARAGE, spaceClass: 'standard', start: 'x', name: 'x' });
-  check(earlyTry && sameRates(earlyTry.plan, wantEarly), '4 the early bird added: exactly the document the page builds, the regular rates byte for byte as stored');
+  check(earlyTry && sameRates(earlyTry.plan, wantEarly), '4 the early bird added: exactly the document the page builds');
+  const regularOf = (p) => JSON.stringify(p.rules.filter((r) => r.type !== 'time_window'));
+  check(earlyTry && regularOf(earlyTry.plan) === regularOf(stored1), '4 a special saved: the regular rates byte for byte as stored');
   check((await page.textContent('[data-notice="what-changes"]')) === fill(EN['rates.review.whatAdd'], { name: 'Early bird' }), '6 what this save does, in one sentence');
   const change1 = await page.$$eval('[data-changes] .change-row', (els) => els.map((e) => [...e.children].map((c) => c.textContent).join('|')));
   check(change1.join() === `Early bird|${EN['rates.change.none']}|→|${EN['rates.change.added']}`, `6 what changes: ${change1.join(', ')}`);
@@ -652,6 +657,9 @@ try {
   stub.gapNextSave();
   await page.click('[data-action="confirm-rates"]');
   check(await settles(page, () => Boolean(document.querySelector('[data-section="confirm"] [data-problem="planFindings"]'))), 'the gap: refused, in plain words, the check page kept');
+  check(await settles(page, () => document.querySelectorAll('[data-section="findings"] li').length > 0), '5 the gap: its findings are listed');
+  const findingText = await page.$$eval('[data-section="findings"] li', (els) => els.map((e) => e.textContent));
+  check(findingText.length > 0 && findingText.every((x) => x.startsWith(EN['rates.finding.GAP_STAY_EXCEEDS_MAX_DURATION']) && !ENGINE_WORDS.test(x)), `5 each finding in a plain sentence: "${findingText[0]}"`);
   check(!ENGINE_WORDS.test(await bodyText(page)), 'the gap: no engine word');
   // The change log read slowly (CI, 2026-10-12): the rates just saved are never said to be missing from it.
   stub.delayChanges(1500);
@@ -666,6 +674,16 @@ try {
   check(tooSoon === 0, `9 a save just made, its change log still being read: no set of rates said to be missing from it (${tooSoon})`);
   const rows1 = stub.rateRows(RIVERSIDE.id);
   check(lastSave().based_on === rows1[0].id, '4 the save names the rates it was checked against (the first)');
+  // ── The regular rates changed with a special in force: the specials kept byte for byte ──
+  stub.forgetTries();
+  await set(page, '[data-field="grace-minutes"]', '25');
+  await page.click('[data-action="save-regular"]');
+  const graceTry = await reviewPriced(page, 'the regular rates changed');
+  const specialsOf = (p) => JSON.stringify({ windows: p.rules.filter((r) => r.type === 'time_window'), order: p.adjust_order });
+  check(graceTry && specialsOf(graceTry.plan) === specialsOf(stub.ratesSaved(RIVERSIDE.id).at(-1)) && graceTry.plan.rules.find((r) => r.type === 'grace').minutes === 25, '4 the regular rates saved: the specials byte for byte as stored');
+  await page.click('[data-tick="checked-prices"]');
+  await page.click('[data-action="confirm-rates"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'grace 25 saved');
 
   // ── Check 5: the calculator on the current rates, five kinds of stay ───
   // The platform's 20 tries a minute: the minute let pass, as the recording does.
@@ -716,9 +734,10 @@ try {
   await page.click('[data-action="confirm-rates"]');
   check(await settles(page, () => Boolean(document.querySelector('[data-notice="saved"]'))), 'P2 confirmed again: saved');
   check(lastSave().based_on === stub.rateRows(RIVERSIDE.id).at(-2).id, 'P2 the save names the rates saved meanwhile');
-  await saversHold(page, 'after four saves (one elsewhere)', RIVERSIDE);
+  await saversHold(page, 'after five saves (one elsewhere)', RIVERSIDE);
   const earlier = await page.$$eval('[data-plan="earlier"] .rate-plan-when', (els) => els.map((e) => e.textContent));
-  check(earlier.length === 3 && earlier.every((x) => x.startsWith('From ')), `earlier rates, newest first: ${earlier.length}`);
+  check(earlier.length === 4 && earlier.every((x) => x.startsWith('From ')), `earlier rates, newest first: ${earlier.length}`);
+
 
   // ── Remove: straight to the check page ─────────────────────────────────
   // The platform's 20 tries a minute: the minute let pass, as the recording does.

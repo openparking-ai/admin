@@ -1247,6 +1247,8 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
   const [saving, setSaving] = useState(false);
   const [extra, setExtra] = useState({ entry: '', exit: '' });
   const [addSaid, setAddSaid] = useState(null);
+  // The engine's findings when it refused the save itself, each said in plain words.
+  const [saveFindings, setSaveFindings] = useState([]);
   const name = useRef(planName(Date.now(), garage.timezone));
   // The moment the new rates are priced from: when the page opened, and again
   // whenever the rates are read anew (another owner saved), so the new rates
@@ -1303,6 +1305,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
     if (!canConfirm) return;
     setSaving(true);
     setProblem(null);
+    setSaveFindings([]);
     const start = startNow(garage);
     try {
       await client.addRatePlan(garage.id, { ...priced.plan, effective_from: start }, { confirmed: true, basedOn });
@@ -1311,6 +1314,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
       if (p?.kind === STALE || p?.kind === 'ended') return;
       setProblem(p?.kind ?? 'unexpected');
       setSaving(false);
+      if (p?.kind === 'planFindings') setSaveFindings(p.findings ?? []);
       if (p?.kind === 'ratesChanged') {
         setTicked(false);
         reread();
@@ -1329,7 +1333,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
     setExtra({ entry: '', exit: '' });
   };
   const changed = current ? changes(t, current, shown, language) : [];
-  const findings = priced?.draftFindings ?? [];
+  const findings = [...(priced?.draftFindings ?? []), ...saveFindings];
 
   return (
     <>

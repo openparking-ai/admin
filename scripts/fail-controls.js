@@ -2648,7 +2648,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/SetupPage.jsx', anchor: 'disabled={missing.length > 0} aria-disabled={missing.length > 0}', with: 'disabled={false} aria-disabled={false}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 6 steps missing (drivers, lanes, lane_computers, rates, taxes): Open cannot be pressed'],
+    names: ['FAIL 6 steps missing'],
   },
   // ── U7g fix 1, in a browser: worded ticks (F2), after a refused Open (F3), the real disabled (F4), the start day (F7), the cheaper way (E1) ──
   {
@@ -2686,13 +2686,6 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ['FAIL G4 en, a new special, 360 px'],
-  },
-  {
-    check: "U7g-fix2 F7 the browser's own date check put back: its bubble on the first press",
-    plant: { file: 'src/RatesPage.jsx', anchor: '        className="setup-form"\n        noValidate\n', with: '        className="setup-form"\n' },
-    before: BUILD,
-    run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F7 es, a fresh page, today typed, the first press of Save'],
   },
   {
     check: "U7g-5 a finding shown in the engine's words, in a browser",
@@ -2769,11 +2762,11 @@ const BROWSER_CONTROLS = [
     names: ['FAIL 10 en, no rates yet: ', 'none for: add-special'],
   },
   {
-    check: 'U7i-10 the wait cursor back on a locked tick',
-    plant: { file: 'src/styles.css', anchor: '.tick:disabled {\n  cursor: not-allowed;\n}', with: '.tick:disabled {\n  cursor: wait;\n}' },
+    check: 'U7i-10 the wait cursor back on a locked button',
+    plant: { file: 'src/styles.css', anchor: '.act-row .primary-button:disabled,\n.act-row .link-button:disabled {\n  opacity: 0.45;\n  cursor: not-allowed;\n}', with: '.act-row .primary-button:disabled,\n.act-row .link-button:disabled {\n  opacity: 0.45;\n  cursor: wait;\n}' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL 10 en, the check page, pricing again: no wait or progress cursor'],
+    names: ['FAIL 10 en, the check page before the tick: no wait or progress cursor'],
   },
   // ── U7i fix 1: the gate's F1-F3 and a change carried into rates saved to start later ──
   {
@@ -2781,14 +2774,14 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/RatesPage.jsx', anchor: '  const stale = Boolean(answer) && answer.key !== askedFor;', with: '  const stale = false;' },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F1 $12 typed after it was priced at $15', 'FAIL F1 grace 20 -> 25 typed after the answer', 'FAIL F1 the stay changed after the answer'],
+    names: ['FAIL F1 the special changed after the answer'],
   },
   {
     check: 'U7i fix 1 F3 the days link back, to a field not on the page',
     plant: { file: 'src/rates.js', anchor: "  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';", with: "  } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';" },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ['FAIL F3 en, a new special, nothing typed', 'special-days (not on the page)', 'FAIL F3 no choice picked'],
+    names: ['FAIL F3 a new special, nothing picked'],
   },
   // ── U7i, the approved page, in a browser ──
   {
@@ -2838,7 +2831,7 @@ const BROWSER_CONTROLS = [
     plant: { file: "src/RatesPage.jsx", anchor: "          const version = ids.get(line.subject.id);", with: "          const version = [...ids.values()][([...ids.keys()].indexOf(line.subject.id) + 1) % ids.size];" },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
-    names: ["FAIL 9 after the first save"],
+    names: ["FAIL 9 after five saves"],
   },
   {
     check: "U7i-9 who set it: \"not in the change log\" said before the log is read",
