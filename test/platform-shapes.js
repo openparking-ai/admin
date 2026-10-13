@@ -76,6 +76,14 @@ const STRUCTURE = {
   // U7g: the rates read: the documents whole (the page's own, made from the
   // forms in test/rates-forms.js), and the kind of space.
   plans: (data) => ({ keys: Object.keys(data).sort(), space_class: data.space_class, plans: data.rate_plans.map((r) => ({ keys: Object.keys(r).sort(), plan: r.plan })) }),
+  // U7i: the rates read, each start said as "when saved" -- rates start when they are saved.
+  plansSaved: (data) => ({
+    keys: Object.keys(data).sort(),
+    space_class: data.space_class,
+    plans: data.rate_plans.map((r) => ({ keys: Object.keys(r).sort(), id: typeof r.id, plan: { ...r.plan, effective_from: 'when saved' }, starts_as_sent: r.effective_from !== null && Date.parse(r.effective_from) === Date.parse(r.plan.effective_from) })),
+  }),
+  // U7i: a save's answer, its keys and the plan as sent, its start said as "when saved".
+  saved: (data) => ({ keys: Object.keys(data).sort(), row: Object.keys(data.rate_plan).sort(), plan: { ...data.rate_plan.plan, effective_from: 'when saved' } }),
   setup: (data) => ({
     keys: Object.keys(data).sort(),
     setup_keys: Object.keys(data.setup).sort(),
@@ -90,6 +98,12 @@ const STRUCTURE = {
       subject_name: line.subject.name === null ? 'null' : typeof line.subject.name,
       subject_removed: line.subject.removed,
     };
+  },
+  // U7i: the change log after rates were saved: its newest line's start said as "when saved".
+  changesSaved: (data) => {
+    const out = STRUCTURE.changes(data);
+    const after = out.newest.after;
+    return { ...out, newest: { ...out.newest, after: after && after.effective_from ? { ...after, effective_from: 'when saved' } : after } };
   },
   // U7c: a garage just added: its checklist by structure, and which steps a new garage has done.
   added: (data) => ({
@@ -291,62 +305,65 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
 }
 
 /**
- * U7g: rates, trying a stay, saving with the owner's confirmation, and the
- * Open button -- on a garage made for it, so no rate stored before is in the
- * way. Each of the six forms of test/rates-forms.js is tried on one stay and
- * then saved; a table of example stays is tried for the browser check's form;
- * and every refusal the Rates page and the Open button can meet. `hooks.lanes`
- * gives the new garage a way in and a way out (nothing about opening is ready).
+ * U7g / U7i: rates, trying a stay, saving with the owner's confirmation and
+ * the rates checked against, and the Open button -- on a garage of its own,
+ * the calls the Rates page makes and every refusal it can meet. `plans` is
+ * test/rates-forms.js's recordedPlans, built at the time of the run (rates
+ * start when they are saved). What a try priced is written down whole (the
+ * price IS the contract); the rates read back, with each start said as "when
+ * saved". `rest` waits out the platform's 20 tries a minute (the recording)
+ * or forgets the tries (the stand-in).
  */
-export async function recordRates(base, { origin, owner, hooks, plans, rest = async () => {} }) {
+export async function recordRates(base, { origin, owner, hooks, plans, stays, rest = async () => {} }) {
   const { state, call } = recorder(base, origin);
   await call('sign-in, for the rates', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
   state.garage = (await call('a garage, for the rates', 'POST', '/garages', plans.garage, {}, { quiet: true })).garage.id;
   if (hooks?.lanes) await hooks.lanes(state.garage);
+  // Each plan starts at the moment it is sent, as a save starts when it is confirmed.
+  const fresh = (plan, ms = 0) => ({ ...plan, effective_from: new Date(Date.now() + ms).toISOString() });
   const rates = '/garages/{garage}/rate-plans';
   const tryIt = `${rates}/try`;
-  await call('rates, none yet', 'GET', rates, undefined, {}, { structure: 'plans' });
+  const ids = async () => (await call('rates, for their ids', 'GET', rates, undefined, {}, { quiet: true })).rate_plans.map((r) => r.id);
+  await call('rates, none yet', 'GET', rates, undefined, {}, { structure: 'plansSaved' });
   await call('rates, of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/rate-plans`);
-  await call('a stay tried, with no rates at all', 'POST', tryIt, { stays: [plans.forms[0].stay] });
-  for (const f of plans.forms) {
-    await call(`a stay tried, form ${f.id}`, 'POST', tryIt, { plan: f.plan, stays: [f.stay] }, {}, { structure: 'priced' });
-    await call(`rates saved, form ${f.id}, not confirmed`, 'POST', rates, { plan: f.plan });
-    await call(`rates saved, form ${f.id}`, 'POST', rates, { plan: f.plan, confirmed: true });
-  }
-  await call('a stay tried, on the rates saved', 'POST', tryIt, { stays: plans.forms.map((f) => f.stay) }, {}, { structure: 'priced' });
-  await call('the price table tried', 'POST', tryIt, { plan: plans.table.plan, stays: plans.table.stays }, {}, { structure: 'priced' });
-  await call('the price table tried, with a stay of its own', 'POST', tryIt, { plan: plans.table.plan, stays: [...plans.table.stays, plans.table.added] }, {}, { structure: 'priced' });
-  await call('a stay tried, the price table form', 'POST', tryIt, { plan: plans.table.plan, stays: [plans.table.added] }, {}, { structure: 'priced' });
-  // U7g fix 1, F1: the gate's three plans, their price tables as drafts.
-  for (const m of plans.maxes.filter((x) => !x.late)) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
-  await call('rates saved, the price table form', 'POST', rates, { plan: plans.table.plan, confirmed: true });
-  // U7g fix 1, E1: on the rates saved, a stay the hour prices for less than the early bird.
-  await call('a stay tried, less by the hour', 'POST', tryIt, { stays: [plans.table.short] }, {}, { structure: 'priced' });
-  await call('rates saved, with a gap', 'POST', rates, { plan: plans.gap, confirmed: true });
-  await call('a stay tried, rates with a gap', 'POST', tryIt, { plan: plans.gap, stays: plans.gapStays }, {}, { structure: 'priced' });
-  await call('rates saved, starting in the past', 'POST', rates, { plan: plans.past, confirmed: true }, {}, { normalise: true });
-  await call('rates saved, starting when others start', 'POST', rates, { plan: plans.sameStart, confirmed: true }, {}, { normalise: true });
-  await call('rates saved, a name already saved', 'POST', rates, { plan: plans.sameName, confirmed: true });
-  await call('rates saved, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans`, { plan: plans.forms[0].plan, confirmed: true });
-  await call('a stay tried, leaving before it came in', 'POST', tryIt, { stays: [{ entry: '2030-01-08T10:00', exit: '2030-01-08T09:00' }] });
-  await call('a stay tried, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans/try`, { stays: [plans.forms[0].stay] });
-  await call('rates', 'GET', rates, undefined, {}, { structure: 'plans' });
+  await call('a stay tried, with no rates at all', 'POST', tryIt, { stays: [stays[0]] });
+  await call('the regular rates tried', 'POST', tryIt, { plan: fresh(plans.regular), stays }, {}, { structure: 'priced' });
+  await call('rates saved, not confirmed', 'POST', rates, { plan: fresh(plans.regular), based_on: null });
+  await call('rates saved, starting an hour after they are saved', 'POST', rates, { plan: fresh(plans.regular, 3600_000), confirmed: true, based_on: null }, {}, { normalise: true });
+  await call('rates saved, checked against rates the garage does not have', 'POST', rates, { plan: fresh(plans.regular), confirmed: true, based_on: '00000000-0000-4000-8000-000000000001' }, {}, { normalise: true });
+  await call('rates saved, the regular rates', 'POST', rates, { plan: fresh(plans.regular), confirmed: true, based_on: null }, {}, { structure: 'saved' });
+  const [regularId] = await ids();
+  await call('the early bird tried', 'POST', tryIt, { plan: fresh(plans.early), stays }, {}, { structure: 'priced' });
+  await call('rates saved, the early bird added', 'POST', rates, { plan: fresh(plans.early), confirmed: true, based_on: regularId }, {}, { structure: 'saved' });
+  await call('rates saved, checked against the rates before the early bird', 'POST', rates, { plan: fresh(plans.change), confirmed: true, based_on: regularId }, {}, { normalise: true });
+  await call('rates saved, checked against none, with rates saved', 'POST', rates, { plan: fresh(plans.change), confirmed: true }, {}, { normalise: true });
+  await call('a stay tried, on the rates saved', 'POST', tryIt, { stays }, {}, { structure: 'priced' });
+  await call('the max per day tried', 'POST', tryIt, { plan: fresh(plans.max), stays: [plans.maxStay] }, {}, { structure: 'priced' });
+  await call('the other kinds of special tried', 'POST', tryIt, { plan: fresh(plans.other), stays }, {}, { structure: 'priced' });
+  await rest();
+  const newest = (await ids()).at(-1);
+  await call('rates saved, with a gap', 'POST', rates, { plan: fresh(plans.gap), confirmed: true, based_on: newest });
+  await call('a stay tried, rates with a gap', 'POST', tryIt, { plan: fresh(plans.gap), stays: [stays[0], plans.maxStay] }, {}, { structure: 'priced' });
+  await call('rates saved, starting in the past', 'POST', rates, { plan: fresh(plans.change, -3600_000), confirmed: true, based_on: newest }, {}, { normalise: true });
+  await call('rates saved, a name already saved', 'POST', rates, { plan: { ...fresh(plans.change), plan_version: plans.regular.plan_version }, confirmed: true, based_on: newest });
+  await call('rates saved, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans`, { plan: fresh(plans.change), confirmed: true, based_on: null });
+  await call('a stay tried, leaving before it came in', 'POST', tryIt, { stays: [{ entry: '2031-03-15T10:00', exit: '2031-03-15T09:00' }] });
+  await call('a stay tried, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/rate-plans/try`, { stays: [stays[0]] });
+  await call('rates', 'GET', rates, undefined, {}, { structure: 'plansSaved' });
   await call('setup, with rates saved', 'GET', '/garages/{garage}/setup', undefined, {}, { structure: 'setup' });
   await call('the garage opened, with steps missing', 'POST', '/garages/{garage}/activate');
-  await call('changes, after the rates', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
-  // U7g fix 2. The tries below would pass the platform's 20 a minute: `rest`
-  // waits the minute out (the recording) or forgets the tries (the stand-in).
-  await rest();
-  // G3: the plans whose hours land exactly on the most, their price tables as drafts.
-  for (const m of plans.maxes.filter((x) => x.late)) await call(`the price table tried, ${m.id}`, 'POST', tryIt, { plan: m.plan, stays: m.stays }, {}, { structure: 'priced' });
-  // G2: the re-gate's walk plan (a discount and a service fee), its price table as a draft,
-  // then saved on a garage of its own and each short stay tried on it.
-  await call('the price table tried, the walk plan', 'POST', tryIt, { plan: plans.walk.plan, stays: plans.walk.stays }, {}, { structure: 'priced' });
-  const walkGarage = (await call('a garage, for the walk plan', 'POST', '/garages', { ...plans.garage, name: 'Recorded walk garage' }, {}, { quiet: true })).garage.id;
-  await call('rates saved, the walk plan', 'POST', `/garages/${walkGarage}/rate-plans`, { plan: plans.walk.plan, confirmed: true }, {}, { quiet: true });
-  for (const [i, stay] of plans.walk.short.entries()) {
-    await call(`a stay tried, the walk plan saved, short stay ${i + 1}`, 'POST', `/garages/${walkGarage}/rate-plans/try`, { stays: [stay] }, {}, { structure: 'priced' });
-  }
+  const read = await call('rates, read for who saved them', 'GET', rates, undefined, {}, { quiet: true });
+  const log = await call('changes, after the rates', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changesSaved' });
+  // Item 11: each stored row's change-log line, matched by the row's id -- who, by kind and
+  // whether named (never the name), and that it says confirmed.
+  state.out.push({
+    what: 'who saved each set of rates',
+    status: 200,
+    structure: read.rate_plans.map((row) => {
+      const lines = log.changes.filter((l) => l.action === 'rate_plan.add' && l.subject.kind === 'rate_plan' && l.subject.id === row.id);
+      return { plan_version: row.plan_version, id: typeof row.id, lines: lines.length, who: lines.map((l) => ({ kind: l.who.kind, name: typeof l.who.name })), confirmed: lines.map((l) => l.after?.confirmed === true), subject_name: lines.map((l) => l.subject.name === row.plan_version) };
+    }),
+  });
   await rest();
   // Last, so it holds back nothing above: tries until the platform says "a minute".
   let n = 0;

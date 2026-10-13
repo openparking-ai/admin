@@ -15,14 +15,10 @@
 // pin. Without it the engine is fetched at the pin (git, one commit deep) into
 // node_modules/.cache/rate-engine/<pin> and read from there.
 
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { engineAtPin, enginePin } from './engine-at-pin.js';
 import { FINDING_CODES } from '../src/rates.js';
-
-const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
-const ENGINE_REPO = 'https://github.com/openparking-ai/rate-engine';
 
 function sh(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -30,31 +26,7 @@ function sh(cmd, args, opts = {}) {
   return r.stdout.trim();
 }
 
-const pin = readFileSync(join(ROOT, 'rate-engine.pin'), 'utf8').trim();
-if (!/^[0-9a-f]{40}$/.test(pin)) {
-  console.error(`rate-engine.pin is not a whole commit id: ${JSON.stringify(pin)}`);
-  process.exit(1);
-}
-
-/** A checkout of the engine at the pin: the one named, held to the pin, or one fetched. */
-function engineAtPin() {
-  if (process.env.RATE_ENGINE_SRC) {
-    const src = resolve(process.env.RATE_ENGINE_SRC);
-    const head = sh('git', ['-C', src, 'rev-parse', 'HEAD']);
-    if (head !== pin) throw new Error(`RATE_ENGINE_SRC (${src}) is at ${head}, not at the pin ${pin}`);
-    return src;
-  }
-  const src = join(ROOT, 'node_modules', '.cache', 'rate-engine', pin);
-  if (!existsSync(join(src, 'src', 'rate_engine', 'findings.py'))) {
-    mkdirSync(src, { recursive: true });
-    sh('git', ['init', '-q', src]);
-    sh('git', ['-C', src, 'fetch', '-q', '--depth', '1', ENGINE_REPO, pin]);
-    sh('git', ['-C', src, 'checkout', '-q', 'FETCH_HEAD']);
-  }
-  const head = sh('git', ['-C', src, 'rev-parse', 'HEAD']);
-  if (head !== pin) throw new Error(`the fetched engine is at ${head}, not at the pin ${pin}`);
-  return src;
-}
+const pin = enginePin();
 
 /** `ALL_CODES`, as the engine's own module says it. Python, isolated, the engine's source alone on its path. */
 function readEngineCodes(src) {

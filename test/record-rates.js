@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// U7g: record what the platform answers the Rates page and the Open button,
+// U7g / U7i: record what the platform answers the Rates page and the Open button,
 // into test/platform-shapes.json (`rates_answers`), from a running platform
 // with the rate engine at its pin and owner sign-in on:
 //
@@ -10,9 +10,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { recordRates } from './platform-shapes.js';
-import { recordedPlans } from './rates-forms.js';
-import { buildPlan, tableStays } from '../src/rates.js';
-import { startOfDay } from '../src/taxes.js';
+import { STAY_LIST, recordedPlans } from './rates-forms.js';
 
 const { PLATFORM, ORIGIN, OWNER_EMAIL, OWNER_PASSWORD, RECORDED_FROM } = process.env;
 if (!PLATFORM || !ORIGIN || !OWNER_EMAIL || !OWNER_PASSWORD || !RECORDED_FROM) {
@@ -24,7 +22,8 @@ const shapes = JSON.parse(readFileSync(file, 'utf8'));
 const answers = await recordRates(PLATFORM, {
   origin: ORIGIN,
   owner: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
-  plans: recordedPlans({ buildPlan, startOfDay, tableStays }),
+  plans: recordedPlans(),
+  stays: STAY_LIST,
   // The platform allows 20 tries a minute: wait the minute out.
   rest: () => new Promise((resolve) => setTimeout(resolve, 61_000)),
 });

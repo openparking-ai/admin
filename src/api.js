@@ -34,7 +34,7 @@ export const PROBLEM_KINDS = [
   'inviteUsed', 'inviteExpired', 'inviteReplaced', 'inviteInvalid', 'inviteTaken', 'inviteEmailTaken',
   'resetUsed', 'resetExpired', 'resetReplaced', 'resetInvalid',
   // U7g: rates, trying a stay, and opening the garage.
-  'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'ratesNotChecked', 'planNotKept',
+  'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'planStartLater', 'ratesChanged', 'ratesNotChecked', 'planNotKept',
   'notConfirmed', 'noRatesYet', 'tooManyTries', 'tryRefused', 'notReadyToOpen',
 ];
 
@@ -114,6 +114,9 @@ const NAMED = [
   [409, 'plan_version_exists', 'planNameTaken'],
   [409, 'plan_effective_from_taken', 'planStartTaken'],
   [409, 'plan_starts_in_the_past', 'planStartPast'],
+  // U7i: nothing is scheduled, and the rates checked must still be the newest.
+  [422, 'rates_start_when_saved', 'planStartLater'],
+  [409, 'rates_changed_since_check', 'ratesChanged'],
   [409, 'rate_engine_unavailable', 'ratesNotChecked'],
   [409, 'plan_currency_disagrees_with_garage', 'planNotKept'],
   [409, 'plan_does_not_price_garage_space_class', 'planNotKept'],
@@ -566,7 +569,11 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     ratePlans: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
       if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
-      return { plans: data.rate_plans.map((row) => object(row.plan)), spaceClass: data.space_class };
+      const plans = data.rate_plans.map((row) => object(row.plan));
+      // U7i: each stored row's id, which its change-log line names (who saved it), and
+      // which a save names as the rates it was checked against (`based_on`).
+      const saved = data.rate_plans.map((row) => ({ id: typeof row.id === 'string' ? row.id : null, plan_version: row.plan_version ?? row.plan?.plan_version }));
+      return { plans, spaceClass: data.space_class, saved };
     },
     /**
      * U7g: what cars would pay, priced the way the platform prices a car that
@@ -585,9 +592,20 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       if (!Array.isArray(data.stays) || data.stays.length !== stays.length) throw new Problem('unexpected');
       return { stays: data.stays, draftFindings: Array.isArray(data.draft_findings) ? vetted('plan_has_findings', { findings: data.draft_findings }).findings : [] };
     },
-    /** U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick. */
-    addRatePlan: async (garageId, plan, { confirmed }) =>
-      object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { method: 'POST', body: { plan, confirmed: confirmed === true }, byStatus: PLAN_BY_STATUS })),
+    /**
+     * U7g: new rates, saved once the owner confirmed them: `confirmed` is the tick.
+     * U7i: `basedOn` is the id of the rates in force when the prices were
+     * checked (null for none); the platform refuses the save if any other rates
+     * were stored since (`ratesChanged`).
+     */
+    addRatePlan: async (garageId, plan, { confirmed, basedOn = null }) =>
+      object(
+        await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, {
+          method: 'POST',
+          body: { plan, confirmed: confirmed === true, based_on: basedOn },
+          byStatus: PLAN_BY_STATUS,
+        }),
+      ),
     /** U7g: open the garage. Refused with the setup steps still missing (`problem.unmet`). */
     openGarage: async (garageId) => object(await request(`/garages/${encodeURIComponent(garageId)}/activate`, { method: 'POST' })),
     taxLists: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS }), 'tax_sets'),

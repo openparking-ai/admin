@@ -2,9 +2,10 @@
 //
 // The platform keeps every rate plan the garage has stored (GET and POST
 // /garages/:id/rate-plans), each whole, as the rate engine reads it: when it
-// starts, a time-based rate, at most per day or per week, a free grace
-// period and the special rates. A plan is never changed: a new one takes over
-// from when it starts, and the old ones stay on record. The engine decides
+// starts, a time-based rate, a max per day or per week, a free grace period
+// and the special rates. A plan is never changed: a new one takes over from
+// the moment it is confirmed (U7i: nothing is scheduled), and the old ones
+// stay on record. The engine decides
 // every price; nothing here prices a stay. This file only puts a plan into
 // plain sentences, builds a plan from the form, and builds the example stays
 // the platform's "try" prices for the owner to check before saving.
@@ -12,7 +13,7 @@
 // Every time here is the GARAGE'S. No engine word reaches the screen: the
 // sentences and the finding words are in the dictionaries.
 
-import { garageInstant, startOfDay } from './taxes.js';
+import { garageInstant } from './taxes.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
 const locale = (language) => LOCALES[language] ?? LOCALES.en;
@@ -27,15 +28,15 @@ export const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const PRESETS = {
   weekdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
   weekends: ['sat', 'sun'],
+  everyDay: DAYS,
   evenings: DAYS,
   mornings: DAYS,
-  everyDay: DAYS,
   dates: null,
 };
 export const PRESET_KEYS = Object.keys(PRESETS);
 
-/** How a started period is charged: the engine's own choices (it has one today). */
-export const PERIOD_ROUNDINGS = ['ceil'];
+/** How a started period is charged: in full. Every plan the page writes says so (U7i: no choice is shown). */
+export const PERIOD_ROUNDING = 'ceil';
 /** At most per day: a calendar day, or any 24 hours. */
 export const DAY_KINDS = ['calendar_day', 'rolling_24h'];
 /** At most per week: a calendar week starting on a chosen day, or any 7 days. */
@@ -72,8 +73,10 @@ export function moneyText(minor, currency, language) {
  * 'empty', 'shape' or 'zero' (zero is allowed only with `zeroOk`).
  */
 export function parseMoney(typed, currency, { zeroOk = false } = {}) {
-  const text = String(typed ?? '').trim().replace(/^[^\d]*/, '');
-  if (text === '') return { problem: 'empty' };
+  const said = String(typed ?? '').trim();
+  if (said === '') return { problem: 'empty' };
+  const text = said.replace(/^[^\d]*/, '');
+  if (text === '') return { problem: 'shape' };
   const digits = currencyDigits(currency);
   const shape = digits === 0 ? /^(\d{1,7})$/ : new RegExp(`^(\\d{1,7})(?:[.,](\\d{1,${digits}}))?$`);
   const m = shape.exec(text);
@@ -130,8 +133,8 @@ export function lengthWords(t, minutes) {
   return parts.join(' ');
 }
 
-/** A period as a sentence says "each ...": 60 is "hour", 30 is "30 minutes". */
-const periodWords = (t, minutes) => (minutes === 60 ? t('rates.len.anHour') : minutes === 1440 ? t('rates.len.aDay') : lengthWords(t, minutes));
+/** A period as a sentence says "each ...": 60 is "hour", 120 is "2 hours", 30 is "30 minutes". */
+const periodWords = (t, minutes) => (minutes === 60 ? t('rates.len.anHour') : minutes % 60 === 0 ? t('rates.len.hours', { count: minutes / 60 }) : t('rates.len.minutes', { count: minutes }));
 
 /** A day of the week in the language: 'mon' is "Monday", "lunes". */
 export function dayName(day, language) {
@@ -140,7 +143,11 @@ export function dayName(day, language) {
   return new Intl.DateTimeFormat(locale(language), { weekday: 'long', timeZone: 'UTC' }).format(at);
 }
 
-const listWords = (items, language) => new Intl.ListFormat(language === 'es' ? 'es' : 'en', { style: 'long', type: 'conjunction' }).format(items);
+/** A day of the week, short: 'mon' is "Mon", "lun". */
+export function dayShort(day, language) {
+  const at = Date.UTC(2024, 0, 1 + DAYS.indexOf(day), 12);
+  return new Intl.DateTimeFormat(locale(language), { weekday: 'short', timeZone: 'UTC' }).format(at);
+}
 
 /** A typed date in words: "2026-12-25" is "Dec 25, 2026". */
 export function dateWords(day, language) {
@@ -156,44 +163,50 @@ export function clockWords(at, language) {
   return new Intl.DateTimeFormat(locale(language), { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 1, Number(m[1]), Number(m[2])));
 }
 
-/** The days a special covers, in words: every day, the weekdays, or each day named. */
+/** The days a special covers, in words: every day, Monday to Friday, or each day named. */
 export function daysWords(t, appliesOn, language) {
-  if (appliesOn?.kind === 'dates') return t('rates.on.dates', { dates: listWords((appliesOn.dates ?? []).map((d) => dateWords(d, language)), language) });
+  if (appliesOn?.kind === 'dates') return t('rates.on.dates', { dates: (appliesOn.dates ?? []).map((d) => dateWords(d, language)).join(', ') });
   const days = DAYS.filter((d) => (appliesOn?.days ?? []).includes(d));
   if (days.length === 7) return t('rates.on.everyDay');
   if (days.join() === PRESETS.weekdays.join()) return t('rates.on.weekdays');
   if (days.join() === PRESETS.weekends.join()) return t('rates.on.weekends');
-  return t('rates.on.days', { days: listWords(days.map((d) => dayName(d, language)), language) });
+  // Named Sunday first, as the approved page lists them.
+  const order = ['sun', ...DAYS.slice(0, 6)];
+  return order.filter((d) => days.includes(d)).map((d) => dayName(d, language)).join(', ');
 }
 
 /** A time-based rate in words: "First hour $8.00, then $4.00 each hour." */
 export function timeRateWords(t, rate, currency, language) {
   const money = (minor) => moneyText(minor, currency, language);
-  if (rate.first_period_minutes === rate.repeat_period_minutes && rate.first_period_minor === rate.repeat_period_minor) {
-    return t('rates.time.flat', { price: money(rate.first_period_minor), period: periodWords(t, rate.first_period_minutes) });
-  }
   return t('rates.time.firstThen', {
-    first: rate.first_period_minutes === 60 ? t('rates.len.firstHour') : t('rates.len.firstOf', { length: lengthWords(t, rate.first_period_minutes) }),
+    first: rate.first_period_minutes === 60 && rate.repeat_period_minutes === 60 ? t('rates.len.firstHour') : t('rates.len.firstOf', { length: periodWords(t, rate.first_period_minutes) }),
     price: money(rate.first_period_minor),
     next: money(rate.repeat_period_minor),
     period: periodWords(t, rate.repeat_period_minutes),
   });
 }
 
-/** What a special charges, in words. */
+/** A percent in hundredths as people write it: 1250 is "12.5%". */
+export const percentWords = (bp, language) => `${(Number(bp) / 100).toLocaleString(locale(language), { maximumFractionDigits: 2 })}%`;
+
+/** What a special charges, in words: "$12.00 for the stay", "first hour $5.00, then $2.00 each hour", "10% off the price". */
 function chargeWords(t, effect, currency, language) {
   const money = (minor) => moneyText(minor, currency, language);
   if (effect.kind === 'flat') return t('rates.charge.flat', { price: money(effect.price_minor) });
-  if (effect.kind === 'rate') return timeRateWords(t, effect, currency, language);
+  if (effect.kind === 'rate') {
+    return t('rates.charge.rate', {
+      first: periodWords(t, effect.first_period_minutes),
+      price: money(effect.first_period_minor),
+      next: money(effect.repeat_period_minor),
+      period: periodWords(t, effect.repeat_period_minutes),
+    });
+  }
   if (effect.kind === 'adjust') {
     const amount = effect.amount.kind === 'percent' ? percentWords(effect.amount.percent_bp, language) : money(effect.amount.minor);
-    return t(`rates.charge.${effect.direction === 'increase' ? 'increase' : 'discount'}`, { amount }) + ' ' + t(`rates.charge.cent.${effect.rounding === 'up' ? 'up' : 'down'}`);
+    return t(`rates.charge.${effect.direction === 'increase' ? 'increase' : 'discount'}`, { amount });
   }
   return t('rates.charge.other');
 }
-
-/** A percent in hundredths as people write it: 1250 is "12.5%". */
-export const percentWords = (bp, language) => `${(Number(bp) / 100).toLocaleString(locale(language), { maximumFractionDigits: 2 })}%`;
 
 /** When a special's car must come in and leave by, in words. */
 function windowWords(t, rule, language) {
@@ -207,21 +220,19 @@ function windowWords(t, rule, language) {
 /** A special's name: the one the owner gave it, or its place in the list. */
 export const specialName = (t, rule, i) => (rule.label && String(rule.label).trim() ? String(rule.label).trim() : t('rates.special.unnamed', { n: i + 1 }));
 
+/** One special in one sentence, after its name: its days, its times and its price. */
+export const specialSentence = (t, rule, currency, language) => `${daysWords(t, rule.applies_on, language)}, ${windowWords(t, rule, language)}: ${chargeWords(t, rule.effect, currency, language)}`;
+
 /**
- * A plan in plain sentences, one per thing it charges, in the order an owner
- * reads them: the time-based rate, the most a day or a week, grace, then each
- * special. `{ key, text, name? }`: a special's name is kept apart from the
- * words, so the screen can keep a typed name apart.
+ * A plan's regular rates in plain sentences, one per thing it charges: the
+ * time-based rate, the max per day and per week, grace. `{ key, text }`.
  */
-export function planSentences(t, plan, language) {
+export function regularSentences(t, plan, language) {
   const out = [];
   const currency = plan.currency;
   const money = (minor) => moneyText(minor, currency, language);
   const rules = plan.rules ?? [];
-  for (const rule of rules.filter((r) => r.type === 'increment')) {
-    out.push({ key: rule.id, text: timeRateWords(t, rule, currency, language) });
-    out.push({ key: `${rule.id}-started`, text: t('rates.time.started') });
-  }
+  for (const rule of rules.filter((r) => r.type === 'increment')) out.push({ key: rule.id, text: timeRateWords(t, rule, currency, language) });
   for (const rule of rules.filter((r) => r.type === 'daily_max')) {
     out.push({ key: rule.id, text: t(rule.day_boundary === 'rolling_24h' ? 'rates.dayMax.rolling' : 'rates.dayMax.calendar', { price: money(rule.max_minor) }) });
   }
@@ -234,19 +245,20 @@ export function planSentences(t, plan, language) {
           : t('rates.weekMax.calendar', { price: money(rule.max_minor), day: dayName(rule.week_starts_on, language) }),
     });
   }
-  for (const rule of rules.filter((r) => r.type === 'grace')) {
-    out.push({ key: rule.id, text: t('rates.grace.words', { length: lengthWords(t, rule.minutes) }) });
-  }
-  const specials = rules.filter((r) => r.type === 'time_window');
-  specials.forEach((rule, i) => {
-    out.push({
-      key: rule.id,
-      name: specialName(t, rule, i),
-      text: `${daysWords(t, rule.applies_on, language)}, ${windowWords(t, rule, language)}: ${chargeWords(t, rule.effect, currency, language)}`,
-    });
-  });
-  const changes = specials.filter((r) => r.stage === 'ADJUST');
-  if (changes.length > 1) out.push({ key: 'adjust-order', text: t('rates.adjust.order') });
+  for (const rule of rules.filter((r) => r.type === 'grace')) out.push({ key: rule.id, text: t('rates.grace.words', { length: lengthWords(t, rule.minutes) }) });
+  return out;
+}
+
+/**
+ * A plan in plain sentences, one per thing it charges, in the order an owner
+ * reads them: the regular rates, then each special. `{ key, text, name? }`: a
+ * special's name is kept apart from the words, so the screen can keep a typed
+ * name apart.
+ */
+export function planSentences(t, plan, language) {
+  const out = regularSentences(t, plan, language);
+  const rules = plan.rules ?? [];
+  orderedWindows(plan).forEach((rule, i) => out.push({ key: rule.id, name: specialName(t, rule, i), text: specialSentence(t, rule, plan.currency, language) }));
   if (rules.some((r) => !KNOWN_TYPES.includes(r.type))) out.push({ key: 'other', text: t('rates.other') });
   if (!rules.length) out.push({ key: 'nothing', text: t('rates.nothing') });
   return out;
@@ -254,14 +266,70 @@ export function planSentences(t, plan, language) {
 
 const KNOWN_TYPES = ['increment', 'daily_max', 'weekly_max', 'grace', 'time_window'];
 
+/**
+ * The regular rates as the check page's "What changes" compares them, one
+ * value per row, by the name of the row: two plans whose row differs changed
+ * it. `{ rowKey: text }`.
+ */
+export function regularRows(t, plan, language) {
+  const rules = plan?.rules ?? [];
+  const money = (minor) => moneyText(minor, plan.currency, language);
+  const time = rules.find((r) => r.type === 'increment');
+  const day = rules.find((r) => r.type === 'daily_max');
+  const week = rules.find((r) => r.type === 'weekly_max');
+  const grace = rules.find((r) => r.type === 'grace');
+  const off = t('rates.change.off');
+  return {
+    'rates.change.first': time ? t('rates.change.period', { minutes: time.first_period_minutes, price: money(time.first_period_minor) }) : off,
+    'rates.change.next': time ? t('rates.change.period', { minutes: time.repeat_period_minutes, price: money(time.repeat_period_minor) }) : off,
+    'rates.change.dayMax': day ? t(day.day_boundary === 'rolling_24h' ? 'rates.change.dayRolling' : 'rates.change.dayCalendar', { price: money(day.max_minor) }) : off,
+    'rates.change.weekMax': week
+      ? week.week_boundary === 'rolling_7d'
+        ? t('rates.change.weekRolling', { price: money(week.max_minor) })
+        : t('rates.change.weekCalendar', { price: money(week.max_minor), day: dayName(week.week_starts_on, language) })
+      : off,
+    'rates.change.grace': grace ? t('rates.change.graceMinutes', { minutes: grace.minutes }) : off,
+  };
+}
+
+/**
+ * What a save changes, row by row: `{ key, name?, was, is }` -- a regular
+ * rate's old value and new; a special added ("none" to "added"), changed (its
+ * old sentence to its new) or removed ("current" to "removed"). Specials are
+ * matched by their id.
+ */
+export function changes(t, before, after, language) {
+  const out = [];
+  const a = regularRows(t, before, language);
+  const b = regularRows(t, after, language);
+  for (const k of Object.keys(b)) if (a[k] !== b[k]) out.push({ key: k, was: a[k], is: b[k] });
+  const was = orderedWindows(before);
+  const is = orderedWindows(after);
+  is.forEach((rule, i) => {
+    const old = was.find((r) => r.id === rule.id);
+    const name = specialName(t, rule, i);
+    if (!old) out.push({ key: rule.id, name, was: t('rates.change.none'), is: t('rates.change.added') });
+    else {
+      const oldText = specialSentence(t, old, before.currency, language);
+      const newText = specialSentence(t, rule, after.currency, language);
+      if (oldText !== newText || specialName(t, old, was.indexOf(old)) !== name) out.push({ key: rule.id, name, was: oldText, is: newText });
+    }
+  });
+  was.forEach((rule, i) => {
+    if (!is.some((r) => r.id === rule.id)) out.push({ key: rule.id, name: specialName(t, rule, i), was: t('rates.change.current'), is: t('rates.change.removed') });
+  });
+  return out;
+}
+
 // --- the list ----------------------------------------------------------------
 
 const startOf = (plan) => Date.parse(plan.effective_from);
 
 /**
  * The plans as the page shows them, at `now`: the one in force (the latest
- * that has started), the ones that start later (soonest first) and the ones
- * before it (newest first), each earlier one with until when it was in force.
+ * that has started) and the ones before it (newest first), each earlier one
+ * with until when it was in force. `later` is kept for a plan stored before
+ * U7i that starts later; nothing the page saves does.
  */
 export function arrange(plans, now = new Date()) {
   const sorted = [...(plans ?? [])].sort((a, b) => startOf(a) - startOf(b));
@@ -279,7 +347,7 @@ let keys = 0;
 const nextKey = () => (keys += 1);
 
 /** A time-based rate as the form holds it: what was typed. */
-export const blankRate = () => ({ firstMinutes: '', firstPrice: '', nextMinutes: '', nextPrice: '', rounding: '' });
+export const blankRate = () => ({ firstMinutes: '', firstPrice: '', nextMinutes: '', nextPrice: '' });
 
 /** A special as the form holds it, after its choice is picked. */
 export function blankSpecial(preset = '') {
@@ -308,8 +376,6 @@ export function blankForm() {
     weekMax: { on: false, price: '', kind: '', startsOn: '' },
     grace: { on: false, minutes: '' },
     specials: [],
-    starts: 'now',
-    day: '',
   };
 }
 
@@ -318,7 +384,6 @@ const rateFrom = (rule, currency) => ({
   firstPrice: typedMoney(rule.first_period_minor, currency),
   nextMinutes: String(rule.repeat_period_minutes),
   nextPrice: typedMoney(rule.repeat_period_minor, currency),
-  rounding: rule.rounding ?? '',
 });
 
 /** Which choice a stated set of days reads as, for the drop-down. */
@@ -327,14 +392,10 @@ function presetOf(appliesOn) {
   const days = DAYS.filter((d) => appliesOn.days.includes(d)).join();
   if (days === PRESETS.weekdays.join()) return 'weekdays';
   if (days === PRESETS.weekends.join()) return 'weekends';
-  if (days === DAYS.join()) return 'everyDay';
   return 'everyDay';
 }
 
-/**
- * The form, as a copy of the plan in force: what it can say, filled in. The
- * start is always chosen again ("Now" until the owner picks a day).
- */
+/** The form, as a copy of the plan in force: what it can say, filled in. */
 export function formFromPlan(plan, currency) {
   const form = blankForm();
   if (!plan) return form;
@@ -347,34 +408,113 @@ export function formFromPlan(plan, currency) {
   if (week) form.weekMax = { on: true, price: typedMoney(week.max_minor, currency), kind: week.week_boundary, startsOn: week.week_starts_on ?? '' };
   const grace = rules.find((r) => r.type === 'grace');
   if (grace) form.grace = { on: true, minutes: String(grace.minutes) };
-  // Specials in the order the plan applies them: its stated order for the
-  // discounts and increases, else as written.
-  const windows = rules.filter((r) => r.type === 'time_window');
-  const order = plan.adjust_order ?? [];
-  windows.sort((a, b) => (order.includes(a.id) && order.includes(b.id) ? order.indexOf(a.id) - order.indexOf(b.id) : 0));
-  form.specials = windows.map((r) => {
-    const s = blankSpecial(presetOf(r.applies_on));
-    s.name = r.label ?? '';
-    if (r.applies_on.kind === 'dates') s.dates = [...r.applies_on.dates];
-    else s.days = DAYS.filter((d) => r.applies_on.days.includes(d));
-    s.enterFrom = r.enter_from;
-    s.enterBy = r.enter_by;
-    s.leaveBy = r.exit_by;
-    s.nextDay = r.day_span === 'next_day';
-    s.charge = r.effect.kind;
-    if (r.effect.kind === 'flat') s.flat = typedMoney(r.effect.price_minor, currency);
-    if (r.effect.kind === 'rate') s.rate = rateFrom(r.effect, currency);
-    if (r.effect.kind === 'adjust') {
-      s.adjust = {
-        direction: r.effect.direction,
-        kind: r.effect.amount.kind,
-        value: r.effect.amount.kind === 'percent' ? String(r.effect.amount.percent_bp / 100) : typedMoney(r.effect.amount.minor, currency),
-        rounding: r.effect.rounding,
-      };
-    }
-    return s;
-  });
+  form.specials = orderedWindows(plan).map((r) => specialForm(r, currency));
   return form;
+}
+
+/**
+ * A plan's specials in the order it applies them: its stated order for the
+ * discounts and increases, else as written. The order the page lists them in.
+ */
+export function orderedWindows(plan) {
+  const windows = (plan?.rules ?? []).filter((r) => r.type === 'time_window');
+  const order = plan?.adjust_order ?? [];
+  return windows.sort((a, b) => (order.includes(a.id) && order.includes(b.id) ? order.indexOf(a.id) - order.indexOf(b.id) : 0));
+}
+
+/** One special of a plan, as the form would hold it typed in full. */
+export function specialForm(r, currency) {
+  const s = blankSpecial(presetOf(r.applies_on));
+  s.name = r.label ?? '';
+  if (r.applies_on.kind === 'dates') s.dates = [...r.applies_on.dates];
+  else s.days = DAYS.filter((d) => r.applies_on.days.includes(d));
+  s.enterFrom = r.enter_from;
+  s.enterBy = r.enter_by;
+  s.leaveBy = r.exit_by;
+  s.nextDay = r.day_span === 'next_day';
+  s.charge = r.effect.kind;
+  if (r.effect.kind === 'flat') s.flat = typedMoney(r.effect.price_minor, currency);
+  if (r.effect.kind === 'rate') s.rate = rateFrom(r.effect, currency);
+  if (r.effect.kind === 'adjust') {
+    s.adjust = {
+      direction: r.effect.direction,
+      kind: r.effect.amount.kind,
+      value: r.effect.amount.kind === 'percent' ? String(r.effect.amount.percent_bp / 100) : typedMoney(r.effect.amount.minor, currency),
+      rounding: r.effect.rounding,
+    };
+  }
+  return s;
+}
+
+// --- what the owner typed, over the rates in force (U7i) --------------------
+//
+// No field starts with a value (the owner's walk, 2026-10-12: "no field should look like
+// prefilled"). The form holds only what the owner typed; the rates in force are
+// shown under each field ("Now: $15.00"). A field left empty keeps the value in
+// force, a typed one replaces it. A tick starts as it is now. With no rates in
+// force there is nothing to keep, so every field is needed.
+
+/** The regular part of the form, as the owner starts it: every field empty, each tick as it is now. */
+export function typedRegular(now) {
+  return {
+    time: blankRate(),
+    dayMax: { on: now.dayMax.on, price: '', kind: '' },
+    weekMax: { on: now.weekMax.on, price: '', kind: '', startsOn: '' },
+    grace: { on: now.grace.on, minutes: '' },
+  };
+}
+
+const typedOr = (typed, now) => (String(typed ?? '').trim() !== '' ? typed : now);
+const mergeRate = (typed, now) => Object.fromEntries(Object.keys(blankRate()).map((k) => [k, typedOr(typed[k], now[k])]));
+
+/**
+ * The regular rates as they will be: what was typed, and the value in force
+ * where nothing was. `now` is `formFromPlan` of the rates in force. A part
+ * ticked on that was off has no value in force, so its fields are needed.
+ */
+export function mergeRegular(typed, now) {
+  const part = (name, fields) => {
+    const on = typed[name].on;
+    const was = now[name].on ? now[name] : Object.fromEntries(fields.map((f) => [f, '']));
+    return { on, ...Object.fromEntries(fields.map((f) => [f, on ? typedOr(typed[name][f], was[f]) : ''])) };
+  };
+  return {
+    time: mergeRate(typed.time, now.time),
+    dayMax: part('dayMax', ['price', 'kind']),
+    weekMax: part('weekMax', ['price', 'kind', 'startsOn']),
+    grace: part('grace', ['minutes']),
+    specials: now.specials,
+  };
+}
+
+/** A special as the owner starts changing it: every field empty, its day ticks as they are now. A new one: all empty. */
+export function typedSpecial(now = null) {
+  const s = blankSpecial();
+  if (now) s.days = [...now.days];
+  return s;
+}
+
+/** A special as it will be: what was typed, and the one in force where nothing was (none for a new one). */
+export function mergeSpecial(typed, now = null) {
+  const was = now ?? blankSpecial();
+  const preset = typedOr(typed.preset, was.preset);
+  const typedDates = typed.dates.some((d) => String(d).trim() !== '');
+  return {
+    key: typed.key,
+    name: typedOr(typed.name, was.name),
+    preset,
+    days: typed.days,
+    dates: preset === 'dates' ? (typedDates || was.preset !== 'dates' ? typed.dates : was.dates) : [],
+    enterFrom: typedOr(typed.enterFrom, was.enterFrom),
+    enterBy: typedOr(typed.enterBy, was.enterBy),
+    leaveBy: typedOr(typed.leaveBy, was.leaveBy),
+    nextDay: typed.nextDay === true || typed.nextDay === false ? typed.nextDay : was.nextDay,
+    charge: typedOr(typed.charge, was.charge),
+    flat: typedOr(typed.flat, was.flat),
+    rate: mergeRate(typed.rate, was.rate),
+    // A percent's cents: rounded down unless the owner says otherwise (the approved page's default).
+    adjust: { ...Object.fromEntries(['direction', 'kind', 'value', 'rounding'].map((k) => [k, typedOr(typed.adjust[k], was.adjust[k])])), rounding: typedOr(typed.adjust.rounding, was.adjust.rounding) || 'down' },
+  };
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -389,7 +529,6 @@ function rateProblems(rate, currency, prefix) {
   check('firstPrice', parseMoney(rate.firstPrice, currency, { zeroOk: true }), 'rates.need.price');
   check('nextMinutes', parseMinutes(rate.nextMinutes), 'rates.need.minutes');
   check('nextPrice', parseMoney(rate.nextPrice, currency, { zeroOk: true }), 'rates.need.price');
-  if (!PERIOD_ROUNDINGS.includes(rate.rounding)) out[`${prefix}.rounding`] = 'rates.need.rounding';
   return out;
 }
 
@@ -398,10 +537,14 @@ function rateProblems(rate, currency, prefix) {
  * form can be built into a plan. The engine still has the last word: a plan
  * it finds a gap in is refused, and every finding is shown in plain words.
  */
-/** The first day a plan may start "from the start of": tomorrow in the garage's time ("Now" covers today). */
-export const firstStartDay = (garage, now = Date.now()) => addDays(wallAt(now, garage.timezone).slice(0, 10), 1);
+export function formProblems(form, garage) {
+  const out = regularProblems(form, garage);
+  form.specials.forEach((s, i) => Object.assign(out, specialProblems(s, `special.${i}`, garage)));
+  return out;
+}
 
-export function formProblems(form, garage, now = Date.now()) {
+/** What the regular rates still need: the time-based rate, and each part that is ticked on. */
+export function regularProblems(form, garage) {
   const currency = garage.currency;
   const out = { ...rateProblems(form.time, currency, 'time') };
   if (form.dayMax.on) {
@@ -419,40 +562,44 @@ export function formProblems(form, garage, now = Date.now()) {
     const p = parseMinutes(form.grace.minutes);
     if (p.problem) out['grace.minutes'] = `rates.need.minutes.${p.problem}`;
   }
-  form.specials.forEach((s, i) => {
-    const at = `special.${i}`;
-    if (!s.name.trim()) out[`${at}.name`] = 'rates.need.name';
-    if (!PRESET_KEYS.includes(s.preset)) out[`${at}.preset`] = 'rates.need.preset';
-    if (s.preset === 'dates') {
-      if (!s.dates.length || s.dates.some((d) => !DATE.test(d))) out[`${at}.dates`] = 'rates.need.dates';
-      else if (new Set(s.dates).size !== s.dates.length) out[`${at}.dates`] = 'rates.need.datesTwice';
-    } else if (!s.days.length) out[`${at}.days`] = 'rates.need.days';
-    for (const field of ['enterFrom', 'enterBy', 'leaveBy']) {
-      const p = parseClock(s[field]);
-      if (p.problem) out[`${at}.${field}`] = `rates.need.clock.${p.problem}`;
+  return out;
+}
+
+/** What one special still needs, its fields named from `at` ("special"). `others`: the names already taken. */
+export function specialProblems(s, at, garage, others = []) {
+  const currency = garage.currency;
+  const out = {};
+  if (!s.name.trim()) out[`${at}.name`] = 'rates.need.name';
+  else if (others.some((n) => n.trim().toLowerCase() === s.name.trim().toLowerCase())) out[`${at}.name`] = 'rates.need.nameTaken';
+  if (!PRESET_KEYS.includes(s.preset)) out[`${at}.preset`] = 'rates.need.preset';
+  if (s.preset === 'dates') {
+    if (!s.dates.length || s.dates.some((d) => !DATE.test(d))) out[`${at}.dates`] = 'rates.need.dates';
+    else if (new Set(s.dates).size !== s.dates.length) out[`${at}.dates`] = 'rates.need.datesTwice';
+  } else if (PRESET_KEYS.includes(s.preset) && !s.days.length) out[`${at}.days`] = 'rates.need.days';
+  for (const field of ['enterFrom', 'enterBy', 'leaveBy']) {
+    const p = parseClock(s[field]);
+    if (p.problem) out[`${at}.${field}`] = `rates.need.clock.${p.problem}`;
+  }
+  if (!out[`${at}.enterFrom`] && !out[`${at}.enterBy`] && s.enterFrom > s.enterBy) out[`${at}.enterBy`] = 'rates.need.byAfterFrom';
+  if (s.nextDay !== true && s.nextDay !== false) out[`${at}.nextDay`] = 'rates.need.nextDay';
+  if (s.nextDay === false && !out[`${at}.leaveBy`] && !out[`${at}.enterFrom`] && s.leaveBy < s.enterFrom) out[`${at}.leaveBy`] = 'rates.need.leaveAfterFrom';
+  if (!CHARGES.includes(s.charge)) out[`${at}.charge`] = 'rates.need.charge';
+  if (s.charge === 'flat') {
+    const p = parseMoney(s.flat, currency, { zeroOk: true });
+    if (p.problem) out[`${at}.flat`] = `rates.need.price.${p.problem}`;
+  }
+  if (s.charge === 'rate') Object.assign(out, rateProblems(s.rate, currency, `${at}.rate`));
+  if (s.charge === 'adjust') {
+    if (!DIRECTIONS.includes(s.adjust.direction)) out[`${at}.direction`] = 'rates.need.direction';
+    if (!AMOUNT_KINDS.includes(s.adjust.kind)) out[`${at}.amountKind`] = 'rates.need.amountKind';
+    else {
+      const p = s.adjust.kind === 'percent' ? parsePercent(s.adjust.value) : parseMoney(s.adjust.value, currency);
+      const kind = s.adjust.kind === 'percent' ? 'percent' : 'price';
+      if (p.problem) out[`${at}.amount`] = `rates.need.${kind}.${p.problem}`;
+      else if (s.adjust.kind === 'percent' && p.bp > 10000) out[`${at}.amount`] = 'rates.need.percent.shape';
     }
-    if (!out[`${at}.enterFrom`] && !out[`${at}.enterBy`] && s.enterFrom > s.enterBy) out[`${at}.enterBy`] = 'rates.need.byAfterFrom';
-    if (s.nextDay !== true && s.nextDay !== false) out[`${at}.nextDay`] = 'rates.need.nextDay';
-    if (s.nextDay === false && !out[`${at}.leaveBy`] && !out[`${at}.enterFrom`] && s.leaveBy < s.enterFrom) out[`${at}.leaveBy`] = 'rates.need.leaveAfterFrom';
-    if (!CHARGES.includes(s.charge)) out[`${at}.charge`] = 'rates.need.charge';
-    if (s.charge === 'flat') {
-      const p = parseMoney(s.flat, currency, { zeroOk: true });
-      if (p.problem) out[`${at}.flat`] = `rates.need.price.${p.problem}`;
-    }
-    if (s.charge === 'rate') Object.assign(out, rateProblems(s.rate, currency, `${at}.rate`));
-    if (s.charge === 'adjust') {
-      if (!DIRECTIONS.includes(s.adjust.direction)) out[`${at}.direction`] = 'rates.need.direction';
-      if (!AMOUNT_KINDS.includes(s.adjust.kind)) out[`${at}.amountKind`] = 'rates.need.amountKind';
-      else {
-        const p = s.adjust.kind === 'percent' ? parsePercent(s.adjust.value) : parseMoney(s.adjust.value, currency);
-        if (p.problem) out[`${at}.amount`] = `rates.need.amount.${p.problem}`;
-      }
-      if (!ADJUST_ROUNDINGS.includes(s.adjust.rounding)) out[`${at}.cent`] = 'rates.need.cent';
-    }
-  });
-  if (form.starts === 'day' && !startOfDay(form.day, garage.timezone)) out.day = 'rates.need.day';
-  // A start of today or earlier would price cars already parked; the platform refuses it too.
-  else if (form.starts === 'day' && form.day < firstStartDay(garage, now)) out.day = 'rates.need.dayAfterToday';
+    if (s.adjust.kind === 'percent' && !ADJUST_ROUNDINGS.includes(s.adjust.rounding)) out[`${at}.cent`] = 'rates.need.cent';
+  }
   return out;
 }
 
@@ -461,7 +608,8 @@ const rateDoc = (rate, currency) => ({
   first_period_minor: parseMoney(rate.firstPrice, currency, { zeroOk: true }).minor,
   repeat_period_minutes: parseMinutes(rate.nextMinutes).minutes,
   repeat_period_minor: parseMoney(rate.nextPrice, currency, { zeroOk: true }).minor,
-  rounding: rate.rounding,
+  // A period that has started is charged in full: the one way these screens write (U7i).
+  rounding: PERIOD_ROUNDING,
   max_duration_minutes: null,
 });
 
@@ -469,6 +617,35 @@ const rateDoc = (rate, currency) => ({
 export function planName(now = Date.now(), timeZone = 'UTC', random = Math.random) {
   const stamp = garageInstant(now, timeZone).slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
   return `rates-${stamp}-${Math.floor(random() * 36 ** 4).toString(36).padStart(4, '0')}`;
+}
+
+/** One special as the engine reads it: a time window with its days, its times and what it charges. */
+export function specialRule(s, id, classes, currency) {
+  let effect;
+  if (s.charge === 'flat') effect = { kind: 'flat', price_minor: parseMoney(s.flat, currency, { zeroOk: true }).minor };
+  else if (s.charge === 'rate') effect = { kind: 'rate', ...rateDoc(s.rate, currency) };
+  else {
+    effect = {
+      kind: 'adjust',
+      direction: s.adjust.direction,
+      amount: s.adjust.kind === 'percent' ? { kind: 'percent', percent_bp: parsePercent(s.adjust.value).bp } : { kind: 'fixed', minor: parseMoney(s.adjust.value, currency).minor },
+      // An amount leaves no part of a cent; a percent's goes the way the owner chose.
+      rounding: s.adjust.kind === 'percent' ? s.adjust.rounding : 'down',
+    };
+  }
+  return {
+    id,
+    type: 'time_window',
+    stage: s.charge === 'adjust' ? 'ADJUST' : 'QUALIFY',
+    space_classes: classes,
+    label: s.name.trim(),
+    applies_on: s.preset === 'dates' ? { kind: 'dates', dates: [...s.dates] } : { kind: 'days_of_week', days: DAYS.filter((d) => s.days.includes(d)) },
+    enter_from: s.enterFrom,
+    enter_by: s.enterBy,
+    exit_by: s.leaveBy,
+    day_span: s.nextDay ? 'next_day' : 'same_day',
+    effect,
+  };
 }
 
 /**
@@ -499,32 +676,9 @@ export function buildPlan(form, { garage, spaceClass, start, name }) {
   const adjustIds = [];
   form.specials.forEach((s, i) => {
     // Numbered from 10, so ids sort in the order listed ("special-10" < "special-11").
-    const id = `special-${10 + i}`;
-    let effect;
-    if (s.charge === 'flat') effect = { kind: 'flat', price_minor: parseMoney(s.flat, currency, { zeroOk: true }).minor };
-    else if (s.charge === 'rate') effect = { kind: 'rate', ...rateDoc(s.rate, currency) };
-    else {
-      effect = {
-        kind: 'adjust',
-        direction: s.adjust.direction,
-        amount: s.adjust.kind === 'percent' ? { kind: 'percent', percent_bp: parsePercent(s.adjust.value).bp } : { kind: 'fixed', minor: parseMoney(s.adjust.value, currency).minor },
-        rounding: s.adjust.rounding,
-      };
-      adjustIds.push(id);
-    }
-    rules.push({
-      id,
-      type: 'time_window',
-      stage: s.charge === 'adjust' ? 'ADJUST' : 'QUALIFY',
-      space_classes: classes,
-      label: s.name.trim(),
-      applies_on: s.preset === 'dates' ? { kind: 'dates', dates: [...s.dates] } : { kind: 'days_of_week', days: DAYS.filter((d) => s.days.includes(d)) },
-      enter_from: s.enterFrom,
-      enter_by: s.enterBy,
-      exit_by: s.leaveBy,
-      day_span: s.nextDay ? 'next_day' : 'same_day',
-      effect,
-    });
+    const rule = specialRule(s, `special-${10 + i}`, classes, currency);
+    if (rule.stage === 'ADJUST') adjustIds.push(rule.id);
+    rules.push(rule);
   });
   return {
     plan_version: name,
@@ -533,15 +687,114 @@ export function buildPlan(form, { garage, spaceClass, start, name }) {
     currency,
     space_classes: classes,
     resolution: { QUALIFY: { mode: 'cheapest_wins' }, ACCUMULATE: { mode: 'cheapest_wins' } },
-    // Discounts and increases apply in the order listed: the form says so, and the owner can reorder.
+    // Discounts and extra charges apply in the order listed.
     adjust_order: adjustIds.length ? adjustIds : null,
     rules,
     decisions: [],
   };
 }
 
-/** When the form's plan starts: now, or the first moment of the chosen day, in the garage's time. */
-export const formStart = (form, garage, now = Date.now()) => (form.starts === 'day' ? startOfDay(form.day, garage.timezone) : garageInstant(now, garage.timezone));
+// --- two saves (U7i, item 6) -------------------------------------------------
+//
+// The regular rates and the special rates each have their own Save. Either
+// makes new rates whole -- the engine prices a whole plan -- with the other
+// section exactly as it is in force: copied from the rates in force, never
+// rebuilt, so a save of one cannot change the other by a byte.
+
+const REGULAR_TYPES = ['increment', 'daily_max', 'weekly_max', 'grace'];
+
+const PART_OF = { increment: 'time', daily_max: 'dayMax', weekly_max: 'weekMax', grace: 'grace' };
+
+/** Whether the owner left a part of the regular section as it is in force: its tick as it was, nothing typed. */
+export function partUntouched(typed, now, part) {
+  const t = typed[part];
+  if (part !== 'time' && t.on !== now[part].on) return false;
+  return Object.entries(t).every(([k, v]) => k === 'on' || String(v ?? '').trim() === '');
+}
+
+/** Whether the owner typed nothing in the regular section and left every tick as it is: "Nothing to save." */
+export const regularUntouched = (typed, now) => ['time', 'dayMax', 'weekMax', 'grace'].every((part) => partUntouched(typed, now, part));
+
+/**
+ * New rates from the regular section: the time-based rate, the max per day
+ * and per week and grace as typed over the rates in force (`base`, whose form
+ * is `now`), and every other rule of `base` as it is, the specials and their
+ * order among them. A part the owner left alone is `base`'s own rule, byte for
+ * byte; a part changed keeps what the form does not show (its id, a longest stay).
+ */
+export function regularPlan(base, typed, now, opts) {
+  const built = buildPlan({ ...mergeRegular(typed, now), specials: [] }, opts);
+  if (!base) return built;
+  const builtOf = (type) => built.rules.find((r) => r.type === type);
+  const rules = [];
+  for (const rule of base.rules ?? []) {
+    if (!REGULAR_TYPES.includes(rule.type)) rules.push(rule);
+    else if (partUntouched(typed, now, PART_OF[rule.type])) rules.push(rule);
+    else if (builtOf(rule.type)) {
+      const extra = rule.type === 'increment' ? { max_duration_minutes: rule.max_duration_minutes ?? null } : {};
+      rules.push({ ...rule, ...builtOf(rule.type), id: rule.id, ...extra });
+    }
+  }
+  // A part ticked on that was off: its new rule, where buildPlan puts it.
+  for (const rule of built.rules) if (!(base.rules ?? []).some((r) => r.type === rule.type)) rules.splice(built.rules.indexOf(rule), 0, rule);
+  return { ...base, plan_version: built.plan_version, effective_from: built.effective_from, adjust_order: base.adjust_order ?? null, rules };
+}
+
+/** A special id not in the plan: one after the highest "special-N", from 10. */
+function nextSpecialId(rules) {
+  const ids = new Set(rules.map((r) => r.id));
+  let n = Math.max(9, ...rules.map((r) => Number(/^special-(\d+)$/.exec(r.id)?.[1] ?? 0))) + 1;
+  while (ids.has(`special-${n}`)) n += 1;
+  return `special-${n}`;
+}
+
+/**
+ * New rates from the special section: one special added, changed or removed
+ * (`change.kind`), at `change.index` in the order the page lists them;
+ * `change.special` is the merged special for an add or a change. Everything
+ * else of `base` is as it is in force. The specials are written in the order
+ * listed, and the discounts and extra charges apply in that order.
+ */
+export function specialsPlan(base, change, { garage, spaceClass, start, name }) {
+  const rules = base.rules ?? [];
+  const list = orderedWindows(base);
+  const classes = [spaceClass];
+  if (change.kind === 'add') list.push(specialRule(change.special, nextSpecialId(rules), classes, garage.currency));
+  // A special changed keeps what the form does not show, and its id.
+  else if (change.kind === 'change') list[change.index] = { ...list[change.index], ...specialRule(change.special, list[change.index].id, classes, garage.currency) };
+  else if (change.kind === 'remove') list.splice(change.index, 1);
+  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);
+  return {
+    ...base,
+    plan_version: name,
+    effective_from: start,
+    adjust_order: adjust.length ? adjust : null,
+    rules: [...rules.filter((r) => r.type !== 'time_window'), ...list],
+  };
+}
+
+/** Whether two plans charge the same: equal but for their names and starts. */
+export function sameRates(a, b) {
+  if (!a || !b) return false;
+  const rest = (p) => JSON.stringify({ ...p, plan_version: null, effective_from: null });
+  return rest(a) === rest(b);
+}
+
+/** The sign written before money in the owner's language: "$" for dollars. */
+export function currencySign(currency, language) {
+  try {
+    return new Intl.NumberFormat(locale(language), { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
+/**
+ * When new rates start: the moment Confirm is pressed (U7i: nothing is
+ * scheduled), to the millisecond -- two plans of a garage never share an
+ * instant, and a save made a moment ago is not met at the same second.
+ */
+export const startNow = (_garage, now = Date.now()) => new Date(now).toISOString();
 
 // --- the garage's clock ------------------------------------------------------
 
@@ -582,303 +835,208 @@ const clockPlus = (clock, minutes) => {
 
 // --- the price table ---------------------------------------------------------
 
-/** The lengths every price table holds (Amendment 1, B), in minutes. */
-export const TABLE_LENGTHS = [10, 30, 60, 61, 120, 180, 300, 480, 720, 1440, 1500, 2880, 10080];
 export const TABLE_MAX = 100;
+/** The ordinary stays every price table holds, in hours (the approved page's). */
+const ORDINARY_HOURS = [2, 3, 5, 8, 12];
 
 /**
- * The example stays a price table prices, built from the plan the form says,
- * every one on or after it starts. Each `{ entry, exit, why }`: `why` says what
- * the stay is there to test, as `{ key, name? }` for the words.
+ * The example stays a price table prices (the approved page's), each `{
+ * entry, exit, why }`, every one after `now`, so the new rates price it: `why`
+ * says what the stay is there to check, as `{ key, name? }` for the words.
  *
- *   the lengths above, in from 10:00 on the first ordinary day it is in force;
- *   the grace edge: one minute inside, one minute over;
- *   for each special: just inside and just outside its "come in" times, its
- *   "leave by", on one of its days, on a day it does not cover, and on each
- *   typed date;
- *   the moment the day's or the week's most takes over, and just before.
+ *   from 10:00 on the next Saturday: the grace edges (one minute inside, one
+ *   over), the first period to the minute and one minute into the next, 2,
+ *   3, 5, 8 and 12 hours, a day, a day and an hour, two days, a week, and
+ *   eight days when a weekly max is on;
+ *   for each special, on the next day it is for (from tomorrow): coming in
+ *   when it opens and at the last minute, one minute too early, one minute
+ *   too late, each leaving by its "leave by"; and leaving one minute late.
  *
- * Each stay starts at a moment the garage's clock really shows. At most 100.
+ * Lengths are real minutes, so across a change of the clocks the garage's
+ * clock shows an hour more or less (the engine counts the same way). A moment
+ * the clocks skip is left out. At most 100.
  */
-export function tableStays(plan, timeZone) {
-  const startMs = Date.parse(plan.effective_from);
-  const startWall = wallAt(startMs, timeZone);
-  const firstDay = startWall.slice(11) === '00:00' ? startWall.slice(0, 10) : addDays(startWall.slice(0, 10), 1);
+export function tableStays(plan, timeZone, now = Date.now()) {
+  const today = wallAt(now, timeZone).slice(0, 10);
   const out = [];
-  const seen = new Set();
   const add = (entry, exit, why) => {
     if (out.length >= TABLE_MAX) return;
-    // A moment the clocks skip is no moment a car came in: left out.
     const entryMs = instantOf(entry, timeZone);
-    if (entryMs === null || entryMs < startMs) return;
+    if (entryMs === null || entryMs < now) return;
     if (typeof exit === 'number') exit = wallAt(entryMs + exit * 60000, timeZone);
     const exitMs = instantOf(exit, timeZone);
     if (exitMs === null || exitMs < entryMs) return;
-    // The same stay is in once -- once for each special it is there to test.
-    const k = `${entry}|${exit}|${why.name ?? ''}`;
-    if (seen.has(k)) return;
-    seen.add(k);
     out.push({ entry, exit, why });
   };
   const rules = plan.rules ?? [];
-  const windows = rules.filter((r) => r.type === 'time_window');
   const time = rules.find((r) => r.type === 'increment');
-  // An ordinary day: one no special covers by its days, when there is one.
-  const covers = (r, day) => (r.applies_on.kind === 'dates' ? r.applies_on.dates.includes(day) : r.applies_on.days.includes(weekdayOf(day)));
-  let ordinary = firstDay;
-  for (let i = 0; i < 7; i += 1) {
-    const day = addDays(firstDay, i);
-    if (!windows.some((r) => covers(r, day))) {
-      ordinary = day;
-      break;
-    }
-  }
-  const at10 = `${ordinary}T10:00`;
-  // The grace edge first, so a length that falls on it is named for it.
+  const day = rules.find((r) => r.type === 'daily_max');
+  const week = rules.find((r) => r.type === 'weekly_max');
   const grace = rules.find((r) => r.type === 'grace');
+  let saturday = addDays(today, 1);
+  while (weekdayOf(saturday) !== 'sat') saturday = addDays(saturday, 1);
+  const at10 = `${saturday}T10:00`;
   if (grace) {
     add(at10, grace.minutes, { key: 'graceInside' });
     add(at10, grace.minutes + 1, { key: 'graceOver' });
   }
-  for (const minutes of TABLE_LENGTHS) add(at10, minutes, { key: 'length' });
-
-  windows.forEach((r) => {
-    const name = r.label;
-    const days = [];
-    if (r.applies_on.kind === 'dates') {
-      // Each typed date; one before the plan starts is left out by `add`.
-      days.push(...r.applies_on.dates);
-    } else {
-      for (let n = 0; n < 7 && days.length < 1; n += 1) if (covers(r, addDays(firstDay, n))) days.push(addDays(firstDay, n));
-    }
-    const leaveDay = (day) => (r.day_span === 'next_day' ? addDays(day, 1) : day);
-    for (const day of days) {
-      const from = `${day}T${r.enter_from}`;
-      const by = `${day}T${r.enter_by}`;
-      const leave = `${leaveDay(day)}T${r.exit_by}`;
-      add(from, leave, { key: 'specialFrom', name });
-      add(by, leave, { key: 'specialBy', name });
-      if (r.enter_from !== '00:00') add(`${day}T${clockPlus(r.enter_from, -1)}`, leave, { key: 'specialTooEarly', name });
-      if (r.enter_by !== '23:59') add(`${day}T${clockPlus(r.enter_by, 1)}`, leave, { key: 'specialTooLate', name });
-      add(from, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name });
-      // A short stay inside its times: where the time-based rate can cost less
-      // than the special, and the driver pays the less (the engine compares them).
-      if (time && instantOf(wallPlus(from, time.first_period_minutes, timeZone), timeZone) <= instantOf(leave, timeZone)) {
-        add(from, time.first_period_minutes, { key: 'specialShort', name });
-      }
-    }
-    if (r.applies_on.kind === 'days_of_week' && r.applies_on.days.length < 7) {
-      for (let n = 0; n < 7; n += 1) {
-        const day = addDays(firstDay, n);
-        if (!covers(r, day)) {
-          add(`${day}T${r.enter_from}`, `${leaveDay(day)}T${r.exit_by}`, { key: 'specialOtherDay', name });
-          break;
-        }
-      }
-    }
-  });
-
-  // When the most a day or a week takes over, and the minute before, counted
-  // the way the engine counts (rate-engine rules/daily_max.py, weekly_max.py):
-  // a day's most is the most times the days the stay touches -- local dates
-  // from midnight in the garage's time, or started 24 hours from entry -- and a
-  // week's is the most times the weeks it touches -- calendar weeks from the
-  // plan's start day, or started 7 days. Either applies only once the charge is
-  // MORE than that. A calendar day or week is tried from its own midnight, so
-  // the first day or week is a whole one. The row's words are then the
-  // engine's own: `caseWords` reads what the breakdown says of each stay.
-  const day = rules.find((r) => r.type === 'daily_max');
-  const week = rules.find((r) => r.type === 'weekly_max');
-  if (time && (day || week)) {
-    const longest = Math.min(time.max_duration_minutes ?? Infinity, 6 * 10080);
-    const charge = (m) => time.first_period_minor + (m <= time.first_period_minutes ? 0 : Math.ceil((m - time.first_period_minutes) / time.repeat_period_minutes) * time.repeat_period_minor);
-    // The charge only rises as a new period starts: those minutes are where a most can first be passed.
-    const steps = [1];
-    for (let m = time.first_period_minutes + 1; m <= longest && steps.length < 20000; m += time.repeat_period_minutes) steps.push(m);
-    const datesTouched = (entryMs, m) => Math.round((Date.parse(`${wallAt(entryMs + m * 60000, timeZone).slice(0, 10)}T12:00:00Z`) - Date.parse(`${wallAt(entryMs, timeZone).slice(0, 10)}T12:00:00Z`)) / 86400000) + 1;
-    const daysOf = (entryMs, m) => (day.day_boundary === 'calendar_day' ? datesTouched(entryMs, m) : Math.max(1, Math.ceil(m / 1440)));
-    const weekStart = (wallDay) => addDays(wallDay, -((DAYS.indexOf(weekdayOf(wallDay)) - DAYS.indexOf(week.week_starts_on) + 7) % 7));
-    const weeksOf = (entryMs, m) => {
-      if (week.week_boundary !== 'calendar_week') return Math.max(1, Math.ceil(m / 10080));
-      const from = weekStart(wallAt(entryMs, timeZone).slice(0, 10));
-      const to = weekStart(wallAt(entryMs + m * 60000, timeZone).slice(0, 10));
-      return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 604800000) + 1;
-    };
-    const afterDay = (entryMs, m) => (day ? Math.min(charge(m), day.max_minor * daysOf(entryMs, m)) : charge(m));
-    // The first minute at which `passed` holds, from candidates in order; and the one before.
-    const firstPassed = (entryWall, candidates, passed, keys) => {
-      const entryMs = instantOf(entryWall, timeZone);
-      if (entryMs === null) return;
-      const m = candidates.find((c) => c >= 1 && c <= longest && passed(entryMs, c));
-      if (m === undefined) return;
-      add(entryWall, m, { key: keys[0] });
-      if (m > 1) add(entryWall, m - 1, { key: keys[1] });
-    };
-    if (day) {
-      const entry = day.day_boundary === 'calendar_day' ? `${ordinary}T00:00` : at10;
-      firstPassed(entry, steps, (e, m) => charge(m) > day.max_minor * daysOf(e, m), ['dayMaxTakes', 'dayMaxBefore']);
-    }
-    if (week) {
-      let weekDay = firstDay;
-      if (week.week_boundary === 'calendar_week') while (weekdayOf(weekDay) !== week.week_starts_on) weekDay = addDays(weekDay, 1);
-      const entry = week.week_boundary === 'calendar_week' ? `${weekDay}T00:00` : at10;
-      // Where the day's most rises too: each new day the stay touches.
-      const entryMs = instantOf(entry, timeZone);
-      const dayEdges = [];
-      if (day && entryMs !== null) {
-        for (let k = 1; k * 1440 <= longest + 1440; k += 1) {
-          if (day.day_boundary === 'calendar_day') {
-            const midnight = instantOf(`${addDays(entry.slice(0, 10), k)}T00:00`, timeZone);
-            if (midnight !== null) dayEdges.push(Math.round((midnight - entryMs) / 60000));
-          } else dayEdges.push(k * 1440 + 1);
-        }
-      }
-      const candidates = [...new Set([...steps, ...dayEdges])].sort((x, y) => x - y);
-      firstPassed(entry, candidates, (e, m) => afterDay(e, m) > week.max_minor * weeksOf(e, m), ['weekMaxTakes', 'weekMaxBefore']);
-    }
+  if (time) {
+    add(at10, time.first_period_minutes, { key: 'firstPeriod' });
+    add(at10, time.first_period_minutes + 1, { key: 'nextPeriod' });
   }
+  for (const h of ORDINARY_HOURS) add(at10, h * 60, { key: 'length' });
+  add(at10, 1440, { key: day ? 'dayMax' : 'day' });
+  add(at10, 1500, { key: 'dayAndHour' });
+  add(at10, 2880, { key: 'twoDays' });
+  add(at10, 7 * 1440, { key: week ? 'weekMax' : 'week' });
+  if (week) add(at10, 8 * 1440, { key: 'eightDays' });
+
+  const covers = (r, d) => (r.applies_on.kind === 'dates' ? r.applies_on.dates.includes(d) : r.applies_on.days.includes(weekdayOf(d)));
+  orderedWindows(plan).forEach((r) => {
+    const name = r.label ?? '';
+    let d = null;
+    for (let n = 1; n <= 400 && d === null; n += 1) if (covers(r, addDays(today, n))) d = addDays(today, n);
+    if (d === null) return;
+    const leave = `${r.day_span === 'next_day' ? addDays(d, 1) : d}T${r.exit_by}`;
+    add(`${d}T${r.enter_from}`, leave, { key: 'specialFrom', name, id: r.id });
+    add(`${d}T${r.enter_by}`, leave, { key: 'specialBy', name, id: r.id });
+    if (r.enter_from !== '00:00') add(`${d}T${clockPlus(r.enter_from, -1)}`, leave, { key: 'specialTooEarly', name, id: r.id });
+    if (r.enter_by !== '23:59') add(`${d}T${clockPlus(r.enter_by, 1)}`, leave, { key: 'specialTooLate', name, id: r.id });
+    if (instantOf(leave, timeZone) !== null) add(`${d}T${r.enter_from}`, wallPlus(leave, 1, timeZone), { key: 'specialLeftLate', name, id: r.id });
+  });
   return out;
 }
 
 // --- what a stay paid, in words ---------------------------------------------
 
+const CAPS = { 'daily_max.applied': 'day', 'weekly_max.applied': 'week' };
+
+/** "3 more hours at $4.00", "126 more 15-minute periods at $10.00", from a repeat period's count. */
+function morePeriods(t, count, minutes, price) {
+  const unit = minutes === 60 ? (count === 1 ? 'hour' : 'hours') : minutes % 60 === 0 ? (count === 1 ? 'hourPeriod' : 'hourPeriods') : count === 1 ? 'minutePeriod' : 'minutePeriods';
+  return t(`rates.line.more.${unit}`, { count, length: minutes % 60 === 0 ? minutes / 60 : minutes, price });
+}
+
+/** "First hour", "First 30 minutes". */
+const firstPeriod = (t, minutes) => (minutes === 60 ? t('rates.line.firstHour') : t('rates.line.firstOf', { length: periodWords(t, minutes) }));
+
 /**
- * A priced stay's lines, each in plain words with its amount: the time-based
- * rate, a special, the most a day or a week, grace, a discount or increase,
- * and each tax. Lines that move no money and say nothing an owner needs --
- * the stay's own description, a special that lost to a cheaper one -- are
- * left out here; the table says which special applied and why.
+ * A priced stay's lines, each in plain words with its amount, from the
+ * engine's own lines (the approved page's words): the first period, the
+ * periods after it ("3 more hours at $4.00"), a special, grace, a discount or
+ * extra charge, and each tax. When a max per day or per week applies, the
+ * lines it brings down are one line, "Max per day" (or "Max per day, 2 days at
+ * $100.00"), with the amount charged; `byHour` is then what the lines before
+ * it came to ("By the hour it would be ..."). `{ lines, byHour }`.
  */
 export function lineWords(t, stay, plan, taxNames, currency, language) {
   const rules = plan?.rules ?? [];
+  const windows = orderedWindows(plan);
+  const ruleOf = (id) => rules.find((r) => r.id === id);
   const nameOf = (id) => {
-    const i = rules.filter((r) => r.type === 'time_window').findIndex((r) => r.id === id);
-    const rule = rules.find((r) => r.id === id);
-    return rule && i >= 0 ? specialName(t, rule, i) : null;
+    const rule = ruleOf(id);
+    return rule ? specialName(t, rule, windows.indexOf(rule)) : t('rates.line.aSpecial');
   };
-  const out = [];
   const money = (minor) => moneyText(minor, currency, language);
-  for (const line of stay.rate_lines ?? []) {
-    let words = null;
-    if (line.code === 'increment.first_period') words = t('rates.line.first');
-    else if (line.code === 'increment.repeat_periods') words = t('rates.line.more');
-    else if (line.code === 'daily_max.applied') words = t('rates.line.dayMax');
-    else if (line.code === 'weekly_max.applied') words = t('rates.line.weekMax');
-    else if (line.code === 'grace.applied') words = t('rates.line.grace');
-    else if (line.code === 'time_window.applied') words = t('rates.line.special', { name: nameOf(line.rule_id) ?? t('rates.line.aSpecial') });
-    else if (line.delta_minor !== 0) words = t('rates.line.other');
-    if (words) out.push({ words, amount: money(line.delta_minor), minor: line.delta_minor });
-  }
-  for (const line of stay.tax_lines ?? []) {
-    out.push({ words: taxNames?.[line.rule_id] ?? t('rates.line.tax'), amount: money(line.delta_minor), minor: line.delta_minor, tax: true });
-  }
-  return out;
+  const rl = stay.rate_lines ?? [];
+  const capAt = rl.map((l, i) => (CAPS[l.code] ? i : -1)).filter((i) => i >= 0);
+  const lastCap = capAt.at(-1) ?? -1;
+  const before = (i) => rl.slice(0, i).reduce((sum, l) => sum + l.delta_minor, 0);
+  const out = [];
+  const push = (words, minor, extra = {}) => out.push({ words, amount: money(minor), minor, ...extra });
+  rl.forEach((line, i) => {
+    // Brought down by a max: said once, on the last max's line.
+    if (i < lastCap && line.delta_minor !== 0) return;
+    const rule = ruleOf(line.rule_id);
+    // A special at its own hourly rate prices with the engine's period lines, under the special's id.
+    const own = rule?.type === 'time_window' ? rule.effect : rule;
+    const named = (words) => (rule?.type === 'time_window' ? `${nameOf(rule.id)}: ${words.charAt(0).toLocaleLowerCase()}${words.slice(1)}` : words);
+    if (line.code === 'grace.applied') push(t('rates.line.grace', { minutes: rule?.minutes ?? 0 }), line.delta_minor);
+    else if (line.code === 'increment.first_period') push(named(firstPeriod(t, own?.first_period_minutes ?? 60)), line.delta_minor);
+    else if (line.code === 'increment.repeat_periods') {
+      const price = own?.repeat_period_minor ?? 0;
+      const count = price > 0 ? line.delta_minor / price : Math.ceil(Math.max(0, stay.minutes - (own?.first_period_minutes ?? 0)) / (own?.repeat_period_minutes ?? 1));
+      push(own && Number.isInteger(count) ? named(morePeriods(t, count, own.repeat_period_minutes, money(price))) : t('rates.line.other'), line.delta_minor);
+    } else if (CAPS[line.code]) {
+      if (i !== lastCap) return;
+      const charged = before(i + 1);
+      const max = rule?.max_minor ?? 0;
+      const n = max > 0 ? charged / max : 1;
+      const unit = CAPS[line.code];
+      push(n === 1 || !Number.isInteger(n) ? t(`rates.line.${unit}Max`) : t(`rates.line.${unit}MaxMany`, { count: n, price: money(max) }), charged, { cap: unit });
+    } else if (line.code === 'time_window.applied' && rule?.stage === 'ADJUST') {
+      const e = rule.effect;
+      const amount = e.amount.kind === 'percent' ? percentWords(e.amount.percent_bp, language) : money(e.amount.minor);
+      push(t(e.direction === 'increase' ? 'rates.line.extra' : 'rates.line.off', { name: nameOf(rule.id), amount }), line.delta_minor);
+    } else if (line.code === 'time_window.applied') {
+      const name = nameOf(line.rule_id);
+      if (rule?.effect?.kind === 'flat') push(t('rates.line.specialFlat', { name }), line.delta_minor);
+      // Its own hourly rate: said by the period lines that follow it.
+      else if (line.delta_minor !== 0) push(t('rates.line.special', { name }), line.delta_minor);
+    } else if (line.delta_minor !== 0) push(t('rates.line.other'), line.delta_minor);
+  });
+  for (const line of stay.tax_lines ?? []) push(taxNames?.[line.rule_id] ?? t('rates.line.tax'), line.delta_minor, { tax: true });
+  return { lines: out, byHour: lastCap >= 0 ? before(capAt[0]) : null };
 }
 
 /**
- * Which special priced a stay, or none and why, from the stay's lines and the
- * plan: `{ key, name? , values? }` for the words. The engine decided; this only
- * says it: a special that applied, that fit but cost more than another, that
- * grace made free, or that did not fit -- and which of its conditions the
- * stay missed (the day, too early, too late, left too late).
+ * Which special priced a stay, or none and why, in the approved page's words:
+ * free within the grace period; a special that applied and what the
+ * time-based rate would have been; one that fit but the time-based rate was
+ * cheaper; the others that fit and cost more; each that did not fit and why
+ * (the day, too early, too late, left too late); each discount or extra
+ * charge that applied; and the max per day or per week, when it was charged.
+ * The engine decided which way the stay was priced; the reasons a special did
+ * not fit are its conditions read against the stay's own times.
  */
 export function specialWords(t, stay, plan, language) {
-  const rules = plan?.rules ?? [];
-  const windows = rules.filter((r) => r.type === 'time_window');
-  const name = (rule) => specialName(t, rule, windows.indexOf(rule));
-  const windowOf = (line) => windows.find((r) => r.id === line.rule_id);
   const lines = stay.rate_lines ?? [];
+  if (lines.some((l) => l.code === 'grace.applied')) return t('rates.why.grace');
+  const windows = orderedWindows(plan);
+  const name = (rule) => specialName(t, rule, windows.indexOf(rule));
   const money = (minor) => moneyText(minor, plan?.currency, language);
-  const charged = stay.subtotal_minor ?? lines.reduce((sum, l) => sum + l.delta_minor, 0);
-  // Whether the special or the time-based rate was charged, and what the other
-  // would have been: the engine compares them and charges the less.
+  const fit = (rule) => missed(rule, stay.entry, stay.exit) === 'fit';
   const used = lines.find((l) => l.code === 'special_used');
-  const timeLess = (line, rule) => t('rates.why.timeLess', { name: name(rule), special: money(line.compared_minor), time: money(charged) });
-  const capWords = (line) => (line.code === 'daily_max.applied' ? t('rates.why.dayMax') : line.code === 'weekly_max.applied' ? t('rates.why.weekMax') : null);
-  // Every line of the breakdown that has words, in the breakdown's order, and
-  // none of them left out because another is there: a special or grace that
-  // applied, a discount or increase, the most a day or a week, and the line
-  // saying the time-based rate was less.
-  const appliedSome = lines.some((l) => l.code === 'grace.applied' || (l.code === 'time_window.applied' && windowOf(l)));
-  if (appliedSome) {
-    const parts = [];
-    for (const line of lines) {
-      const rule = windowOf(line);
-      if (line.code === 'grace.applied') parts.push(t('rates.why.grace'));
-      else if (line.code === 'time_window.applied' && rule) {
-        if (rule.stage === 'QUALIFY' && used?.rule_id === rule.id) {
-          parts.push(Number.isInteger(used.compared_minor) ? t('rates.why.appliedTimeMore', { name: name(rule), time: money(used.compared_minor) }) : t('rates.why.appliedOnly', { name: name(rule) }));
-        } else parts.push(t('rates.why.applied', { name: name(rule) }));
-      } else if (line.code === 'time_based_used' && rule) parts.push(timeLess(line, rule));
-      else if (capWords(line)) parts.push(capWords(line));
-    }
-    return parts.join(' ');
+  const timeUsed = lines.find((l) => l.code === 'time_based_used');
+  const best = windows.find((r) => r.id === (used ?? timeUsed)?.rule_id) ?? null;
+  const notFit = windows.filter((r) => !fit(r)).map((r) => t(`rates.why.${missed(r, stay.entry, stay.exit)}`, { name: name(r), day: dayName(weekdayOf(stay.entry.slice(0, 10)), language), date: dateWords(stay.entry.slice(0, 10), language) }));
+  const parts = [];
+  if (best) {
+    if (used) parts.push(Number.isInteger(used.compared_minor) ? t('rates.why.appliedTimeMore', { name: name(best), time: money(used.compared_minor) }) : t('rates.why.appliedOnly', { name: name(best) }));
+    else parts.push(t('rates.why.timeLess', { name: name(best), special: money(timeUsed.compared_minor) }));
+    for (const r of windows) if (r !== best && r.stage === 'QUALIFY' && fit(r)) parts.push(t('rates.why.alsoFit', { name: name(r) }));
+    parts.push(...notFit);
+  } else parts.push(notFit.length ? `${t('rates.why.none')} ${notFit.join(' ')}` : t('rates.why.none'));
+  for (const l of lines) {
+    const rule = windows.find((r) => r.id === l.rule_id);
+    if (l.code === 'time_window.applied' && rule?.stage === 'ADJUST') parts.push(t('rates.why.applied', { name: name(rule) }));
   }
-  // None applied: why, for each special of the plan, in the breakdown's order
-  // (the engine's line for each), then any the breakdown does not mention.
-  const entry = stay.entry;
-  const exit = stay.exit;
-  const parts = [t(windows.length ? 'rates.why.none' : 'rates.why.noSpecials')];
-  const spoken = new Set();
-  const reason = (r) => t(`rates.why.${missed(r, entry, exit)}`, { name: name(r), day: entry ? dayName(weekdayOf(entry.slice(0, 10)), language) : '' });
-  for (const line of lines) {
-    const rule = windowOf(line);
-    if (rule && !spoken.has(rule.id)) {
-      spoken.add(rule.id);
-      if (line.code === 'time_based_used') parts.push(timeLess(line, rule));
-      else if (line.code === 'resolved') parts.push(t('rates.why.cheaper', { name: name(rule) }));
-      else parts.push(reason(rule));
-    } else if (capWords(line)) parts.push(capWords(line));
-  }
-  for (const r of windows) if (!spoken.has(r.id)) parts.push(reason(r));
+  const cap = lines.filter((l) => CAPS[l.code]).at(-1);
+  if (cap) parts.push(t(CAPS[cap.code] === 'day' ? 'rates.why.dayMax' : 'rates.why.weekMax'));
   return parts.join(' ');
 }
 
+/** What a price-table row is there to check, in words. */
+export const caseKey = (row) => row.why.key;
+export const caseWords = (t, row) => t(`rates.test.${row.why.key}`, { name: row.why.name ?? '' });
+
 /**
- * What a price-table row is there to test, in words -- and for the rows about
- * the most a day or a week, only what the engine's breakdown of that stay says:
- * "takes over" when its most applied and the row a minute before did not,
- * "just before" the other way round, and otherwise what this stay alone shows.
- * `answerOf(key)` is the priced answer of the row with that case, if any.
+ * The first condition of a special a stay missed, as the engine checks them --
+ * the day, the time in, the leaving -- or 'fit'. Times are the garage's clock,
+ * 'YYYY-MM-DDTHH:MM'; "come in by" and "leave by" are to the minute, inclusive.
  */
-const CAP_ROWS = {
-  dayMaxTakes: ['daily_max', 'day', 'takes'],
-  dayMaxBefore: ['daily_max', 'day', 'before'],
-  weekMaxTakes: ['weekly_max', 'week', 'takes'],
-  weekMaxBefore: ['weekly_max', 'week', 'before'],
-};
-export function caseKey(row, answer, answerOf) {
-  const cap = CAP_ROWS[row.why.key];
-  if (!cap) return row.why.key;
-  const [code, unit] = cap;
-  const said = (a) => {
-    const lines = a && !a.refused ? (a.rate_lines ?? []) : [];
-    if (lines.some((l) => l.code === `${code}.applied`)) return 'applied';
-    if (lines.some((l) => l.code === `${code}.not_reached`)) return 'not';
-    return null;
-  };
-  const own = said(answer);
-  const turns = said(answerOf(`${unit}MaxTakes`)) === 'applied' && said(answerOf(`${unit}MaxBefore`)) === 'not';
-  if (own === 'applied') return turns && cap[2] === 'takes' ? `${unit}MaxTakes` : `${unit}MaxApplies`;
-  if (own === 'not') return turns && cap[2] === 'before' ? `${unit}MaxBefore` : `${unit}MaxNotReached`;
-  return 'length';
-}
-
-/** The words of `caseKey`. */
-export const caseWords = (t, row, answer, answerOf) => t(`rates.test.${caseKey(row, answer, answerOf)}`, { name: row.why.name ?? '' });
-
-/** The first condition of a special a stay missed, as the engine checks them: the day, the time in, the leaving. */
 function missed(rule, entry, exit) {
   if (!entry || !exit) return 'notFit';
   const day = entry.slice(0, 10);
   const onDay = rule.applies_on.kind === 'dates' ? rule.applies_on.dates.includes(day) : rule.applies_on.days.includes(weekdayOf(day));
-  if (!onDay) return 'otherDay';
+  if (!onDay) return rule.applies_on.kind === 'dates' ? 'otherDate' : 'otherDay';
   const at = entry.slice(11);
   if (at < rule.enter_from) return 'tooEarly';
   if (at > rule.enter_by) return 'tooLate';
   const lastDay = rule.day_span === 'next_day' ? addDays(day, 1) : day;
+  if (exit.slice(0, 10) > lastDay) return rule.day_span === 'next_day' ? 'leftAfterNextDay' : 'leftLaterDay';
   if (exit > `${lastDay}T${rule.exit_by}`) return 'leftLate';
-  return 'notFit';
+  return 'fit';
 }
 
 // --- the engine's findings, in words -----------------------------------------
@@ -915,7 +1073,7 @@ export function findingWords(t, finding, plan, timeZone, language) {
       return t(`rates.ruleName.${rule.type in RULE_NAMES ? rule.type : 'other'}`);
     })
     .filter(Boolean);
-  const about = named.length ? t('rates.finding.about', { names: listWords(named, language) }) : '';
+  const about = named.length ? t('rates.finding.about', { names: named.join(', ') }) : '';
   let car = '';
   const probe = finding.probe;
   if (probe?.entry_at && probe?.exit_at) {

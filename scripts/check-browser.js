@@ -546,8 +546,9 @@ try {
     await page.click(`.nav-item[href="#${p.path}"]`);
     const title = EN[`page.${p.id}.title`];
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
-    const purpose = await page.textContent('.page-purpose');
-    check(purpose === EN[`page.${p.id}.purpose`], `"${title}" says what it is for`);
+    // U7i: the Rates page has its title alone (the approved page); every other page says what it is for.
+    const purpose = p.noPurpose ? await page.locator('.page-purpose').count() : await page.textContent('.page-purpose');
+    check(p.noPurpose ? purpose === 0 : purpose === EN[`page.${p.id}.purpose`], p.noPurpose ? `"${title}": no line under the title` : `"${title}" says what it is for`);
     // U4b: there is no computer at a lane, and no page says so. Read once the page holds what it reads
     // (U7a: Home reads every garage's line besides the garage below).
     await allRead(page, EN.loading);

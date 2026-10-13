@@ -39,6 +39,9 @@
   --mark-tile: transparent;
   --text-primary: var(--ink);
   --text-secondary: var(--ink-soft);
+  /* U7i: a field that is missing or wrong -- its sentence, and its frame. */
+  --text-wrong: #a3201b;
+  --line-wrong: #c62828;
   --border-1: var(--border);
   --border-2: var(--border-mid);
   --backdrop: rgba(14, 12, 9, 0.4);
@@ -70,6 +73,8 @@
   --mark-tile: #f9f6f0;
   --text-primary: #f9f6f0;
   --text-secondary: rgba(249, 246, 240, 0.66);
+  --text-wrong: #ff9e94;
+  --line-wrong: #ff7b6e;
   --border-1: rgba(249, 246, 240, 0.1);
   --border-2: rgba(249, 246, 240, 0.18);
   /* Shadows and the dimmed background are the site's ink, as by day. Ink
@@ -1202,8 +1207,14 @@ textarea {
   border: none;
   cursor: pointer;
 }
+/* U7i, item 12: a locked tick is greyed, with its reason beside it, and never a
+   wait cursor (a "blue spin" read as busy, and the owner could not tell why). */
 .tick:disabled {
-  cursor: wait;
+  cursor: not-allowed;
+}
+.tick:disabled .tick-box {
+  border-color: var(--border-2);
+  background: var(--bg-sunken);
 }
 .tick-box {
   display: block;
@@ -1545,6 +1556,369 @@ textarea {
   border-radius: 4px;
   margin-right: 6px;
   vertical-align: middle;
+}
+
+/* ── U7i: the Rates page from the owner's walk ────────────────────────── */
+/* Item 1: every section of the form in a whole frame. A fieldset's own frame
+   is broken where its legend sits; a floated legend is a plain first line
+   inside the frame instead, so the top line is unbroken and the title and its
+   description sit inside, with room to the edge. */
+.rates-part {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.rates-part > legend,
+fieldset.days > legend,
+fieldset.dates > legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.rates-part > legend + *,
+fieldset.days > legend + *,
+fieldset.dates > legend + * {
+  clear: both;
+}
+.rates-part > * + * {
+  margin-top: 10px;
+}
+.rates-part > legend .field-name,
+fieldset.days > legend .field-name,
+fieldset.dates > legend .field-name {
+  display: block;
+  font-weight: 600;
+}
+.rates-part > legend .field-about,
+fieldset.days > legend .field-about,
+fieldset.dates > legend .field-about {
+  display: block;
+}
+fieldset.days,
+fieldset.dates {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+fieldset.dates > * + * {
+  margin-top: 8px;
+}
+/* Item 4: a field that is missing or wrong, in a red frame with its sentence under it. */
+.field[data-wrong='yes'] select,
+.field[data-wrong='yes'] .unit-box,
+.field[data-wrong='yes'] .when-box input {
+  border: 2px solid var(--line-wrong);
+}
+fieldset.days[data-wrong='yes'],
+fieldset.dates[data-wrong='yes'],
+.chooser[data-wrong='yes'] {
+  outline: 2px solid var(--line-wrong);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+.field-wrong {
+  display: block;
+  color: var(--text-wrong);
+  font-weight: 600;
+  font-size: 14px;
+}
+.missing ul {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Item 9: a number's unit inside its box. */
+.unit-box {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.setup-form .unit-box input[type='text'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+}
+.unit {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.unit-before {
+  padding-left: 12px;
+}
+.unit-after {
+  padding-right: 12px;
+}
+/* Item 10: the value in force, beside a field that starts empty. */
+.now-was {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+/* Item 5: a date or time box is empty until picked -- a plain prompt, never the
+   browser's grey digits, which look like a value that is not there. */
+.when-box {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.setup-form .when-box input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+.when-box[data-empty='yes'] input:not(:focus),
+.when-box[data-empty='yes'] input:not(:focus)::-webkit-datetime-edit {
+  color: transparent;
+}
+.when-prompt {
+  display: none;
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary);
+}
+.when-box[data-empty='yes'] input:not(:focus) + .when-prompt {
+  display: block;
+}
+.date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.date-row .when-box {
+  width: auto;
+  flex: 0 1 22ch;
+}
+.unit-box:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.unit-box input:focus-visible {
+  outline: none;
+}
+/* Items 12 and 13: a locked control is greyed, with the next step beside it. */
+.tick-row,
+.act-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.act-row .primary-button:disabled,
+.act-row .link-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tick.tick-words:disabled {
+  color: var(--text-secondary);
+}
+.locked-reason {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+[data-section='confirm'] .tick-row {
+  margin-bottom: 10px;
+}
+/* The check page's steps, the one the owner is at marked. */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 4px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+.steps li[data-current='yes'] {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  font-size: 13px;
+}
+.steps li[data-current='yes'] .step-n {
+  border: 2px solid var(--text-primary);
+  background: var(--accent-soft);
+}
+/* The special rates in force, one under the other; the one being changed opens under its own. */
+.special-list .special-in-force > p {
+  margin: 0;
+}
+.saved-by {
+  margin: 4px 0 8px;
+}
+/* U7i, the approved page: the main button of each step dark, the others as every button. */
+.secondary-button {
+  padding: 11px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+[data-section='regular'] .primary-button,
+.special-editor .primary-button,
+[data-section='confirm'] .primary-button {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  border-color: var(--text-primary);
+}
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.rates-state {
+  margin: 0;
+}
+.rate-sentences-title {
+  margin: 12px 0 2px;
+}
+.rate-sentences ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rate-sentences ul.small,
+.small {
+  font-size: 13px;
+}
+.rate-plan {
+  border-top: 1px solid var(--border-1);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.rate-plan-when {
+  font-weight: 700;
+  margin: 0;
+}
+/* A note in its own box: what a save does to cars already parked. */
+.rates-note {
+  max-width: 70ch;
+  padding: 12px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+}
+.confirm-notice {
+  border-color: var(--accent);
+}
+.saved-note {
+  margin-top: 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-2);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+.special-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.special-list .special-in-force {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+}
+.special-words {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.special-words > .special-name {
+  display: block;
+}
+[data-section='specials'] > .act-row,
+[data-section='specials'] > .special-editor {
+  margin-top: 14px;
+}
+/* What changes: the old value struck through, then the new. */
+.change-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.change-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.change-was {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+.change-is {
+  font-weight: 700;
+}
+.change-arrow {
+  color: var(--text-secondary);
+}
+.calc-fields {
+  align-items: flex-end;
+}
+.tried-pays {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 2px 0;
+}
+.tried-total td {
+  border-top: 1px solid var(--border-2);
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.price-table tr.added-row td {
+  background: var(--accent-soft);
+}
+.steps li[data-done='yes'] .step-n {
+  background: var(--text-primary);
+  color: var(--bg-page);
+  border-color: var(--text-primary);
+}
+@media screen and (max-width: 720px) {
+  .change-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .change-arrow {
+    display: none;
+  }
 }
 
 /* ── A phone (U7g): the frame stacks, nothing is wider than the screen ───── */
