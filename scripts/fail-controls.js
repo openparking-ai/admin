@@ -124,20 +124,6 @@ const CONTROLS = [
     names: ['a path is this origin\'s, or it is refused'],
   },
   {
-    check: 'extras: the frame does not follow its page\'s height (browser)',
-    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.height !== undefined) setHeight(m.height);', with: '' },
-    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
-    run: ['node', 'scripts/check-extras.js'],
-    names: ['FAIL the frame grew with its page'],
-  },
-  {
-    check: 'extras: the step is not read again when its page says something changed (browser)',
-    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.changed) onChanged?.();', with: '' },
-    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
-    run: ['node', 'scripts/check-extras.js'],
-    names: ['FAIL after the page said something changed, the step was read again: done'],
-  },
-  {
     check: '4 Quick Find finds every page in both languages',
     plant: { file: 'src/search.js', anchor: '...PAGES.map((page) =>', with: "...PAGES.filter((p) => p.id !== 'readers').map((page) =>" },
     run: ['node', '--test', 'test/search.test.js'],
@@ -1618,6 +1604,21 @@ const CONTROLS = [
 ];
 
 const BROWSER_CONTROLS = [
+  // Extra pages from the host, in a browser: the frame follows its page, a change re-reads the step.
+  {
+    check: 'extras: the frame does not follow its page\'s height (browser)',
+    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.height !== undefined) setHeight(m.height);', with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL the frame grew with its page'],
+  },
+  {
+    check: 'extras: the step is not read again when its page says something changed (browser)',
+    plant: { file: 'src/ExtraPages.jsx', anchor: '      if (m.changed) onChanged?.();', with: '' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL after the page said something changed, the step was read again: done'],
+  },
   // U7f, check 6: no screen offers adding a car to the banned list by hand.
   {
     check: 'U7f a button that adds a car to the banned list',
