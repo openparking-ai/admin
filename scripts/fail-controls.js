@@ -123,6 +123,31 @@ const CONTROLS = [
     run: ['node', '--test', 'test/extras.test.js'],
     names: ['a path is this origin\'s, or it is refused'],
   },
+  // The host's menu group (src/extras.js): each refusal red on its plant.
+  {
+    check: 'extras: a page naming a group the file does not name is drawn',
+    plant: { file: 'src/extras.js', anchor: "typeof raw.menu.group !== 'string' || !groups.has(raw.menu.group)) return null;", with: "typeof raw.menu.group !== 'string') return null;" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a menu group is read whole or left out'],
+  },
+  {
+    check: 'extras: a group list longer than allowed gives groups',
+    plant: { file: 'src/extras.js', anchor: '  if (!Array.isArray(raw) || raw.length > MAX_GROUPS) return out;', with: '  if (!Array.isArray(raw)) return out;' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a menu group is read whole or left out'],
+  },
+  {
+    check: 'extras: a group with no name in both languages is kept',
+    plant: { file: 'src/extras.js', anchor: '    const title = words(g.title);\n    if (!title) continue;\n', with: "    const title = words(g.title) ?? { en: String(g.title?.en), es: String(g.title?.es) };\n" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a menu group is read whole or left out'],
+  },
+  {
+    check: 'extras: any address names a menu page',
+    plant: { file: 'src/extras.js', anchor: '  return ID.test(id) ? id : null;', with: '  return id || null;' },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a menu page has its own address'],
+  },
   {
     check: '4 Quick Find finds every page in both languages',
     plant: { file: 'src/search.js', anchor: '...PAGES.map((page) =>', with: "...PAGES.filter((p) => p.id !== 'readers').map((page) =>" },
@@ -1610,6 +1635,31 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-extras.js'],
     names: ['FAIL after the page said something changed, the step was read again: done'],
+  },
+  // The host's menu group, in a browser: a garage first, the name as text, a malformed file changes nothing.
+  {
+    check: 'extras: a menu page draws its frame before a garage is chosen (browser)',
+    plant: [
+      { file: 'src/App.jsx', anchor: '  } else if (!garage) {\n    content = <GaragePicker', with: '  } else if (!garage && !menuEntry) {\n    content = <GaragePicker' },
+      { file: 'src/App.jsx', anchor: '        <ExtraFrame key={`${garage.id}:${menuEntry.id}`} entry={menuEntry} garage={garage}', with: '        <ExtraFrame key={`${garage?.id}:${menuEntry.id}`} entry={menuEntry} garage={garage ?? { id: \'\' }}' },
+    ],
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL with no garage chosen, the page asks for one the admin\'s own way', 'FAIL with no garage chosen, no frame is drawn'],
+  },
+  {
+    check: 'extras: the group\'s name is read as markup (browser)',
+    plant: { file: 'src/App.jsx', anchor: '                      <bdi>{words(g.title)}</bdi>', with: '                      <bdi dangerouslySetInnerHTML={{ __html: words(g.title) }} />' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL and nothing in it was read as markup'],
+  },
+  {
+    check: 'extras: a malformed group list still draws the menu page (browser)',
+    plant: { file: 'src/extras.js', anchor: "  if (!Array.isArray(raw) || raw.length > MAX_GROUPS) return out;", with: "  if (!Array.isArray(raw)) return new Map([['example-group', { id: 'example-group', title: { en: 'x', es: 'x' } }]]);\n  if (raw.length > MAX_GROUPS) return out;" },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL with a malformed file, the menu holds nothing of the host'],
   },
   // U7f, check 6: no screen offers adding a car to the banned list by hand.
   {

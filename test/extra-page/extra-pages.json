@@ -1,28 +1,165 @@
 {
+  "groups": [
+    {
+      "id": "example-group",
+      "title": {
+        "en": "<img src=x onerror=alert(2)> Example group",
+        "es": "Grupo de ejemplo"
+      }
+    },
+    {
+      "id": "empty-group",
+      "title": {
+        "en": "A group with no page",
+        "es": "Un grupo sin página"
+      }
+    }
+  ],
   "pages": [
     {
       "id": "example-extra",
-      "prefixes": ["/example-extra/", "/api/example-extra/"],
+      "prefixes": [
+        "/example-extra/",
+        "/api/example-extra/"
+      ],
       "page": "/example-extra/",
-      "title": { "en": "An example page", "es": "Una página de ejemplo" },
-      "purpose": { "en": "What the example shows.", "es": "Lo que muestra el ejemplo." },
-      "setup": { "status": "/api/example-extra/garages/{garage}/status" }
+      "title": {
+        "en": "An example page",
+        "es": "Una página de ejemplo"
+      },
+      "purpose": {
+        "en": "What the example shows.",
+        "es": "Lo que muestra el ejemplo."
+      },
+      "setup": {
+        "status": "/api/example-extra/garages/{garage}/status"
+      }
     },
     {
       "id": "example-section",
-      "prefixes": ["/example-extra/"],
+      "prefixes": [
+        "/example-extra/"
+      ],
       "page": "/example-extra/",
-      "title": { "en": "<script>alert(1)</script> example section", "es": "Sección de ejemplo" },
-      "purpose": { "en": "A section inside this page.", "es": "Una sección dentro de esta página." },
-      "section": { "page": "inside" }
+      "title": {
+        "en": "<script>alert(1)</script> example section",
+        "es": "Sección de ejemplo"
+      },
+      "purpose": {
+        "en": "A section inside this page.",
+        "es": "Una sección dentro de esta página."
+      },
+      "section": {
+        "page": "inside"
+      }
     },
     {
       "id": "refused-elsewhere",
-      "prefixes": ["/example-extra/"],
+      "prefixes": [
+        "/example-extra/"
+      ],
       "page": "//evil.example/example-extra/",
-      "title": { "en": "Never drawn", "es": "Nunca se dibuja" },
-      "purpose": { "en": "Its path is another host's.", "es": "Su ruta es de otro anfitrión." },
-      "section": { "page": "inside" }
+      "title": {
+        "en": "Never drawn",
+        "es": "Nunca se dibuja"
+      },
+      "purpose": {
+        "en": "Its path is another host's.",
+        "es": "Su ruta es de otro anfitrión."
+      },
+      "section": {
+        "page": "inside"
+      }
+    },
+    {
+      "id": "example-menu",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "/example-extra/",
+      "title": {
+        "en": "An example menu page",
+        "es": "Una página de menú de ejemplo"
+      },
+      "purpose": {
+        "en": "A page of its own, in the side menu.",
+        "es": "Una página propia, en el menú lateral."
+      },
+      "menu": {
+        "group": "example-group"
+      }
+    },
+    {
+      "id": "example-menu-two",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "/example-extra/#/two",
+      "title": {
+        "en": "A second menu page",
+        "es": "Una segunda página de menú"
+      },
+      "purpose": {
+        "en": "Another page in the same group.",
+        "es": "Otra página en el mismo grupo."
+      },
+      "menu": {
+        "group": "example-group"
+      }
+    },
+    {
+      "id": "refused-menu-elsewhere",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "https://evil.example/example-extra/",
+      "title": {
+        "en": "Never in the menu",
+        "es": "Nunca en el menú"
+      },
+      "purpose": {
+        "en": "Its path is another host's.",
+        "es": "Su ruta es de otro anfitrión."
+      },
+      "menu": {
+        "group": "example-group"
+      }
+    },
+    {
+      "id": "refused-menu-outside",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "/elsewhere/",
+      "title": {
+        "en": "Never in the menu either",
+        "es": "Tampoco en el menú"
+      },
+      "purpose": {
+        "en": "Its path is outside its prefix.",
+        "es": "Su ruta está fuera de su prefijo."
+      },
+      "menu": {
+        "group": "example-group"
+      }
+    },
+    {
+      "id": "refused-menu-group",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "/example-extra/",
+      "title": {
+        "en": "In no group",
+        "es": "En ningún grupo"
+      },
+      "purpose": {
+        "en": "Its group is not in the file.",
+        "es": "Su grupo no está en el archivo."
+      },
+      "menu": {
+        "group": "no-such-group"
+      }
     }
   ]
 }

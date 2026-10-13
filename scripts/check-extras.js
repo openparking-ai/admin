@@ -16,7 +16,12 @@
 //      drawn anywhere;
 //   4  the language and the look chosen on Settings reach the framed page;
 //   5  the page policy holds throughout, every request went to this origin, and nothing was
-//      drawn with the file absent.
+//      drawn with the file absent;
+//   6  the host's menu group: its name in the side menu as text, its pages under it and no
+//      entry refused by the file; a page opened with no garage chosen asks for one in these
+//      screens' own way and draws no frame; chosen, the page is drawn in a frame of this
+//      origin handed the garage; the group closes and opens; the page's own address opens
+//      it; a malformed file leaves the menu exactly as with no file.
 //
 //   node scripts/check-extras.js                 the check
 //   node scripts/check-extras.js --screens DIR   ...and save the screenshots
@@ -46,6 +51,8 @@ const check = (ok, what) => {
 // The host of this check: the file, the made-up page, and a status door that is "not done"
 // until the page has said something changed (then done, with a line of facts).
 let serveFile = true;
+// When set, the host serves this text as its file instead (a malformed file).
+let fileOverride = null;
 let changedTimes = 0;
 const host = createServer((req, res) => {
   const url = new URL(req.url, 'http://host');
@@ -55,6 +62,7 @@ const host = createServer((req, res) => {
   };
   if (url.pathname === '/extra-pages.json') {
     if (!serveFile) return send(404, 'text/plain', 'no');
+    if (fileOverride !== null) return send(200, 'application/json', fileOverride);
     return send(200, 'application/json', readFileSync(join(PAGE_DIR, 'extra-pages.json')));
   }
   if (url.pathname === '/example-extra/' || url.pathname === '/example-extra/index.html') return send(200, 'text/html; charset=utf-8', readFileSync(join(PAGE_DIR, 'index.html')));
@@ -168,6 +176,52 @@ try {
   check((await page.locator('[data-extra="example-section"] iframe').count()) === 1, 'the section holds its frame');
   await shot(page, 'garage-view-section');
 
+  now('the menu group');
+  // 6. The host's menu group, in English and by day.
+  const group = page.locator('[data-nav-group="example-group"]');
+  check((await group.count()) === 1, 'the side menu holds the host\'s group');
+  check((await group.locator('.nav-group-name').textContent()).includes('<img src=x onerror=alert(2)> Example group'), 'the group\'s name from the file is shown as text');
+  check((await page.locator('.sidebar img').count()) === 0, 'and nothing in it was read as markup');
+  const menuIds = await page.$$eval('[data-nav-extra]', (els) => els.map((e) => e.dataset.navExtra));
+  check(JSON.stringify(menuIds) === JSON.stringify(['example-menu', 'example-menu-two']), `its two pages are under it, and no page the file refused (${menuIds.join(', ')})`);
+  check((await page.locator('[data-nav-group="empty-group"]').count()) === 0, 'a group with no page is not drawn');
+  // No garage chosen: the page asks for one, the admin's own way, and draws no frame.
+  await page.click('[data-action="change-garage"]');
+  await page.click('[data-nav-extra="example-menu"]');
+  await settles(page, () => document.querySelector('.page-title')?.textContent === 'An example menu page');
+  check(await settles(page, (id) => Boolean(document.querySelector(`.content [data-garage="${id}"]`)), A.garages[1].id), 'with no garage chosen, the page asks for one the admin\'s own way');
+  const shownTitle = await page.locator('.page-title').textContent();
+  check(shownTitle === 'An example menu page', `the page's name is the title (${shownTitle})`);
+  check((await page.locator('.content iframe').count()) === 0, 'with no garage chosen, no frame is drawn');
+  await shot(page, 'menu-page-choose-garage');
+  const chooseFirst = page.locator(`.content [data-garage="${A.garages[0].id}"]`);
+  if (await chooseFirst.count()) await chooseFirst.first().click();
+  else await page.click(`[data-garage="${A.garages[0].id}"]`).catch(() => {});
+  const menuFrame = page.locator('iframe[data-extra-frame="example-menu"]');
+  await menuFrame.waitFor();
+  const menuSrc = await menuFrame.getAttribute('src');
+  check(menuSrc.startsWith('/example-extra/?framed=example-menu&garage=') && menuSrc.includes(`garage=${A.garages[0].id}`) && menuSrc.includes('language=en'), `chosen, the page is drawn in a frame of this origin, handed the garage (${menuSrc})`);
+  check(await page.frameLocator('iframe[data-extra-frame="example-menu"]').locator('[data-garage]').textContent() === `garage: ${A.garages[0].id}`, 'the framed page received the chosen garage');
+  check((await page.locator('[data-nav-extra="example-menu"][aria-current="page"]').count()) === 1 && (await page.locator('.nav-item[aria-current="page"]').count()) === 1, 'the menu marks that page, and only it');
+  check((await page.title()).startsWith('An example menu page'), 'the window\'s title names the page');
+  await shot(page, 'menu-page');
+  await page.click('[data-nav-extra="example-menu-two"]');
+  const twoSrc = await page.locator('iframe[data-extra-frame="example-menu-two"]').getAttribute('src');
+  check(twoSrc.startsWith('/example-extra/?framed=example-menu-two&') && twoSrc.endsWith('#/two'), `the second page opens in its own frame (${twoSrc})`);
+  await group.locator('.nav-group-name').click();
+  check((await group.locator('.nav-group-name').getAttribute('aria-expanded')) === 'false' && (await page.locator('[data-nav-extra]').count()) === 0, 'the group closes');
+  await group.locator('.nav-group-name').click();
+  check((await page.locator('[data-nav-extra]').count()) === 2, 'and opens again');
+  // The page's own address opens it, once the host's file is read.
+  await page.goto(`${base}#/extra/example-menu`);
+  await page.waitForSelector('.page-title');
+  check(await settles(page, () => document.querySelector('.page-title')?.textContent === 'An example menu page'), 'the page\'s own address opens it');
+  // Back to where the checks below start: the first garage chosen.
+  const again = page.locator(`.content [data-garage="${A.garages[0].id}"]`);
+  if (await again.count()) await again.first().click();
+  await page.click('.nav-item[href="#/garage-view"]');
+  await page.waitForSelector('[data-extra="example-section"]');
+
   now('Settings, then Garage View again');
   // 4. The language and the look chosen on Settings reach the framed page.
   await page.click('.nav-item[href="#/settings"]');
@@ -181,11 +235,26 @@ try {
   check((await section.locator('[data-garage]').count()) === 1, 'the framed page is there in Spanish and at night');
   await shot(page, 'garage-view-section-night-es');
 
+  now('a malformed file');
+  // 6, the end. A malformed file: the menu is exactly as with no file (compared below).
+  fileOverride = JSON.stringify({ groups: 5, pages: [{ id: 'example-menu', prefixes: ['/example-extra/'], page: '/example-extra/', title: { en: 'x', es: 'x' }, purpose: { en: 'x', es: 'x' }, menu: { group: 'example-group' } }] });
+  await page.reload();
+  await page.waitForSelector('.nav');
+  const menuMalformed = await page.locator('.nav').first().innerHTML();
+  check((await page.locator('[data-nav-group], [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
+  fileOverride = '{"groups": [';
+  await page.reload();
+  await page.waitForSelector('.nav');
+  const menuNotJson = await page.locator('.nav').first().innerHTML();
+  fileOverride = null;
+
   now('the file absent');
   // 5. The file absent: nothing of the host anywhere.
   serveFile = false;
   await page.reload();
   await page.waitForSelector('.page-title');
+  const menuAbsent = await page.locator('.nav').first().innerHTML();
+  check(menuMalformed === menuAbsent && menuNotJson === menuAbsent, 'a malformed file, or one that is not JSON, leaves the menu exactly as with no file');
   // Reloaded, the garage is chosen again (the choice is not kept across a reload).
   const picker = page.locator(`[data-garage="${A.garages[0].id}"]`);
   if (await picker.count()) await picker.first().click();

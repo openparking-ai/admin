@@ -26,7 +26,8 @@ import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 import BannedPage from './BannedPage.jsx';
-import { loadExtraPages } from './extras.js';
+import { loadExtraPages, menuGroups, menuHash, menuIdForHash } from './extras.js';
+import { ExtraFrame } from './ExtraPages.jsx';
 
 // Home, Garages and Settings are drawn apart: Home and Garages list every garage, and Settings is about these pages, not a garage.
 const PAGE_BODIES = {
@@ -50,6 +51,17 @@ function useHashPage() {
   return page;
 }
 
+/** The host's menu page the address names (its id), or null (src/extras.js). */
+function useHashMenuId() {
+  const [id, setId] = useState(() => menuIdForHash(window.location.hash));
+  useEffect(() => {
+    const onHash = () => setId(menuIdForHash(window.location.hash));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  return id;
+}
+
 /**
  * U7d-2: the screen an emailed link opens, `{ kind, token }`, or null. The
  * one the page started with was taken out of the address by src/main.jsx; a
@@ -71,6 +83,7 @@ function useLink(first) {
 
 export default function App({ theme, storage, client, link: startLink = null }) {
   const page = useHashPage();
+  const menuId = useHashMenuId();
   const [link, setLink] = useLink(startLink);
   // U7d-2: "Forgot your password?", opened from the sign-in screen or a reset link that no longer works.
   const [forgot, setForgot] = useState(false);
@@ -82,9 +95,16 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   const [owner, dispatch] = useReducer(ownerReducer, EMPTY_OWNER);
   // Extra pages from the host, read once at start (src/extras.js): none when the host serves no file.
   const [extras, setExtras] = useState([]);
+  const [extrasRead, setExtrasRead] = useState(false);
+  // The groups the host puts in the side menu, each open unless closed here.
+  const [closedGroups, setClosedGroups] = useState(() => new Set());
   useEffect(() => {
     let live = true;
-    loadExtraPages().then((pages) => live && setExtras(pages));
+    loadExtraPages().then((pages) => {
+      if (!live) return;
+      setExtras(pages);
+      setExtrasRead(true);
+    });
     return () => {
       live = false;
     };
@@ -206,13 +226,18 @@ export default function App({ theme, storage, client, link: startLink = null }) 
 
   const signedIn = owner.status === 'signedIn';
   const garage = owner.garages?.find((g) => g.id === owner.garageId) ?? null;
+  // A page of the host's in the side menu, when the address names one the host's file has.
+  const menuEntry = menuId ? extras.find((e) => e.menu && e.id === menuId) ?? null : null;
+  const groups = menuGroups(extras);
+  const words = (w) => w[speaking] ?? w.en;
 
   useEffect(() => {
     document.documentElement.lang = speaking;
     const linkTitle = { invite: 'invite.title', reset: 'reset.title' }[link?.kind];
-    const title = linkTitle ? t(linkTitle) : signedIn ? t(`page.${page.id}.title`) : forgot ? t('forgot.title') : t('signIn.title');
+    const pageTitle = menuEntry ? menuEntry.title[speaking] ?? menuEntry.title.en : t(`page.${page.id}.title`);
+    const title = linkTitle ? t(linkTitle) : signedIn ? pageTitle : forgot ? t('forgot.title') : t('signIn.title');
     document.title = `${title} · ${t('app.name')}`;
-  }, [speaking, page, t, signedIn, link, forgot]);
+  }, [speaking, page, t, signedIn, link, forgot, menuEntry]);
 
   const actions = useMemo(
     () => ({
@@ -332,15 +357,25 @@ export default function App({ theme, storage, client, link: startLink = null }) 
     content = <ProblemNote t={t} kind={owner.garagesProblem} onRetry={loadGarages} />;
   } else if (!owner.garages) {
     content = <p className="quiet">{t('loading')}</p>;
-  } else if (page.id === 'garages') {
+  } else if (menuId && !extrasRead) {
+    // The address names a page of the host's, and the host's file is not read yet.
+    content = <p className="quiet">{t('loading')}</p>;
+  } else if (page.id === 'garages' && !menuEntry) {
     content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} />;
   } else if (owner.garages.length === 0) {
     // U7c: an account with no garage starts by adding one, from whichever page it is on.
     content = <NoGarages t={t} language={language} client={client} onAdded={added} />;
-  } else if (page.id === 'home') {
+  } else if (page.id === 'home' && !menuEntry) {
     content = <Home t={t} language={language} client={client} garages={owner.garages} garage={garage} onChoose={choose} />;
   } else if (!garage) {
     content = <GaragePicker t={t} language={language} garages={owner.garages} onChoose={choose} />;
+  } else if (menuEntry) {
+    // The host's page, for the garage chosen here; it is drawn in the same frame as every extra page.
+    content = (
+      <div className="extra-page" data-extra-page={menuEntry.id}>
+        <ExtraFrame key={`${garage.id}:${menuEntry.id}`} entry={menuEntry} garage={garage} language={language} look={themeChoice} />
+      </div>
+    );
   } else if (Body) {
     content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} extras={extras} look={themeChoice} />;
   } else {
@@ -373,13 +408,48 @@ export default function App({ theme, storage, client, link: startLink = null }) 
                 <a
                   className="nav-item"
                   href={hashFor(p)}
-                  aria-current={p.id === page.id ? 'page' : undefined}
+                  aria-current={!menuEntry && p.id === page.id ? 'page' : undefined}
                 >
                   <Icon name={p.icon} />
                   <span>{t(`page.${p.id}.title`)}</span>
                 </a>
               </li>
             ))}
+            {groups.map((g) => {
+              const open = !closedGroups.has(g.id);
+              const toggle = () =>
+                setClosedGroups((was) => {
+                  const next = new Set(was);
+                  if (open) next.add(g.id);
+                  else next.delete(g.id);
+                  return next;
+                });
+              return (
+                <li key={`group-${g.id}`} className="nav-group" data-nav-group={g.id}>
+                  <button type="button" className="nav-item nav-group-name" aria-expanded={open} onClick={toggle}>
+                    <span className="nav-group-mark" aria-hidden="true">
+                      {open ? '▾' : '▸'}
+                    </span>
+                    <span>
+                      <bdi>{words(g.title)}</bdi>
+                    </span>
+                  </button>
+                  {open ? (
+                    <ul className="nav nav-sub">
+                      {g.entries.map((e) => (
+                        <li key={e.id}>
+                          <a className="nav-item" href={menuHash(e)} data-nav-extra={e.id} aria-current={menuEntry?.id === e.id ? 'page' : undefined}>
+                            <span>
+                              <bdi>{words(e.title)}</bdi>
+                            </span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </aside>
@@ -408,8 +478,8 @@ export default function App({ theme, storage, client, link: startLink = null }) 
         </header>
 
         <main className="content" id="content">
-          <h1 className="page-title">{t(`page.${page.id}.title`)}</h1>
-          {page.noPurpose ? null : <p className="page-purpose">{t(`page.${page.id}.purpose`)}</p>}
+          <h1 className="page-title">{menuEntry ? <bdi>{words(menuEntry.title)}</bdi> : t(`page.${page.id}.title`)}</h1>
+          {page.noPurpose ? null : <p className="page-purpose">{menuEntry ? <bdi>{words(menuEntry.purpose)}</bdi> : t(`page.${page.id}.purpose`)}</p>}
           {languageNotKept ? (
             <p className="problem-note" role="status" data-notice="language-not-kept">
               {t('language.notKept')}
