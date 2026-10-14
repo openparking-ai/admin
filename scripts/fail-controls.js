@@ -78,13 +78,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 113, 636); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 116, 639); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 110, 633); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 112, 635); only the last is ever shown'],
   },
   // The side menu (src/menu.js): its shape, kept open or closed, and
   // the group of the page shown opening itself, each red on its plant.
@@ -249,6 +249,12 @@ const CONTROLS = [
     plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = '/api/v1';\nexport const peek = () => document.cookie;" },
     run: ['node', 'scripts/check-page-stays-home.js'],
     names: ['src/api.js:16: document.cookie'],
+  },
+  {
+    check: 'the menu\'s kept state written under another key',
+    plant: { file: 'src/menu.js', anchor: '    storage?.setItem(MENU_KEY, JSON.stringify(state));', with: "    storage?.setItem('openparking-admin.last', JSON.stringify(state));" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['a storage write that is not one of the kept choices', 'of the 3 kept-choice writes'],
   },
   {
     check: 'U2b-4 requests stay home: an absolute address',
