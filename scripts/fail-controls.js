@@ -86,6 +86,26 @@ const CONTROLS = [
     run: ['node', 'scripts/check-languages-match.js'],
     names: ['problem.unreachable: given 2 times in es.js (lines 110, 633); only the last is ever shown'],
   },
+  // The side menu (src/menu.js): its shape, kept open or closed, and
+  // the group of the page shown opening itself, each red on its plant.
+  {
+    check: 'menu: the top in another order',
+    plant: { file: 'src/menu.js', anchor: "export const TOP = ['home', 'inside', 'alerts'];", with: "export const TOP = ['home', 'alerts', 'inside'];" },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['the top: Home, Garage View, Alerts, in that order'],
+  },
+  {
+    check: 'menu: a page left out of Setup',
+    plant: { file: 'src/menu.js', anchor: '    setup: pages.filter((p) => !TOP.includes(p.id)),', with: "    setup: pages.filter((p) => !TOP.includes(p.id) && p.id !== 'banned')," },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['Setup: every other page, in the order the pages are listed, each once'],
+  },
+  {
+    check: 'menu: anything kept on the computer read back',
+    plant: { file: 'src/menu.js', anchor: "      if (typeof open === 'boolean' && /^(own|host):[A-Za-z0-9_-]{1,64}$/.test(key)) out[key] = open;", with: '      out[key] = open;' },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['kept on this computer and read back: only group keys with true or false'],
+  },
   // Extra pages from the host (src/extras.js): each refusal red on its plant.
   {
     check: 'extras: a path of another host is accepted',
@@ -1661,6 +1681,35 @@ const BROWSER_CONTROLS = [
     run: ['node', 'scripts/check-extras.js'],
     names: ['FAIL with a malformed file, the menu holds nothing of the host'],
   },
+  // The side menu in a browser (src/menu.js): each red on its plant.
+  {
+    check: 'menu: the top in another order (browser)',
+    plant: { file: 'src/menu.js', anchor: "export const TOP = ['home', 'inside', 'alerts'];", with: "export const TOP = ['home', 'alerts', 'inside'];" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Home, Garage View and Alerts at the top, then Setup'],
+  },
+  {
+    check: 'menu: a page left out of Setup (browser)',
+    plant: { file: 'src/menu.js', anchor: '    setup: pages.filter((p) => !TOP.includes(p.id)),', with: "    setup: pages.filter((p) => !TOP.includes(p.id) && p.id !== 'banned')," },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu has "Banned cars"', 'FAIL the menu: Setup holds every other page, in order', 'FAIL the menu: every page once'],
+  },
+  {
+    check: 'menu: open or closed not kept (browser)',
+    plant: { file: 'src/menu.js', anchor: '    storage?.setItem(MENU_KEY, JSON.stringify(state));', with: '    void state;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup opened stays open on Home after a reload'],
+  },
+  {
+    check: 'menu: the group of the page shown does not open itself (browser)',
+    plant: { file: 'src/App.jsx', anchor: '    if (shownIn && !isOpen(openGroups, shownIn)) setGroup(shownIn, true);\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup opens itself when the page shown is inside it'],
+  },
   // U7f, check 6: no screen offers adding a car to the banned list by hand.
   {
     check: 'U7f a button that adds a car to the banned list',
@@ -2165,7 +2214,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: "          setCode(made.code);\n          localStorage.setItem('openparking-admin.lastCode', made.code);\n" },
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL connection code: browser storage holds only the two keys'],
+    names: ['FAIL connection code: browser storage holds only its own keys'],
   },
   {
     check: 'U4-4 the connection code left on the page after the panel closes',

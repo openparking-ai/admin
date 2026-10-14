@@ -11,6 +11,9 @@ export default {
   'app.tagline': 'For the owner',
 
   'nav.label': 'Pages',
+  // The side menu's group of every page but Home, Garage View and Alerts, and the Setup page's entry in it (src/menu.js).
+  'nav.setup': 'Setup',
+  'nav.setupChecklist': 'Setup checklist',
 
   'page.home.title': 'Home',
   'page.home.purpose':

@@ -57,6 +57,7 @@ import { EARLY_BIRD, REGULAR_FORM, STAYS } from '../test/rates-forms.js';
 import { buildPlan, specialsPlan } from '../src/rates.js';
 import { garageDateTime } from '../src/time.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const EN = DICTIONARIES.en;
@@ -89,7 +90,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
 const ENGINE_WORDS = /GAP_|CONFLICT_|FAULT_|cheapest|QUALIFY|ACCUMULATE|increment|time_window|max_duration|plan_version|nothing prices|daily_max|weekly_max/i;
 
 async function go(page, hash, title) {
-  await page.click(`.nav-item[href="${hash}"]`);
+  await goNav(page, hash);
   return settles(page, (t) => document.querySelector('.page-title')?.textContent === t, title);
 }
 const set = (page, sel, value) => page.fill(sel, value);
@@ -826,7 +827,7 @@ try {
 
   // ── Spanish: the Rates page in the other language ──────────────────────
   await chooseOnSettings(page, 'language', 'es');
-  await page.click('.nav-item[href="#/rates"]');
+  await goNav(page, '#/rates');
   check(await settles(page, (t) => document.querySelector('.page-title')?.textContent === t, ES['page.rates.title']), 'es: Tarifas');
   // The words as written (innerText follows a CSS capitalisation).
   const esText = await page.evaluate(() => document.querySelector('main').textContent);

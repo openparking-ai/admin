@@ -27,6 +27,7 @@ import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 import BannedPage from './BannedPage.jsx';
 import { loadExtraPages, menuGroups, menuHash, menuIdForHash } from './extras.js';
+import { SETUP_GROUP, groupShown, hostGroupKey, isOpen, menuPages, readOpenGroups, saveOpenGroups, withGroup } from './menu.js';
 import { ExtraFrame } from './ExtraPages.jsx';
 
 // Home, Garages and Settings are drawn apart: Home and Garages list every garage, and Settings is about these pages, not a garage.
@@ -96,8 +97,8 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   // Extra pages from the host, read once at start (src/extras.js): none when the host serves no file.
   const [extras, setExtras] = useState([]);
   const [extrasRead, setExtrasRead] = useState(false);
-  // The groups the host puts in the side menu, each open unless closed here.
-  const [closedGroups, setClosedGroups] = useState(() => new Set());
+  // The side menu's groups, Setup's and the host's: which are open, as kept on this computer (src/menu.js).
+  const [openGroups, setOpenGroups] = useState(() => readOpenGroups(storage));
   useEffect(() => {
     let live = true;
     loadExtraPages().then((pages) => {
@@ -230,6 +231,27 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   const menuEntry = menuId ? extras.find((e) => e.menu && e.id === menuId) ?? null : null;
   const groups = menuGroups(extras);
   const words = (w) => w[speaking] ?? w.en;
+  // The menu (src/menu.js): Home, Garage View and Alerts at the top; Setup's group, then the host's.
+  const menu = menuPages(PAGES);
+  const menuGroupsDrawn = [
+    { key: SETUP_GROUP, id: 'setup', title: null, entries: menu.setup.map((p) => ({ id: p.id, own: p })) },
+    ...groups.map((g) => ({ key: hostGroupKey(g.id), id: g.id, title: g.title, entries: g.entries })),
+  ];
+  const setGroup = useCallback(
+    (key, open) =>
+      setOpenGroups((was) => {
+        const next = withGroup(was, key, open);
+        saveOpenGroups(storage, next);
+        return next;
+      }),
+    [storage],
+  );
+  // The group of the page shown opens itself.
+  const shownIn = groupShown(page, menuEntry);
+  useEffect(() => {
+    if (shownIn && !isOpen(openGroups, shownIn)) setGroup(shownIn, true);
+    // Only when the page shown changes: a group closed while its page is shown stays closed.
+  }, [shownIn, page.id, menuEntry?.id]);
 
   useEffect(() => {
     document.documentElement.lang = speaking;
@@ -403,7 +425,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
         </div>
         <nav aria-label={t('nav.label')}>
           <ul className="nav">
-            {PAGES.map((p) => (
+            {menu.top.map((p) => (
               <li key={p.id}>
                 <a
                   className="nav-item"
@@ -415,36 +437,45 @@ export default function App({ theme, storage, client, link: startLink = null }) 
                 </a>
               </li>
             ))}
-            {groups.map((g) => {
-              const open = !closedGroups.has(g.id);
-              const toggle = () =>
-                setClosedGroups((was) => {
-                  const next = new Set(was);
-                  if (open) next.add(g.id);
-                  else next.delete(g.id);
-                  return next;
-                });
+            {menuGroupsDrawn.map((g) => {
+              const open = isOpen(openGroups, g.key);
+              const toggle = () => setGroup(g.key, !open);
+              const own = g.key === SETUP_GROUP;
               return (
-                <li key={`group-${g.id}`} className="nav-group" data-nav-group={g.id}>
+                <li key={g.key} className="nav-group" data-nav-group={own ? 'setup' : g.id} data-own-group={own ? 'true' : undefined}>
                   <button type="button" className="nav-item nav-group-name" aria-expanded={open} onClick={toggle}>
                     <span className="nav-group-mark" aria-hidden="true">
                       {open ? '▾' : '▸'}
                     </span>
+                    {own ? <Icon name="check" /> : null}
                     <span>
+                      {own ? (
+                        t('nav.setup')
+                      ) : (
                       <bdi>{words(g.title)}</bdi>
+                      )}
                     </span>
                   </button>
                   {open ? (
                     <ul className="nav nav-sub">
-                      {g.entries.map((e) => (
-                        <li key={e.id}>
-                          <a className="nav-item" href={menuHash(e)} data-nav-extra={e.id} aria-current={menuEntry?.id === e.id ? 'page' : undefined}>
-                            <span>
-                              <bdi>{words(e.title)}</bdi>
-                            </span>
-                          </a>
-                        </li>
-                      ))}
+                      {g.entries.map((e) =>
+                        e.own ? (
+                          <li key={e.id}>
+                            <a className="nav-item" href={hashFor(e.own)} aria-current={!menuEntry && e.own.id === page.id ? 'page' : undefined}>
+                              <Icon name={e.own.icon} />
+                              <span>{t(e.own.id === 'setup' ? 'nav.setupChecklist' : `page.${e.own.id}.title`)}</span>
+                            </a>
+                          </li>
+                        ) : (
+                          <li key={e.id}>
+                            <a className="nav-item" href={menuHash(e)} data-nav-extra={e.id} aria-current={menuEntry?.id === e.id ? 'page' : undefined}>
+                              <span>
+                                <bdi>{words(e.title)}</bdi>
+                              </span>
+                            </a>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   ) : null}
                 </li>

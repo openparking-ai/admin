@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
 import { startStub } from '../test/stub-platform.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const PAGE_DIR = join(ROOT, 'test', 'extra-page');
@@ -133,7 +134,7 @@ try {
   // The owner's first garage, chosen on Home.
   await page.click(`[data-garage="${A.garages[0].id}"]`);
   now('Setup');
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await page.waitForSelector('[data-list="setup"]');
 
   // 1. The host's step: listed, read, and opened in a frame of this origin.
@@ -168,7 +169,7 @@ try {
 
   now('Garage View');
   // 3. The section on Garage View; the planted name as text; the entry of another host not drawn.
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"]');
   const title = await page.locator('[data-extra="example-section"] .section-title').textContent();
   check(title.includes('<script>alert(1)</script>'), 'the section\'s name from the file is shown as text');
@@ -219,15 +220,15 @@ try {
   // Back to where the checks below start: the first garage chosen.
   const again = page.locator(`.content [data-garage="${A.garages[0].id}"]`);
   if (await again.count()) await again.first().click();
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"]');
 
   now('Settings, then Garage View again');
   // 4. The language and the look chosen on Settings reach the framed page.
-  await page.click('.nav-item[href="#/settings"]');
+  await goNav(page, '#/settings');
   await page.click('[data-control="language"] [data-value="es"]');
   await page.click('[data-control="theme"] [data-value="night"]');
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"] iframe');
   const section = page.frameLocator('[data-extra="example-section"] iframe');
   check(await settles(page, () => document.querySelector('[data-extra="example-section"] iframe')?.contentDocument?.querySelector('[data-language]')?.textContent === 'language: es'), 'the framed page speaks the language chosen on Settings');
@@ -241,7 +242,7 @@ try {
   await page.reload();
   await page.waitForSelector('.nav');
   const menuMalformed = await page.locator('.nav').first().innerHTML();
-  check((await page.locator('[data-nav-group], [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
+  check((await page.locator('[data-nav-group]:not([data-own-group]), [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
   fileOverride = '{"groups": [';
   await page.reload();
   await page.waitForSelector('.nav');
@@ -258,10 +259,10 @@ try {
   // Reloaded, the garage is chosen again (the choice is not kept across a reload).
   const picker = page.locator(`[data-garage="${A.garages[0].id}"]`);
   if (await picker.count()) await picker.first().click();
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await page.waitForSelector('[data-list="setup"]');
   check((await page.locator('[data-extra-step]').count()) === 0, 'with no file from the host, Setup lists no extra step');
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-list="inside"]');
   check((await page.locator('[data-extra]').count()) === 0, 'and Garage View holds no section');
 } catch (err) {

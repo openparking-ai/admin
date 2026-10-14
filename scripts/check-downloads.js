@@ -62,6 +62,7 @@ import { PAGES, hashFor } from '../src/pages.js';
 import { COLUMNS } from '../src/files/model.js';
 import { CASES, CASE_COUNTS, UNICODE } from './files/odd-text.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const keepAt = process.argv.indexOf('--keep');
@@ -194,7 +195,7 @@ async function signInAndChoose(page) {
 async function goTo(page, list) {
   // The refused attempts are a list of the change log's page.
   const id = list === 'refused' ? 'changes' : list;
-  await page.click(`.nav-item[href="${hashFor(PAGES.find((p) => p.id === id))}"]`);
+  await goNav(page, hashFor(PAGES.find((p) => p.id === id)));
   await page.waitForSelector(`[data-list="${list}"] [data-action="download-excel"]`);
 }
 

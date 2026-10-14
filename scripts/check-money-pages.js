@@ -44,6 +44,7 @@ import { startStub } from '../test/stub-platform.js';
 import { readBack, tableOf, garageClock } from './files/read-back.js';
 import { READERS, readSpreadsheets } from './files/spreadsheet-readers.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -140,11 +141,11 @@ async function checkDescribed(page, where, language, expected) {
 }
 
 async function go(page, hash, titleKey, language = 'en') {
-  await page.click(`.nav-item[href="${hash}"]`);
+  await goNav(page, hash);
   return showsHeading(page, WORDS[language][titleKey]);
 }
 const reload = async (page, hash, titleKey, language = 'en') => {
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   return go(page, hash, titleKey, language);
 };
 const chooseGarage = async (page, garage) => {
