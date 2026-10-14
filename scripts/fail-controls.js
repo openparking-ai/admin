@@ -126,6 +126,19 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ['a save from either section leaves no kind with nothing to price it'],
   },
+  // A host's note on one page (src/extras.js NOTE_PAGES): each refusal red on its plant.
+  {
+    check: 'extras: a note accepted on any page',
+    plant: { file: 'src/extras.js', anchor: "!NOTE_PAGES.includes(n.page) || !entry.menu", with: "!entry.menu" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a note: on a page of NOTE_PAGES only'],
+  },
+  {
+    check: 'extras: a note accepted from an entry not in the menu',
+    plant: { file: 'src/extras.js', anchor: "!NOTE_PAGES.includes(n.page) || !entry.menu", with: "!NOTE_PAGES.includes(n.page)" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a note: on a page of NOTE_PAGES only'],
+  },
   // Extra pages from the host (src/extras.js): each refusal red on its plant.
   {
     check: 'extras: a path of another host is accepted',
@@ -1699,6 +1712,20 @@ const BROWSER_CONTROLS = [
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-extras.js'],
     names: ['FAIL and nothing in it was read as markup'],
+  },
+  {
+    check: 'extras: a note\'s words read as markup (browser)',
+    plant: { file: 'src/App.jsx', anchor: '            <bdi>{words(e.note.text)}</bdi>', with: '            <bdi dangerouslySetInnerHTML={{ __html: words(e.note.text) }} />' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL its words are shown as text, never read as markup'],
+  },
+  {
+    check: 'extras: a note shown on every page (browser)',
+    plant: { file: 'src/extras.js', anchor: 'export const notesFor = (extras, pageId) => extras.filter((e) => e.note && e.menu && e.note.page === pageId);', with: 'export const notesFor = (extras) => extras.filter((e) => e.note && e.menu);' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL no note on #/garage-view'],
   },
   {
     check: 'extras: a malformed group list still draws the menu page (browser)',

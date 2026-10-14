@@ -87,6 +87,17 @@
       },
       "menu": {
         "group": "example-group"
+      },
+      "note": {
+        "page": "rates",
+        "text": {
+          "en": "<b>An example note</b> above the rates.",
+          "es": "Una nota de ejemplo sobre las tarifas."
+        },
+        "link": {
+          "en": "Open the example",
+          "es": "Abrir el ejemplo"
+        }
       }
     },
     {
@@ -159,6 +170,35 @@
       },
       "menu": {
         "group": "no-such-group"
+      }
+    },
+    {
+      "id": "note-on-settings",
+      "prefixes": [
+        "/example-extra/"
+      ],
+      "page": "/example-extra/",
+      "title": {
+        "en": "Never drawn",
+        "es": "Nunca se dibuja"
+      },
+      "purpose": {
+        "en": "A note on Settings.",
+        "es": "Una nota en Ajustes."
+      },
+      "menu": {
+        "group": "example-group"
+      },
+      "note": {
+        "page": "settings",
+        "text": {
+          "en": "Never shown on Settings.",
+          "es": "Nunca en Ajustes."
+        },
+        "link": {
+          "en": "No",
+          "es": "No"
+        }
       }
     }
   ]

@@ -221,6 +221,26 @@ try {
   // Back to where the checks below start: the first garage chosen.
   const again = page.locator(`.content [data-garage="${A.garages[0].id}"]`);
   if (await again.count()) await again.first().click();
+
+  now('the note on the Rates page');
+  // 7. A host's note: one line at the top of the Rates page, its words as text, then its link to the host's page.
+  await goNav(page, '#/rates');
+  const note = page.locator('[data-extra-note="example-menu"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-extra-note="example-menu"]'))), 'the Rates page shows the host\'s note');
+  check((await note.textContent()).startsWith('<b>An example note</b> above the rates.') && (await note.locator('b').count()) === 0, 'its words are shown as text, never read as markup');
+  check(await page.evaluate(() => { const n = document.querySelector('[data-extra-note]'); const c = document.querySelector('.content'); return [...c.children].indexOf(n) === [...c.children].findIndex((el) => !el.matches('.page-title, .page-purpose')); }), 'it sits at the top of the page, above the rates');
+  check((await page.locator('[data-extra-note]').count()) === 1, 'one note: the entry that named Settings was refused whole');
+  const noteLink = note.locator('a');
+  check((await noteLink.textContent()) === 'Open the example' && (await noteLink.getAttribute('href')) === '#/extra/example-menu', `it ends in its link to the host's page (${await noteLink.getAttribute('href')})`);
+  await shot(page, 'rates-note');
+  await noteLink.click();
+  check(await settles(page, () => document.querySelector('.page-title')?.textContent === 'An example menu page'), 'the link opens the host\'s page');
+  check((await page.locator('iframe[data-extra-frame="example-menu"]').getAttribute('src'))?.includes(`garage=${A.garages[0].id}`), 'for the garage chosen');
+  for (const elsewhere of ['#/settings', '#/', '#/garage-view']) {
+    await goNav(page, elsewhere);
+    await page.waitForTimeout(300);
+    check((await page.locator('[data-extra-note]').count()) === 0, `no note on ${elsewhere}`);
+  }
   await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"]');
 
@@ -236,6 +256,10 @@ try {
   check(await settles(page, () => document.querySelector('[data-extra="example-section"] iframe')?.contentDocument?.querySelector('[data-look]')?.textContent === 'look: night'), 'and wears the look chosen there');
   check((await section.locator('[data-garage]').count()) === 1, 'the framed page is there in Spanish and at night');
   await shot(page, 'garage-view-section-night-es');
+  await goNav(page, '#/rates');
+  check(await settles(page, () => document.querySelector('[data-extra-note="example-menu"]')?.textContent === 'Una nota de ejemplo sobre las tarifas. Abrir el ejemplo'), 'the note in Spanish, at night');
+  await shot(page, 'rates-note-night-es');
+  await goNav(page, '#/garage-view');
 
   now('a malformed file');
   // 6, the end. A malformed file: the menu is exactly as with no file (compared below).
@@ -244,6 +268,15 @@ try {
   await page.waitForSelector('.nav');
   const menuMalformed = await page.locator('.nav').first().innerHTML();
   check((await page.locator('[data-nav-group]:not([data-own-group]), [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
+  {
+    const g0 = page.locator(`[data-garage="${A.garages[0].id}"]`);
+    if (await g0.count()) await g0.first().click();
+    await goNav(page, '#/rates');
+    await page.waitForTimeout(800);
+    check((await page.locator('[data-extra-note]').count()) === 0, 'with a malformed file, no note on the Rates page');
+    // Back where the menus below are compared.
+    await goNav(page, '#/garage-view');
+  }
   fileOverride = '{"groups": [';
   await page.reload();
   await page.waitForSelector('.nav');
@@ -256,6 +289,13 @@ try {
   await page.reload();
   await page.waitForSelector('.page-title');
   const menuAbsent = await page.locator('.nav').first().innerHTML();
+  {
+    const g0 = page.locator(`[data-garage="${A.garages[0].id}"]`);
+    if (await g0.count()) await g0.first().click();
+    await goNav(page, '#/rates');
+    await page.waitForTimeout(800);
+    check((await page.locator('[data-extra-note]').count()) === 0, 'with no file, the Rates page is as before: no note');
+  }
   check(menuMalformed === menuAbsent && menuNotJson === menuAbsent, 'a malformed file, or one that is not JSON, leaves the menu exactly as with no file');
   // Reloaded, the garage is chosen again (the choice is not kept across a reload).
   const picker = page.locator(`[data-garage="${A.garages[0].id}"]`);

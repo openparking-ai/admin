@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { frameAddress, frameMessage, ownPath, readEntry, readExtraPages, readGroups, readStatus, statusAddress, loadExtraPages, menuGroups, menuHash, menuIdForHash, MAX_HEIGHT, MAX_GROUPS } from '../src/extras.js';
+import { NOTE_PAGES, notesFor, frameAddress, frameMessage, ownPath, readEntry, readExtraPages, readGroups, readStatus, statusAddress, loadExtraPages, menuGroups, menuHash, menuIdForHash, MAX_HEIGHT, MAX_GROUPS } from '../src/extras.js';
 
 const entry = () => ({
   id: 'example-extra',
@@ -168,4 +168,20 @@ test('a menu page has its own address, and only a well-formed one names a page',
   for (const bad of ['', '#/', '#/setup', '#/extra/', '#/extra/Bad', '#/extra/a/b', '#/extra/<script>', '#/extra/' + 'a'.repeat(41), null, undefined]) {
     assert.equal(menuIdForHash(bad), null, String(bad));
   }
+});
+
+test('a note: on a page of NOTE_PAGES only, from an entry in the menu, its words and its link in both languages, or the entry is refused', () => {
+  const note = { page: 'rates', text: { en: 'Try it first.', es: 'Pruébelo antes.' }, link: { en: 'Open it', es: 'Abrirlo' } };
+  const file = (n, menu = { group: 'example-group' }) => ({ groups: [group()], pages: [{ ...menuEntry(), ...(menu ? { menu } : { menu: undefined, section: { page: 'inside' } }), note: n }] });
+  assert.deepEqual(NOTE_PAGES, ['rates']);
+  const read = readExtraPages(file(note));
+  assert.deepEqual(read[0].note, note);
+  assert.deepEqual(notesFor(read, 'rates').map((e) => e.id), [read[0].id]);
+  assert.deepEqual(notesFor(read, 'settings'), []);
+  for (const bad of [{ ...note, page: 'settings' }, { ...note, page: 'signIn' }, { ...note, page: 'home' }, { ...note, text: { en: 'x' } }, { ...note, link: null },
+    { ...note, text: { en: 'a\u0007', es: 'b' } }, { ...note, text: { en: 'x'.repeat(201), es: 'y' } }, null, 'rates', []]) {
+    assert.deepEqual(readExtraPages(file(bad)), [], JSON.stringify(bad));
+  }
+  // A note from an entry not in the menu has no page to open: refused.
+  assert.deepEqual(readExtraPages(file(note, null)), []);
 });

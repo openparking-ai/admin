@@ -26,7 +26,7 @@ import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 import BannedPage from './BannedPage.jsx';
-import { loadExtraPages, menuGroups, menuHash, menuIdForHash } from './extras.js';
+import { loadExtraPages, menuGroups, menuHash, menuIdForHash, notesFor } from './extras.js';
 import { SETUP_GROUP, groupShown, hostGroupKey, isOpen, menuPages, readOpenGroups, saveOpenGroups, withGroup } from './menu.js';
 import { ExtraFrame } from './ExtraPages.jsx';
 
@@ -399,7 +399,21 @@ export default function App({ theme, storage, client, link: startLink = null }) 
       </div>
     );
   } else if (Body) {
-    content = <Body key={garage.id} t={t} language={language} client={client} garage={garage} extras={extras} look={themeChoice} />;
+    // A host's note for this page (src/extras.js): one line of its words, then its link, as text.
+    const notes = notesFor(extras, page.id);
+    content = (
+      <>
+        {notes.map((e) => (
+          <p key={e.id} className="quiet extra-note" data-extra-note={e.id}>
+            <bdi>{words(e.note.text)}</bdi>{' '}
+            <a className="page-link" href={menuHash(e)}>
+              <bdi>{words(e.note.link)}</bdi>
+            </a>
+          </p>
+        ))}
+        <Body key={garage.id} t={t} language={language} client={client} garage={garage} extras={extras} look={themeChoice} />
+      </>
+    );
   } else {
     content = (
       <p className="quiet" data-notice="not-yet">

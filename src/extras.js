@@ -10,7 +10,8 @@
 //
 // The file: { "groups"?: [ { id, title: { en, es } } ],
 //   "pages": [ { id, prefixes, page, title: { en, es }, purpose: { en, es },
-//   setup?: { status }, section?: { page }, menu?: { group } } ] }
+//   setup?: { status }, section?: { page }, menu?: { group },
+//   note?: { page, text: { en, es }, link: { en, es } } } ] }
 //   groups    at most four menu groups, each id once; a group with no page is not drawn
 //   id        letters, digits and dashes, at most 40, starting with a letter; each once
 //   prefixes  one to four same-origin paths every path of the entry must start with
@@ -19,6 +20,9 @@
 //   title, purpose   in English and Spanish, plain text, shown as text
 //   menu      the page is in the side menu under the group with this id; a group the
 //             file does not name refuses the entry
+//   note      one short line at the top of one of NOTE_PAGES (text, then a link with its
+//             own words), which opens the entry's menu page for the garage chosen: an
+//             entry with a note must be in the menu; another page refuses the entry
 //
 // A path is accepted only when it is this origin's: it starts with "/" and not "//",
 // holds no scheme, no backslash and no encoded form of either, and starts with one of the
@@ -28,6 +32,8 @@ export const EXTRA_PAGES_PATH = '/extra-pages.json';
 export const MESSAGE_TYPE = 'extra-page';
 /** The pages a section may sit inside. */
 export const SECTION_PAGES = ['inside', 'changes'];
+/** The pages that may show a host's note: never sign-in, Settings or the other pages. */
+export const NOTE_PAGES = ['rates'];
 export const LANGUAGES = ['en', 'es'];
 /** At most this many menu groups from the host. */
 export const MAX_GROUPS = 4;
@@ -99,7 +105,7 @@ export function readEntry(raw, groups = new Map()) {
   const title = words(raw.title);
   const purpose = words(raw.purpose);
   if (!title || !purpose) return null;
-  const entry = { id: raw.id, prefixes: [...prefixes], page: raw.page, title, purpose, setup: null, section: null, menu: null };
+  const entry = { id: raw.id, prefixes: [...prefixes], page: raw.page, title, purpose, setup: null, section: null, menu: null, note: null };
   if (raw.setup !== undefined) {
     if (!raw.setup || typeof raw.setup !== 'object' || !under(raw.setup.status)) return null;
     entry.setup = { status: raw.setup.status };
@@ -111,6 +117,14 @@ export function readEntry(raw, groups = new Map()) {
   if (raw.menu !== undefined) {
     if (!raw.menu || typeof raw.menu !== 'object' || typeof raw.menu.group !== 'string' || !groups.has(raw.menu.group)) return null;
     entry.menu = { group: groups.get(raw.menu.group) };
+  }
+  if (raw.note !== undefined) {
+    const n = raw.note;
+    if (!n || typeof n !== 'object' || Array.isArray(n) || !NOTE_PAGES.includes(n.page) || !entry.menu) return null;
+    const noteText = words(n.text);
+    const link = words(n.link);
+    if (!noteText || !link) return null;
+    entry.note = { page: n.page, text: noteText, link };
   }
   if (!entry.setup && !entry.section && !entry.menu) return null;
   return entry;
@@ -166,6 +180,9 @@ export function menuGroups(extras) {
   }
   return out;
 }
+
+/** The notes the host puts at the top of one page: the entries whose note names it. */
+export const notesFor = (extras, pageId) => extras.filter((e) => e.note && e.menu && e.note.page === pageId);
 
 /** A menu page's address in these screens, and the menu page an address names (its id, or null). */
 export const EXTRA_HASH_PREFIX = '#/extra/';

@@ -2022,6 +2022,9 @@ fieldset.dates[data-wrong='yes'],
     padding-inline-start: 24px;
   }
 }
+.extra-note {
+  margin: 4px 0 12px;
+}
 .extra-page .extra-frame {
   margin-top: 0;
 }
