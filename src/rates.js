@@ -716,6 +716,18 @@ export function partUntouched(typed, now, part) {
 export const regularUntouched = (typed, now) => ['time', 'dayMax', 'weekMax', 'grace'].every((part) => partUntouched(typed, now, part));
 
 /**
+ * The kinds of space the rates in force price: those of their time-based rate,
+ * when it prices the garage's own kind (rates written elsewhere may price more
+ * than one, a VIP kind beside it); else the garage's own kind. A part or a
+ * special the page writes prices the same kinds, so no kind is left with
+ * nothing to price it.
+ */
+export function pricedClasses(base, spaceClass) {
+  const classes = (base?.rules ?? []).find((r) => r.type === 'increment')?.space_classes;
+  return Array.isArray(classes) && classes.includes(spaceClass) ? [...classes] : [spaceClass];
+}
+
+/**
  * New rates from the regular section: the time-based rate, the max per day
  * and per week and grace as typed over the rates in force (`base`, whose form
  * is `now`), and every other rule of `base` as it is, the specials and their
@@ -732,11 +744,12 @@ export function regularPlan(base, typed, now, opts) {
     else if (partUntouched(typed, now, PART_OF[rule.type])) rules.push(rule);
     else if (builtOf(rule.type)) {
       const extra = rule.type === 'increment' ? { max_duration_minutes: rule.max_duration_minutes ?? null } : {};
-      rules.push({ ...rule, ...builtOf(rule.type), id: rule.id, ...extra });
+      rules.push({ ...rule, ...builtOf(rule.type), id: rule.id, space_classes: rule.space_classes, ...extra });
     }
   }
-  // A part ticked on that was off: its new rule, where buildPlan puts it.
-  for (const rule of built.rules) if (!(base.rules ?? []).some((r) => r.type === rule.type)) rules.splice(built.rules.indexOf(rule), 0, rule);
+  // A part ticked on that was off: its new rule, where buildPlan puts it, pricing the kinds the rates in force price.
+  const classes = pricedClasses(base, opts.spaceClass);
+  for (const rule of built.rules) if (!(base.rules ?? []).some((r) => r.type === rule.type)) rules.splice(built.rules.indexOf(rule), 0, { ...rule, space_classes: classes });
   return { ...base, plan_version: built.plan_version, effective_from: built.effective_from, adjust_order: base.adjust_order ?? null, rules };
 }
 
@@ -758,10 +771,10 @@ function nextSpecialId(rules) {
 export function specialsPlan(base, change, { garage, spaceClass, start, name }) {
   const rules = base.rules ?? [];
   const list = orderedWindows(base);
-  const classes = [spaceClass];
+  const classes = pricedClasses(base, spaceClass);
   if (change.kind === 'add') list.push(specialRule(change.special, nextSpecialId(rules), classes, garage.currency));
-  // A special changed keeps what the form does not show, and its id.
-  else if (change.kind === 'change') list[change.index] = { ...list[change.index], ...specialRule(change.special, list[change.index].id, classes, garage.currency) };
+  // A special changed keeps what the form does not show, its id and the kinds it prices.
+  else if (change.kind === 'change') list[change.index] = { ...list[change.index], ...specialRule(change.special, list[change.index].id, list[change.index].space_classes, garage.currency) };
   else if (change.kind === 'remove') list.splice(change.index, 1);
   const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);
   return {

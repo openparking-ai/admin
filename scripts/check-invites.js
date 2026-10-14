@@ -71,6 +71,7 @@ import { PAGES, hashFor } from '../src/pages.js';
 import { US_ZONES } from '../src/garages.js';
 import { startStub } from '../test/stub-platform.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -102,7 +103,7 @@ const requests = []; // { method, url, body }, every request of every page
 const settles = (page, fn, arg, timeout = 8000) => page.waitForFunction(fn, arg, { timeout }).then(() => true, () => false);
 const heading = (page) => page.$eval('.page-title', (h) => h.textContent).catch(() => null);
 const showsHeading = (page, text) => settles(page, (t) => document.querySelector('.page-title')?.textContent === t, text);
-const go = (page, id) => page.click(`.nav-item[href="${hashFor(PAGES.find((x) => x.id === id))}"]`);
+const go = (page, id) => goNav(page, hashFor(PAGES.find((x) => x.id === id)));
 const posts = (path) => requests.filter((r) => r.method === 'POST' && new URL(r.url).pathname === `/api/v1${path}`);
 const textOf = (page, selector) => page.$eval(selector, (e) => e.textContent).catch(() => null);
 const screenshot = async (page, name) => {
@@ -265,13 +266,14 @@ try {
     await page.click('[data-action="back-home"]');
     const home = await showsHeading(page, mine['page.home.title']);
     const lang = await page.evaluate(() => document.documentElement.lang);
-    const nav = await textOf(page, '.nav-item[href="#/settings"]');
+    // The menu in their language: Alerts has its own entry at the top (src/menu.js).
+    const nav = await textOf(page, '.nav-item[href="#/alerts"]');
     await go(page, 'settings');
     await showsHeading(page, mine['page.settings.title']);
     const settings = await page.$eval('[data-control="language"] [aria-checked="true"]', (b) => b.dataset.value).catch(() => null);
     const me = await page.evaluate(async () => (await fetch('/api/v1/auth/me')).json()).catch(() => null);
     const kept = await page.evaluate((key) => window.localStorage.getItem(key), LANGUAGE_KEY);
-    check(home && lang === own && nav === mine['page.settings.title'] && settings === own && me?.language === own && kept === own,
+    check(home && lang === own && nav === mine['page.alerts.title'] && settings === own && me?.language === own && kept === own,
       `1 signed in, ${label}, left: Home in the account's language ("${mine['page.home.title']}"), Settings "${mine[`language.${own}`]}", the account and this computer still ${own} (home ${home}, lang ${lang}, Settings ${settings}, account ${me?.language}, kept ${kept})`);
     // A used one too: its one thing to do, for a signed-in owner, is Home.
     await page.evaluate((tk) => (window.location.hash = `invite=${tk}`), accepted[other].token);

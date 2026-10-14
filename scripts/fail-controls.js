@@ -78,13 +78,66 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 113, 636); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 116, 639); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 110, 633); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 112, 635); only the last is ever shown'],
+  },
+  // The side menu (src/menu.js): its shape, kept open or closed, and
+  // the group of the page shown opening itself, each red on its plant.
+  {
+    check: 'menu: the top in another order',
+    plant: { file: 'src/menu.js', anchor: "export const TOP = ['home', 'inside', 'alerts'];", with: "export const TOP = ['home', 'alerts', 'inside'];" },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['the top: Home, Garage View, Alerts, in that order'],
+  },
+  {
+    check: 'menu: a page left out of Setup',
+    plant: { file: 'src/menu.js', anchor: '    setup: pages.filter((p) => !TOP.includes(p.id)),', with: "    setup: pages.filter((p) => !TOP.includes(p.id) && p.id !== 'banned')," },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['Setup: every other page, in the order the pages are listed, each once'],
+  },
+  {
+    check: 'menu: anything kept on the computer read back',
+    plant: { file: 'src/menu.js', anchor: "      if (typeof open === 'boolean' && /^(own|host):[A-Za-z0-9_-]{1,64}$/.test(key)) out[key] = open;", with: '      out[key] = open;' },
+    run: ['node', '--test', 'test/menu.test.js'],
+    names: ['kept on this computer and read back: only group keys with true or false'],
+  },
+  // Rates that price a VIP kind beside the garage's own (written by the host's pages): a save
+  // from the Rates page leaves no kind with nothing to price it.
+  {
+    check: 'rates: a regular part changed prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: 'id: rule.id, space_classes: rule.space_classes, ...extra });', with: 'id: rule.id, ...extra });' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
+  {
+    check: 'rates: a regular part ticked on prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: 'rules.splice(built.rules.indexOf(rule), 0, { ...rule, space_classes: classes });', with: 'rules.splice(built.rules.indexOf(rule), 0, rule);' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
+  {
+    check: 'rates: a special added prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: '  const classes = pricedClasses(base, spaceClass);', with: '  const classes = [spaceClass];' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
+  // A host's note on one page (src/extras.js NOTE_PAGES): each refusal red on its plant.
+  {
+    check: 'extras: a note accepted on any page',
+    plant: { file: 'src/extras.js', anchor: "!NOTE_PAGES.includes(n.page) || !entry.menu", with: "!entry.menu" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a note: on a page of NOTE_PAGES only'],
+  },
+  {
+    check: 'extras: a note accepted from an entry not in the menu',
+    plant: { file: 'src/extras.js', anchor: "!NOTE_PAGES.includes(n.page) || !entry.menu", with: "!NOTE_PAGES.includes(n.page)" },
+    run: ['node', '--test', 'test/extras.test.js'],
+    names: ['a note: on a page of NOTE_PAGES only'],
   },
   // Extra pages from the host (src/extras.js): each refusal red on its plant.
   {
@@ -209,6 +262,12 @@ const CONTROLS = [
     plant: { file: 'src/api.js', anchor: "const BASE = '/api/v1';", with: "const BASE = '/api/v1';\nexport const peek = () => document.cookie;" },
     run: ['node', 'scripts/check-page-stays-home.js'],
     names: ['src/api.js:16: document.cookie'],
+  },
+  {
+    check: 'the menu\'s kept state written under another key',
+    plant: { file: 'src/menu.js', anchor: '    storage?.setItem(MENU_KEY, JSON.stringify(state));', with: "    storage?.setItem('openparking-admin.last', JSON.stringify(state));" },
+    run: ['node', 'scripts/check-page-stays-home.js'],
+    names: ['a storage write that is not one of the kept choices', 'of the 3 kept-choice writes'],
   },
   {
     check: 'U2b-4 requests stay home: an absolute address',
@@ -1655,11 +1714,75 @@ const BROWSER_CONTROLS = [
     names: ['FAIL and nothing in it was read as markup'],
   },
   {
+    check: 'extras: a note\'s words read as markup (browser)',
+    plant: { file: 'src/App.jsx', anchor: '            <bdi>{words(e.note.text)}</bdi>', with: '            <bdi dangerouslySetInnerHTML={{ __html: words(e.note.text) }} />' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL its words are shown as text, never read as markup'],
+  },
+  {
+    check: 'extras: a note shown on every page (browser)',
+    plant: { file: 'src/extras.js', anchor: 'export const notesFor = (extras, pageId) => extras.filter((e) => e.note && e.menu && e.note.page === pageId);', with: 'export const notesFor = (extras) => extras.filter((e) => e.note && e.menu);' },
+    before: [['npx', 'vite', 'build', '--logLevel', 'error']],
+    run: ['node', 'scripts/check-extras.js'],
+    names: ['FAIL no note on #/garage-view'],
+  },
+  {
     check: 'extras: a malformed group list still draws the menu page (browser)',
     plant: { file: 'src/extras.js', anchor: "  if (!Array.isArray(raw) || raw.length > MAX_GROUPS) return out;", with: "  if (!Array.isArray(raw)) return new Map([['example-group', { id: 'example-group', title: { en: 'x', es: 'x' } }]]);\n  if (raw.length > MAX_GROUPS) return out;" },
     before: [['npx', 'vite', 'build', '--logLevel', 'error']],
     run: ['node', 'scripts/check-extras.js'],
     names: ['FAIL with a malformed file, the menu holds nothing of the host'],
+  },
+  // The side menu in a browser (src/menu.js): each red on its plant.
+  {
+    check: 'menu: the top in another order (browser)',
+    plant: { file: 'src/menu.js', anchor: "export const TOP = ['home', 'inside', 'alerts'];", with: "export const TOP = ['home', 'alerts', 'inside'];" },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Home, Garage View and Alerts at the top, then Setup'],
+  },
+  {
+    check: 'menu: a page left out of Setup (browser)',
+    plant: { file: 'src/menu.js', anchor: '    setup: pages.filter((p) => !TOP.includes(p.id)),', with: "    setup: pages.filter((p) => !TOP.includes(p.id) && p.id !== 'banned')," },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu has "Banned cars"', 'FAIL the menu: Setup holds every other page, in order', 'FAIL the menu: every page once'],
+  },
+  {
+    check: 'menu: a group row drawn bold, apart from the page rows (browser)',
+    plant: { file: 'src/styles.css', anchor: '  font-size: 15px;\n  color: var(--text-secondary);\n  cursor: pointer;', with: '  font-size: 15px;\n  font-weight: 600;\n  color: var(--text-secondary);\n  cursor: pointer;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s row is drawn as Alerts\' is'],
+  },
+  {
+    check: 'menu: a group row with no icon of its own (browser)',
+    plant: { file: 'src/App.jsx', anchor: "                    <Icon name={own ? 'check' : g.icon} />\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s icon sits in the icon column'],
+  },
+  {
+    check: 'menu: a group\'s pages not a step in (browser)',
+    plant: { file: 'src/styles.css', anchor: '.nav-sub .nav-item {\n  padding-inline-start: 42px;', with: '.nav-sub .nav-item {\n  padding-inline-start: 12px;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s pages a step in beneath it'],
+  },
+  {
+    check: 'menu: open or closed not kept (browser)',
+    plant: { file: 'src/menu.js', anchor: '    storage?.setItem(MENU_KEY, JSON.stringify(state));', with: '    void state;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup opened stays open on Home after a reload'],
+  },
+  {
+    check: 'menu: the group of the page shown does not open itself (browser)',
+    plant: { file: 'src/App.jsx', anchor: '    if (shownIn && !isOpen(openGroups, shownIn)) setGroup(shownIn, true);\n', with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup opens itself when the page shown is inside it'],
   },
   // U7f, check 6: no screen offers adding a car to the banned list by hand.
   {
@@ -2165,7 +2288,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/LanesPage.jsx', anchor: '          setCode(made.code);\n', with: "          setCode(made.code);\n          localStorage.setItem('openparking-admin.lastCode', made.code);\n" },
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
-    names: ['FAIL connection code: browser storage holds only the two keys'],
+    names: ['FAIL connection code: browser storage holds only its own keys'],
   },
   {
     check: 'U4-4 the connection code left on the page after the panel closes',

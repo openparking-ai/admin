@@ -42,6 +42,7 @@ import { PAGES, hashFor } from '../src/pages.js';
 import { US_ZONES } from '../src/garages.js';
 import { startStub } from '../test/stub-platform.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -73,7 +74,7 @@ const n = (x, language) => x.toLocaleString(language === 'es' ? 'es-US' : 'en-US
 const fill = (text, values) => Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), text);
 const settles = (page, fn, arg, timeout = 8000) => page.waitForFunction(fn, arg, { timeout }).then(() => true, () => false);
 const showsHeading = (page, text) => settles(page, (t) => document.querySelector('.page-title')?.textContent === t, text);
-const go = (page, id) => page.click(`.nav-item[href="${hashFor(PAGES.find((x) => x.id === id))}"]`);
+const go = (page, id) => goNav(page, hashFor(PAGES.find((x) => x.id === id)));
 const posts = () => requests.filter((r) => r.method === 'POST' && new URL(r.url).pathname === '/api/v1/garages');
 const screenshot = async (page, name) => {
   if (!SCREENS) return;

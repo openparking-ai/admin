@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { preview } from 'vite';
 import { chromium } from 'playwright';
 import { startStub } from '../test/stub-platform.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const PAGE_DIR = join(ROOT, 'test', 'extra-page');
@@ -133,7 +134,7 @@ try {
   // The owner's first garage, chosen on Home.
   await page.click(`[data-garage="${A.garages[0].id}"]`);
   now('Setup');
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await page.waitForSelector('[data-list="setup"]');
 
   // 1. The host's step: listed, read, and opened in a frame of this origin.
@@ -168,7 +169,7 @@ try {
 
   now('Garage View');
   // 3. The section on Garage View; the planted name as text; the entry of another host not drawn.
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"]');
   const title = await page.locator('[data-extra="example-section"] .section-title').textContent();
   check(title.includes('<script>alert(1)</script>'), 'the section\'s name from the file is shown as text');
@@ -181,6 +182,7 @@ try {
   const group = page.locator('[data-nav-group="example-group"]');
   check((await group.count()) === 1, 'the side menu holds the host\'s group');
   check((await group.locator('.nav-group-name').textContent()).includes('<img src=x onerror=alert(2)> Example group'), 'the group\'s name from the file is shown as text');
+  check((await group.locator('.nav-group-name > .icon').count()) === 1 && (await group.locator('.nav-group-name .nav-group-chevron').count()) === 1, 'the host\'s group row has its own icon and its chevron, as Setup\'s');
   check((await page.locator('.sidebar img').count()) === 0, 'and nothing in it was read as markup');
   const menuIds = await page.$$eval('[data-nav-extra]', (els) => els.map((e) => e.dataset.navExtra));
   check(JSON.stringify(menuIds) === JSON.stringify(['example-menu', 'example-menu-two']), `its two pages are under it, and no page the file refused (${menuIds.join(', ')})`);
@@ -219,21 +221,45 @@ try {
   // Back to where the checks below start: the first garage chosen.
   const again = page.locator(`.content [data-garage="${A.garages[0].id}"]`);
   if (await again.count()) await again.first().click();
-  await page.click('.nav-item[href="#/garage-view"]');
+
+  now('the note on the Rates page');
+  // 7. A host's note: one line at the top of the Rates page, its words as text, then its link to the host's page.
+  await goNav(page, '#/rates');
+  const note = page.locator('[data-extra-note="example-menu"]');
+  check(await settles(page, () => Boolean(document.querySelector('[data-extra-note="example-menu"]'))), 'the Rates page shows the host\'s note');
+  check((await note.textContent()).startsWith('<b>An example note</b> above the rates.') && (await note.locator('b').count()) === 0, 'its words are shown as text, never read as markup');
+  check(await page.evaluate(() => { const n = document.querySelector('[data-extra-note]'); const c = document.querySelector('.content'); return [...c.children].indexOf(n) === [...c.children].findIndex((el) => !el.matches('.page-title, .page-purpose')); }), 'it sits at the top of the page, above the rates');
+  check((await page.locator('[data-extra-note]').count()) === 1, 'one note: the entry that named Settings was refused whole');
+  const noteLink = note.locator('a');
+  check((await noteLink.textContent()) === 'Open the example' && (await noteLink.getAttribute('href')) === '#/extra/example-menu', `it ends in its link to the host's page (${await noteLink.getAttribute('href')})`);
+  await shot(page, 'rates-note');
+  await noteLink.click();
+  check(await settles(page, () => document.querySelector('.page-title')?.textContent === 'An example menu page'), 'the link opens the host\'s page');
+  check((await page.locator('iframe[data-extra-frame="example-menu"]').getAttribute('src'))?.includes(`garage=${A.garages[0].id}`), 'for the garage chosen');
+  for (const elsewhere of ['#/settings', '#/', '#/garage-view']) {
+    await goNav(page, elsewhere);
+    await page.waitForTimeout(300);
+    check((await page.locator('[data-extra-note]').count()) === 0, `no note on ${elsewhere}`);
+  }
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"]');
 
   now('Settings, then Garage View again');
   // 4. The language and the look chosen on Settings reach the framed page.
-  await page.click('.nav-item[href="#/settings"]');
+  await goNav(page, '#/settings');
   await page.click('[data-control="language"] [data-value="es"]');
   await page.click('[data-control="theme"] [data-value="night"]');
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-extra="example-section"] iframe');
   const section = page.frameLocator('[data-extra="example-section"] iframe');
   check(await settles(page, () => document.querySelector('[data-extra="example-section"] iframe')?.contentDocument?.querySelector('[data-language]')?.textContent === 'language: es'), 'the framed page speaks the language chosen on Settings');
   check(await settles(page, () => document.querySelector('[data-extra="example-section"] iframe')?.contentDocument?.querySelector('[data-look]')?.textContent === 'look: night'), 'and wears the look chosen there');
   check((await section.locator('[data-garage]').count()) === 1, 'the framed page is there in Spanish and at night');
   await shot(page, 'garage-view-section-night-es');
+  await goNav(page, '#/rates');
+  check(await settles(page, () => document.querySelector('[data-extra-note="example-menu"]')?.textContent === 'Una nota de ejemplo sobre las tarifas. Abrir el ejemplo'), 'the note in Spanish, at night');
+  await shot(page, 'rates-note-night-es');
+  await goNav(page, '#/garage-view');
 
   now('a malformed file');
   // 6, the end. A malformed file: the menu is exactly as with no file (compared below).
@@ -241,7 +267,16 @@ try {
   await page.reload();
   await page.waitForSelector('.nav');
   const menuMalformed = await page.locator('.nav').first().innerHTML();
-  check((await page.locator('[data-nav-group], [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
+  check((await page.locator('[data-nav-group]:not([data-own-group]), [data-nav-extra]').count()) === 0, 'with a malformed file, the menu holds nothing of the host');
+  {
+    const g0 = page.locator(`[data-garage="${A.garages[0].id}"]`);
+    if (await g0.count()) await g0.first().click();
+    await goNav(page, '#/rates');
+    await page.waitForTimeout(800);
+    check((await page.locator('[data-extra-note]').count()) === 0, 'with a malformed file, no note on the Rates page');
+    // Back where the menus below are compared.
+    await goNav(page, '#/garage-view');
+  }
   fileOverride = '{"groups": [';
   await page.reload();
   await page.waitForSelector('.nav');
@@ -254,14 +289,21 @@ try {
   await page.reload();
   await page.waitForSelector('.page-title');
   const menuAbsent = await page.locator('.nav').first().innerHTML();
+  {
+    const g0 = page.locator(`[data-garage="${A.garages[0].id}"]`);
+    if (await g0.count()) await g0.first().click();
+    await goNav(page, '#/rates');
+    await page.waitForTimeout(800);
+    check((await page.locator('[data-extra-note]').count()) === 0, 'with no file, the Rates page is as before: no note');
+  }
   check(menuMalformed === menuAbsent && menuNotJson === menuAbsent, 'a malformed file, or one that is not JSON, leaves the menu exactly as with no file');
   // Reloaded, the garage is chosen again (the choice is not kept across a reload).
   const picker = page.locator(`[data-garage="${A.garages[0].id}"]`);
   if (await picker.count()) await picker.first().click();
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await page.waitForSelector('[data-list="setup"]');
   check((await page.locator('[data-extra-step]').count()) === 0, 'with no file from the host, Setup lists no extra step');
-  await page.click('.nav-item[href="#/garage-view"]');
+  await goNav(page, '#/garage-view');
   await page.waitForSelector('[data-list="inside"]');
   check((await page.locator('[data-extra]').count()) === 0, 'and Garage View holds no section');
 } catch (err) {

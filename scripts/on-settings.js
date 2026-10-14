@@ -4,9 +4,11 @@
 // on a page: go to Settings, choose, wait for the choice to hold, and come
 // back to the page it was on, which reads itself again on arrival.
 
+import { goNav } from './nav.js';
+
 export async function chooseOnSettings(page, control, value) {
   const was = await page.evaluate(() => window.location.hash);
-  await page.click('.nav-item[href="#/settings"]');
+  await goNav(page, '#/settings');
   await page.click(`[data-control="${control}"] [data-value="${value}"]`);
   await page.waitForFunction(
     ([c, v]) => document.querySelector(`[data-control="${c}"] [data-value="${v}"]`)?.getAttribute('aria-checked') === 'true',

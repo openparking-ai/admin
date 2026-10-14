@@ -48,6 +48,7 @@ import { PAGES, hashFor } from '../src/pages.js';
 import { startStub } from '../test/stub-platform.js';
 import { readBack, tableOf } from './files/read-back.js';
 import { chooseOnSettings } from './on-settings.js';
+import { goNav } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -96,7 +97,7 @@ async function open(width = 1360) {
 
 const settles = (page, fn, arg, timeout = 8000) => page.waitForFunction(fn, arg, { timeout }).then(() => true, () => false);
 const go = async (page, id) => {
-  await page.click(`.nav-item[href="${hashFor(PAGES.find((x) => x.id === id))}"]`);
+  await goNav(page, hashFor(PAGES.find((x) => x.id === id)));
 };
 const plain = (text) => String(text ?? '').replace(/[\s  ]+/g, ' ').trim();
 const n = (x, language) => x.toLocaleString(language === 'es' ? 'es-US' : 'en-US');

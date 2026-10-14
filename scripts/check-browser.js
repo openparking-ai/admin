@@ -34,8 +34,10 @@ import { chromium } from 'playwright';
 import { PAGES } from '../src/pages.js';
 import { DICTIONARIES } from '../src/i18n/index.js';
 import { THEME_KEY } from '../src/theme.js';
+import { MENU_KEY } from '../src/menu.js';
 import { LANGUAGE_KEY } from '../src/i18n/index.js';
 import { A_TEXT, startStub } from '../test/stub-platform.js';
+import { goNav, navHas } from './nav.js';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const screensAt = process.argv.indexOf('--screens');
@@ -230,8 +232,9 @@ const storageKeys = (page) =>
     local: Object.keys(localStorage),
     session: Object.keys(sessionStorage),
   }));
+// The look, the language, and which menu groups are open (src/menu.js) -- nothing else.
 const onlyTheTwoKeys = ({ local, session }) =>
-  session.length === 0 && local.every((k) => k === THEME_KEY || k === LANGUAGE_KEY);
+  session.length === 0 && local.every((k) => k === THEME_KEY || k === LANGUAGE_KEY || k === MENU_KEY);
 
 const aTextIn = (text) => A_TEXT.filter((s) => text.includes(s));
 
@@ -255,7 +258,7 @@ const INSIDE_NAV = `.nav-item[href="#${PAGES.find((p) => p.id === 'inside').path
 
 /** U7a: the language and the look are chosen on the Settings page, and nowhere else once signed in. */
 async function onSettings(page, control, value) {
-  await page.click('.nav-item[href="#/settings"]');
+  await goNav(page, '#/settings');
   await page.click(`[data-control="${control}"] [data-value="${value}"]`);
 }
 
@@ -496,12 +499,12 @@ try {
   check(await laneSays(page, 'Service Lane') === EN['lane.noComputer'], `Home: "${EN['lane.noComputer']}" only for the lane that never had one`);
   // U7a: the language and the look are on Settings, described as before; Home has neither.
   check((await page.$$('[data-chooser="language"], [data-chooser="theme"]')).length === 0, 'Home: no Language or Look chooser (they are on Settings)');
-  await page.click('.nav-item[href="#/settings"]');
+  await goNav(page, '#/settings');
   check(await showsHeading(page, EN['page.settings.title']), 'Settings is in the navigation');
   await checkChoosers(page, 'Settings', 'en');
   await checkDescribed(page, 'Settings', 'en', 2);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'settings-english.png') });
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   await settles(page, () => document.querySelectorAll('.lane-row').length > 0);
   const homeLower = home.toLowerCase();
   check(homeLower.includes(EN['lane.in'].toLowerCase()) && homeLower.includes(EN['lane.out'].toLowerCase()), 'Home: each lane is in or out');
@@ -525,7 +528,7 @@ try {
   await checkPrint(page, INSIDE_TITLE, A.garages[0]);
   await checkNoEveryCarClaim(page, 'en');
 
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/lanes');
   await showsText(page, 'Harbor exit computer');
   const lanes = await bodyText(page);
   check(lanes.includes(quiet), `${LANES_TITLE}: the quiet lane computer, in garage time`);
@@ -543,7 +546,10 @@ try {
 
   // ── Every page from the navigation, English ─────────────────────────────
   for (const p of PAGES) {
-    await page.click(`.nav-item[href="#${p.path}"]`);
+    const listed = await navHas(page, `#${p.path}`);
+    check(listed, `the menu has "${EN[`page.${p.id}.title`]}"`);
+    if (!listed) continue;
+    await goNav(page, `#${p.path}`);
     const title = EN[`page.${p.id}.title`];
     check(await showsHeading(page, title), `the navigation reaches "${title}"`);
     // U7i: the Rates page has its title alone (the approved page); every other page says what it is for.
@@ -575,9 +581,69 @@ try {
     const wrong = truth.steps.filter((st, i) => shown[i]?.key !== st.key || shown[i]?.done !== st.done || shown[i]?.state !== (st.done ? 'done' : 'not-yet'));
     check(shown.length === truth.steps.length && wrong.length === 0, `Setup: the page shows each step done as the platform says (${label}): ${shown.length} steps${wrong.length ? `; differs at ${wrong.map((w) => w.key).join(', ')}` : ''}`);
   };
-  await page.click('.nav-item[href="#/setup"]');
-  check(await showsHeading(page, SETUP_TITLE), 'Setup is in the navigation, first after Home');
-  check((await page.evaluate(() => [...document.querySelectorAll('.nav-item')].map((a) => a.getAttribute('href')).slice(0, 2).join(' '))) === '#/ #/setup', 'Setup: second in the navigation, after Home');
+  await goNav(page, '#/setup');
+  check(await showsHeading(page, SETUP_TITLE), 'Setup is in the navigation, first in the Setup group');
+  // The menu (src/menu.js, the approved picture): Home, Garage View and Alerts at the top, in
+  // that order, then the Setup group holding every other page, in today's order.
+  const MENU_TOP = ['#/', '#/garage-view', '#/alerts', 'group:setup'];
+  const MENU_SETUP = ['#/setup', '#/garages', '#/lanes', '#/installer-drawings', '#/card-readers', '#/rates', '#/taxes', '#/getting-paid', '#/banned-cars', '#/change-log', '#/settings'];
+  const menuShape = () =>
+    page.evaluate(() => ({
+      top: [...document.querySelector('nav .nav').children].map((li) => (li.matches('.nav-group') ? `group:${li.dataset.navGroup}` : li.querySelector('a')?.getAttribute('href'))),
+      setup: [...document.querySelectorAll('[data-own-group="true"] .nav-sub .nav-item')].map((a) => a.getAttribute('href')),
+      open: document.querySelector('[data-own-group="true"] > .nav-group-name')?.getAttribute('aria-expanded'),
+    }));
+  const shape = await menuShape();
+  // The look (remarks batch 1): a group row is a page row -- same height, type, icon column and
+  // left edge as Alerts above it, a chevron at its far end and nothing in the margin -- and its
+  // pages sit a step in beneath it; the group row is never the current page.
+  const rows = await page.evaluate(() => {
+    const box = (el) => el?.getBoundingClientRect();
+    const alerts = document.querySelector('.nav-item[href="#/alerts"]');
+    const group = document.querySelector('[data-own-group="true"] > .nav-group-name');
+    const sub = document.querySelector('[data-own-group="true"] .nav-sub .nav-item');
+    const icon = (el) => box(el?.querySelector(':scope > .icon'));
+    const style = (el) => getComputedStyle(el);
+    return {
+      heights: [box(alerts).height, box(group).height],
+      weights: [style(alerts).fontWeight, style(group).fontWeight],
+      sizes: [style(alerts).fontSize, style(group).fontSize],
+      rowLeft: [box(alerts).left, box(group).left],
+      iconLeft: [icon(alerts)?.left, icon(group)?.left, icon(sub)?.left],
+      firstChild: group.firstElementChild?.matches('.icon') ?? false,
+      chevronRight: box(group.querySelector('.nav-group-chevron')).right > box(group.querySelector('.nav-group-title')).right,
+      groupCurrent: group.getAttribute('aria-current'),
+    };
+  });
+  check(Math.abs(rows.heights[0] - rows.heights[1]) < 1 && rows.weights[0] === rows.weights[1] && rows.sizes[0] === rows.sizes[1], `the menu: Setup's row is drawn as Alerts' is (height ${rows.heights.join('/')}, weight ${rows.weights.join('/')}, size ${rows.sizes.join('/')})`);
+  check(rows.firstChild && rows.rowLeft[0] === rows.rowLeft[1] && rows.iconLeft[0] === rows.iconLeft[1], `the menu: Setup's icon sits in the icon column, its row on Alerts' left edge (icons at ${rows.iconLeft.slice(0, 2).join('/')})`);
+  check(rows.chevronRight, 'the menu: the open/closed chevron at the far end of the row');
+  check(rows.iconLeft[2] > rows.iconLeft[1] + 8, `the menu: Setup's pages a step in beneath it (${rows.iconLeft[2]} after ${rows.iconLeft[1]})`);
+  check(rows.groupCurrent === null && (await page.locator('[data-own-group="true"] .nav-sub .nav-item[aria-current="page"]').count()) === 1, 'the menu: the page shown is marked inside the group, the group row never');
+  check(shape.top.slice(0, 4).join(' ') === MENU_TOP.join(' '), `the menu: Home, Garage View and Alerts at the top, then Setup (${shape.top.join(' ')})`);
+  check(shape.setup.join(' ') === MENU_SETUP.join(' '), `the menu: Setup holds every other page, in order (${shape.setup.join(' ')})`);
+  check(shape.top.length - 1 + shape.setup.length === PAGES.length, `the menu: every page once (${shape.top.length - 1 + shape.setup.length} of ${PAGES.length})`);
+  check(shape.open === 'true' && (await page.textContent('[data-own-group="true"] .nav-item[href="#/setup"]')).trim() === EN['nav.setupChecklist'], 'the menu: Setup opened itself on a page inside it, its first entry "Setup checklist"');
+  // Closed and opened, as this computer keeps it, on a page outside it; a page inside it opens it again.
+  await goNav(page, '#/');
+  check((await menuShape()).open === 'true', 'the menu: Setup still open on Home, as it was left');
+  await page.reload();
+  await page.waitForSelector('.page-title');
+  check((await menuShape()).open === 'true', 'the menu: Setup opened stays open on Home after a reload');
+  await page.click('[data-own-group="true"] > .nav-group-name');
+  await page.reload();
+  await page.waitForSelector('.page-title');
+  const closedKept = await menuShape();
+  check(closedKept.open === 'false' && closedKept.setup.length === 0, 'the menu: Setup closed stays closed after a reload');
+  await page.evaluate(() => (window.location.hash = '#/rates'));
+  await settles(page, () => document.querySelector('[data-own-group="true"] > .nav-group-name')?.getAttribute('aria-expanded') === 'true');
+  check((await menuShape()).open === 'true', 'the menu: Setup opens itself when the page shown is inside it');
+  await page.reload();
+  await page.waitForSelector('.page-title');
+  check((await menuShape()).open === 'true', 'the menu: Setup opened stays open after a reload');
+  await goNav(page, '#/');
+  await page.click(`.garage-choice[data-garage="${HARBOR.id}"]`);
+  await goNav(page, '#/setup');
   await stepsAgree(page, 'as worked out');
   const setupText = await bodyText(page);
   check(setupText.includes(EN['setup.isOpen']), `Setup: an open garage says so at the top: "${EN['setup.isOpen']}"`);
@@ -591,12 +657,12 @@ try {
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'setup-english.png'), fullPage: true });
   // A platform whose answer contradicts its own facts: the page follows the answer.
   stub.flipSetup(true);
-  await page.click('.nav-item[href="#/lanes"]');
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/lanes');
+  await goNav(page, '#/setup');
   await stepsAgree(page, 'every done reversed by the platform');
   stub.flipSetup(false);
-  await page.click('.nav-item[href="#/lanes"]');
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/lanes');
+  await goNav(page, '#/setup');
   await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
 
   // The drivers answer: changed and saved; never offered back to unanswered. Its button says what it does (U7a).
@@ -613,7 +679,7 @@ try {
   check(await settles(page, () => Boolean(document.querySelector('[data-step="getting_paid"]'))), 'Setup: changed back to "yes, any driver", and getting paid is a step again');
   await page.click('[data-action="change-garage"]');
   await page.click(`.garage-choice[data-garage="${A.garages[1].id}"]`);
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   check(await settles(page, (t) => document.querySelector('[data-action="open-drivers"]')?.textContent === t, EN['setup.drivers.answer']), `Setup, a garage not answered yet: the question is behind "${EN['setup.drivers.answer']}"`);
   await page.click('[data-action="open-drivers"]');
   check(await settles(page, (t) => document.querySelector('[data-notice="drivers-once"]')?.textContent === t, EN['setup.drivers.once']), `Setup, a garage not answered yet: "${EN['setup.drivers.once']}" before the first save`);
@@ -628,13 +694,13 @@ try {
   entryComputer.last_seen_at = new Date(Date.now() - 10 * 60_000).toISOString();
   const quietNow = async (minutes) => {
     stub.setQuietMinutes(minutes);
-    await page.click('.nav-item[href="#/"]');
+    await goNav(page, '#/');
     await settles(page, () => document.querySelectorAll('.lane-row').length > 0);
     const home = await page.evaluate(() => [...document.querySelectorAll('.lane-row')].find((r) => r.querySelector('.lane-name')?.textContent === 'North Entry')?.dataset.state ?? null);
-    await page.click('.nav-item[href="#/lanes"]');
+    await goNav(page, '#/lanes');
     await showsText(page, 'Harbor entry computer');
     const lanesSays = await page.evaluate(() => document.querySelector('[data-device]')?.textContent ?? '');
-    await page.click('.nav-item[href="#/setup"]');
+    await goNav(page, '#/setup');
     await settles(page, () => document.querySelectorAll('[data-step]').length > 0);
     const setupSays = await page.evaluate(() => document.querySelector('[data-step="lane_computers"]')?.textContent ?? '');
     return { home, lanesSays, setupSays };
@@ -662,7 +728,7 @@ try {
   page.on('request', (r) => sent.push(`${r.url()} ${r.postData() ?? ''} ${JSON.stringify(r.headers())}`));
   const addresses = [];
   page.on('framenavigated', (f) => addresses.push(f.url()));
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/lanes');
   await showsText(page, 'Harbor exit computer');
   await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
   await checkDescribed(page, LANES_TITLE, 'en', 7);
@@ -825,7 +891,7 @@ try {
   const shownCode = await page.textContent('.connection-code');
   check(Boolean(code) && shownCode === code, 'connection code: the code the platform gave, shown once');
   check((await page.textContent('[data-notice="code-once"]')) === EN['lanes.codeOnce'] && Boolean(await page.$('[data-action="copy-code"]')), 'connection code: with a copy button and the plain warning that it will not be shown again');
-  check(onlyTheTwoKeys(await storageKeys(page)) && !(await page.evaluate((c) => Object.values(localStorage).some((v) => v.includes(c)), code)), `connection code: browser storage holds only the two keys (${JSON.stringify(await storageKeys(page))})`);
+  check(onlyTheTwoKeys(await storageKeys(page)) && !(await page.evaluate((c) => Object.values(localStorage).some((v) => v.includes(c)), code)), `connection code: browser storage holds only its own keys (${JSON.stringify(await storageKeys(page))})`);
   check(addresses.every((u) => !u.includes(code)) && !(await page.evaluate((c) => window.location.href.includes(c), code)), 'connection code: the address never held it');
   const sentBefore = sent.length;
   {
@@ -834,8 +900,8 @@ try {
   }
   await page.click('[data-action="close-panel"]');
   check(await settles(page, (c) => !document.body.innerHTML.includes(c), code), 'connection code: gone from the page when the panel closes');
-  await page.click('.nav-item[href="#/setup"]');
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/setup');
+  await goNav(page, '#/lanes');
   await showsText(page, 'West Gate computer');
   check(sent.slice(sentBefore).every((r) => !r.includes(code)), `connection code: no later request carries it (${sent.length - sentBefore} requests)`);
   check(consoleSaid.every((m) => !m.includes(code)), 'connection code: never in a log line');
@@ -847,7 +913,7 @@ try {
 
   // ── U4: the change log ─────────────────────────────────────────────────
   const CHANGES_TITLE = EN['page.changes.title'];
-  await page.click('.nav-item[href="#/change-log"]');
+  await goNav(page, '#/change-log');
   check(await showsHeading(page, CHANGES_TITLE), 'the Change log is in the navigation');
   await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
   await settles(page, () => document.querySelectorAll('[data-list="refused"] tbody tr').length > 0);
@@ -876,7 +942,7 @@ try {
 
   // ── U7f: tailgaters on Setup, and the Banned cars page ──────────────────
   const BANNED_TITLE = EN['page.banned.title'];
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await settles(page, () => Boolean(document.querySelector('[data-section="tailgaters"] [data-fact="ban"]')));
   check((await page.textContent('[data-section="tailgaters"] [data-fact="ban"]')) === EN['setup.tailgaters.on'], `Setup: tailgaters, as the garage set it ("${EN['setup.tailgaters.on']}")`);
   check((await page.textContent('[data-section="tailgaters"] [data-fact="reach"]')) === EN['setup.tailgaters.reachGarage'], 'Setup: where a banned car is kept out, this garage only');
@@ -889,7 +955,7 @@ try {
   await page.click('[data-question="tailgaters"] button[type="submit"]');
   await settles(page, (w) => document.querySelector('[data-section="tailgaters"] [data-fact="reach"]')?.textContent === w, EN['setup.tailgaters.reachGarage']);
 
-  await page.click('.nav-item[href="#/banned-cars"]');
+  await goNav(page, '#/banned-cars');
   check(await showsHeading(page, BANNED_TITLE), `${BANNED_TITLE} is in the navigation`);
   await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
   const bannedText = await page.textContent('[data-list="banned"]');
@@ -908,14 +974,14 @@ try {
   await checkDescribed(page, BANNED_TITLE, 'en', 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'banned-cars-english.png'), fullPage: true });
   await onSettings(page, 'language', 'es');
-  await page.click('.nav-item[href="#/banned-cars"]');
+  await goNav(page, '#/banned-cars');
   check(await showsHeading(page, ES['page.banned.title']), `en español: "${ES['page.banned.title']}"`);
   await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
   check(rawIn(await bodyText(page)).length === 0, `en español, ${ES['page.banned.title']}: nothing raw on screen`);
   await checkDescribed(page, ES['page.banned.title'], 'es', 5);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'banned-cars-spanish.png'), fullPage: true });
   await onSettings(page, 'language', 'en');
-  await page.click('.nav-item[href="#/banned-cars"]');
+  await goNav(page, '#/banned-cars');
   await settles(page, () => document.querySelectorAll('[data-list="banned"] tbody tr').length > 0);
   // Taking a car off: asked first, kept when kept, gone when taken off -- and said in the change log.
   await page.click('[data-action="remove-banned"]');
@@ -928,7 +994,7 @@ try {
     await page.click('[data-action="remove-banned-yes"]');
   }
   check(await settles(page, () => Boolean(document.querySelector('[data-notice="none-banned"]'))), `${BANNED_TITLE}: taken off, and the list says "${EN['banned.empty']}"`);
-  await page.click('.nav-item[href="#/change-log"]');
+  await goNav(page, '#/change-log');
   await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
   check((await page.textContent('[data-list="changes"]')).includes(EN['changes.action.garage_banned_car_remove']), `${CHANGES_TITLE}: the car taken off the banned list, in plain words`);
 
@@ -939,7 +1005,7 @@ try {
   const personRow = (name) => `[data-list="alerts"] tbody tr:has(td:first-child bdi:text-is("${name}"))`;
   const tickOf = (alert, name, way) => `[data-list="alert-choices"] tr[data-alert="${alert}"]:has(bdi:text-is("${name}")) [data-tick="${way}"]`;
   const missingOf = (alert, name, way) => `[data-list="alert-choices"] tr[data-alert="${alert}"]:has(bdi:text-is("${name}")) [data-missing="${way}"]`;
-  await page.click('.nav-item[href="#/alerts"]');
+  await goNav(page, '#/alerts');
   check(await showsHeading(page, ALERTS_TITLE), 'Alerts is in the navigation');
   await settles(page, () => document.querySelectorAll('[data-list="alerts"] tbody tr').length > 0);
   const top = await page.evaluate(() => document.querySelector('main section.panel')?.querySelector('[data-notice]')?.textContent);
@@ -1013,7 +1079,7 @@ try {
   await page.click('[data-action="remove-person-confirm"]');
   check(await goes(personRow('Office')), 'Alerts: a person removed, in place');
   // The Setup step: the platform's, and it leads here.
-  await page.click('.nav-item[href="#/setup"]');
+  await goNav(page, '#/setup');
   await stepsAgree(page, 'with the alerts changed');
   check((await page.textContent('[data-step="alerts"] .setup-where')) === EN['setup.goTo'].replace('{page}', ALERTS_TITLE), `Setup: the alerts step says where it is done: "${EN['setup.goTo'].replace('{page}', ALERTS_TITLE)}"`);
   const alertsStep = await page.textContent('[data-step="alerts"]');
@@ -1024,7 +1090,7 @@ try {
   await checkPrint(page, ALERTS_TITLE, HARBOR);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'alerts-english.png'), fullPage: true });
   // The change log: each change said in words, and never the number or the address.
-  await page.click('.nav-item[href="#/change-log"]');
+  await goNav(page, '#/change-log');
   await settles(page, () => document.querySelectorAll('[data-list="changes"] tbody tr').length > 0);
   const logText = await page.textContent('[data-list="changes"]');
   check([EN['changes.action.alert_contact_add'], EN['changes.action.alert_contact_choices'], EN['changes.action.alert_contact_change'], EN['changes.action.alert_contact_remove'], EN['changes.value.phone.given']].every((w) => logText.includes(w)), `${CHANGES_TITLE}: each change to a person, in words`);
@@ -1034,7 +1100,7 @@ try {
   // ── U4, in Spanish ─────────────────────────────────────────────────────
   await onSettings(page, 'language', 'es');
   for (const [hash, key, expect] of [['#/setup', 'page.setup.title', 11], ['#/change-log', 'page.changes.title', 16], ['#/alerts', 'page.alerts.title', 10], ['#/lanes', 'page.lanes.title', 7]]) {
-    await page.click(`.nav-item[href="${hash}"]`);
+    await goNav(page, hash);
     check(await showsHeading(page, ES[key]), `en español: "${ES[key]}"`);
     await page.waitForTimeout(300);
     if (hash === '#/lanes') await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
@@ -1047,12 +1113,12 @@ try {
   await onSettings(page, 'language', 'en');
 
   // ── Day / night / auto ───────────────────────────────────────────────────
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   check(await showsLook(page, 'day'), 'auto on a light computer is day');
   await onSettings(page, 'theme', 'night');
   check(await showsLook(page, 'night'), 'choosing night turns it to night');
   if (SCREENS) {
-    await page.click('.nav-item[href="#/"]');
+    await goNav(page, '#/');
     await showsText(page, EN['home.inside']);
     await page.screenshot({ path: join(SCREENS, 'home-english-night.png') });
   }
@@ -1060,7 +1126,7 @@ try {
   await page.waitForSelector('.page-title');
   check(await showsLook(page, 'night'), 'night is still night after a reload');
   check(await showsText(page, EN['signOut']), 'after a reload the owner is still signed in');
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   await page.emulateMedia({ colorScheme: 'light' });
   check(await showsLook(page, 'night'), 'night stays night when the computer is light');
@@ -1076,7 +1142,7 @@ try {
     (await page.getAttribute('[data-control="theme"] [data-value="auto"]', 'aria-checked')) === 'true',
     'auto is still the choice after a reload',
   );
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   await onSettings(page, 'theme', 'day');
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -1084,7 +1150,7 @@ try {
   await page.emulateMedia({ colorScheme: 'light' });
 
   // ── The garage can be changed from the frame ────────────────────────────
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/lanes');
   await page.click('[data-action="change-garage"]');
   check(await showsText(page, EN['garage.choose']), 'the garage can be changed from the frame');
   await page.click(`.garage-choice[data-garage="${A.garages[1].id}"]`);
@@ -1103,7 +1169,7 @@ try {
     (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ inside_count: 0, unconfirmable_count: letInOnly.length, open_count: letInOnly.length, sessions: letInOnly }) }),
     { times: 2 },
   );
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   const noneConfirmed = await settles(
     page,
     ([figure, more]) => document.querySelector('[data-figure="inside"]')?.textContent === figure && document.querySelector('[data-figure="unconfirmed"]')?.textContent === more,
@@ -1152,7 +1218,7 @@ try {
   await checkChoosers(page, 'Settings', 'es');
   await checkDescribed(page, ES['page.settings.title'], 'es', 2);
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'settings-spanish.png') });
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   check(await showsHeading(page, ES['page.home.title']), 'Home in Spanish');
   check((await page.getAttribute('html', 'lang')) === 'es', 'and tells the browser so');
   check((await detailRead(page, ES.loading)) && (await detailCount(page)) === ES['inside.countMany'].replace('{count}', '2'), 'Home in Spanish: the count');
@@ -1169,7 +1235,7 @@ try {
   await checkQuickFindDescribed(page, 'es');
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'quick-find-spanish.png') });
   await page.keyboard.press('Escape');
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/lanes');
   await showsText(page, 'Harbor exit computer');
   await settles(page, () => Boolean(document.querySelector('[data-form="board"]')));
   await checkDescribed(page, ES['page.lanes.title'], 'es', 7);
@@ -1181,13 +1247,13 @@ try {
   await checkDescribed(page, ES['page.inside.title'], 'es', 5);
   await checkNoEveryCarClaim(page, 'es');
   if (SCREENS) await page.screenshot({ path: join(SCREENS, 'garage-view-spanish.png'), fullPage: true });
-  await page.click('.nav-item[href="#/"]');
+  await goNav(page, '#/');
   await page.reload();
   await page.waitForSelector('.page-title');
   await page.click(`.garage-choice[data-garage="${A.garages[0].id}"]`);
   check(await showsHeading(page, ES['page.home.title']), 'Spanish is still Spanish after a reload');
   for (const p of PAGES) {
-    await page.click(`.nav-item[href="#${p.path}"]`);
+    await goNav(page, `#${p.path}`);
     const title = ES[`page.${p.id}.title`];
     check(await showsHeading(page, title), `la navegación llega a "${title}"`);
     await allRead(page, ES.loading);
@@ -1216,7 +1282,7 @@ try {
     ['drop', 'a dropped connection', 'problem.unreachable'],
   ];
   for (const [kind, what, key] of failuresMet) {
-    await page.click('.nav-item[href="#/"]');
+    await goNav(page, '#/');
     await showsText(page, EN['inside.countMany'].replace('{count}', '2'));
     await showsText(page, 'North Exit');
     await noneInFlight(page);
@@ -1234,13 +1300,13 @@ try {
   // ── A session that ended ────────────────────────────────────────────────
   await noneInFlight(page);
   stub.failNext('ended');
-  await page.click('.nav-item[href="#/lanes"]');
+  await goNav(page, '#/lanes');
   check(await showsHeading(page, EN['signIn.title']), 'session ended: the sign-in screen');
   check(await showsText(page, EN['problem.ended']), 'session ended: the plain message');
   let text = await bodyText(page);
   check(rawIn(text).length === 0, `session ended: nothing raw on screen ${rawIn(text).join(', ')}`);
   check(aTextIn(text).length === 0, `session ended: nothing of owner A left on the page ${aTextIn(text).join(', ')}`);
-  check(onlyTheTwoKeys(await storageKeys(page)), `session ended: browser storage holds only the two keys (${JSON.stringify(await storageKeys(page))})`);
+  check(onlyTheTwoKeys(await storageKeys(page)), `session ended: browser storage holds only its own keys (${JSON.stringify(await storageKeys(page))})`);
 
   // ── Sign-out clears everything ──────────────────────────────────────────
   await signIn(page, A);
@@ -1250,7 +1316,7 @@ try {
   check(await showsHeading(page, EN['signIn.title']), 'sign-out: the sign-in screen');
   text = await page.evaluate(() => document.documentElement.innerText + document.documentElement.innerHTML);
   check(aTextIn(text).length === 0, `sign-out: nothing of owner A left in the page ${aTextIn(text).join(', ')}`);
-  check(onlyTheTwoKeys(await storageKeys(page)), 'sign-out: browser storage holds only the two keys');
+  check(onlyTheTwoKeys(await storageKeys(page)), 'sign-out: browser storage holds only its own keys');
   check(!(await bodyText(page)).includes(EN['problem.ended']), 'sign-out: no "signed out" warning for a sign-out the owner chose');
   const meAfter = await page.evaluate(() => fetch('/api/v1/auth/me', { credentials: 'same-origin' }).then((r) => r.status));
   check(meAfter === 401, `sign-out: the platform no longer knows the session (${meAfter === 401 ? 'turned away' : 'still accepted'})`);
@@ -1266,7 +1332,7 @@ try {
   check(await showsText(page, EN['problem.ended']), 'a 401 from a read: the signed-out message');
   text = await page.evaluate(() => document.documentElement.innerText + document.documentElement.innerHTML);
   check(aTextIn(text).length === 0, `a 401 from a read: nothing of owner A left in the page ${aTextIn(text).join(', ')}`);
-  check(onlyTheTwoKeys(await storageKeys(page)), 'a 401 from a read: browser storage holds only the two keys');
+  check(onlyTheTwoKeys(await storageKeys(page)), 'a 401 from a read: browser storage holds only its own keys');
 
   // ── The next owner sees nothing of the last, not for one frame ──────────
   await page.evaluate(() => {
@@ -1373,7 +1439,7 @@ try {
   check(await showsText(failing.page, ES['problem.ended']), 'a 401 during the save: the signed-out screen, in plain words');
   const afterEnded = await bodyText(failing.page);
   check(rawIn(afterEnded).length === 0 && aTextIn(afterEnded).length === 0, `a 401 during the save: nothing raw and nothing of the owner left ${[...rawIn(afterEnded), ...aTextIn(afterEnded)].join(', ')}`);
-  check(onlyTheTwoKeys(await storageKeys(failing.page)), 'a 401 during the save: browser storage holds only the two keys');
+  check(onlyTheTwoKeys(await storageKeys(failing.page)), 'a 401 during the save: browser storage holds only its own keys');
   await failing.context.close();
   A.language = 'en';
   const dark = await open({ colorScheme: 'dark' });

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { frameAddress, frameMessage, ownPath, readEntry, readExtraPages, readGroups, readStatus, statusAddress, loadExtraPages, menuGroups, menuHash, menuIdForHash, MAX_HEIGHT, MAX_GROUPS } from '../src/extras.js';
+import { NOTE_PAGES, notesFor, frameAddress, frameMessage, ownPath, readEntry, readExtraPages, readGroups, readStatus, statusAddress, loadExtraPages, menuGroups, menuHash, menuIdForHash, MAX_HEIGHT, MAX_GROUPS } from '../src/extras.js';
 
 const entry = () => ({
   id: 'example-extra',
@@ -118,7 +118,10 @@ const menuEntry = (id = 'example-menu', groupId = 'example-group') => ({
 test('a menu group is read whole or left out, and a page naming a group the file does not is refused', () => {
   const read = readExtraPages({ groups: [group()], pages: [menuEntry()] });
   assert.equal(read.length, 1);
-  assert.deepEqual(read[0].menu.group, { id: 'example-group', title: { en: 'Example group', es: 'Grupo de ejemplo' } });
+  assert.deepEqual(read[0].menu.group, { id: 'example-group', title: { en: 'Example group', es: 'Grupo de ejemplo' }, icon: 'chart' });
+  // A group's icon: one of the few named, else the chart; never a name drawn as given.
+  assert.equal(readGroups([{ ...group(), icon: 'log' }]).get('example-group').icon, 'log');
+  for (const icon of ['<svg>', 'home', 7, null]) assert.equal(readGroups([{ ...group(), icon }]).get('example-group').icon, 'chart', JSON.stringify(icon));
   // A group the file does not name, or one not as expected, refuses the page that names it.
   assert.deepEqual(readExtraPages({ groups: [group()], pages: [menuEntry('a', 'no-such-group')] }), []);
   for (const bad of [{ id: 'Bad Id', title: group().title }, { id: 'g', title: { en: 'x' } }, { id: 'g', title: { en: 'x'.repeat(201), es: 'y' } }, { id: 'g', title: { en: 'a\u0007', es: 'b' } }, null, 7, []]) {
@@ -165,4 +168,20 @@ test('a menu page has its own address, and only a well-formed one names a page',
   for (const bad of ['', '#/', '#/setup', '#/extra/', '#/extra/Bad', '#/extra/a/b', '#/extra/<script>', '#/extra/' + 'a'.repeat(41), null, undefined]) {
     assert.equal(menuIdForHash(bad), null, String(bad));
   }
+});
+
+test('a note: on a page of NOTE_PAGES only, from an entry in the menu, its words and its link in both languages, or the entry is refused', () => {
+  const note = { page: 'rates', text: { en: 'Try it first.', es: 'Pruébelo antes.' }, link: { en: 'Open it', es: 'Abrirlo' } };
+  const file = (n, menu = { group: 'example-group' }) => ({ groups: [group()], pages: [{ ...menuEntry(), ...(menu ? { menu } : { menu: undefined, section: { page: 'inside' } }), note: n }] });
+  assert.deepEqual(NOTE_PAGES, ['rates']);
+  const read = readExtraPages(file(note));
+  assert.deepEqual(read[0].note, note);
+  assert.deepEqual(notesFor(read, 'rates').map((e) => e.id), [read[0].id]);
+  assert.deepEqual(notesFor(read, 'settings'), []);
+  for (const bad of [{ ...note, page: 'settings' }, { ...note, page: 'signIn' }, { ...note, page: 'home' }, { ...note, text: { en: 'x' } }, { ...note, link: null },
+    { ...note, text: { en: 'a\u0007', es: 'b' } }, { ...note, text: { en: 'x'.repeat(201), es: 'y' } }, null, 'rates', []]) {
+    assert.deepEqual(readExtraPages(file(bad)), [], JSON.stringify(bad));
+  }
+  // A note from an entry not in the menu has no page to open: refused.
+  assert.deepEqual(readExtraPages(file(note, null)), []);
 });

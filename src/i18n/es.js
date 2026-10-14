@@ -7,6 +7,8 @@ export default {
   'app.tagline': 'Para el dueño',
 
   'nav.label': 'Páginas',
+  'nav.setup': 'Puesta en marcha',
+  'nav.setupChecklist': 'Lista de puesta en marcha',
 
   'page.home.title': 'Inicio',
   'page.home.purpose':

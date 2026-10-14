@@ -21,6 +21,8 @@ const PATHS = {
   log: ['M6 3h9l4 4v14H6z', 'M14 3v5h5', 'M9 12h7', 'M9 16h7'],
   copy: ['M8 8h12v12H8z', 'M4 16V4h12'],
   drawings: ['M3 4h18v16H3z', 'M3 15h7v5', 'M14 8h4', 'M14 12h4', 'M6 7h5v5H6z'],
+  chart: ['M4 20V11', 'M10 20V5', 'M16 20v-6', 'M3 20h18'],
+  chevron: ['M9 6l6 6-6 6'],
   bell: ['M6 16V11a6 6 0 0 1 12 0v5l2 2H4z', 'M10 20a2 2 0 0 0 4 0'],
   settings: ['M4 6h9', 'M17 6h3', 'M15 4v4', 'M4 12h3', 'M11 12h9', 'M9 10v4', 'M4 18h11', 'M19 18h1', 'M17 16v4'],
 };

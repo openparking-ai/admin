@@ -1974,25 +1974,56 @@ fieldset.dates[data-wrong='yes'],
   margin-top: 12px;
   background: transparent;
 }
-/* A group of the host's pages in the side menu: its name, then its pages a step in. */
+/* A group in the side menu, Setup's or the host's: its row drawn as a page row is (its own
+   icon in the icon column, the same type, the same left edge), with an open/closed chevron at
+   the far end; its pages a step in, a little smaller and lighter. */
 .nav-group-name {
   width: 100%;
   border: 0;
   background: transparent;
   font: inherit;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 15px;
+  color: var(--text-secondary);
   cursor: pointer;
   text-align: start;
 }
-.nav-group-mark {
-  width: 18px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 12px;
+.nav-group-title {
+  flex: 1;
+  min-width: 0;
+}
+.nav-group-chevron {
+  display: inline-flex;
+  margin-inline-start: auto;
+  transition: transform 0.15s ease;
+}
+.nav-group-chevron .icon {
+  width: 14px;
+  height: 14px;
+}
+.nav-group-name[aria-expanded='true'] .nav-group-chevron {
+  transform: rotate(90deg);
 }
 .nav-sub .nav-item {
   padding-inline-start: 42px;
+  font-size: 14px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.nav-sub .nav-item .icon {
+  width: 16px;
+  height: 16px;
+}
+/* A phone: a group takes its own row, and its pages wrap under its name. */
+@media screen and (max-width: 720px) {
+  .nav-group {
+    flex-basis: 100%;
+  }
+  .nav-sub .nav-item {
+    padding-inline-start: 24px;
+  }
+}
+.extra-note {
+  margin: 4px 0 12px;
 }
 .extra-page .extra-frame {
   margin-top: 0;
