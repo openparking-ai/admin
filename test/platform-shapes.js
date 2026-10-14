@@ -376,6 +376,46 @@ export async function recordRates(base, { origin, owner, hooks, plans, stays, re
   return state.out;
 }
 
+/**
+ * The fill rule (platform 0034): a garage's number of spaces as the Garages
+ * page sets it, rates that charge more when the garage is full as the Rates
+ * page meets them, and every refusal of either. On a garage of its own, with
+ * the regular rates of `plans` saved first; `fill` is the rule the Price Lab
+ * writes. What a try priced is written down whole, as for the rates.
+ */
+export async function recordSpaces(base, { origin, owner, plans, fill, elsewhere = 'http://elsewhere.example' }) {
+  const { state, call } = recorder(base, origin);
+  await call('sign-in, for the spaces', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('a garage, for the spaces', 'POST', '/garages', { ...plans.garage, name: 'Recorded spaces garage' }, {}, { quiet: true })).garage.id;
+  const fresh = (plan) => ({ ...plan, effective_from: new Date().toISOString() });
+  const withFill = (plan) => ({ ...plan, plan_version: `${plan.plan_version}-fill`, rules: [...plan.rules, fill], adjust_order: plan.adjust_order ? [...plan.adjust_order, fill.id] : null });
+  const rates = '/garages/{garage}/rate-plans';
+  await call('rates saved, for the spaces', 'POST', rates, { plan: fresh(plans.regular), confirmed: true, based_on: null }, {}, { quiet: true });
+  const newest = async () => (await call('rates, for their ids', 'GET', rates, undefined, {}, { quiet: true })).rate_plans.map((r) => r.id).at(-1);
+  await call('spaces, none yet', 'GET', '/garages/{garage}');
+  await call('spaces, zero', 'PATCH', '/garages/{garage}', { spaces: 0 });
+  await call('spaces, as text', 'PATCH', '/garages/{garage}', { spaces: '120' });
+  await call('spaces, from a page at another address', 'PATCH', '/garages/{garage}', { spaces: 120 }, { origin: elsewhere });
+  await call('spaces, a garage not theirs', 'PATCH', `/garages/${NOT_THEIRS}`, { spaces: 120 });
+  await call('rates with a fill rule saved, no spaces yet', 'POST', rates, { plan: fresh(withFill(plans.regular)), confirmed: true, based_on: await newest() });
+  const missing = withFill(plans.regular);
+  missing.rules = missing.rules.map((r) => (r.id === fill.id ? Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'raises_vip_extra')) : r));
+  await call('rates with a fill rule saved, a choice left out', 'POST', rates, { plan: fresh(missing), confirmed: true, based_on: await newest() });
+  await call('spaces, set', 'PATCH', '/garages/{garage}', { spaces: 120 });
+  await call('spaces, set again (nothing changes)', 'PATCH', '/garages/{garage}', { spaces: 120 });
+  await call('garages, with spaces', 'GET', '/garages');
+  await call('a stay tried, how full out of range', 'POST', `${rates}/try`, { stays: [{ entry: '2031-03-15T10:00', exit: '2031-03-15T12:00', occupancy_at_entry_bp: 10001 }] });
+  await call('a stay tried, a fill rule and no figure', 'POST', `${rates}/try`, { plan: fresh(withFill(plans.regular)), stays: [{ entry: '2031-03-15T10:00', exit: '2031-03-15T12:00' }] }, {}, { structure: 'priced' });
+  await call('a stay tried, a fill rule, below it and at it', 'POST', `${rates}/try`, {
+    plan: fresh(withFill(plans.regular)),
+    stays: [7999, 8000].map((occupancy_at_entry_bp) => ({ entry: '2031-03-15T10:00', exit: '2031-03-15T12:00', occupancy_at_entry_bp })),
+  }, {}, { structure: 'priced' });
+  await call('rates with a fill rule saved', 'POST', rates, { plan: fresh(withFill(plans.regular)), confirmed: true, based_on: await newest() }, {}, { structure: 'saved' });
+  await call('spaces, cleared under a fill rule', 'PATCH', '/garages/{garage}', { spaces: null });
+  await call('changes, after the spaces', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changesSaved' });
+  return state.out;
+}
+
 export async function recordAccountLinks(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
   if (!hooks) throw new Error('recordAccountLinks needs the hooks that invite, resend, expire and read the reset link');
   const { state, call } = recorder(base, origin);

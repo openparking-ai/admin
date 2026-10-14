@@ -246,7 +246,38 @@ export function regularSentences(t, plan, language) {
     });
   }
   for (const rule of rules.filter((r) => r.type === 'grace')) out.push({ key: rule.id, text: t('rates.grace.words', { length: lengthWords(t, rule.minutes) }) });
+  // When the garage is full (rate-engine schema 6): the rule's own words, as the Price Lab writes it.
+  for (const rule of rules.filter((r) => r.type === FILL_TYPE)) out.push({ key: rule.id, text: fillWords(t, rule, language) });
+  // The extra for VIP and nested spots: a flat amount per stay, or a percent of the time charge.
+  for (const rule of rules.filter((r) => r.type === 'space_surcharge')) {
+    const extra = rule.amount?.kind === 'percent' ? percentWords(rule.amount.percent_bp, language) : money(rule.surcharge_minor ?? 0);
+    out.push({ key: rule.id, text: t(rule.amount?.kind === 'percent' ? 'rates.vip.percent' : 'rates.vip.flat', { extra }) });
+  }
   return out;
+}
+
+/** The rule that raises the time charge when the garage is at least so full (rate-engine schema 6). */
+export const FILL_TYPE = 'fill_level';
+
+/** Whether a plan has a rule that raises the time charge when the garage is full. */
+export const hasFillRule = (plan) => (plan?.rules ?? []).some((r) => r?.type === FILL_TYPE);
+
+/** "Above 80% full: time charge +20%", in the owner's language. */
+export const fillWords = (t, rule, language) =>
+  t('rates.fill.words', { full: percentWords(rule.threshold_bp, language), more: percentWords(rule.percent_bp, language) });
+
+/**
+ * A stay as the price table and the calculator ask for it. Rates with a fill
+ * rule price on how full the garage was when the car came in; these screens
+ * price every stay as below it -- the garage at 0 -- and say so beside the
+ * table ("rates.fill.table").
+ */
+export const stayToTry = (plan, stay) => (hasFillRule(plan) ? { ...stay, occupancy_at_entry_bp: 0 } : stay);
+
+/** What the price table and the calculator say beside their prices, for rates with a fill rule; null without one. */
+export function fillNote(t, plan, language) {
+  const rule = (plan?.rules ?? []).find((r) => r?.type === FILL_TYPE);
+  return rule ? t('rates.fill.table', { full: percentWords(rule.threshold_bp, language), more: percentWords(rule.percent_bp, language) }) : null;
 }
 
 /**
@@ -264,7 +295,7 @@ export function planSentences(t, plan, language) {
   return out;
 }
 
-const KNOWN_TYPES = ['increment', 'daily_max', 'weekly_max', 'grace', 'time_window'];
+const KNOWN_TYPES = ['increment', 'daily_max', 'weekly_max', 'grace', 'time_window', 'fill_level', 'space_surcharge'];
 
 /**
  * The regular rates as the check page's "What changes" compares them, one
@@ -776,7 +807,10 @@ export function specialsPlan(base, change, { garage, spaceClass, start, name }) 
   // A special changed keeps what the form does not show, its id and the kinds it prices.
   else if (change.kind === 'change') list[change.index] = { ...list[change.index], ...specialRule(change.special, list[change.index].id, list[change.index].space_classes, garage.currency) };
   else if (change.kind === 'remove') list.splice(change.index, 1);
-  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);
+  // The discounts and extra charges in the order listed, then a rule that
+  // raises the time charge when the garage is full, on what is left: the
+  // engine requires a stated order to name every one of them.
+  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id), ...rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)];
   return {
     ...base,
     plan_version: name,
@@ -977,6 +1011,10 @@ export function lineWords(t, stay, plan, taxNames, currency, language) {
       const n = max > 0 ? charged / max : 1;
       const unit = CAPS[line.code];
       push(n === 1 || !Number.isInteger(n) ? t(`rates.line.${unit}Max`) : t(`rates.line.${unit}MaxMany`, { count: n, price: money(max) }), charged, { cap: unit });
+    } else if (line.code === 'fill_level.applied' && rule) {
+      push(t('rates.line.fill', { full: percentWords(rule.threshold_bp, language), more: percentWords(rule.percent_bp, language) }), line.delta_minor);
+    } else if (line.code === 'fill_level.extra_raised' && rule) {
+      push(t('rates.line.fillExtra', { more: percentWords(rule.percent_bp, language) }), line.delta_minor);
     } else if (line.code === 'time_window.applied' && rule?.stage === 'ADJUST') {
       const e = rule.effect;
       const amount = e.amount.kind === 'percent' ? percentWords(e.amount.percent_bp, language) : money(e.amount.minor);
@@ -1061,7 +1099,9 @@ export const FINDING_CODES = [
   'GAP_STAY_EXCEEDS_MAX_DURATION',
   'GAP_NO_PLAN_IN_FORCE_AT_ENTRY',
   'GAP_NO_TAX_SET_IN_FORCE',
+  'GAP_NO_OCCUPANCY_AT_ENTRY',
   'CONFLICT_AMBIGUOUS_PLAN_SELECTION',
+  'CONFLICT_OVERLAPPING_FILL_RULES',
   'CONFLICT_NEGATIVE_TOTAL',
   'CONFLICT_UNORDERED_ADJUSTMENTS',
   'FAULT_RULE_RETURNED_NOT_LINES',
@@ -1097,4 +1137,4 @@ export function findingWords(t, finding, plan, timeZone, language) {
   return [t(findingKey(finding.code)), about, car].filter(Boolean).join(' ');
 }
 
-const RULE_NAMES = { increment: 1, daily_max: 1, weekly_max: 1, grace: 1 };
+const RULE_NAMES = { increment: 1, daily_max: 1, weekly_max: 1, grace: 1, fill_level: 1 };

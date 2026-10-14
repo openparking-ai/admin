@@ -367,7 +367,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   // platform's as read after it; if that read failed, the new one is added to
   // the list held, as the platform shows a garage.
   const added = (made, garages) => {
-    const presented = { id: made.id, name: made.name, timezone: made.timezone, currency: made.currency, live: Boolean(made.activated_at) };
+    const presented = { id: made.id, name: made.name, timezone: made.timezone, currency: made.currency, live: Boolean(made.activated_at), spaces: made.spaces ?? null };
     const list = garages ?? [...(owner.garages ?? []).filter((g) => g.id !== made.id), presented];
     dispatch({ type: 'added', garages: list, garageId: made.id });
     actions.go(setupPage);
@@ -383,7 +383,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
     // The address names a page of the host's, and the host's file is not read yet.
     content = <p className="quiet">{t('loading')}</p>;
   } else if (page.id === 'garages' && !menuEntry) {
-    content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} />;
+    content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} onRead={(garages) => dispatch({ type: 'garagesRead', garages })} />;
   } else if (owner.garages.length === 0) {
     // U7c: an account with no garage starts by adding one, from whichever page it is on.
     content = <NoGarages t={t} language={language} client={client} onAdded={added} />;

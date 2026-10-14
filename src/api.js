@@ -36,6 +36,8 @@ export const PROBLEM_KINDS = [
   // U7g: rates, trying a stay, and opening the garage.
   'planFindings', 'planRefused', 'planNameTaken', 'planStartTaken', 'planStartPast', 'planStartLater', 'ratesChanged', 'ratesNotChecked', 'planNotKept',
   'notConfirmed', 'noRatesYet', 'tooManyTries', 'tryRefused', 'notReadyToOpen',
+  // The fill rule (platform 0034): the garage's number of spaces, and rates that need it.
+  'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -120,6 +122,12 @@ const NAMED = [
   [409, 'rate_engine_unavailable', 'ratesNotChecked'],
   [409, 'plan_currency_disagrees_with_garage', 'planNotKept'],
   [409, 'plan_does_not_price_garage_space_class', 'planNotKept'],
+  // The fill rule (platform 0034): rates that charge more when the garage is
+  // full need its number of spaces, and both of the rule's choices.
+  [409, 'plan_needs_spaces', 'planNeedsSpaces'],
+  [409, 'fill_rule_answers_missing', 'fillChoiceMissing'],
+  [400, 'garage_spaces_refused', 'spacesRefused'],
+  [409, 'spaces_needed_by_fill_rule', 'spacesNeeded'],
   [400, 'not_confirmed', 'notConfirmed'],
   [409, 'no_rate_plan', 'noRatesYet'],
   [429, 'too_many_tries', 'tooManyTries'],
@@ -491,6 +499,15 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       const count = object(data.count);
       if (!Array.isArray(data.refused) || !Number.isInteger(count.attempts) || !Number.isInteger(count.lines)) throw new Problem('unexpected');
       return { refused: data.refused, next: typeof data.next === 'string' ? data.next : null, count: { lines: count.lines, attempts: count.attempts } };
+    },
+    /**
+     * The garage's number of spaces (platform 0034): a whole number, 1 or
+     * more. The answer is the garage's row; its `spaces` is what was kept.
+     */
+    setSpaces: async (garageId, spaces) => {
+      const garage = object(object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { spaces } })).garage);
+      if (!Number.isInteger(garage.spaces)) throw new Problem('unexpected');
+      return garage;
     },
     /** Whether the garage takes drivers without a pass: true or false, never back to unanswered. */
     setDrivers: async (garageId, takesAny) =>

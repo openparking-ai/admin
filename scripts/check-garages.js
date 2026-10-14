@@ -118,7 +118,8 @@ const garageRows = (page) =>
   page.$$eval('[data-list="garages-page"] tbody tr', (trs) =>
     trs.map((tr) => {
       const td = [...tr.querySelectorAll('td')].map((c) => c.textContent);
-      return { id: tr.dataset.garageRow, name: td[0], zone: td[1], money: td[2], live: td[3], setup: td[4], read: tr.querySelector('[data-read]')?.dataset.read };
+      const setup = tr.querySelector('[data-read]');
+      return { id: tr.dataset.garageRow, name: td[0], zone: td[1], money: td[2], live: td[3], spaces: tr.querySelector('[data-spaces]')?.textContent, setup: setup?.textContent, read: setup?.dataset.read };
     }),
   );
 
@@ -256,11 +257,14 @@ try {
       for (const g of A.garages) {
         const row = rows.find((r) => r.id === g.id);
         const truth = await platformSetup(page, g.id);
-        const want = { name: g.name, zone: w[ZONE_KEY[g.timezone]], money: w[MONEY_KEY[g.currency]], live: g.live ? w['garage.live'] : w['garage.notLive'], setup: fill(w['setup.count'], { done: truth.done, steps: truth.steps }) };
+        const want = {
+          name: g.name, zone: w[ZONE_KEY[g.timezone]], money: w[MONEY_KEY[g.currency]], live: g.live ? w['garage.live'] : w['garage.notLive'],
+          spaces: `${w['garages.spaces.none']} ${w['garages.spaces.set']}`, setup: fill(w['setup.count'], { done: truth.done, steps: truth.steps }),
+        };
         for (const [k, v] of Object.entries(want)) if (row?.[k] !== v) wrong.push(`${g.name} ${k}: "${row?.[k]}", not "${v}"`);
       }
       check(rows.length === 2 && wrong.length === 0, `1 two garages (${language}): both listed, each with its name, time zone, money, open or not, and its Setup steps done${wrong.length ? `; ${wrong.join('; ')}` : ''}`);
-      await described(page, ['garages.name', 'garages.zone', 'garages.money', 'garages.open', 'garages.setup'], language, 'the Garages list');
+      await described(page, ['garages.name', 'garages.zone', 'garages.money', 'garages.open', 'garages.spaces', 'garages.setup'], language, 'the Garages list');
       await screenshot(page, `garages-two-${language}`);
       for (const g of [...A.garages].reverse()) {
         await go(page, 'garages');
@@ -273,6 +277,28 @@ try {
         const count = await settles(page, (c) => document.querySelector('.setup-count')?.dataset.count === String(c), truth.done);
         check(setupShown && current === g.id && count, `1 ${g.name} (${language}): pressed, it is chosen and its own Setup opens (chosen: ${A.garages.find((x) => x.id === current)?.name ?? current})`);
       }
+    }
+
+    // ── 1b: the number of spaces (platform 0034), set on the list ─────────
+    {
+      const w = WORDS.en;
+      await speak(page, 'en');
+      await go(page, 'garages');
+      const cell = `[data-garage-row="${HARBOR.id}"] [data-spaces]`;
+      await page.waitForSelector(cell);
+      await page.click(`${cell} [data-action="change-spaces"]`);
+      await page.fill(`${cell} [data-field="spaces"]`, '0');
+      await page.click(`${cell} [data-action="save-spaces"]`);
+      const said = await page.$eval(`${cell} [data-problem]`, (e) => e.textContent).catch(() => null);
+      check(said === w['problem.spacesRefused'] && HARBOR.spaces === null, `1b spaces: 0 is refused on the page, in words, and nothing is kept ("${said}")`);
+      await page.fill(`${cell} [data-field="spaces"]`, '120');
+      await page.click(`${cell} [data-action="save-spaces"]`);
+      const shown = await settles(page, (c) => document.querySelector(c)?.dataset.spaces === '120', cell);
+      const onList = (await page.$('[data-list="garages-page"]')) !== null;
+      check(shown && onList && HARBOR.spaces === 120, `1b spaces: 120 kept by the platform (${HARBOR.spaces}), shown on the row, and the page stays the Garages page`);
+      await screenshot(page, 'garages-spaces-en');
+      // Back as it was, for the checks below: not set.
+      HARBOR.spaces = null;
     }
 
     // ── 6: the refused attempts' count follows the choices ─────────────────

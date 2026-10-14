@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true.",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. The fill rule, 2026-10-14: the garage's `spaces` (0034, null on every garage here) added to the three answers above that carry a garage -- the list, and the whole row a PATCH answers -- by the measured difference: 'add_garage_answers' recorded again from platform 9bdf1ec differ from their earlier recording by that key alone, on the same two shapes.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -242,6 +242,11 @@
                 "name": {
                   "types": [
                     "string"
+                  ]
+                },
+                "spaces": {
+                  "types": [
+                    "null"
                   ]
                 },
                 "timezone": {
@@ -569,6 +574,11 @@
                   "string"
                 ]
               },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -660,6 +670,11 @@
               "space_class": {
                 "types": [
                   "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
                 ]
               },
               "tenant_id": {
@@ -4679,7 +4694,7 @@
       }
     }
   ],
-  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged. U7f, 2026-10-11: \"a garage, added\" is recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans) by the same call, the same way: the row gained ban_tailgaters and ban_reach (0033), every other key the same.",
+  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged. U7f, 2026-10-11: \"a garage, added\" is recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans) by the same call, the same way: the row gained ban_tailgaters and ban_reach (0033), every other key the same. The fill rule, 2026-10-14: recorded again from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847, npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true: against the answers above, the only difference is the garage's new `spaces` (null), on the garage added and on each garage of the list.",
   "add_garage_answers": [
     {
       "what": "a garage, added from a page at another address",
@@ -4803,6 +4818,11 @@
                   "string"
                 ]
               },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -4863,6 +4883,11 @@
                 "name": {
                   "types": [
                     "string"
+                  ]
+                },
+                "spaces": {
+                  "types": [
+                    "null"
                   ]
                 },
                 "timezone": {
@@ -5064,7 +5089,7 @@
       }
     }
   ],
-  "banned_recorded_from": "openparking-ai/platform 96dff3a (u7f/pictures-bans), 2026-10-11, U7f, on the Mac: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordBanned (test/platform-shapes.js) alone, its tailgater listed by the demo's entry-lane computer as a lane lists one -- a stay opened with tailgater: true and a descriptor, and one picture -- while the garage banned tailgaters.",
+  "banned_recorded_from": "openparking-ai/platform 96dff3a (u7f/pictures-bans), 2026-10-11, U7f, on the Mac: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordBanned (test/platform-shapes.js) alone, its tailgater listed by the demo's entry-lane computer as a lane lists one -- a stay opened with tailgater: true and a descriptor, and one picture -- while the garage banned tailgaters. The fill rule, 2026-10-14: the garage's `spaces` (null) added to the four answers that carry the garage's whole row, by the difference measured on 'add_garage_answers' (see its header).",
   "banned_answers": [
     {
       "what": "banned cars, none listed",
@@ -5189,6 +5214,11 @@
                   "string"
                 ]
               },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5282,6 +5312,11 @@
                   "string"
                 ]
               },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5373,6 +5408,11 @@
               "space_class": {
                 "types": [
                   "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
                 ]
               },
               "tenant_id": {
@@ -5617,6 +5657,11 @@
               "space_class": {
                 "types": [
                   "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
                 ]
               },
               "tenant_id": {
@@ -8072,6 +8117,653 @@
       "body": {
         "error": "at most 20 tries a minute; wait a minute and try again",
         "code": "too_many_tries"
+      }
+    }
+  ],
+  "spaces_recorded_from": "The fill rule, 2026-10-14: 'spaces_answers' recorded from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847 (schema 6), npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-spaces.js, after the add-garage answers were recorded again on the same database.",
+  "spaces_answers": [
+    {
+      "what": "spaces, none yet",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "live": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "spaces, zero",
+      "status": 400,
+      "body": {
+        "error": "spaces must be a whole number from 1 to 100000, or null",
+        "code": "garage_spaces_refused"
+      }
+    },
+    {
+      "what": "spaces, as text",
+      "status": 400,
+      "body": {
+        "error": "spaces must be a whole number from 1 to 100000, or null",
+        "code": "garage_spaces_refused"
+      }
+    },
+    {
+      "what": "spaces, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "spaces, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "rates with a fill rule saved, no spaces yet",
+      "status": 409,
+      "body": {
+        "error": "these rates raise the price when the garage is full, and this garage has no number of spaces yet: set the number of spaces on the Garages page, or build the garage map, first; nothing was stored",
+        "code": "plan_needs_spaces"
+      }
+    },
+    {
+      "what": "rates with a fill rule saved, a choice left out",
+      "status": 409,
+      "body": {
+        "error": "the rule that raises the price when the garage is full (\"lab-fill\") must say raises_vip_extra, each \"yes\" or \"no\"; nothing was stored",
+        "code": "fill_rule_answers_missing"
+      }
+    },
+    {
+      "what": "spaces, set",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "number"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "null"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "spaces, set again (nothing changes)",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "number"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "null"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "garages, with spaces",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garages": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "currency": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "live": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "name": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "spaces": {
+                  "types": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "timezone": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a stay tried, how full out of range",
+      "status": 400,
+      "body": {
+        "error": "stays[0].occupancy_at_entry_bp is how full the garage was at entry: a whole number from 0 to 10000 (basis points of full)"
+      }
+    },
+    {
+      "what": "a stay tried, a fill rule and no figure",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2031-03-15T10:00",
+            "exit": "2031-03-15T12:00",
+            "entry_at": "2031-03-15T14:00:00.000Z",
+            "exit_at": "2031-03-15T16:00:00.000Z",
+            "minutes": 120,
+            "refused": true,
+            "findings": [
+              {
+                "code": "GAP_NO_OCCUPANCY_AT_ENTRY",
+                "kind": "gap",
+                "text": "the plan prices a 'standard' space on how full the garage was when the car came in (lab-fill), and this stay carries no occupancy_at_entry_bp -- nothing was assumed",
+                "rule_ids": [
+                  "lab-fill"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "what": "a stay tried, a fill rule, below it and at it",
+      "status": 200,
+      "structure": {
+        "currency": "USD",
+        "timezone": "America/New_York",
+        "draft_findings": [],
+        "stays": [
+          {
+            "entry": "2031-03-15T10:00",
+            "exit": "2031-03-15T12:00",
+            "entry_at": "2031-03-15T14:00:00.000Z",
+            "exit_at": "2031-03-15T16:00:00.000Z",
+            "minutes": 120,
+            "occupancy_at_entry_bp": 7999,
+            "refused": false,
+            "plan_version": "recorded-regular-fill",
+            "special": null,
+            "adjustments": [],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Sat 15 Mar, 120 minutes, space class 'standard', plan recorded-regular-fill",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 120 min, which is 110 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 4.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "fill_level.not_applied",
+                "rule_id": "lab-fill",
+                "text": "Garage was 79.99% full at entry (below 80%): time-based charge not raised",
+                "delta_minor": 0
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1200,
+            "fee_minor": 1200
+          },
+          {
+            "entry": "2031-03-15T10:00",
+            "exit": "2031-03-15T12:00",
+            "entry_at": "2031-03-15T14:00:00.000Z",
+            "exit_at": "2031-03-15T16:00:00.000Z",
+            "minutes": 120,
+            "occupancy_at_entry_bp": 8000,
+            "refused": false,
+            "plan_version": "recorded-regular-fill",
+            "special": null,
+            "adjustments": [
+              {
+                "rule_id": "lab-fill",
+                "label": null
+              }
+            ],
+            "rate_lines": [
+              {
+                "code": "stay",
+                "rule_id": null,
+                "text": "Entered 10:00 Sat 15 Mar, 120 minutes, space class 'standard', plan recorded-regular-fill",
+                "delta_minor": 0
+              },
+              {
+                "code": "grace.not_applied",
+                "rule_id": "grace",
+                "text": "Grace period 10 min NOT applied: the stay was 120 min, which is 110 over. Grace is all-or-nothing, so the stay prices from entry on the ordinary rate",
+                "delta_minor": 0
+              },
+              {
+                "code": "increment.first_period",
+                "rule_id": "time",
+                "text": "Time-based: first hour 8.00 USD",
+                "delta_minor": 800
+              },
+              {
+                "code": "increment.repeat_periods",
+                "rule_id": "time",
+                "text": "Time-based: 1 additional hour at 4.00 USD = 4.00 USD",
+                "delta_minor": 400
+              },
+              {
+                "code": "daily_max.not_reached",
+                "rule_id": "most-a-day",
+                "text": "Daily max 30.00 USD (calendar_day, the day) not reached: the charge so far is 12.00 USD",
+                "delta_minor": 0
+              },
+              {
+                "code": "fill_level.applied",
+                "rule_id": "lab-fill",
+                "text": "Garage was 80% full at entry (at or above 80%): time-based charge +20% on 12.00 USD -- 2.40 USD added",
+                "delta_minor": 240
+              }
+            ],
+            "tax_lines": [],
+            "taxes_stated": false,
+            "subtotal_minor": 1440,
+            "fee_minor": 1440
+          }
+        ]
+      }
+    },
+    {
+      "what": "rates with a fill rule saved",
+      "status": 201,
+      "structure": {
+        "keys": [
+          "rate_plan"
+        ],
+        "row": [
+          "created_at",
+          "effective_from",
+          "engine_schema_version",
+          "garage_id",
+          "id",
+          "plan",
+          "plan_version"
+        ],
+        "plan": {
+          "rules": [
+            {
+              "id": "time",
+              "type": "increment",
+              "stage": "ACCUMULATE",
+              "rounding": "ceil",
+              "space_classes": [
+                "standard"
+              ],
+              "first_period_minor": 800,
+              "repeat_period_minor": 400,
+              "first_period_minutes": 60,
+              "max_duration_minutes": null,
+              "repeat_period_minutes": 60
+            },
+            {
+              "id": "most-a-day",
+              "type": "daily_max",
+              "stage": "CAP",
+              "max_minor": 3000,
+              "day_boundary": "calendar_day",
+              "space_classes": [
+                "standard"
+              ]
+            },
+            {
+              "id": "grace",
+              "type": "grace",
+              "stage": "QUALIFY",
+              "minutes": 10,
+              "space_classes": [
+                "standard"
+              ]
+            },
+            {
+              "id": "lab-fill",
+              "type": "fill_level",
+              "stage": "ADJUST",
+              "rounding": "up",
+              "percent_bp": 2000,
+              "threshold_bp": 8000,
+              "space_classes": [
+                "standard"
+              ],
+              "raises_specials": "yes",
+              "raises_vip_extra": "no"
+            }
+          ],
+          "currency": "USD",
+          "timezone": "America/New_York",
+          "decisions": [],
+          "resolution": {
+            "QUALIFY": {
+              "mode": "cheapest_wins"
+            },
+            "ACCUMULATE": {
+              "mode": "cheapest_wins"
+            }
+          },
+          "adjust_order": null,
+          "plan_version": "recorded-regular-fill",
+          "space_classes": [
+            "standard"
+          ],
+          "effective_from": "when saved"
+        }
+      }
+    },
+    {
+      "what": "spaces, cleared under a fill rule",
+      "status": 409,
+      "body": {
+        "error": "the rates in force raise the price when the garage is full, which needs the number of spaces; change the rates first, then clear it. Nothing was changed.",
+        "code": "spaces_needed_by_fill_rule"
+      }
+    },
+    {
+      "what": "changes, after the spaces",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "rate_plan.add",
+          "outcome": "done",
+          "before": null,
+          "after": {
+            "confirmed": true,
+            "plan_version": "recorded-regular-fill",
+            "effective_from": "when saved"
+          }
+        },
+        "subject_name": "string",
+        "subject_removed": false
       }
     }
   ]
