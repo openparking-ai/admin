@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { blankSpecial, formFromPlan, mergeRegular, mergeSpecial, regularPlan, regularProblems, sameRates, specialProblems, specialsPlan, typedRegular, typedSpecial, specialForm, orderedWindows } from '../src/rates.js';
+import { blankSpecial, formFromPlan, pricedClasses, mergeRegular, mergeSpecial, regularPlan, regularProblems, sameRates, specialProblems, specialsPlan, typedRegular, typedSpecial, specialForm, orderedWindows } from '../src/rates.js';
 import { ZONE, recordedPlans } from './rates-forms.js';
 
 const shapes = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8'));
@@ -130,4 +130,27 @@ test('two discounts apply in the order listed: the 10% first, then the $2.00, as
   assert.deepEqual(listed, ['Members', 'Two off']);
   assert.deepEqual(two.adjust_order, orderedWindows(two).filter((r) => r.stage === 'ADJUST').map((r) => r.id));
   assert.deepEqual(two.adjust_order.map((id) => two.rules.find((r) => r.id === id).label), ['Members', 'Two off']);
+});
+
+test('rates that price a VIP kind beside the garage\'s own: a save from either section leaves no kind with nothing to price it', () => {
+  const both = ['standard', 'vip'];
+  const vip = { ...docs.other, plan_version: 'with-vip', space_classes: both,
+    rules: [...docs.other.rules.map((r) => ({ ...r, space_classes: both })), { id: 'lab-vip-extra', type: 'space_surcharge', stage: 'SURCHARGE', space_classes: ['vip'], surcharge_minor: 500 }] };
+  assert.deepEqual(pricedClasses(vip, 'standard'), both);
+  assert.deepEqual(pricedClasses(docs.other, 'standard'), ['standard']);
+  const now = formFromPlan(vip, 'USD');
+  // The time-based rate changed, and a max per week ticked on that was off.
+  const typed = { ...typedRegular(now), time: { ...typedRegular(now).time, firstPrice: '9.00' }, weekMax: { on: true, price: '90.00', kind: 'rolling_7d', startsOn: '' } };
+  const changed = regularPlan(vip, typed, now, opts('', 'vip-2'));
+  for (const r of changed.rules.filter((x) => x.type !== 'space_surcharge')) assert.deepEqual(r.space_classes, both, `${r.id} prices only one kind`);
+  assert.deepEqual(changed.rules.find((r) => r.type === 'space_surcharge'), vip.rules.at(-1));
+  assert.deepEqual(changed.space_classes, both);
+  // A special added prices both kinds; one changed keeps its own.
+  const s = blankSpecial('weekends');
+  Object.assign(s, { name: 'Late', enterFrom: '20:00', enterBy: '23:00', leaveBy: '06:00', nextDay: true, charge: 'flat', flat: '7.00' });
+  const added = specialsPlan(vip, { kind: 'add', special: mergeSpecial(s) }, { garage, spaceClass: 'standard', start: '2026-10-13T08:00:00.000Z', name: 'vip-3' });
+  for (const r of added.rules.filter((x) => x.type !== 'space_surcharge')) assert.deepEqual(r.space_classes, both, `${r.id} prices only one kind`);
+  // Rates with the garage's kind alone are written exactly as before.
+  const plain = regularPlan(docs.other, { ...typedRegular(formFromPlan(docs.other, 'USD')), weekMax: { on: true, price: '90.00', kind: 'rolling_7d', startsOn: '' } }, formFromPlan(docs.other, 'USD'), opts('', 'plain'));
+  for (const r of plain.rules) assert.deepEqual(r.space_classes, ['standard']);
 });

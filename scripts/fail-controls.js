@@ -106,6 +106,26 @@ const CONTROLS = [
     run: ['node', '--test', 'test/menu.test.js'],
     names: ['kept on this computer and read back: only group keys with true or false'],
   },
+  // Rates that price a VIP kind beside the garage's own (written by the host's pages): a save
+  // from the Rates page leaves no kind with nothing to price it.
+  {
+    check: 'rates: a regular part changed prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: 'id: rule.id, space_classes: rule.space_classes, ...extra });', with: 'id: rule.id, ...extra });' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
+  {
+    check: 'rates: a regular part ticked on prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: 'rules.splice(built.rules.indexOf(rule), 0, { ...rule, space_classes: classes });', with: 'rules.splice(built.rules.indexOf(rule), 0, rule);' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
+  {
+    check: 'rates: a special added prices only the garage\'s own kind',
+    plant: { file: 'src/rates.js', anchor: '  const classes = pricedClasses(base, spaceClass);', with: '  const classes = [spaceClass];' },
+    run: ['node', '--test', 'test/rates-two-saves.test.js'],
+    names: ['a save from either section leaves no kind with nothing to price it'],
+  },
   // Extra pages from the host (src/extras.js): each refusal red on its plant.
   {
     check: 'extras: a path of another host is accepted',
