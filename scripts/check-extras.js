@@ -182,6 +182,7 @@ try {
   const group = page.locator('[data-nav-group="example-group"]');
   check((await group.count()) === 1, 'the side menu holds the host\'s group');
   check((await group.locator('.nav-group-name').textContent()).includes('<img src=x onerror=alert(2)> Example group'), 'the group\'s name from the file is shown as text');
+  check((await group.locator('.nav-group-name > .icon').count()) === 1 && (await group.locator('.nav-group-name .nav-group-chevron').count()) === 1, 'the host\'s group row has its own icon and its chevron, as Setup\'s');
   check((await page.locator('.sidebar img').count()) === 0, 'and nothing in it was read as markup');
   const menuIds = await page.$$eval('[data-nav-extra]', (els) => els.map((e) => e.dataset.navExtra));
   check(JSON.stringify(menuIds) === JSON.stringify(['example-menu', 'example-menu-two']), `its two pages are under it, and no page the file refused (${menuIds.join(', ')})`);

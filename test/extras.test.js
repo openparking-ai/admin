@@ -118,7 +118,10 @@ const menuEntry = (id = 'example-menu', groupId = 'example-group') => ({
 test('a menu group is read whole or left out, and a page naming a group the file does not is refused', () => {
   const read = readExtraPages({ groups: [group()], pages: [menuEntry()] });
   assert.equal(read.length, 1);
-  assert.deepEqual(read[0].menu.group, { id: 'example-group', title: { en: 'Example group', es: 'Grupo de ejemplo' } });
+  assert.deepEqual(read[0].menu.group, { id: 'example-group', title: { en: 'Example group', es: 'Grupo de ejemplo' }, icon: 'chart' });
+  // A group's icon: one of the few named, else the chart; never a name drawn as given.
+  assert.equal(readGroups([{ ...group(), icon: 'log' }]).get('example-group').icon, 'log');
+  for (const icon of ['<svg>', 'home', 7, null]) assert.equal(readGroups([{ ...group(), icon }]).get('example-group').icon, 'chart', JSON.stringify(icon));
   // A group the file does not name, or one not as expected, refuses the page that names it.
   assert.deepEqual(readExtraPages({ groups: [group()], pages: [menuEntry('a', 'no-such-group')] }), []);
   for (const bad of [{ id: 'Bad Id', title: group().title }, { id: 'g', title: { en: 'x' } }, { id: 'g', title: { en: 'x'.repeat(201), es: 'y' } }, { id: 'g', title: { en: 'a\u0007', es: 'b' } }, null, 7, []]) {

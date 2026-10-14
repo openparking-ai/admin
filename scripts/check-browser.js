@@ -594,6 +594,32 @@ try {
       open: document.querySelector('[data-own-group="true"] > .nav-group-name')?.getAttribute('aria-expanded'),
     }));
   const shape = await menuShape();
+  // The look (remarks batch 1): a group row is a page row -- same height, type, icon column and
+  // left edge as Alerts above it, a chevron at its far end and nothing in the margin -- and its
+  // pages sit a step in beneath it; the group row is never the current page.
+  const rows = await page.evaluate(() => {
+    const box = (el) => el?.getBoundingClientRect();
+    const alerts = document.querySelector('.nav-item[href="#/alerts"]');
+    const group = document.querySelector('[data-own-group="true"] > .nav-group-name');
+    const sub = document.querySelector('[data-own-group="true"] .nav-sub .nav-item');
+    const icon = (el) => box(el?.querySelector(':scope > .icon'));
+    const style = (el) => getComputedStyle(el);
+    return {
+      heights: [box(alerts).height, box(group).height],
+      weights: [style(alerts).fontWeight, style(group).fontWeight],
+      sizes: [style(alerts).fontSize, style(group).fontSize],
+      rowLeft: [box(alerts).left, box(group).left],
+      iconLeft: [icon(alerts)?.left, icon(group)?.left, icon(sub)?.left],
+      firstChild: group.firstElementChild?.matches('.icon') ?? false,
+      chevronRight: box(group.querySelector('.nav-group-chevron')).right > box(group.querySelector('.nav-group-title')).right,
+      groupCurrent: group.getAttribute('aria-current'),
+    };
+  });
+  check(Math.abs(rows.heights[0] - rows.heights[1]) < 1 && rows.weights[0] === rows.weights[1] && rows.sizes[0] === rows.sizes[1], `the menu: Setup's row is drawn as Alerts' is (height ${rows.heights.join('/')}, weight ${rows.weights.join('/')}, size ${rows.sizes.join('/')})`);
+  check(rows.firstChild && rows.rowLeft[0] === rows.rowLeft[1] && rows.iconLeft[0] === rows.iconLeft[1], `the menu: Setup's icon sits in the icon column, its row on Alerts' left edge (icons at ${rows.iconLeft.slice(0, 2).join('/')})`);
+  check(rows.chevronRight, 'the menu: the open/closed chevron at the far end of the row');
+  check(rows.iconLeft[2] > rows.iconLeft[1] + 8, `the menu: Setup's pages a step in beneath it (${rows.iconLeft[2]} after ${rows.iconLeft[1]})`);
+  check(rows.groupCurrent === null && (await page.locator('[data-own-group="true"] .nav-sub .nav-item[aria-current="page"]').count()) === 1, 'the menu: the page shown is marked inside the group, the group row never');
   check(shape.top.slice(0, 4).join(' ') === MENU_TOP.join(' '), `the menu: Home, Garage View and Alerts at the top, then Setup (${shape.top.join(' ')})`);
   check(shape.setup.join(' ') === MENU_SETUP.join(' '), `the menu: Setup holds every other page, in order (${shape.setup.join(' ')})`);
   check(shape.top.length - 1 + shape.setup.length === PAGES.length, `the menu: every page once (${shape.top.length - 1 + shape.setup.length} of ${PAGES.length})`);

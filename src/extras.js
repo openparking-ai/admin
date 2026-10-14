@@ -68,8 +68,11 @@ function words(value) {
   return out;
 }
 
+/** The icons a host group may name for its row in the side menu; any other, or none, is the chart. */
+export const GROUP_ICONS = ['chart', 'log', 'check', 'car', 'garage', 'bell'];
+
 /**
- * The menu groups the file names: { id -> { id, title } }. A group not as expected is left
+ * The menu groups the file names: { id -> { id, title, icon } }. A group not as expected is left
  * out (and so is every page that names it); a list that is not one, or is longer than
  * MAX_GROUPS, gives none.
  */
@@ -80,7 +83,7 @@ export function readGroups(raw) {
     if (!g || typeof g !== 'object' || Array.isArray(g) || typeof g.id !== 'string' || !ID.test(g.id) || out.has(g.id)) continue;
     const title = words(g.title);
     if (!title) continue;
-    out.set(g.id, { id: g.id, title });
+    out.set(g.id, { id: g.id, title, icon: GROUP_ICONS.includes(g.icon) ? g.icon : 'chart' });
   }
   return out;
 }
@@ -156,7 +159,7 @@ export function menuGroups(extras) {
     if (!entry.menu) continue;
     let group = out.find((g) => g.id === entry.menu.group.id);
     if (!group) {
-      group = { id: entry.menu.group.id, title: entry.menu.group.title, entries: [] };
+      group = { id: entry.menu.group.id, title: entry.menu.group.title, icon: entry.menu.group.icon ?? 'chart', entries: [] };
       out.push(group);
     }
     group.entries.push(entry);

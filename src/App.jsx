@@ -235,7 +235,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   const menu = menuPages(PAGES);
   const menuGroupsDrawn = [
     { key: SETUP_GROUP, id: 'setup', title: null, entries: menu.setup.map((p) => ({ id: p.id, own: p })) },
-    ...groups.map((g) => ({ key: hostGroupKey(g.id), id: g.id, title: g.title, entries: g.entries })),
+    ...groups.map((g) => ({ key: hostGroupKey(g.id), id: g.id, title: g.title, icon: g.icon, entries: g.entries })),
   ];
   const setGroup = useCallback(
     (key, open) =>
@@ -443,17 +443,19 @@ export default function App({ theme, storage, client, link: startLink = null }) 
               const own = g.key === SETUP_GROUP;
               return (
                 <li key={g.key} className="nav-group" data-nav-group={own ? 'setup' : g.id} data-own-group={own ? 'true' : undefined}>
+                  {/* A group row is drawn as a page row is (its own icon, the same type), with an
+                      open/closed chevron at its far end; its pages are the ones a step in. */}
                   <button type="button" className="nav-item nav-group-name" aria-expanded={open} onClick={toggle}>
-                    <span className="nav-group-mark" aria-hidden="true">
-                      {open ? '▾' : '▸'}
-                    </span>
-                    {own ? <Icon name="check" /> : null}
-                    <span>
+                    <Icon name={own ? 'check' : g.icon} />
+                    <span className="nav-group-title">
                       {own ? (
                         t('nav.setup')
                       ) : (
                       <bdi>{words(g.title)}</bdi>
                       )}
+                    </span>
+                    <span className="nav-group-chevron">
+                      <Icon name="chevron" />
                     </span>
                   </button>
                   {open ? (

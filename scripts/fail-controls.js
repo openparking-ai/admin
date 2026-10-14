@@ -1723,6 +1723,27 @@ const BROWSER_CONTROLS = [
     names: ['FAIL the menu has "Banned cars"', 'FAIL the menu: Setup holds every other page, in order', 'FAIL the menu: every page once'],
   },
   {
+    check: 'menu: a group row drawn bold, apart from the page rows (browser)',
+    plant: { file: 'src/styles.css', anchor: '  font-size: 15px;\n  color: var(--text-secondary);\n  cursor: pointer;', with: '  font-size: 15px;\n  font-weight: 600;\n  color: var(--text-secondary);\n  cursor: pointer;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s row is drawn as Alerts\' is'],
+  },
+  {
+    check: 'menu: a group row with no icon of its own (browser)',
+    plant: { file: 'src/App.jsx', anchor: "                    <Icon name={own ? 'check' : g.icon} />\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s icon sits in the icon column'],
+  },
+  {
+    check: 'menu: a group\'s pages not a step in (browser)',
+    plant: { file: 'src/styles.css', anchor: '.nav-sub .nav-item {\n  padding-inline-start: 42px;', with: '.nav-sub .nav-item {\n  padding-inline-start: 12px;' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL the menu: Setup\'s pages a step in beneath it'],
+  },
+  {
     check: 'menu: open or closed not kept (browser)',
     plant: { file: 'src/menu.js', anchor: '    storage?.setItem(MENU_KEY, JSON.stringify(state));', with: '    void state;' },
     before: BUILD,
