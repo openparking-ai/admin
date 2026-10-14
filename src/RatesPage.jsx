@@ -38,6 +38,8 @@ import {
   percentWords,
   planName,
   planSentences,
+  stayToTry,
+  fillNote,
   regularPlan,
   regularProblems,
   regularUntouched,
@@ -1095,7 +1097,7 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
     const key = askedFor;
     try {
       const plan = forStay(chosen.plan, entry, garage, planName(Date.now(), garage.timezone));
-      const out = await client.tryStays(garage.id, { plan, stays: [{ entry, exit }] });
+      const out = await client.tryStays(garage.id, { plan, stays: [stayToTry(plan, { entry, exit })] });
       setAnswer({ stay: { ...out.stays[0], entry, exit }, plan, key });
     } catch (p) {
       if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
@@ -1186,6 +1188,11 @@ function TriedStay({ t, language, garage, stay, plan, taxNames }) {
       <p className="quiet small">{t('rates.calc.nothingSaved')}</p>
       <p className="tried-pays">{t('rates.try.pays', { amount: money(stay.fee_minor) })}</p>
       <p>{t('rates.try.stayed', { length: lengthWords(t, stay.minutes) })}</p>
+      {fillNote(t, plan, language) ? (
+        <p className="quiet small" data-notice="fill-rule">
+          {fillNote(t, plan, language)}
+        </p>
+      ) : null}
       {stay.taxes_stated === false ? (
         <p className="quiet small" data-notice="tax-not-stated">
           {t('rates.try.taxNotStated')}
@@ -1272,7 +1279,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
     setBusy(true);
     setProblem((p) => (p === 'ratesChanged' ? p : null));
     try {
-      const out = await client.tryStays(garage.id, { plan: shown, stays: stays.map(({ entry, exit }) => ({ entry, exit })) });
+      const out = await client.tryStays(garage.id, { plan: shown, stays: stays.map(({ entry, exit }) => stayToTry(shown, { entry, exit })) });
       if (asking.current !== key) return { data: priced, readAt: priced?.at };
       const done = { key, ratesKey, plan: shown, rows: stays.map((st, i) => ({ ...st, answer: out.stays[i] })), draftFindings: out.draftFindings, at: new Date() };
       setPriced(done);
@@ -1448,8 +1455,14 @@ function PriceTable({ t, language, garage, priced, list = 'price-table' }) {
   const money = (minor) => moneyText(minor, garage.currency, language);
   // Each time is already the garage's own clock.
   const when = (wall) => localSaid(wall, language);
+  const note = fillNote(t, priced.plan, language);
   return (
     <div className="table-scroll">
+      {note ? (
+        <p className="quiet small" data-notice="fill-rule">
+          {note}
+        </p>
+      ) : null}
       <table className="list price-table" data-list={list}>
         <thead>
           <tr>

@@ -33,7 +33,7 @@
 //   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } the changes made, newest first, 50 a page
 //   GET    /api/v1/garages/:id/refused-attempts[/:lineId]  { refused: [line], next, count: { lines, attempts } } apart
 //   A request that changes nothing writes no line (the same before and after).
-//   PATCH  /api/v1/garages/:id              { transient_available?, ban_tailgaters?, ban_reach? } -> { garage }
+//   PATCH  /api/v1/garages/:id              { transient_available?, ban_tailgaters?, ban_reach?, spaces? } -> { garage }
 //   GET    /api/v1/garages/:id/banned       -> { ban_tailgaters, ban_reach, cars: [{ id, listed_at, entry_at, garage_id, garage_name, plate, pictures: [{ id, taken_at }] }] }  (U7f)
 //   POST   /api/v1/garages/:id/banned/:banId/remove  -> { removed: true }; 404 banned_car_not_found  (U7f)
 //   GET    /api/v1/garages/:id/banned/:banId/pictures/:pictureId  -> the picture, image/png  (U7f)
@@ -98,8 +98,8 @@ export function owners(now = Date.now()) {
       tenant_id: 'aaaaaaaa-0000-4000-8000-000000000001',
       language: 'en',
       garages: [
-        { id: 'a1000000-0000-4000-8000-000000000001', name: 'Harbor Street Garage', timezone: 'America/New_York', currency: 'USD', live: true },
-        { id: 'a2000000-0000-4000-8000-000000000002', name: 'Riverside Deck', timezone: 'America/Chicago', currency: 'USD', live: false },
+        { id: 'a1000000-0000-4000-8000-000000000001', name: 'Harbor Street Garage', timezone: 'America/New_York', currency: 'USD', live: true, spaces: null },
+        { id: 'a2000000-0000-4000-8000-000000000002', name: 'Riverside Deck', timezone: 'America/Chicago', currency: 'USD', live: false, spaces: null },
       ],
       lanes: {
         'a1000000-0000-4000-8000-000000000001': [
@@ -158,7 +158,7 @@ export function owners(now = Date.now()) {
       password: 'elm-court-test-password',
       tenant_id: 'bbbbbbbb-0000-4000-8000-000000000002',
       language: 'en',
-      garages: [{ id: 'b1000000-0000-4000-8000-000000000001', name: 'Elm Court Garage', timezone: 'America/Los_Angeles', currency: 'USD', live: true }],
+      garages: [{ id: 'b1000000-0000-4000-8000-000000000001', name: 'Elm Court Garage', timezone: 'America/Los_Angeles', currency: 'USD', live: true, spaces: null }],
       lanes: {
         'b1000000-0000-4000-8000-000000000001': [
           { id: 'lb100000-0000-4000-8000-000000000001', name: 'Elm Gate', direction: 'entry', reader: null, devices: [{ id: 'dvb00000-0000-4000-8000-000000000001', name: 'Elm gate computer', last_seen_at: ago(20 * 1000), revoked_at: null }] },
@@ -256,6 +256,32 @@ const SESSION_ENDED = { error: 'The session has ended. Sign in again.', code: 's
 const REFUSED = { error: 'Sign-in refused. Check the email and password.', code: 'sign_in_refused' };
 const UNREADABLE = { error: 'The sign-in request could not be read. Send JSON: {"email", "password"}.', code: 'sign_in_unreadable' };
 const ORIGIN_REFUSED = { error: 'This request did not come from the admin site.', code: 'origin_refused' };
+// The fill rule (platform 0034), word for word as the platform says them.
+const SPACES_REFUSED = { error: 'spaces must be a whole number from 1 to 100000, or null', code: 'garage_spaces_refused' };
+const SPACES_NEEDED = {
+  error: 'the rates in force raise the price when the garage is full, which needs the number of spaces; change the rates first, then clear it. Nothing was changed.',
+  code: 'spaces_needed_by_fill_rule',
+};
+const PLAN_NEEDS_SPACES = {
+  error: 'these rates raise the price when the garage is full, and this garage has no number of spaces yet: set the number of spaces on the Garages page, or build the garage map, first; nothing was stored',
+  code: 'plan_needs_spaces',
+};
+const FILL_ANSWERS = ['raises_specials', 'raises_vip_extra'];
+const hasFill = (plan) => Array.isArray(plan?.rules) && plan.rules.some((r) => r?.type === 'fill_level');
+/** A fill rule that does not say both of the owner's answers, "yes" or "no": the platform's refusal, or null. */
+const fillAnswersMissing = (plan) => {
+  for (const rule of Array.isArray(plan?.rules) ? plan.rules : []) {
+    if (rule?.type !== 'fill_level') continue;
+    const missing = FILL_ANSWERS.filter((k) => rule[k] !== 'yes' && rule[k] !== 'no');
+    if (missing.length) {
+      return {
+        error: `the rule that raises the price when the garage is full (${JSON.stringify(rule.id ?? null)}) must say ${missing.join(' and ')}, each "yes" or "no"; nothing was stored`,
+        code: 'fill_rule_answers_missing',
+      };
+    }
+  }
+  return null;
+};
 const GARAGE_NOT_FOUND = { error: 'garage not found' };
 const LANGUAGE_REFUSED = { error: 'The language must be "en" or "es", sent as JSON: {"language"}.', code: 'language_refused' };
 const LANGUAGES = ['en', 'es'];
@@ -903,7 +929,7 @@ export async function startStub({ port = 0 } = {}) {
   function makeGarage(who, { name, timezone, currency, live = false }) {
     garageN += 1;
     const id = `c7${String(garageN).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`;
-    who.garages.push({ id, name, timezone, currency, live });
+    who.garages.push({ id, name, timezone, currency, live, spaces: null });
     setups[id] = { transient_available: null, opened_at: live ? new Date().toISOString() : null, rates: { stored: 0, in_force: 0, earliest: null } };
     who.lanes[id] = [];
     (who.people ??= {})[id] = [];
@@ -911,7 +937,7 @@ export async function startStub({ port = 0 } = {}) {
     return {
       id, tenant_id: who.tenant_id, name, timezone, currency, created_at: new Date().toISOString(), default_action: 'allow', space_class: 'standard',
       transient_available: null, activated_at: setups[id].opened_at, garage_pass_link: null, monthly_billing_link: null, validations_link: null,
-      ban_tailgaters: false, ban_reach: 'garage',
+      ban_tailgaters: false, ban_reach: 'garage', spaces: null,
     };
   }
 
@@ -1056,11 +1082,15 @@ export async function startStub({ port = 0 } = {}) {
       if ('transient_available' in body && body.transient_available !== true && body.transient_available !== false) return refuse(res, who, 400, DRIVERS_REFUSED(body.transient_available), at);
       if ('ban_tailgaters' in body && typeof body.ban_tailgaters !== 'boolean') return refuse(res, who, 400, BAN_TAILGATERS_REFUSED, at);
       if ('ban_reach' in body && !BAN_REACHES.includes(body.ban_reach)) return refuse(res, who, 400, BAN_REACH_REFUSED, at);
-      const fields = ['transient_available', 'ban_tailgaters', 'ban_reach'].filter((f) => f in body);
-      if (fields.length === 0) return refuse(res, who, 400, { error: 'default_action, transient_available, ban_tailgaters or ban_reach is required' }, at);
+      // The fill rule (platform 0034): a whole number from 1 to 100000, or null.
+      if ('spaces' in body && body.spaces !== null && !(Number.isInteger(body.spaces) && body.spaces >= 1 && body.spaces <= 100000)) return refuse(res, who, 400, SPACES_REFUSED, at);
+      const fields = ['transient_available', 'ban_tailgaters', 'ban_reach', 'spaces'].filter((f) => f in body);
+      if (fields.length === 0) return refuse(res, who, 400, { error: 'default_action, transient_available, ban_tailgaters, ban_reach or spaces is required' }, at);
+      // Not cleared under rates that charge more when the garage is full.
+      if (body.spaces === null && garage.spaces !== null && hasFill(byStart(plansOf(garage.id)).at(-1)?.plan)) return refuse(res, who, 409, SPACES_NEEDED, at);
       const extra = setups[garage.id];
       const bans = bansOf(garage.id);
-      const holder = (f) => (f === 'transient_available' ? extra : bans);
+      const holder = (f) => (f === 'transient_available' ? extra : f === 'spaces' ? garage : bans);
       const before = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
       for (const f of fields) holder(f)[f] = body[f];
       const after = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
@@ -1071,9 +1101,9 @@ export async function startStub({ port = 0 } = {}) {
         garage: {
           id: garage.id, tenant_id: who.tenant_id, name: garage.name, timezone: garage.timezone, currency: garage.currency,
           created_at: '2025-11-20T15:00:00.000Z', default_action: 'allow', space_class: 'standard',
-          transient_available: extra.transient_available, activated_at: extra.opened_at ?? '2026-01-02T15:00:00.000Z',
+          transient_available: extra.transient_available, activated_at: extra.opened_at ?? (garage.live ? '2026-01-02T15:00:00.000Z' : null),
           garage_pass_link: null, monthly_billing_link: null, validations_link: null,
-          ban_tailgaters: bans.ban_tailgaters, ban_reach: bans.ban_reach,
+          ban_tailgaters: bans.ban_tailgaters, ban_reach: bans.ban_reach, spaces: garage.spaces ?? null,
         },
       });
     }
@@ -1575,7 +1605,9 @@ export async function startStub({ port = 0 } = {}) {
     const entryAt = new Date(instantOf(stay.entry, garage.timezone));
     const exitAt = new Date(instantOf(stay.exit, garage.timezone));
     const at = { entry: stay.entry, exit: stay.exit, entry_at: entryAt.toISOString(), exit_at: exitAt.toISOString(), minutes: Math.ceil((exitAt - entryAt) / 60000) };
-    const q = await ask('/v1/quote', { plans: documents, currency: garage.currency, space_class: 'standard', entry_at: at.entry_at, exit_at: at.exit_at });
+    const figure = stay.occupancy_at_entry_bp ?? null;
+    if (figure !== null) at.occupancy_at_entry_bp = figure;
+    const q = await ask('/v1/quote', { plans: documents, currency: garage.currency, space_class: 'standard', entry_at: at.entry_at, exit_at: at.exit_at, ...(figure === null ? {} : { occupancy_at_entry_bp: figure }) });
     if (q.status === 422 && q.body.refused === true) return { ...at, refused: true, findings: q.body.findings };
     if (q.status !== 200) throw new Error(`the stand-in's engine answered a quote with HTTP ${q.status}`);
     const sets = (moneyOf(garage.id).taxSets ?? []).filter((s) => Date.parse(s.effective_from) <= exitAt.getTime());
@@ -1611,6 +1643,8 @@ export async function startStub({ port = 0 } = {}) {
   const fitsGarage = (garage, plan) =>
     plan.currency !== garage.currency
       ? { error: `the plan prices in ${JSON.stringify(plan.currency)} but the garage's currency is ${garage.currency}; currency lives on the garage and a plan restates it`, code: 'plan_currency_disagrees_with_garage' }
+      : hasFill(plan) && (garage.spaces ?? null) === null
+        ? PLAN_NEEDS_SPACES
       : !(Array.isArray(plan.space_classes) && plan.space_classes.includes('standard'))
         ? { error: `every stay in this garage is priced as space class "standard", and the plan declares only: ${(plan.space_classes ?? []).map((c) => JSON.stringify(c)).join(', ') || 'nothing'}`, code: 'plan_does_not_price_garage_space_class' }
         : null;
@@ -1660,6 +1694,7 @@ export async function startStub({ port = 0 } = {}) {
       tries.set(who.email, [...mine, stamp]);
       const draft = body.plan === undefined ? null : body.plan;
       if (draft !== null && (!draft || typeof draft !== 'object' || Array.isArray(draft))) return answer(res, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' });
+      if (draft !== null && fillAnswersMissing(draft)) return answer(res, 409, fillAnswersMissing(draft));
       if (!Array.isArray(body.stays) || body.stays.length < 1 || body.stays.length > 100) return answer(res, 400, { error: "stays is a list of 1 to 100 stays, each { entry, exit } in the garage's own time" });
       let draftFindings = [];
       try {
@@ -1677,6 +1712,10 @@ export async function startStub({ port = 0 } = {}) {
         const wrong = stayTime(stay.entry, `stays[${i}].entry`, garage.timezone) ?? stayTime(stay.exit, `stays[${i}].exit`, garage.timezone);
         if (wrong) return answer(res, 400, { error: wrong });
         if (stay.exit < stay.entry) return answer(res, 400, { error: `stays[${i}] leaves (${stay.exit}) before it came in (${stay.entry})` });
+        const figure = stay.occupancy_at_entry_bp;
+        if (figure !== undefined && figure !== null && !(Number.isInteger(figure) && figure >= 0 && figure <= 10000)) {
+          return answer(res, 400, { error: `stays[${i}].occupancy_at_entry_bp is how full the garage was at entry: a whole number from 0 to 10000 (basis points of full)` });
+        }
       }
       const held = plansOf(garage.id);
       if (draft !== null) {
@@ -1698,6 +1737,7 @@ export async function startStub({ port = 0 } = {}) {
     if (body.confirmed !== true) return refuse(res, who, 400, { error: 'rates are saved only once the owner has checked the prices they charge and confirmed them: send confirmed: true', code: 'not_confirmed' }, at);
     const plan = body.plan;
     if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return refuse(res, who, 400, { error: 'plan is required and must be a JSON object: the plan document, whole' }, at);
+    if (fillAnswersMissing(plan)) return refuse(res, who, 409, fillAnswersMissing(plan), at);
     if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, at);
     // gapNextSave: these rates judged as if their time-based rate stopped at a day -- the engine's own findings.
     const gap = gapNext ? { ...plan, rules: (plan.rules ?? []).filter((r) => r.type !== 'daily_max' && r.type !== 'weekly_max').map((r) => (r.type === 'increment' ? { ...r, max_duration_minutes: 1440 } : r)) } : null;
@@ -1715,15 +1755,15 @@ export async function startStub({ port = 0 } = {}) {
     if (Date.parse(plan.effective_from) > now + 60_000) {
       return refuse(res, who, 422, { error: `the plan starts at ${plan.effective_from}, more than 60s after this server's clock (${new Date(now).toISOString()}); rates start when they are saved, so send the moment they were confirmed`, code: 'rates_start_when_saved' }, at);
     }
-    // U7i: the rates checked must still be the newest.
+    // What only the garage can say about the rates, then (U7i) that the rates checked are still the newest.
+    const no = fitsGarage(garage, plan);
+    if (no) return refuse(res, who, 409, no, at);
     const held = plansOf(garage.id);
     const newest = byStart(held).at(-1) ?? null;
     const basedOn = body.based_on ?? null;
     if ((basedOn === null ? null : String(basedOn)) !== (newest ? newest.id : null)) {
       return refuse(res, who, 409, { error: `the rates changed while these were being checked: the newest rates are ${newest ? `#${newest.id}` : 'none'}, and these were checked against ${basedOn === null ? 'none' : `#${basedOn}`}; read the rates again and check the prices again`, code: 'rates_changed_since_check' }, at);
     }
-    const no = fitsGarage(garage, plan);
-    if (no) return refuse(res, who, 409, no, at);
     if (Date.parse(plan.effective_from) < now - 60_000) {
       return refuse(res, who, 409, { error: `the plan starts at ${plan.effective_from}, more than 60s before this server's clock (${new Date(now).toISOString()}); a plan dated back would price cars that are already parked, so it starts now or later`, code: 'plan_starts_in_the_past' }, at);
     }

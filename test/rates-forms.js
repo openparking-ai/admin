@@ -41,6 +41,15 @@ export const MEMBERS = special('everyDay', { name: 'Members', enterFrom: '00:00'
  * against the engine when recorded, and by the browser check on the
  * platform's stand-in, which asks the engine).
  */
+/**
+ * The rule the Price Lab writes when the owner switches the fill rule on (his word, 10-14 17:19):
+ * above 80% full the time charge is 20% more, specials raised, the VIP extra not.
+ */
+export const FILL_RULE = Object.freeze({
+  id: 'lab-fill', type: 'fill_level', stage: 'ADJUST', space_classes: ['standard'],
+  threshold_bp: 8000, percent_bp: 2000, rounding: 'up', raises_specials: 'yes', raises_vip_extra: 'no',
+});
+
 export const STAYS = {
   // Saturday 2031-03-15: grace, an ordinary stay, the max per day.
   grace: { entry: '2031-03-15T10:00', exit: '2031-03-15T10:05', fee: 0 },

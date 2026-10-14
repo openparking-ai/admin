@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pager, ProblemNote, useGarageRead, usePaging } from './parts.jsx';
 import { STALE } from './api.js';
 import { moneyChoices, moneyWords, zoneChoices, zoneWords } from './garages.js';
-import FieldName from './FieldName.jsx';
+import FieldName, { FieldAbout } from './FieldName.jsx';
 
 /**
  * The Garages page (U7c): the account's garages, twenty at a time, each with
@@ -10,7 +10,7 @@ import FieldName from './FieldName.jsx';
  * steps are done, as the Setup page counts them. Pressing one chooses it and
  * opens its Setup page. "Add a garage" is above the list, closed until pressed.
  */
-export default function GaragesPage({ t, language, client, garages, chosen, onOpen, onAdded }) {
+export default function GaragesPage({ t, language, client, garages, chosen, onOpen, onAdded, onRead }) {
   const paging = usePaging(garages.length);
   if (garages.length === 0) return <NoGarages t={t} language={language} client={client} onAdded={onAdded} />;
   return (
@@ -33,13 +33,16 @@ export default function GaragesPage({ t, language, client, garages, chosen, onOp
                 <FieldName t={t} name="garages.open" />
               </th>
               <th>
+                <FieldName t={t} name="garages.spaces" />
+              </th>
+              <th>
                 <FieldName t={t} name="garages.setup" />
               </th>
             </tr>
           </thead>
           <tbody>
             {garages.slice(paging.from, paging.to).map((g) => (
-              <GarageRow key={g.id} t={t} language={language} client={client} garage={g} chosen={g.id === chosen} onOpen={onOpen} />
+              <GarageRow key={g.id} t={t} language={language} client={client} garage={g} chosen={g.id === chosen} onOpen={onOpen} onChanged={onRead} />
             ))}
           </tbody>
         </table>
@@ -50,7 +53,7 @@ export default function GaragesPage({ t, language, client, garages, chosen, onOp
 }
 
 /** One garage: pressed anywhere, or its name from the keyboard, it is chosen and its Setup opens. */
-function GarageRow({ t, language, client, garage, chosen, onOpen }) {
+function GarageRow({ t, language, client, garage, chosen, onOpen, onChanged }) {
   const setup = useGarageRead(useCallback((id) => client.setup(id), [client]), garage.id);
   const steps = setup.data?.steps;
   return (
@@ -63,10 +66,65 @@ function GarageRow({ t, language, client, garage, chosen, onOpen }) {
       <td data-zone={garage.timezone}>{zoneWords(t, garage.timezone, language) ?? t('changes.value.anotherZone')}</td>
       <td data-money={garage.currency}>{moneyWords(t, garage.currency, language) ?? t('changes.value.another')}</td>
       <td data-live={garage.live ? 'yes' : 'no'}>{garage.live ? t('garage.live') : t('garage.notLive')}</td>
+      <Spaces t={t} language={language} client={client} garage={garage} onChanged={onChanged} />
       <td data-setup={steps ? steps.filter((s) => s.done).length : undefined} data-read={setup.problem ? 'failed' : steps ? 'read' : 'reading'}>
         {setup.problem ? t('home.notRead') : steps ? t('setup.count', { done: steps.filter((s) => s.done).length, steps: steps.length }) : t('loading')}
       </td>
     </tr>
+  );
+}
+
+/**
+ * The garage's number of spaces (platform 0034): shown, or "Not set", with a
+ * Change (or Set) that opens one field in place. A press inside the cell does
+ * not open the garage. Saved through the platform, which keeps it in the
+ * change log; the list is read again after, so every page sees the new figure.
+ */
+function Spaces({ t, language, client, garage, onChanged }) {
+  const [typed, setTyped] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState(null);
+  const shown = Number.isInteger(garage.spaces) ? garage.spaces.toLocaleString(language) : t('garages.spaces.none');
+  const value = String(typed ?? '').trim();
+  const whole = /^\d{1,6}$/.test(value) && Number(value) >= 1 && Number(value) <= 100000;
+  const save = async () => {
+    if (!whole) return setProblem('spacesRefused');
+    if (busy) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      await client.setSpaces(garage.id, Number(value));
+      setTyped(null);
+      onChanged?.(await client.garages());
+    } catch (p) {
+      if (p?.kind !== STALE && p?.kind !== 'ended') setProblem(p?.kind ?? 'unexpected');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <td data-spaces={Number.isInteger(garage.spaces) ? garage.spaces : 'none'} onClick={(e) => e.stopPropagation()}>
+      {typed === null ? (
+        <>
+          <span className="spaces-shown">{shown}</span>{' '}
+          <button type="button" className="link-button" data-action="change-spaces" onClick={() => setTyped(Number.isInteger(garage.spaces) ? String(garage.spaces) : '')}>
+            {Number.isInteger(garage.spaces) ? t('garages.spaces.change') : t('garages.spaces.set')}
+          </button>
+        </>
+      ) : (
+        <span className="spaces-edit">
+          <input type="text" inputMode="numeric" size={6} value={typed} aria-label={t('garages.spaces')} data-field="spaces" onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
+          <FieldAbout t={t} name="garages.spaces" />{' '}
+          <button type="button" className="primary-button" data-action="save-spaces" disabled={busy} onClick={save}>
+            {busy ? t('garages.spaces.saving') : t('garages.spaces.save')}
+          </button>{' '}
+          <button type="button" className="link-button" data-action="cancel-spaces" onClick={() => { setTyped(null); setProblem(null); }}>
+            {t('garages.spaces.cancel')}
+          </button>
+        </span>
+      )}
+      {problem ? <ProblemNote t={t} kind={problem} /> : null}
+    </td>
   );
 }
 

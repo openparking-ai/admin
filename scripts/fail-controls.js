@@ -1583,7 +1583,7 @@ const CONTROLS = [
   },
   {
     check: 'U7g-4 the order of two discounts lost',
-    plant: { file: 'src/rates.js', anchor: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);", with: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id).reverse();" },
+    plant: { file: 'src/rates.js', anchor: "  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id), ...rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)];", with: "  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id).reverse(), ...rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)];" },
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ['two discounts apply in the order listed'],
   },
@@ -1671,9 +1671,34 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates.test.js'],
     names: ["the table: the approved page's stays"],
   },
+  // The fill rule (platform 0034, rate-engine schema 6): each red on its plant.
+  {
+    check: 'fill rule left out of the order of discounts when a special is saved',
+    plant: { file: 'src/rates.js', anchor: "  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id), ...rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)];", with: "  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id)];" },
+    run: ['node', '--test', 'test/fill-rule.test.js'],
+    names: ['the order: a special added, changed or removed on rates with a fill rule keeps it'],
+  },
+  {
+    check: 'fill rule not said beside the rates',
+    plant: { file: 'src/rates.js', anchor: "  for (const rule of rules.filter((r) => r.type === FILL_TYPE)) out.push({ key: rule.id, text: fillWords(t, rule, language) });\n", with: '' },
+    run: ['node', '--test', 'test/fill-rule.test.js'],
+    names: ['the words: the fill rule in his words beside the rates'],
+  },
+  {
+    check: 'fill rule stays asked with no figure',
+    plant: { file: 'src/rates.js', anchor: '(hasFillRule(plan) ? { ...stay, occupancy_at_entry_bp: 0 } : stay)', with: 'stay' },
+    run: ['node', '--test', 'test/fill-rule.test.js'],
+    names: ['the table: rates with a fill rule price each stay as below it'],
+  },
+  {
+    check: 'fill rule line said as another charge',
+    plant: { file: 'src/rates.js', anchor: "    } else if (line.code === 'fill_level.applied' && rule) {", with: "    } else if (line.code === 'fill_level.applied' && false) {" },
+    run: ['node', '--test', 'test/fill-rule.test.js'],
+    names: ['the lines: a stay the engine raised has its own line in words'],
+  },
   {
     check: "U7i a removed special's id left in the order of discounts",
-    plant: { file: "src/rates.js", anchor: "  const adjust = list.filter((r) => r.stage === 'ADJUST').map((r) => r.id);", with: "  const adjust = (base.adjust_order ?? []).concat(list.filter((r) => r.stage === 'ADJUST').map((r) => r.id)).filter((v, i, a) => a.indexOf(v) === i);" },
+    plant: { file: "src/rates.js", anchor: "  const adjust = [...list.filter((r) => r.stage === 'ADJUST').map((r) => r.id), ...rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)];", with: "  const adjust = (base.adjust_order ?? []).concat(list.filter((r) => r.stage === 'ADJUST').map((r) => r.id), rules.filter((r) => r.type === FILL_TYPE).map((r) => r.id)).filter((v, i, a) => a.indexOf(v) === i);" },
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ["the specials, one by one"],
   },
