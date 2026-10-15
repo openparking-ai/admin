@@ -1492,6 +1492,8 @@ export default {
   "problem.passwordRule": "The password must be 12 to 1,024 characters.",
   "problem.linkTooMany": "There have been too many tries from here. Please wait a while, then try again.",
   "problem.linkBusy": "Your garage system is busy right now. Please try again in a moment.",
+  "problem.databaseUnavailable": "Your garage system can't reach its records right now. Nothing was changed. Please try again in a moment.",
+  "problem.databaseSaving": "Your garage system lost its connection while saving. Reload the page to see whether your change was saved before trying again.",
   "problem.inviteUsed": "This invite was already used.",
   "problem.inviteExpired": "This invite has ended. An invite works for seven days.",
   "problem.inviteReplaced": "A newer invite was sent to the same email, so this one no longer works.",
