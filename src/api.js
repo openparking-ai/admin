@@ -38,6 +38,8 @@ export const PROBLEM_KINDS = [
   'notConfirmed', 'noRatesYet', 'tooManyTries', 'tryRefused', 'notReadyToOpen',
   // The fill rule (platform 0034): the garage's number of spaces, and rates that need it.
   'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
+  // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
+  'databaseUnavailable', 'databaseSaving',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -96,6 +98,9 @@ const NAMED = [
   [400, 'password_refused', 'passwordRule'],
   [429, 'link_rate_limited', 'linkTooMany'],
   [503, 'link_busy', 'linkBusy'],
+  // The platform's database could not be reached, as its src/db.js names it: on any door.
+  [503, 'database_unavailable', 'databaseUnavailable'],
+  [503, 'database_unavailable_saving', 'databaseSaving'],
   [409, 'invite_used', 'inviteUsed'],
   [409, 'invite_expired', 'inviteExpired'],
   [409, 'invite_replaced', 'inviteReplaced'],

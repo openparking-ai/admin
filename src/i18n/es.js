@@ -1488,6 +1488,8 @@ export default {
   "problem.passwordRule": "La contraseña debe tener de 12 a 1024 caracteres.",
   "problem.linkTooMany": "Hubo demasiados intentos desde aquí. Espere un rato e intente de nuevo.",
   "problem.linkBusy": "El sistema de su garaje está ocupado ahora mismo. Intente de nuevo en un momento.",
+  "problem.databaseUnavailable": "El sistema de su garaje no puede acceder a sus registros ahora mismo. No se cambió nada. Intente de nuevo en un momento.",
+  "problem.databaseSaving": "El sistema de su garaje perdió la conexión mientras guardaba. Vuelva a cargar la página para ver si su cambio se guardó antes de intentarlo de nuevo.",
   "problem.inviteUsed": "Esta invitación ya se usó.",
   "problem.inviteExpired": "Esta invitación venció. Una invitación sirve por siete días.",
   "problem.inviteReplaced": "Se envió una invitación más reciente al mismo correo, así que esta ya no sirve.",

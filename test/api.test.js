@@ -403,3 +403,25 @@ test('U7d-2 the four doors: a token only ever in a POST body; every answer the p
     }
   }
 });
+
+// The platform could not reach its database (its src/db.js): a 503 in its own
+// code, on any door. "Nothing was changed" and "it may have been saved" are
+// two sentences, and neither is "cannot be reached", which is a gateway's.
+test('the platform without its database: its two 503s, each its own plain sentence, on a read and on a change', async () => {
+  const cases = [
+    [{ error: 'The garage system cannot reach its records right now. Nothing was changed. Try again in a moment.', code: 'database_unavailable' }, 'databaseUnavailable'],
+    [{ error: 'The garage system lost its connection as your change was being saved. Reload to see whether it was saved before trying again.', code: 'database_unavailable_saving' }, 'databaseSaving'],
+  ];
+  for (const [body, kind] of cases) {
+    for (const call of [(c) => c.garages(), (c) => c.addTaxList('g', { effective_from: 'x', rules: [] })]) {
+      const problem = await problemOf(call(createClient({ fetch: fakeFetch(json(503, body)).fn })));
+      assert.equal(problem.kind, kind, body.code);
+      for (const language of ['en', 'es']) {
+        const words = translate(language, problemKey(problem));
+        assert.doesNotMatch(words, RAW, `${body.code} (${language}): "${words}"`);
+        assert.notEqual(words, translate(language, problemKey({ kind: 'unreachable' })));
+        assert.notEqual(words, translate(language, problemKey({ kind: 'unexpected' })));
+      }
+    }
+  }
+});
