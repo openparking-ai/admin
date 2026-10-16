@@ -2129,6 +2129,15 @@ export async function startStub({ port = 0 } = {}) {
       // U7i: with `who`, its change-log line too, as the save writes it (who saved it, item 11).
       if (who) line(who, { garageId, action: 'rate_plan.add', subject: { kind: 'rate_plan', id: row.id, name: row.plan_version }, before: null, after: { plan_version: row.plan_version, effective_from: row.effective_from, confirmed: true } });
     },
+    /**
+     * A list of taxes stored on the garage as a save stores one (OP-NODE-013):
+     * `{ effective_from, rules }`, each rule `{ id, label, percent_bp, rounding, sequence }`.
+     */
+    storeTaxList: (garageId, list) => {
+      made += 1;
+      const rules = [...list.rules].sort((a, b) => a.sequence - b.sequence);
+      moneyOf(garageId).taxSets.push({ id: `ts9${String(made).padStart(5, '0')}-0000-4000-8000-000000000000`, garage_id: garageId, effective_from: list.effective_from, rule_count: rules.length, created_at: new Date().toISOString(), rules });
+    },
     /** U7i: every try answered `ms` late from now on (0: at once). */
     delayTries: (ms) => {
       tryDelay = ms;

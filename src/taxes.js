@@ -56,6 +56,20 @@ export function arrange(lists, now = new Date()) {
 }
 
 /**
+ * The names of a priced stay's tax lines, by their line's id, from the one
+ * list the platform taxed the stay by: the list in force when it left
+ * (`leftAt`, milliseconds). Every list numbers its lines alike (tax-1,
+ * tax-2, ...), so names gathered from every list would name a line by
+ * another list's tax (OP-NODE-013).
+ */
+export function taxNamesAt(lists, leftAt) {
+  const names = {};
+  const list = Number.isFinite(leftAt) ? arrange(lists, new Date(leftAt)).current : null;
+  for (const rule of list?.rules ?? []) names[rule.id] = rule.label;
+  return names;
+}
+
+/**
  * Where the garage stands, at `now`, as the screen says it:
  *   none     no list at all: the garage has not said
  *   notYet   lists, but none started: the first starts later
