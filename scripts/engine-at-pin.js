@@ -2,7 +2,7 @@
 // fetched once into node_modules/.cache (or named by RATE_ENGINE_SRC, held to
 // the pin), and the engine itself served on a loopback port. The engine is
 // Python with no dependencies, so `python3` is all it needs. Used by the
-// finding-codes check and by the stand-in platform (test/stub-platform.js),
+// finding-codes and currency-digits checks and by the stand-in platform (test/stub-platform.js),
 // which prices every stay through it, as the platform does.
 
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -46,6 +46,21 @@ export function engineAtPin() {
   const head = sh('git', ['-C', src, 'rev-parse', 'HEAD']);
   if (head !== pin) throw new Error(`the fetched engine is at ${head}, not at the pin ${pin}`);
   return src;
+}
+
+/**
+ * The engine's own currency table at the pin: `MINOR_UNIT_DIGITS` in
+ * src/rate_engine/currency.py, code to how many digits after the point, read
+ * by Python from the engine's source alone (`python3 -I`), never copied.
+ */
+export function engineCurrencyDigits() {
+  const src = join(engineAtPin(), 'src');
+  const out = sh('python3', ['-I', '-c', 'import json, sys; sys.path.insert(0, sys.argv[1]); from rate_engine.currency import MINOR_UNIT_DIGITS; print(json.dumps(MINOR_UNIT_DIGITS, sort_keys=True))', src]);
+  const table = JSON.parse(out);
+  if (!table || typeof table !== 'object' || Array.isArray(table) || Object.keys(table).length < 100 || !Object.values(table).every((d) => Number.isInteger(d))) {
+    throw new Error(`the engine's MINOR_UNIT_DIGITS read back as ${out.slice(0, 200)}`);
+  }
+  return table;
 }
 
 const freePort = () =>

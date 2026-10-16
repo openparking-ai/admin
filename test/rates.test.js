@@ -18,10 +18,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DICTIONARIES } from '../src/i18n/index.js';
-import { FINDING_CODES, caseWords, changes, findingKey, findingWords, instantOf, lineWords, planSentences, specialWords, tableStays, wallAt } from '../src/rates.js';
+import { DICTIONARIES, translate } from '../src/i18n/index.js';
+import { FINDING_CODES, arrange, caseWords, changes, currencyDigits, findingKey, findingWords, instantOf, lineWords, moneyText, parseMoney, planSentences, platformNow, saveStart, specialWords, tableStays, typedMoney, wallAt } from '../src/rates.js';
+import { taxNamesAt } from '../src/taxes.js';
+import { createClient } from '../src/api.js';
+import { MINOR_UNIT_DIGITS } from '../src/currencyDigits.js';
+import { CURRENCY_CODES } from '../src/garages.js';
 import { STAYS, STAY_LIST, ZONE, recordedPlans } from './rates-forms.js';
-import { priceTableFile } from '../src/files/model.js';
+import { priceTableFile, ratesFile } from '../src/files/model.js';
 
 const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8')).rates_answers;
 const answer = (what) => recorded.find((a) => a.what === what);
@@ -162,4 +166,88 @@ test('the price table file says what the page says, row for row', () => {
   assert.deepEqual(file.rows.map((r) => r[5].text), ['$0.00', '$16.00', '$30.00', '$12.00', '$8.00']);
   assert.equal(file.rows[3][6].text, 'Early bird applied. By the time-based rate this stay would be $30.00.');
   assert.equal(file.rows[0][7].text, 'Your own stay');
+});
+
+test('money in the units the engine reads: a price in pesos or dinars typed, stored and shown with the engine\'s digits (OP-NODE-006)', () => {
+  // The browser's own data says no digits after the point for both; the engine says 2 for COP and 3 for IQD.
+  assert.equal(parseMoney('50.00', 'COP').minor, 5000);
+  assert.equal(parseMoney('5000', 'COP').minor, 500000);
+  assert.equal(typedMoney(5000, 'COP'), '50.00');
+  assert.equal(moneyText(5000, 'COP', 'en'), 'COP\u00a050.00');
+  assert.equal(parseMoney('1.500', 'IQD').minor, 1500);
+  assert.equal(typedMoney(1500, 'IQD'), '1.500');
+  assert.equal(moneyText(1500, 'IQD', 'es'), 'IQD\u00a01.500');
+  assert.deepEqual(['USD', 'JPY', 'KWD', 'CLF'].map(currencyDigits), [2, 0, 3, 4]);
+  // Every currency a garage can be added with, by the engine's table (scripts/check-currency-digits.js holds the table to the engine at its pin).
+  const off = CURRENCY_CODES.filter((code) => currencyDigits(code) !== MINOR_UNIT_DIGITS[code]);
+  assert.deepEqual(off, [], `written with other digits than the engine reads: ${off.join(', ')}`);
+});
+
+/** The early bird's rates, and the same with 20 free minutes saved by another owner whose computer runs ahead: dated `ahead` ms after `now`. */
+function savedAhead(now, ahead) {
+  const before = { ...plans.early, plan_version: 'before', effective_from: new Date(now - 3600_000).toISOString() };
+  const later = { ...plans.early, plan_version: 'ahead', effective_from: new Date(now + ahead).toISOString(), rules: plans.early.rules.map((r) => (r.type === 'grace' ? { ...r, minutes: 20 } : r)) };
+  return { before, later };
+}
+
+test('OP-NODE-012: the rates in force are the newest stored, even dated a moment ahead of this computer -- the ones shown and the ones a save is built on', () => {
+  const now = Date.parse('2026-10-16T15:00:00Z');
+  const { before, later } = savedAhead(now, 45_000);
+  // This computer's clock (`now`) is not asked: the newest rates are the ones in force.
+  const { current, earlier } = arrange([later, before], new Date(now));
+  assert.equal(current?.plan_version, 'ahead', 'the newest rates hidden as "later"');
+  assert.deepEqual(earlier.map((p) => [p.plan_version, p.until]), [['before', later.effective_from]]);
+  // A save starts after the rates it is built on, never before them: they would take over from it.
+  assert.equal(saveStart(later, now), new Date(Date.parse(later.effective_from) + 1).toISOString());
+  assert.equal(saveStart(before, now), new Date(now).toISOString());
+  assert.equal(saveStart(null, now), new Date(now).toISOString());
+});
+
+test('OP-NODE-015: the Rates file with rates dated ahead of the viewer\'s clock, in English and Spanish: made, the newest the current ones', () => {
+  const readAt = new Date('2026-10-16T15:00:00Z');
+  const { before, later } = savedAhead(readAt.getTime(), 30_000);
+  for (const language of ['en', 'es']) {
+    const tt = (key, values) => translate(language, key, values);
+    const file = ratesFile({ t: tt, language, garage: { name: 'G', timezone: ZONE, currency: 'USD' }, data: { plans: [before, later] }, readAt });
+    const states = [...new Set(file.rows.map((r) => r[1].text))];
+    assert.deepEqual(states, [tt('rates.state.current'), tt('rates.state.earlier')], `${language}: ${states.join(', ')}`);
+    assert.ok(file.rows[0][2].text.length > 0 && file.rows.some((r) => r[1].text === tt('rates.state.current') && /20/.test(r[2].text)), `${language}: the newest rates are not the current ones`);
+  }
+});
+
+test('OP-NODE-013: a tax line is named from the list the stay was taxed by -- the one in force when it left -- though every list numbers its lines alike', () => {
+  const lists = [
+    { effective_from: '2032-01-01T05:00:00.000Z', rules: [{ id: 'tax-1', label: 'State parking tax', percent_bp: 800 }] },
+    { effective_from: '2026-01-01T05:00:00.000Z', rules: [{ id: 'tax-1', label: 'City parking tax', percent_bp: 600 }] },
+  ];
+  assert.deepEqual(taxNamesAt(lists, Date.parse('2031-03-15T17:00:00Z')), { 'tax-1': 'City parking tax' });
+  assert.deepEqual(taxNamesAt(lists, Date.parse('2032-03-15T17:00:00Z')), { 'tax-1': 'State parking tax' });
+  assert.deepEqual(taxNamesAt(lists, Date.parse('2025-03-15T17:00:00Z')), {}, 'a stay before any list: no name');
+  const stay = { rate_lines: [], tax_lines: [{ rule_id: 'tax-1', delta_minor: 96 }] };
+  assert.deepEqual(lineWords(en, stay, plans.early, taxNamesAt(lists, Date.parse('2031-03-15T17:00:00Z')), 'USD', 'en').lines.map((l) => l.words), ['City parking tax']);
+});
+
+test('OP-NODE-014: new rates are dated by the platform\'s clock, from its answer\'s Date and the time since, never by this computer\'s', async () => {
+  // This computer two minutes slow: the platform said 15:00:00 when this computer said 14:58:00.
+  const clock = { date: Date.parse('2026-10-16T15:00:00Z'), local: Date.parse('2026-10-16T14:58:00Z') };
+  assert.equal(platformNow(clock, Date.parse('2026-10-16T14:58:30Z')), Date.parse('2026-10-16T15:00:30Z'));
+  assert.equal(platformNow(null, 1234), 1234, 'no answer\'s Date: this computer\'s clock');
+  // The rates read carries the platform's clock: its Date, and this computer's when it came.
+  const body = JSON.stringify({ rate_plans: [], space_class: 'standard' });
+  const headers = { get: (name) => (name.toLowerCase() === 'date' ? 'Fri, 16 Oct 2026 15:00:00 GMT' : null) };
+  const client = createClient({ fetch: async () => ({ status: 200, ok: true, headers, text: async () => body }) });
+  const before = Date.now();
+  const read = await client.ratePlans('g');
+  assert.equal(read.clock.date, Date.parse('2026-10-16T15:00:00Z'));
+  assert.ok(read.clock.local >= before && read.clock.local <= Date.now());
+  const undated = await createClient({ fetch: async () => ({ status: 200, ok: true, text: async () => body }) }).ratePlans('g');
+  assert.equal(undated.clock, null);
+  // The two refusals name this computer's clock, and offer no date to choose.
+  for (const language of ['en', 'es']) {
+    for (const key of ['problem.planStartPast', 'problem.planStartLater']) {
+      const words = translate(language, key);
+      assert.match(words, language === 'en' ? /this computer's clock/ : /reloj de esta computadora/, `${language} ${key}: ${words}`);
+      assert.doesNotMatch(words, /later date|fecha posterior|Choose Now|Elija Ahora/, `${language} ${key}: ${words}`);
+    }
+  }
 });
