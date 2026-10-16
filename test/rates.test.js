@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DICTIONARIES, translate } from '../src/i18n/index.js';
-import { FINDING_CODES, arrange, caseWords, changes, currencyDigits, findingKey, findingWords, instantOf, lineWords, moneyText, parseMoney, planSentences, platformNow, saveStart, specialWords, tableStays, typedMoney, wallAt } from '../src/rates.js';
+import { FINDING_CODES, LONGEST_STAY_DAYS, arrange, caseWords, changes, currencyDigits, findingKey, findingWords, instantOf, lineWords, moneyText, parseMoney, planSentences, platformNow, saveStart, specialWords, tableStays, tooLongToPrice, typedMoney, wallAt } from '../src/rates.js';
 import { taxNamesAt } from '../src/taxes.js';
 import { createClient } from '../src/api.js';
 import { MINOR_UNIT_DIGITS } from '../src/currencyDigits.js';
@@ -250,4 +250,29 @@ test('OP-NODE-014: new rates are dated by the platform\'s clock, from its answer
       assert.doesNotMatch(words, /later date|fecha posterior|Choose Now|Elija Ahora/, `${language} ${key}: ${words}`);
     }
   }
+});
+
+test('the rules of rate setup, in both languages: the cheapest price wins, and no price past the longest stay, its days from the one number', () => {
+  assert.equal(LONGEST_STAY_DAYS, 90, 'the longest stay the engine prices: 90 days (decided 2026-10-16)');
+  // The words as decided (2026-10-16), and in Spanish.
+  assert.equal(translate('en', 'rates.rule.cheapest'), 'When more than one price applies, the car always pays the cheapest.');
+  assert.equal(translate('en', 'rates.rule.longest', { days: LONGEST_STAY_DAYS }), "Stays longer than 90 days can't be priced automatically; they need an operator.");
+  assert.equal(translate('es', 'rates.rule.cheapest'), 'Cuando se aplica más de un precio, el auto siempre paga el más barato.');
+  assert.equal(translate('es', 'rates.rule.longest', { days: LONGEST_STAY_DAYS }), 'Las estadías de más de 90 días no tienen precio automático; necesitan un operador.');
+  // The days come from LONGEST_STAY_DAYS alone: neither language writes a number of its own.
+  for (const language of ['en', 'es']) {
+    const words = DICTIONARIES[language]['rates.rule.longest'];
+    assert.ok(words.includes('{days}') && !/\d/.test(words), `${language}: rates.rule.longest fills in {days} and has no number of its own: ${words}`);
+  }
+});
+
+test('the longest stay: 90 days is priced, a minute more is not, in real time as the engine counts it', () => {
+  // April to the end of June 2031, New York: no change of the clocks.
+  assert.equal(tooLongToPrice('2031-04-01T10:00', '2031-06-30T10:00', ZONE), false, 'exactly 90 days: priced');
+  assert.equal(tooLongToPrice('2031-04-01T10:00', '2031-06-30T10:01', ZONE), true, '90 days and a minute: not priced');
+  // Across a change of the clocks the garage's clock shows an hour more or less; the stay's length is real time.
+  // The clocks go forward on 9 March 2031: 90 days and 30 minutes on the clock is 89 days 23 h 30 min.
+  assert.equal(tooLongToPrice('2031-03-01T10:00', '2031-05-30T10:30', ZONE), false, 'spring: 89 days 23 h 30 min in real time');
+  // They go back on 2 November 2031: 89 days 23 h 30 min on the clock is 90 days and 30 minutes.
+  assert.equal(tooLongToPrice('2031-09-01T10:00', '2031-11-30T09:30', ZONE), true, 'autumn: 90 days 30 min in real time');
 });

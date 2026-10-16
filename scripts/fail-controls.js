@@ -1817,6 +1817,37 @@ const CONTROLS = [
     run: ["node", "--test", "test/rates.test.js"],
     names: ["OP-NODE-015: the Rates file with rates dated ahead of the viewer's clock"],
   },
+  // ── The two rules of rate setup (decided 2026-10-16): the cheapest price wins; no price past the longest stay (test/rates.test.js) ──
+  {
+    check: "rules: the longest stay a day longer than the engine's",
+    plant: { file: "src/rates.js", anchor: "export const LONGEST_STAY_DAYS = 90;", with: "export const LONGEST_STAY_DAYS = 91;" },
+    run: ["node", "--test", "test/rates.test.js"],
+    names: ["the rules of rate setup, in both languages"],
+  },
+  {
+    check: "rules: the cheapest price rule in other words",
+    plant: { file: "src/i18n/en.js", anchor: "  \"rates.rule.cheapest\": \"When more than one price applies, the car always pays the cheapest.\",", with: "  \"rates.rule.cheapest\": \"When more than one price applies, the special rate is charged.\"," },
+    run: ["node", "--test", "test/rates.test.js"],
+    names: ["the rules of rate setup, in both languages"],
+  },
+  {
+    check: "rules: the Spanish longest stay with a number of its own",
+    plant: { file: "src/i18n/es.js", anchor: "  \"rates.rule.longest\": \"Las estadías de más de {days} días", with: "  \"rates.rule.longest\": \"Las estadías de más de 90 días" },
+    run: ["node", "--test", "test/rates.test.js"],
+    names: ["the rules of rate setup, in both languages"],
+  },
+  {
+    check: "rules: a stay of exactly the longest refused",
+    plant: { file: "src/rates.js", anchor: "  return ms > LONGEST_STAY_DAYS * 86400000;", with: "  return ms >= LONGEST_STAY_DAYS * 86400000;" },
+    run: ["node", "--test", "test/rates.test.js"],
+    names: ["the longest stay: 90 days is priced, a minute more is not"],
+  },
+  {
+    check: "rules: a stay's length read off the garage's clock, not in real time",
+    plant: { file: "src/rates.js", anchor: "  const ms = from !== null && to !== null ? to - from : ", with: "  const ms = false ? to - from : " },
+    run: ["node", "--test", "test/rates.test.js"],
+    names: ["the longest stay: 90 days is priced, a minute more is not"],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -3306,6 +3337,49 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ["node", "scripts/check-rates-meanwhile.js"],
     names: ["FAIL slow: with this computer two minutes slow, Confirm saves"],
+  },
+  // ── The two rules of rate setup, in a browser (scripts/check-rate-rules.js) ──
+  {
+    check: "rules: not said by the caps (browser)",
+    plant: { file: "src/RatesPage.jsx", anchor: "        <RateRules t={t} where=\"caps\" />\n", with: "" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL en: the rules by the caps", "FAIL es: the rules by the caps"],
+  },
+  {
+    check: "rules: not said by the special rates (browser)",
+    plant: { file: "src/RatesPage.jsx", anchor: "      <RateRules t={t} where=\"specials\" />\n", with: "" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL en: the rules by the special rates", "FAIL es: the rules by the special rates"],
+  },
+  {
+    check: "rules: a stay past the longest priced all the same (browser)",
+    plant: { file: "src/RatesPage.jsx", anchor: "  if (tooLongToPrice(entry, exit, timeZone)) return TOO_LONG;\n", with: "" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL en: calculator: a stay of 90 days and a minute", "FAIL es: calculator: a stay of 90 days and a minute", "FAIL check page: its calculator", "FAIL check page: a stay of 90 days and a minute is not added"],
+  },
+  {
+    check: "rules: the price before kept beside the longest stay's sentence (browser)",
+    plant: { file: "src/RatesPage.jsx", anchor: "    if (why === TOO_LONG) setAnswer(null);\n", with: "" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL en: calculator: a stay of 90 days and a minute"],
+  },
+  {
+    check: "rules: a stay past the longest added to the price table (browser)",
+    plant: { file: "src/RatesPage.jsx", anchor: "    if (why) return setAddSaid(why);", with: "    if (why && why !== TOO_LONG) return setAddSaid(why);" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL check page: a stay of 90 days and a minute is not added"],
+  },
+  {
+    check: "rules: the two sentences of the rules box run together (browser)",
+    plant: { file: "src/styles.css", anchor: ".rate-rules p + p {\n  margin-top: 6px;\n}\n", with: "" },
+    before: BUILD,
+    run: ["node", "scripts/check-rate-rules.js"],
+    names: ["FAIL en: each rules box: its second sentence 6 px under the first"],
   },
 ];
 

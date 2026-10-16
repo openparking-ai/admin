@@ -249,6 +249,9 @@ jobs:
       - name: The Rates page when things change under the owner -- another owner's save dated ahead, this computer's clock two minutes slow, a special removed while it is changed, a special the form cannot show, two tax lists that number their lines alike, a fault while drawing said in plain words
         run: npm run check-rates-meanwhile
 
+      - name: The Rates page's two rules -- the cheapest price wins, and a stay longer than 90 days needs an operator -- by the caps and the special rates, both languages; no price in either calculator for a stay past it
+        run: npm run check-rate-rules
+
       - name: The owner's screens tidied -- the choosers on Settings only, Garage View's name, lists of 312 paged and downloaded and printed whole, no Download or Print on an empty list, Confirm email, Home's garages
         run: npm run check-tidy
 

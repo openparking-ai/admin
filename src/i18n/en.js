@@ -1588,6 +1588,8 @@ export default {
   "rates.specials.about": "Rates for certain days and times, each added, changed or removed on its own.",
   "rates.specials.none": "No special rates yet.",
   "rates.specials.cheaper": "When a stay fits a special rate, the driver pays the cheapest way: the special rate or the regular rates. When two special rates fit, the cheaper one is charged.",
+  "rates.rule.cheapest": "When more than one price applies, the car always pays the cheapest.",
+  "rates.rule.longest": "Stays longer than {days} days can't be priced automatically; they need an operator.",
   "rates.addSpecial": "Add a special rate",
   "rates.special.choice": "Which days",
   "rates.special.choice.about": "Pick one: it ticks the days it means, and you can change them.",

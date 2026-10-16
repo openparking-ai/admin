@@ -12,6 +12,7 @@ import {
   DAYS,
   DAY_KINDS,
   DIRECTIONS,
+  LONGEST_STAY_DAYS,
   PRESETS,
   PRESET_KEYS,
   TABLE_MAX,
@@ -56,6 +57,7 @@ import {
   specialsPlan,
   startNow,
   tableStays,
+  tooLongToPrice,
   typedRegular,
   typedSpecial,
 } from './rates.js';
@@ -754,6 +756,21 @@ function BoxName({ t, name }) {
   return <span className="field-name">{t(name)}</span>;
 }
 
+/**
+ * The two rules of rate setup (decided 2026-10-16), said by the caps and by
+ * the special rates (`where`): when more than one price applies, the car
+ * always pays the cheapest; and a stay longer than the rate engine prices
+ * (LONGEST_STAY_DAYS) needs an operator.
+ */
+function RateRules({ t, where }) {
+  return (
+    <div className="rates-note rate-rules" data-rules={where}>
+      <p data-rule="cheapest">{t('rates.rule.cheapest')}</p>
+      <p data-rule="longest">{t('rates.rule.longest', { days: LONGEST_STAY_DAYS })}</p>
+    </div>
+  );
+}
+
 // --- the regular rates --------------------------------------------------------
 
 /**
@@ -824,6 +841,8 @@ function RegularSection({ t, language, garage, now, typed, problems, nothing, on
           ) : null}
         </fieldset>
 
+        <RateRules t={t} where="caps" />
+
         <fieldset className="rates-part" data-part="grace">
           <legend>
             <FieldName t={t} name="rates.grace" />
@@ -884,6 +903,7 @@ function SpecialSection({ t, language, garage, canAdd, list, current, editing, n
       <h2 className="section-title">
         <FieldName t={t} name="rates.specials" />
       </h2>
+      <RateRules t={t} where="specials" />
       <p className="quiet">{t('rates.specials.cheaper')}</p>
       {list.length ? (
         <ol className="special-list">
@@ -1089,6 +1109,38 @@ function forStay(plan, entry, garage, name) {
   return { ...plan, plan_version: name, effective_from: startNow(garage, from) };
 }
 
+/** What a calculator says, instead of a price, for a stay longer than the rate engine prices. */
+const TOO_LONG = 'rates.rule.longest';
+
+/**
+ * Why a stay typed in is not priced, as its sentence's key, or null: a time
+ * missing, left before it came in, or longer than the rate engine prices
+ * (LONGEST_STAY_DAYS) -- that one needs an operator, and nothing is sent.
+ */
+function notPriced(entry, exit, timeZone) {
+  if (!wallOf(entry) || !wallOf(exit)) return 'rates.try.need';
+  if (exit < entry) return 'rates.try.backwards';
+  if (tooLongToPrice(entry, exit, timeZone)) return TOO_LONG;
+  return null;
+}
+
+/** A stay not priced, said under its fields: `notice` is the calculator's ("try") or the price table's ("add"). */
+function NotPricedNote({ t, said, notice }) {
+  if (!said) return null;
+  if (said === TOO_LONG) {
+    return (
+      <p className="warning" data-notice={`${notice}-too-long`}>
+        {t(TOO_LONG, { days: LONGEST_STAY_DAYS })}
+      </p>
+    );
+  }
+  return (
+    <p className="warning" data-notice={`${notice}-need`}>
+      {t(said)}
+    </p>
+  );
+}
+
 /**
  * The price calculator (U7i, item 7): came in, left, and what the driver pays
  * with each line in plain words. Nothing is saved. `sources` are the rates it
@@ -1111,8 +1163,10 @@ function Calculator({ t, language, client, garage, sources, taxLists, onCheckPag
 
   const run = async () => {
     setProblem(null);
-    if (!wallOf(entry) || !wallOf(exit)) return setSaid('rates.try.need');
-    if (exit < entry) return setSaid('rates.try.backwards');
+    const why = notPriced(entry, exit, garage.timezone);
+    // Longer than the engine prices: its sentence instead of a price, the price before it gone too.
+    if (why === TOO_LONG) setAnswer(null);
+    if (why) return setSaid(why);
     if (!chosen.plan) return setSaid(null);
     setSaid(null);
     if (busy) return;
@@ -1168,11 +1222,7 @@ function Calculator({ t, language, client, garage, sources, taxLists, onCheckPag
           </Act>
         </div>
       </form>
-      {said ? (
-        <p className="warning" data-notice="try-need">
-          {t(said)}
-        </p>
-      ) : null}
+      <NotPricedNote t={t} said={said} notice="try" />
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
       {stay && !busy && stale ? (
         <p className="warning" data-notice="calc-stale">
@@ -1359,8 +1409,8 @@ function Review({ t, language, client, garage, current, basedOn, clock, draft, t
   const addStay = () => {
     const entry = wallOf(extra.entry);
     const exit = wallOf(extra.exit);
-    if (!entry || !exit) return setAddSaid('rates.try.need');
-    if (exit < entry) return setAddSaid('rates.try.backwards');
+    const why = notPriced(entry, exit, garage.timezone);
+    if (why) return setAddSaid(why);
     if (stays.length >= TABLE_MAX) return setAddSaid(null);
     setAddSaid(null);
     setAdded((was) => [...was, { entry, exit, why: { key: 'added' } }]);
@@ -1442,11 +1492,7 @@ function Review({ t, language, client, garage, current, basedOn, clock, draft, t
             {t('rates.table.add')}
           </Act>
         </div>
-        {addSaid ? (
-          <p className="warning" data-notice="add-need">
-            {t(addSaid)}
-          </p>
-        ) : null}
+        <NotPricedNote t={t} said={addSaid} notice="add" />
       </section>
 
       {findings.length ? (

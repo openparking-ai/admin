@@ -979,6 +979,33 @@ export function instantOf(wall, timeZone) {
 /** A wall-clock reading plus `minutes`, as the garage's clock reads it after that long. */
 export const wallPlus = (wall, minutes, timeZone) => wallAt(instantOf(wall, timeZone) + minutes * 60000, timeZone);
 
+// --- the longest stay --------------------------------------------------------
+
+/**
+ * The longest stay the rate engine prices, in days (decided 2026-10-16). A
+ * longer stay can't be priced automatically: it needs an operator. The one
+ * number for it on these screens: the Rates page says it by the caps and by
+ * the special rates (`rates.rule.longest`, its {days} from here), and its
+ * calculators price no stay longer. The engine refuses a longer stay from the
+ * version that sets the limit; when rate-engine.pin moves to it, the two must
+ * be equal.
+ */
+export const LONGEST_STAY_DAYS = 90;
+
+/**
+ * Whether a stay is longer than the rate engine prices: more than
+ * LONGEST_STAY_DAYS days from `entry` to `exit` (each the garage's clock,
+ * 'YYYY-MM-DDTHH:MM'), in real time, as the engine counts a stay's length --
+ * across a change of the clocks the garage's clock shows an hour more or less.
+ */
+export function tooLongToPrice(entry, exit, timeZone) {
+  const from = instantOf(entry, timeZone);
+  const to = instantOf(exit, timeZone);
+  // A moment the clocks skip has no instant: then the clock's own readings, at most an hour off.
+  const ms = from !== null && to !== null ? to - from : Date.parse(`${exit}:00Z`) - Date.parse(`${entry}:00Z`);
+  return ms > LONGEST_STAY_DAYS * 86400000;
+}
+
 /** The day of the week of a 'YYYY-MM-DD'. */
 const weekdayOf = (day) => DAYS[(new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7];
 const addDays = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);

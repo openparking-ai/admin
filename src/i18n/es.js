@@ -1584,6 +1584,8 @@ export default {
   "rates.specials.about": "Tarifas para ciertos días y horas, cada una agregada, cambiada o quitada por sí sola.",
   "rates.specials.none": "Todavía no hay tarifas especiales.",
   "rates.specials.cheaper": "Cuando una estadía cumple una tarifa especial, el conductor paga lo más barato: la tarifa especial o las tarifas normales. Cuando se cumplen dos tarifas especiales, se cobra la más barata.",
+  "rates.rule.cheapest": "Cuando se aplica más de un precio, el auto siempre paga el más barato.",
+  "rates.rule.longest": "Las estadías de más de {days} días no tienen precio automático; necesitan un operador.",
   "rates.addSpecial": "Agregar una tarifa especial",
   "rates.special.choice": "Qué días",
   "rates.special.choice.about": "Elija una: marca los días que significa, y usted puede cambiarlos.",
