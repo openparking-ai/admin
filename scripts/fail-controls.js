@@ -3209,7 +3209,8 @@ const BROWSER_CONTROLS = [
   },
   {
     check: "U7i P1 the rates saved to start an hour after Confirm",
-    plant: { file: "src/rates.js", anchor: "export const startNow = (_garage, now = Date.now()) => new Date(now).toISOString();", with: "export const startNow = (_garage, now = Date.now()) => new Date(now + 3600_000).toISOString();" },
+    // The start of a save is saveStart's since OP-NODE-012 and OP-NODE-014 (the platform's clock, after the rates it is built on).
+    plant: { file: "src/rates.js", anchor: "  return new Date(Number.isFinite(after) ? Math.max(now, after) : now).toISOString();", with: "  return new Date((Number.isFinite(after) ? Math.max(now, after) : now) + 3600_000).toISOString();" },
     before: BUILD,
     run: ['node', 'scripts/check-rates.js'],
     names: ["FAIL saved: back on the Rates page"],
