@@ -19,8 +19,12 @@
       needs) is read from that list, never from the file. And the set must be
       whole: each ROOT (what the job installs) and everything each package
       needs (Depends, Pre-Depends) is in DIR or already on this runner, at a
-      version that does, and every package in DIR is one of those. A package
-      missing, or one nothing here needs, is refused by name.
+      version that does, and every package in DIR is one of those. So is an
+      upgrade apt makes on its own: of a package the runner has that a new one
+      Breaks, and of every package the runner has from the same source, at the
+      same source version, as one it installs (APT::Get::Upgrade-By-Source-
+      Package). A package missing, or one nothing here needs, is refused by
+      name.
 
   verify-installs.py trim DIR RELEASE
       Every list in DIR/lists that vouches for none of the packages is dropped,
@@ -86,7 +90,7 @@ PACKAGES = re.compile(r'(.+_dists_[^_]+)_(.+_binary-amd64_Packages)$')
 # What apt names a package file: name_version_architecture.deb, the version's ':' written %3a.
 DEB_NAME = re.compile(r'^([^_]+)_([^_]+)_([^_]+)\.deb$')
 # The fields a set's check needs of a package, read from its verified list.
-FIELDS = ('Package', 'Version', 'Architecture', 'Depends', 'Pre-Depends', 'Provides', 'Breaks')
+FIELDS = ('Package', 'Version', 'Architecture', 'Source', 'Depends', 'Pre-Depends', 'Provides', 'Breaks')
 
 
 def suites(release):
@@ -227,12 +231,21 @@ def installed_packages():
     return have
 
 
-def whole(debs, roots, installed):
-    """The set needs nothing it does not hold or the runner has, and holds nothing nothing needs."""
+def source_of(c):
+    """The source a package was built from, and that source's version: its Source field, else its own name and version."""
+    m = re.match(r'\s*([^\s(]+)(?:\s*\(\s*([^)\s]+)\s*\))?', c.get('Source') or '')
+    return (m.group(1), m.group(2) or c['Version']) if m else (c['Package'], c['Version'])
+
+
+def whole(debs, roots, installed, had):
+    """The set needs nothing it does not hold or the runner has, and holds nothing nothing needs.
+
+    installed: the runner as it was before the set went in. had: the names of the packages the runner has, at any version."""
     refused = []
     # name -> [(version, deb)] for what the cache offers, real and provided.
-    offered, real = {}, {}
+    offered, real, built = {}, {}, {}
     for deb, c in debs.items():
+        built.setdefault(source_of(c), []).append(deb)
         real.setdefault(c['Package'], []).append((c['Version'], deb))
         offered.setdefault(c['Package'], []).append((c['Version'], deb))
         for (name, _, version) in (alt for group in relations(c.get('Provides')) for alt in group):
@@ -275,12 +288,19 @@ def whole(debs, roots, installed):
                     if deb not in reached and name in installed:
                         reached.add(deb)
                         todo.append(deb)
+        # apt upgrades, beside a package it installs, every package the runner has from the same source at an older
+        # source version (APT::Get::Upgrade-By-Source-Package, on by default): glib's and nss's tools beside their
+        # libraries. Only a package the runner has: one it never had is still a package nothing needs.
+        for deb in built[source_of(c)]:
+            if deb not in reached and debs[deb]['Package'] in had:
+                reached.add(deb)
+                todo.append(deb)
     for deb in sorted(set(debs) - reached):
         refused.append(f'{deb}: nothing the job installs needs it (a package not in the set)')
     return refused
 
 
-def verify_debs(directory, release, roots=None, used=None, set_was=None):
+def verify_debs(directory, release, roots=None, used=None, set_was=None, without=(), seen=None):
     refused = []
     entries = walk(directory)
     if entries is None:
@@ -388,10 +408,16 @@ def verify_debs(directory, release, roots=None, used=None, set_was=None):
         # The runner as it was before this set went in: once installed (after a fill, or before a control
         # runs), a package of the set would answer for itself, and one deleted from the set would not be
         # missed. set_was: the whole set as installed, when DIR is a control's changed copy of it.
+        # without: names judged as if the runner never had them (a control's plant).
         installed = installed_packages()
+        had = set(installed) - set(without)
+        for name in without:
+            installed.pop(name, None)
         for name, version in set_was or {(c.get('Package'), c.get('Version')) for c in control.values()}:
             installed[name] = [row for row in installed.get(name, []) if row[0] != version]
-        refused += whole(control, roots, installed)
+        if seen is not None:
+            seen.update(control=control, installed=installed, had=had)
+        refused += whole(control, roots, installed, had)
     if not refused:
         print(f'verified: {len(debs)} packages against {len(signed)} signed Ubuntu {release} releases, the set whole for {len(roots or [])} packages the job installs')
     return refused
@@ -651,10 +677,22 @@ def selftest_debs(directory, release, other, other_suite, roots):
             return dst
         # The real set, as installed on this runner: each changed copy is judged against the runner without it.
         set_was = {tuple(subprocess.run(['dpkg-deb', '-f', os.path.join(directory, f), field], capture_output=True, text=True).stdout.strip() for field in ('Package', 'Version')) for f in os.listdir(directory) if f.endswith('.deb')}
-        check = lambda d: verify_debs(d, release, roots, set_was=set_was)
-        real = check(copy())
+        check = lambda d, **more: verify_debs(d, release, roots, set_was=set_was, **more)
+        seen = {}
+        real = check(copy(), seen=seen)
         print(f'  {"ok  " if not real else "MISS"} control baseline: the real set passes{"" if not real else ": " + real[0]}')
         ok &= not real
+        # A package apt took in only because the runner has it (an upgrade beside another of its source, or one a new
+        # package Breaks), judged on a runner that never had it: a package nothing needs. A set with none has no plant.
+        lone = lambda deb: f'{deb}: nothing the job installs needs it (a package not in the set)'
+        rode = next((deb for deb in sorted(seen.get('control', {})) if lone(deb) in whole(
+            seen['control'], roots, {n: rows for n, rows in seen['installed'].items() if n != seen['control'][deb]['Package']},
+            seen['had'] - {seen['control'][deb]['Package']})), None)
+        if rode is None:
+            print('  n/a  control: a package taken in only because the runner has it -> none in this set')
+        else:
+            name = seen['control'][rode]['Package']
+            ok &= control(f'a package taken in only because the runner has it, on a runner that never had it ({name})', check(copy(), without={name}), lone(rode))
         first = lambda d: sorted(f for f in os.listdir(d) if f.endswith('.deb'))[0]
         d = copy(); deb = first(d)
         with open(os.path.join(d, deb), 'r+b') as f:
