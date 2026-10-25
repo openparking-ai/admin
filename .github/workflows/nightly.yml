@@ -1,0 +1,136 @@
+name: Nightly fail-controls
+
+# The repository-wide fail-controls, on main, once a night, and nothing else:
+# ci.yml's `controls` (6 shards) and `browser-controls` (20 shards), with the
+# same commands and shards, without the checks they control. What each control
+# breaks is listed in scripts/fail-controls.js. `same-controls` is red when
+# ci.yml runs a control this file does not, or this file one ci.yml does not.
+#
+# By hand: Actions, "Nightly fail-controls", Run workflow (on main).
+
+on:
+  schedule:
+    # 02:47 UTC every night.
+    - cron: '47 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  same-controls:
+    name: same-controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/npm-packages
+      - name: The comparison can fail (self-test)
+        run: node .github/scripts/check-nightly-controls.js --self-test
+      - name: Every control ci.yml runs is run here, and none it does not
+        run: node .github/scripts/check-nightly-controls.js
+
+  controls:
+    name: controls (${{ matrix.shard }}/6)
+    runs-on: ubuntu-24.04
+    # As ci.yml's: the slowest run of this job, about twice over.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        id: environment
+        with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
+          spreadsheet-app: 'true'
+      - name: Every check, shown failing first (this shard)
+        run: npm run fail-controls -- --shard ${{ matrix.shard }}/6
+      - name: This shard's report
+        # After a failed check too, never after a refused cache (U5 fix 18).
+        if: "!cancelled() && steps.environment.outcome == 'success'"
+        uses: actions/upload-artifact@v4
+        with:
+          name: fail-controls-plain-shard-${{ matrix.shard }}
+          path: fail-controls-plain-shard-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          overwrite: true
+
+  browser-controls:
+    name: browser-controls (${{ matrix.shard }}/20)
+    runs-on: ubuntu-24.04
+    # As ci.yml's: the slowest run of this job, about twice over.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/check-environment
+        id: environment
+        with:
+          # The one Ubuntu release whose signed lists vouch for a system package (U5 fix 13).
+          ubuntu-release: noble
+          browser: 'true'
+      - name: The browser checks, shown failing first (this shard)
+        run: npm run fail-controls-browser -- --shard ${{ matrix.shard }}/20
+      - name: This shard's report
+        # After a failed check too, never after a refused cache (U5 fix 18).
+        if: "!cancelled() && steps.environment.outcome == 'success'"
+        uses: actions/upload-artifact@v4
+        with:
+          name: fail-controls-browser-shard-${{ matrix.shard }}
+          path: fail-controls-browser-shard-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          overwrite: true
+
+  nightly:
+    # Green only when every job above is, and each set of shards adds up to one
+    # whole run: every control exactly once, none missing, none twice, none that
+    # did not fail as required.
+    name: nightly
+    if: always()
+    needs: [same-controls, controls, browser-controls]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fail-controls-plain-shard-*
+          merge-multiple: true
+          path: fail-controls-shards
+      - name: Every control exactly once, each caught and named
+        run: node scripts/fail-controls.js --verify fail-controls-shards
+      - name: The browser shards' reports, read alone
+        if: always()
+        run: rm -rf fail-controls-shards
+      - uses: actions/download-artifact@v4
+        if: always()
+        with:
+          pattern: fail-controls-browser-shard-*
+          merge-multiple: true
+          path: fail-controls-shards
+      - name: Every browser control exactly once, each caught and named
+        if: always()
+        run: node scripts/fail-controls.js --browser --verify fail-controls-shards
+      - name: Every control job passed
+        if: always()
+        env:
+          SAME_CONTROLS: ${{ needs.same-controls.result }}
+          CONTROLS: ${{ needs.controls.result }}
+          BROWSER_CONTROLS: ${{ needs.browser-controls.result }}
+        run: |
+          echo "same-controls: $SAME_CONTROLS, controls: $CONTROLS, browser-controls: $BROWSER_CONTROLS"
+          [ "$SAME_CONTROLS" = success ] && [ "$CONTROLS" = success ] && [ "$BROWSER_CONTROLS" = success ]
