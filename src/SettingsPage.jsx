@@ -1,6 +1,7 @@
 import { Segmented } from './parts.jsx';
 import { THEME_CHOICES } from './theme.js';
 import FieldName from './FieldName.jsx';
+import PasskeysSection from './PasskeysSection.jsx';
 
 /**
  * The two choices that are about these pages themselves, not a garage: the
@@ -43,11 +44,14 @@ export function Choosers({ t, language, themeChoice, onLanguage, onTheme, withLa
   );
 }
 
-/** Settings: the language and the look, small, in one place. A choice takes effect at once. */
-export default function SettingsPage({ t, language, themeChoice, onLanguage, onTheme }) {
+/** Settings: the language and the look, small, in one place. A choice takes effect at once. Then passkeys. */
+export default function SettingsPage({ t, language, themeChoice, onLanguage, onTheme, client, access }) {
   return (
-    <section className="panel settings" data-section="settings">
-      <Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={onLanguage} onTheme={onTheme} />
-    </section>
+    <>
+      <section className="panel settings" data-section="settings">
+        <Choosers t={t} language={language} themeChoice={themeChoice} onLanguage={onLanguage} onTheme={onTheme} />
+      </section>
+      {client && access ? <PasskeysSection t={t} language={language} client={client} access={access} /> : null}
+    </>
   );
 }

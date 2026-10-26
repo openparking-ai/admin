@@ -3,6 +3,7 @@ import { Pager, ProblemNote, useGarageRead, useNow, usePaging } from './parts.js
 import { directionKey, laneWords } from './lanes.js';
 import { insideWords } from './inside.js';
 import FieldName from './FieldName.jsx';
+import { accessOf, holds } from './access.js';
 
 /**
  * Home: the owner's garages first, each with one line on whether its lanes
@@ -10,18 +11,20 @@ import FieldName from './FieldName.jsx';
  * Choosing one shows, under the list, that garage at a glance: each lane and
  * whether it is working, and how many cars are inside. Every figure is the
  * platform's; a breakdown by kind of customer is shown only when the platform
- * returns one, and today it does not.
+ * returns one, and today it does not. The lanes and the cars inside are read and
+ * shown only for someone who may read them (src/access.js).
  */
-export default function Home({ t, language, client, garages, garage, onChoose }) {
+export default function Home({ t, language, client, garages, garage, onChoose, access = accessOf(null) }) {
+  const shows = { lanes: holds(access, 'lanes:read'), inside: holds(access, 'stays:read') };
   return (
     <>
-      <GarageList t={t} language={language} client={client} garages={garages} chosen={garage?.id ?? null} onChoose={onChoose} />
-      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garage} /> : null}
+      <GarageList t={t} language={language} client={client} garages={garages} chosen={garage?.id ?? null} onChoose={onChoose} shows={shows} />
+      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garage} shows={shows} /> : null}
     </>
   );
 }
 
-function GarageList({ t, language, client, garages, chosen, onChoose }) {
+function GarageList({ t, language, client, garages, chosen, onChoose, shows }) {
   const paging = usePaging(garages.length);
   return (
     <section className="panel" data-section="garages">
@@ -30,7 +33,7 @@ function GarageList({ t, language, client, garages, chosen, onChoose }) {
       </h2>
       <ul className="garage-list home-garages" data-list="garages">
         {garages.map((g, i) => (
-          <GarageRow key={g.id} t={t} language={language} client={client} garage={g} chosen={g.id === chosen} onChoose={onChoose} className={paging.row(i)} />
+          <GarageRow key={g.id} t={t} language={language} client={client} garage={g} chosen={g.id === chosen} onChoose={onChoose} className={paging.row(i)} shows={shows} />
         ))}
       </ul>
       <Pager t={t} language={language} paging={paging} list="garages" />
@@ -47,11 +50,14 @@ export function lanesLine(t, data, garage, language, now) {
   return t('home.lanesWorking', { working, lanes: lanes.length });
 }
 
+/** A read Home makes only when it shows what it reads. */
+const readIf = (shown, read) => (shown ? read : () => Promise.resolve(null));
+
 /** One garage of the list: its name, its one line, and whether it is open. Pressed, it is the garage these pages show. */
-function GarageRow({ t, language, client, garage, chosen, onChoose, className }) {
+function GarageRow({ t, language, client, garage, chosen, onChoose, className, shows }) {
   const now = useNow();
-  const lanes = useGarageRead(useCallback((id) => client.lanes(id), [client]), garage.id);
-  const inside = useGarageRead(useCallback((id) => client.carsInside(id), [client]), garage.id);
+  const lanes = useGarageRead(useCallback(readIf(shows.lanes, (id) => client.lanes(id)), [client, shows.lanes]), garage.id);
+  const inside = useGarageRead(useCallback(readIf(shows.inside, (id) => client.carsInside(id)), [client, shows.inside]), garage.id);
   const part = (read, words) => (read.problem ? t('home.notRead') : read.data ? words(read.data) : t('loading'));
   const state = (read) => (read.problem ? 'failed' : read.data ? 'read' : 'reading');
   return (
@@ -60,15 +66,21 @@ function GarageRow({ t, language, client, garage, chosen, onChoose, className })
         <span className="garage-choice-name">
           <bdi>{garage.name}</bdi>
         </span>
-        <span className="garage-line">
-          <span data-line="lanes" data-read={state(lanes)}>
-            {part(lanes, (data) => lanesLine(t, data, garage, language, now))}
+        {shows.lanes || shows.inside ? (
+          <span className="garage-line">
+            {shows.lanes ? (
+              <span data-line="lanes" data-read={state(lanes)}>
+                {part(lanes, (data) => lanesLine(t, data, garage, language, now))}
+              </span>
+            ) : null}
+            {shows.lanes && shows.inside ? ' · ' : null}
+            {shows.inside ? (
+              <span data-line="inside" data-read={state(inside)}>
+                {part(inside, (data) => insideWords(t, data).figure)}
+              </span>
+            ) : null}
           </span>
-          {' · '}
-          <span data-line="inside" data-read={state(inside)}>
-            {part(inside, (data) => insideWords(t, data).figure)}
-          </span>
-        </span>
+        ) : null}
         <span className="tag">{garage.live ? t('garage.live') : t('garage.notLive')}</span>
       </button>
     </li>
@@ -76,10 +88,10 @@ function GarageRow({ t, language, client, garage, chosen, onChoose, className })
 }
 
 /** The chosen garage at a glance, as Home showed it before the list (U7a). */
-function GarageDetail({ t, language, client, garage }) {
+function GarageDetail({ t, language, client, garage, shows }) {
   const now = useNow();
-  const lanes = useGarageRead(useCallback((id) => client.lanes(id), [client]), garage.id);
-  const inside = useGarageRead(useCallback((id) => client.carsInside(id), [client]), garage.id);
+  const lanes = useGarageRead(useCallback(readIf(shows.lanes, (id) => client.lanes(id)), [client, shows.lanes]), garage.id);
+  const inside = useGarageRead(useCallback(readIf(shows.inside, (id) => client.carsInside(id)), [client, shows.inside]), garage.id);
   const paging = usePaging(lanes.data?.lanes.length ?? 0);
 
   return (
@@ -88,6 +100,7 @@ function GarageDetail({ t, language, client, garage }) {
         <bdi>{garage.name}</bdi>
       </h2>
       <div className="home-grid">
+        {shows.lanes ? (
         <section className="panel" data-section="lanes">
           <h2 className="section-title">
             <FieldName t={t} name="home.lanes" />
@@ -122,7 +135,9 @@ function GarageDetail({ t, language, client, garage }) {
             </>
           )}
         </section>
+        ) : null}
 
+        {shows.inside ? (
         <section className="panel" data-section="inside">
           <h2 className="section-title">
             <FieldName t={t} name="home.inside" />
@@ -135,6 +150,7 @@ function GarageDetail({ t, language, client, garage }) {
             <InsideCounts t={t} data={inside.data} />
           )}
         </section>
+        ) : null}
       </div>
     </div>
   );

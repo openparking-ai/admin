@@ -150,18 +150,43 @@ export function readExtraPages(file) {
 }
 
 /**
- * The file from this origin, as a list of entries: none when it is absent, not JSON, or not
- * as expected. Never throws.
+ * Where the host keeps its People page, when it has one: `"people": { "href" }` in the same
+ * file, a path of this origin or an https address with no name or password in it. These
+ * screens draw one link to it, with their own word, for whoever is signed in; the page
+ * there decides what each person may do. Anything else is no link.
  */
-export async function loadExtraPages(fetchFn = globalThis.fetch?.bind(globalThis)) {
+export function readPeopleLink(file) {
+  const href = file && typeof file === 'object' && file.people && typeof file.people === 'object' ? file.people.href : undefined;
+  if (typeof href !== 'string' || href.length === 0 || href.length > MAX_PATH) return null;
+  if (ownPath(href)) return href;
+  if (/[\\\u0000-\u0020\u007f]/.test(href)) return null;
+  let url;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || !url.hostname) return null;
+  return url.href;
+}
+
+/**
+ * The file from this origin: its entries and its People link. None of either when it is
+ * absent, not JSON, or not as expected. Never throws.
+ */
+export async function loadExtras(fetchFn = globalThis.fetch?.bind(globalThis)) {
   try {
     const res = await fetchFn(EXTRA_PAGES_PATH, { credentials: 'omit', cache: 'no-store' });
-    if (!res.ok) return [];
-    return readExtraPages(await res.json());
+    if (!res.ok) return { pages: [], people: null };
+    const file = await res.json();
+    return { pages: readExtraPages(file), people: readPeopleLink(file) };
   } catch {
-    return [];
+    return { pages: [], people: null };
   }
 }
+
+/** The file's entries alone (loadExtras). */
+export const loadExtraPages = async (fetchFn) => (await loadExtras(fetchFn)).pages;
 
 /**
  * The side menu's groups, in the order the file first names a page of each: [{ id, title,

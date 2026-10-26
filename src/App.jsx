@@ -26,7 +26,8 @@ import GettingPaidPage from './GettingPaidPage.jsx';
 import CardReadersPage from './CardReadersPage.jsx';
 import GaragesPage, { NoGarages } from './GaragesPage.jsx';
 import BannedPage from './BannedPage.jsx';
-import { loadExtraPages, menuGroups, menuHash, menuIdForHash, notesFor } from './extras.js';
+import { loadExtras, menuGroups, menuHash, menuIdForHash, notesFor } from './extras.js';
+import { accessOf, addsGarages, opens } from './access.js';
 import { SETUP_GROUP, groupShown, hostGroupKey, isOpen, menuPages, readOpenGroups, saveOpenGroups, withGroup } from './menu.js';
 import { ExtraFrame } from './ExtraPages.jsx';
 
@@ -97,13 +98,16 @@ export default function App({ theme, storage, client, link: startLink = null }) 
   // Extra pages from the host, read once at start (src/extras.js): none when the host serves no file.
   const [extras, setExtras] = useState([]);
   const [extrasRead, setExtrasRead] = useState(false);
+  // The host's People page, when its file names one (src/extras.js readPeopleLink).
+  const [peopleLink, setPeopleLink] = useState(null);
   // The side menu's groups, Setup's and the host's: which are open, as kept on this computer (src/menu.js).
   const [openGroups, setOpenGroups] = useState(() => readOpenGroups(storage));
   useEffect(() => {
     let live = true;
-    loadExtraPages().then((pages) => {
+    loadExtras().then(({ pages, people }) => {
       if (!live) return;
       setExtras(pages);
+      setPeopleLink(people);
       setExtrasRead(true);
     });
     return () => {
@@ -227,12 +231,16 @@ export default function App({ theme, storage, client, link: startLink = null }) 
 
   const signedIn = owner.status === 'signedIn';
   const garage = owner.garages?.find((g) => g.id === owner.garageId) ?? null;
+  // What the person signed in may open, as the platform's /auth/me says (src/access.js).
+  const access = useMemo(() => accessOf(owner.who), [owner.who]);
+  const pageOpens = useCallback((id) => opens(access, id), [access]);
   // A page of the host's in the side menu, when the address names one the host's file has.
   const menuEntry = menuId ? extras.find((e) => e.menu && e.id === menuId) ?? null : null;
   const groups = menuGroups(extras);
   const words = (w) => w[speaking] ?? w.en;
   // The menu (src/menu.js): Home, Garage View and Alerts at the top; Setup's group, then the host's.
-  const menu = menuPages(PAGES);
+  // Only the pages the person signed in may open.
+  const menu = menuPages(PAGES.filter((p) => pageOpens(p.id)));
   const menuGroupsDrawn = [
     { key: SETUP_GROUP, id: 'setup', title: null, entries: menu.setup.map((p) => ({ id: p.id, own: p })) },
     ...groups.map((g) => ({ key: hostGroupKey(g.id), id: g.id, title: g.title, icon: g.icon, entries: g.entries })),
@@ -373,8 +381,16 @@ export default function App({ theme, storage, client, link: startLink = null }) 
     actions.go(setupPage);
   };
   let content;
+  const adds = addsGarages(access);
   if (page.id === 'settings') {
-    content = <SettingsPage t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} />;
+    content = <SettingsPage t={t} language={language} themeChoice={themeChoice} onLanguage={chooseLanguage} onTheme={chooseTheme} client={client} access={access} />;
+  } else if (!menuEntry && !pageOpens(page.id)) {
+    // A page the person signed in may not open, reached by its address: it draws nothing of its own.
+    content = (
+      <p className="quiet" data-notice="not-allowed">
+        {t('page.notAllowed')}
+      </p>
+    );
   } else if (owner.garagesProblem) {
     content = <ProblemNote t={t} kind={owner.garagesProblem} onRetry={loadGarages} />;
   } else if (!owner.garages) {
@@ -383,12 +399,12 @@ export default function App({ theme, storage, client, link: startLink = null }) 
     // The address names a page of the host's, and the host's file is not read yet.
     content = <p className="quiet">{t('loading')}</p>;
   } else if (page.id === 'garages' && !menuEntry) {
-    content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} onRead={(garages) => dispatch({ type: 'garagesRead', garages })} />;
+    content = <GaragesPage t={t} language={language} client={client} garages={owner.garages} chosen={garage?.id ?? null} onOpen={open} onAdded={added} onRead={(garages) => dispatch({ type: 'garagesRead', garages })} adds={adds} />;
   } else if (owner.garages.length === 0) {
     // U7c: an account with no garage starts by adding one, from whichever page it is on.
-    content = <NoGarages t={t} language={language} client={client} onAdded={added} />;
+    content = <NoGarages t={t} language={language} client={client} onAdded={added} adds={adds} />;
   } else if (page.id === 'home' && !menuEntry) {
-    content = <Home t={t} language={language} client={client} garages={owner.garages} garage={garage} onChoose={choose} />;
+    content = <Home t={t} language={language} client={client} garages={owner.garages} garage={garage} onChoose={choose} access={access} />;
   } else if (!garage) {
     content = <GaragePicker t={t} language={language} garages={owner.garages} onChoose={choose} />;
   } else if (menuEntry) {
@@ -503,7 +519,7 @@ export default function App({ theme, storage, client, link: startLink = null }) 
 
       <div className="main">
         <header className="topbar">
-          <QuickFind language={language} t={t} actions={actions} />
+          <QuickFind language={language} t={t} actions={actions} opens={pageOpens} />
           <div className="topbar-owner">
             {garage ? (
               <span className="garage-current" data-garage={garage.id}>
@@ -517,6 +533,11 @@ export default function App({ theme, storage, client, link: startLink = null }) 
               <button type="button" className="link-button" data-action="change-garage" onClick={() => dispatch({ type: 'choose', garageId: null })}>
                 {t('garage.change')}
               </button>
+            ) : null}
+            {peopleLink ? (
+              <a className="link-button" href={peopleLink} data-action="people" rel="noopener noreferrer">
+                {t('people.link')}
+              </a>
             ) : null}
             <button type="button" className="link-button" data-action="sign-out" onClick={() => client.signOut().catch(() => {})}>
               {t('signOut')}

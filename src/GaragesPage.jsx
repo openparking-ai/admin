@@ -10,12 +10,12 @@ import FieldName, { FieldAbout } from './FieldName.jsx';
  * steps are done, as the Setup page counts them. Pressing one chooses it and
  * opens its Setup page. "Add a garage" is above the list, closed until pressed.
  */
-export default function GaragesPage({ t, language, client, garages, chosen, onOpen, onAdded, onRead }) {
+export default function GaragesPage({ t, language, client, garages, chosen, onOpen, onAdded, onRead, adds = true }) {
   const paging = usePaging(garages.length);
-  if (garages.length === 0) return <NoGarages t={t} language={language} client={client} onAdded={onAdded} />;
+  if (garages.length === 0) return <NoGarages t={t} language={language} client={client} onAdded={onAdded} adds={adds} />;
   return (
     <>
-      <AddGarage t={t} language={language} client={client} onAdded={onAdded} />
+      {adds ? <AddGarage t={t} language={language} client={client} onAdded={onAdded} /> : null}
       <section className="panel" data-list="garages-page">
         <table className="list garages">
           <thead>
@@ -147,8 +147,20 @@ export function AddGarage({ t, language, client, onAdded }) {
   return <GarageForm t={t} language={language} client={client} onAdded={onAdded} onClose={() => setOpen(false)} />;
 }
 
-/** An account with no garage yet: what every page shows, in place of its own. */
-export function NoGarages({ t, language, client, onAdded }) {
+/**
+ * An account with no garage yet: what every page shows, in place of its own. Someone who
+ * may not add one (src/access.js addsGarages) is told no garage is open to them instead.
+ */
+export function NoGarages({ t, language, client, onAdded, adds = true }) {
+  if (!adds) {
+    return (
+      <div className="no-garages" data-start="no-garages">
+        <p className="quiet" data-notice="no-garages-open">
+          {t('garage.noneOpen')}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="no-garages" data-start="no-garages">
       <p className="quiet" data-notice="no-garages">

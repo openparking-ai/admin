@@ -29,6 +29,15 @@ export function garageTime(value, timeZone, language, now = new Date()) {
   });
 }
 
+/**
+ * The day something of the person's own happened (a passkey added or used): no garage
+ * has it, so it is the day on the computer looking at it.
+ */
+export function ownDay(value, language) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : parts(date, undefined, language, { dateStyle: 'medium' });
+}
+
 /** A full date and time in the garage's zone, for a printed page. */
 export function garageDateTime(value, timeZone, language) {
   return parts(new Date(value), timeZone, language, {

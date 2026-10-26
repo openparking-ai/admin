@@ -40,6 +40,10 @@ export const PROBLEM_KINDS = [
   'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
   // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
   'databaseUnavailable', 'databaseSaving',
+  // Permissions on every route, and a linked accounts module that could not answer (platform 0035).
+  'notAllowed', 'undecided',
+  // Passkeys (platform 0035): signing in with one, and the admin's own.
+  'passkeyRefused', 'passkeyStopped', 'passkeysOff', 'passkeyEnded', 'passkeyNotAdded', 'passkeyKnown', 'passkeysFull', 'passkeyName', 'passkeysElsewhere',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -137,6 +141,19 @@ const NAMED = [
   [409, 'no_rate_plan', 'noRatesYet'],
   [429, 'too_many_tries', 'tooManyTries'],
   [409, 'garage_not_activatable', 'notReadyToOpen'],
+  // Platform 0035, as its src/permissions.js, src/signIn.js, src/linkedAccounts.js and src/passkeys.js name them.
+  [403, 'permission_refused', 'notAllowed'],
+  [503, 'sign_in_undecided', 'undecided'],
+  [503, 'accounts_undecided', 'undecided'],
+  [409, 'passkeys_not_configured', 'passkeysOff'],
+  [503, 'passkeys_busy', 'busy'],
+  [409, 'passkey_challenge_ended', 'passkeyEnded'],
+  [400, 'passkey_not_added', 'passkeyNotAdded'],
+  [409, 'passkey_known', 'passkeyKnown'],
+  [409, 'passkeys_full', 'passkeysFull'],
+  [400, 'passkey_name_refused', 'passkeyName'],
+  [409, 'passkeys_elsewhere', 'passkeysElsewhere'],
+  [404, 'passkey_not_found', 'notFound'],
 ];
 
 /**
@@ -314,9 +331,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       const wasSignedIn = signedIn;
       signedIn = false;
       epoch += 1;
-      if (signingIn && code === 'sign_in_refused') {
+      if (signingIn && (code === 'sign_in_refused' || code === 'passkey_refused')) {
         onSignedOut(null);
-        throw new Problem('refused');
+        throw new Problem(code === 'passkey_refused' ? 'passkeyRefused' : 'refused');
       }
       const kind = code === 'session_ended' || wasSignedIn ? 'ended' : null;
       onSignedOut(kind);
@@ -360,6 +377,22 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     if (!Array.isArray(value)) throw new Problem('unexpected');
     return value;
   };
+  /**
+   * Who is signed in, once a sign-in answered: the platform's sign-in answer names the
+   * person, and only `/auth/me` names what they may open (platform 0035), so it is asked
+   * before any screen is drawn. A platform from before permissions answers `/auth/me` as it
+   * answered sign-in. If that read fails, the sign-in's own answer is kept: it names no
+   * permissions, so the menus show every page, and the platform refuses each read the person
+   * may not make (`notAllowed`), as it does whatever the screens show.
+   */
+  const whoAfter = async (answer) => {
+    try {
+      return { ...answer, ...object(await request('/auth/me')) };
+    } catch (problem) {
+      if (problem.kind === STALE || problem.kind === 'ended') throw problem;
+      return answer;
+    }
+  };
 
   return {
     /** Who is signed in, or null. Never throws for "not signed in". */
@@ -375,9 +408,36 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     },
     async signIn(email, password) {
       epoch += 1;
-      const who = object(await request('/auth/sign-in', { method: 'POST', body: { email, password }, signingIn: true }));
+      const answer = object(await request('/auth/sign-in', { method: 'POST', body: { email, password }, signingIn: true }));
       signedIn = true;
-      return who;
+      return whoAfter(answer);
+    },
+    /**
+     * Sign in with a passkey, in the platform's two steps: its options, then the browser's
+     * answer to them (`respond`, src/passkeys.js), sent with the challenge's id. A sign-in:
+     * a new epoch, and who is signed in after.
+     */
+    async passkeySignIn(respond) {
+      epoch += 1;
+      const asked = object(await request('/auth/passkey/options', { method: 'POST', signingIn: true }));
+      if (typeof asked.challenge_id !== 'string' || !asked.options) throw new Problem('unexpected');
+      const response = await respond(asked.options);
+      const answer = object(await request('/auth/passkey/sign-in', { method: 'POST', body: { challenge_id: asked.challenge_id, response }, signingIn: true }));
+      signedIn = true;
+      return whoAfter(answer);
+    },
+    /** The admin's own passkeys: { id, name, created_at, last_used_at }, as the platform lists them. */
+    passkeys: async () => list(await request('/auth/passkeys'), 'passkeys'),
+    /** Add a passkey named `name`: the platform's options, the browser's new passkey (`make`), then both sent back. */
+    async addPasskey(name, make) {
+      const asked = object(await request('/auth/passkeys/options', { method: 'POST' }));
+      if (typeof asked.challenge_id !== 'string' || !asked.options) throw new Problem('unexpected');
+      const response = await make(asked.options);
+      return object(object(await request('/auth/passkeys', { method: 'POST', body: { challenge_id: asked.challenge_id, name, response } })).passkey);
+    },
+    renamePasskey: async (id, name) => object(object(await request('/auth/passkeys/rename', { method: 'POST', body: { id, name } })).passkey),
+    removePasskey: async (id) => {
+      await request('/auth/passkeys/remove', { method: 'POST', body: { id } });
     },
     /**
      * U7d-2: what an invite link is now -- ready, used, expired, replaced or
@@ -398,9 +458,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      */
     async acceptInvite(token, password, language) {
       epoch += 1;
-      const who = object(await request('/auth/invite/accept', { method: 'POST', body: { token, password, language }, sessionless: true }));
+      const answer = object(await request('/auth/invite/accept', { method: 'POST', body: { token, password, language }, sessionless: true }));
       signedIn = true;
-      return who;
+      return whoAfter(answer);
     },
     /** U7d-2: ask for a link to choose a new password. The platform's answer is the same whoever the email names. */
     forgot: async (email) => {

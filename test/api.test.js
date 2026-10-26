@@ -91,7 +91,9 @@ test('requests are relative, same-origin, carry the cookie and never put anythin
     assert.ok(!url.includes('?') && !url.includes('the-password') && !url.includes('example.com'), url);
     assert.equal(init.credentials, 'same-origin');
   }
-  assert.equal(asked[2].url, '/api/v1/garages/g%2F1%3Fx/lanes');
+  // Platform 0035: a sign-in is followed by /auth/me, which alone names what the person may open.
+  assert.equal(asked[1].url, '/api/v1/auth/me');
+  assert.equal(asked[3].url, '/api/v1/garages/g%2F1%3Fx/lanes');
   assert.deepEqual(JSON.parse(asked[0].init.body), { email: 'a@example.com', password: 'the-password' });
 });
 
