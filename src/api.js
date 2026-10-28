@@ -40,6 +40,8 @@ export const PROBLEM_KINDS = [
   'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
   // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
   'databaseUnavailable', 'databaseSaving',
+  // Stuck stays (platform 0043): the garage's hours, and a stay ended or written off.
+  'stuckHoursRefused', 'stayGone', 'stayNotOpen', 'stayAtExit', 'reasonRequired', 'reasonOneLine', 'leftBeforeEntry', 'leftInFuture', 'leftTimeOdd',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -137,6 +139,15 @@ const NAMED = [
   [409, 'no_rate_plan', 'noRatesYet'],
   [429, 'too_many_tries', 'tooManyTries'],
   [409, 'garage_not_activatable', 'notReadyToOpen'],
+  // Stuck stays, as the platform's src/stuckStays.js and src/app.js name them (0043).
+  [400, 'stuck_after_hours_invalid', 'stuckHoursRefused'],
+  [404, 'stay_not_found', 'stayGone'],
+  [409, 'stay_not_open', 'stayNotOpen'],
+  [409, 'stay_at_an_exit', 'stayAtExit'],
+  [400, 'reason_required', 'reasonRequired'],
+  [400, 'reason_invalid', 'reasonOneLine'],
+  [400, 'left_at_before_entry', 'leftBeforeEntry'],
+  [409, 'clock_skew', 'leftInFuture'],
 ];
 
 /**
@@ -261,6 +272,11 @@ export const problemKey = (problem) =>
  */
 export function bannedPicturePath(garageId, banId, pictureId) {
   return `${BASE}/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/pictures/${encodeURIComponent(pictureId)}`;
+}
+
+/** Where one entry picture of a stay is (platform 0043): fetched by the browser, as a banned car's is. */
+export function stayPicturePath(garageId, stayId, pictureId) {
+  return `${BASE}/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/pictures/${encodeURIComponent(pictureId)}`;
 }
 
 export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
@@ -578,6 +594,33 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/sessions/open`));
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');
       return data;
+    },
+    // ── Stuck stays (platform 0043) ──
+    /**
+     * The open stays that look stuck, oldest first: older than the garage's
+     * own number of hours, or not seen on its latest walk. The hours are the
+     * platform's setting, read with the list, never kept here.
+     */
+    stuckStays: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/stays/stuck`));
+      if (!Number.isInteger(data.stuck_after_hours) || data.stuck_after_hours < 1) throw new Problem('unexpected');
+      return { stuckAfterHours: data.stuck_after_hours, stays: list(data, 'stays') };
+    },
+    /** How many hours an open stay waits before it is listed: a whole number the platform bounds. */
+    setStuckAfterHours: async (garageId, hours) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { stuck_after_hours: hours } })),
+    /**
+     * End one stay: `ended` (the car left at `leftAt`, an instant) or
+     * `abandoned` (written off), with the person's reason. Nothing is charged:
+     * an ended stay's price comes back as what it owes (`owedMinor`, null
+     * when the rates could not price it).
+     */
+    endStay: async (garageId, stayId, { outcome, reason, leftAt = null }) => {
+      const body = { outcome, reason, ...(outcome === 'ended' && leftAt ? { left_at: leftAt } : {}) };
+      const stay = object(object(await request(`/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/end`, { method: 'POST', body })).stay);
+      const owed = stay.ended?.owed ?? null;
+      if (stay.owed_minor !== null && !Number.isInteger(stay.owed_minor)) throw new Problem('unexpected');
+      return { owedMinor: stay.owed_minor, currency: stay.currency, covered: owed?.outcome === 'covered', priced: owed !== null && owed.refused !== true };
     },
     /**
      * Every list of taxes the garage has stated, each with when it starts and

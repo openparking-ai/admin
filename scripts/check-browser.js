@@ -560,7 +560,7 @@ try {
     await allRead(page, EN.loading);
     const said = await bodyText(page);
     check(!LANE_COMPUTER.test(said), `"${title}": never "lane computer"${LANE_COMPUTER.test(said) ? ` (it says "${said.match(LANE_COMPUTER)[0]}")` : ''}`);
-    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'banned', 'changes', 'alerts', 'drawings', 'rates', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
+    if (!['home', 'setup', 'garages', 'lanes', 'inside', 'stuck', 'banned', 'changes', 'alerts', 'drawings', 'rates', 'taxes', 'paid', 'readers', 'settings'].includes(p.id)) {
       // Nothing under the title but its line: the page says so, so the line is not read as a list gone missing.
       const notYet = await settles(page, (t) => document.querySelector('[data-notice="not-yet"]')?.textContent === t, EN['page.notYet']);
       check(notYet, `"${title}": nothing on it yet, and it says "${EN['page.notYet']}"`);
@@ -586,7 +586,7 @@ try {
   // The menu (src/menu.js, the approved picture): Home, Garage View and Alerts at the top, in
   // that order, then the Setup group holding every other page, in today's order.
   const MENU_TOP = ['#/', '#/garage-view', '#/alerts', 'group:setup'];
-  const MENU_SETUP = ['#/setup', '#/garages', '#/lanes', '#/installer-drawings', '#/card-readers', '#/rates', '#/taxes', '#/getting-paid', '#/banned-cars', '#/change-log', '#/settings'];
+  const MENU_SETUP = ['#/setup', '#/garages', '#/lanes', '#/installer-drawings', '#/card-readers', '#/rates', '#/taxes', '#/getting-paid', '#/stuck-stays', '#/banned-cars', '#/change-log', '#/settings'];
   const menuShape = () =>
     page.evaluate(() => ({
       top: [...document.querySelector('nav .nav').children].map((li) => (li.matches('.nav-group') ? `group:${li.dataset.navGroup}` : li.querySelector('a')?.getAttribute('href'))),

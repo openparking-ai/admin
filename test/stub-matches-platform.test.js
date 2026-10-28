@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordRates, recordSpaces, signInAnswer } from './platform-shapes.js';
+import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordRates, recordSpaces, recordStuck, signInAnswer } from './platform-shapes.js';
 import { FILL_RULE, STAY_LIST, recordedPlans } from './rates-forms.js';
-import { startStub } from './stub-platform.js';
+import { STUCK_LET_IN, startStub } from './stub-platform.js';
 
 // The stand-in the checks run against answers as the real platform does: the
 // same statuses, the same refusals word for word, the same shapes and the
@@ -139,6 +139,24 @@ test('the stand-in answers the number of spaces and rates with a fill rule as th
     const answers = await recordSpaces(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans(), fill: FILL_RULE });
     assert.deepEqual(answers.map((a) => a.what), recorded.spaces_answers.map((a) => a.what));
     for (const [i, real] of recorded.spaces_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
+  } finally {
+    await stub.close();
+  }
+});
+
+// Platform 0043: the stuck stays, recorded from the platform's demo garage, which had no stay of its
+// own and rates in force before the cars came in; the stand-in's first garage is made the same.
+test('the stand-in answers the stuck stays, the garage hours and a stay ended as the platform does', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const garageId = stub.data.a.garages[0].id;
+    stub.data.a.open[garageId] = [];
+    stub.storeRates(garageId, recordedPlans('2020-01-01T00:00:00.000Z').regular);
+    const hooks = { stays: async (g) => STUCK_LET_IN.forEach((car) => stub.letIn(g, car)) };
+    const answers = await recordStuck(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks });
+    assert.deepEqual(answers.map((a) => a.what), recorded.stuck_answers.map((a) => a.what));
+    for (const [i, real] of recorded.stuck_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

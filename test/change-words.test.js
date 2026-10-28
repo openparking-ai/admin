@@ -72,8 +72,21 @@ const LINES = [
   // U4b: a person to tell, as the platform's src/alerts.js writes the lines (fix round 2) -- their id
   // and what kind of change it was, never their name, number or address.
   ...PERSON_LINES,
+  // Platform 0043: the garage's hours before a stay is listed, and a stay a person ended or wrote off.
+  ['garage.update', { stuck_after_hours: 24 }, { stuck_after_hours: 48 }],
+  ...STAY_LINES(),
 ];
-const done = (action, before, after) => ({ outcome: 'done', action, before, after, who: { kind: 'owner', name: 'owner@example.com' }, subject: action.startsWith('alert_contact.') ? person : lane, refusal: null });
+function STAY_LINES() {
+  const before = { open: true, entered_at: '2026-03-08T14:05:00.000Z', exit_at: null };
+  return [
+    ['stay.end', before, { open: false, outcome: 'ended', reason: 'Backed out at the gate', entered_at: before.entered_at, exit_at: '2026-03-09T02:00:00.000Z', owed_minor: 3000, currency: 'USD' }],
+    ['stay.end', before, { open: false, outcome: 'abandoned', reason: 'Plate misread twice', entered_at: before.entered_at, exit_at: '2026-03-10T15:00:00.000Z', owed_minor: null, currency: 'USD' }],
+  ];
+}
+/** A stay, as the platform's line names one: by its id, with no name. */
+const stay = { kind: 'stay', id: 's', name: null };
+const subjectOf = (action) => (action.startsWith('alert_contact.') ? person : action.startsWith('stay.') ? stay : lane);
+const done = (action, before, after) => ({ outcome: 'done', action, before, after, who: { kind: 'owner', name: 'owner@example.com' }, subject: subjectOf(action), refusal: null });
 
 /** Every raw value a line holds that is not someone's typed text: none may be shown as it is. */
 function rawValues(line) {
@@ -151,6 +164,29 @@ test('U4b fix 2, check 3: EVERY LINE ABOUT A PERSON says what kind of change it 
     // A removed person is never shown by the id the line holds.
     const gone = whatPieces(t, { ...done('alert_contact.remove', {}, null), subject: { kind: 'alert_contact', id: 'pa900001-0000-4000-8000-000000000001', name: null, removed: true } });
     assert.equal(JSON.stringify(gone).includes('pa900001'), false, `${language}: the removed person is shown by their id`);
+  }
+});
+
+test('platform 0043: a stay ended says how, why as typed, when in the garage\'s time and what it owes in money -- a lane\'s reason is still a choice', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const [left] = STAY_LINES();
+    const by = (line) => Object.fromEntries(changedFields(t, line, GARAGE, language).map((f) => [f.field, f]));
+    const ended = by(done(...left));
+    assert.equal(ended[t('changes.field.outcome')].after.words, t('changes.value.outcome.ended'));
+    assert.deepEqual(ended[t('changes.field.reason')].after, { stored: 'Backed out at the gate' });
+    assert.match(ended[t('changes.field.owed_minor')].after.words, /30[.,]00/);
+    assert.equal(ended[t('changes.field.entered_at')].after.words, ended[t('changes.field.entered_at')].before.words);
+    assert.match(ended[t('changes.field.entered_at')].after.words, /10:05/, `${language}: 14:05 UTC said as 10:05 in New York`);
+    assert.equal(ended[t('changes.field.exit_at')].before.words, '–');
+    // Markup someone typed is their words, kept apart as stored text, never read as a page.
+    const typed = '<img src=x onerror=alert(1)>';
+    assert.deepEqual(by(done('stay.end', null, { reason: typed }))[t('changes.field.reason')].after, { stored: typed });
+    const hours = by(done('garage.update', { stuck_after_hours: 1 }, { stuck_after_hours: 48 }))[t('changes.field.stuck_after_hours')];
+    assert.deepEqual([hours.before.words, hours.after.words], [t('changes.value.hoursOne'), t('changes.value.hours', { hours: '48' })]);
+    const laneReason = by(done('lane.close', { state: 'open' }, { state: 'closed', reason: 'full' }))[t('changes.field.reason')];
+    assert.equal(laneReason.after.words, t('changes.value.reason.full'));
+    assert.equal(whatPieces(t, done(...left))[0].words, t('changes.action.stay_end'));
   }
 });
 

@@ -33,7 +33,10 @@
 //   GET    /api/v1/garages/:id/changes[/:lineId]  { changes: [line], next } the changes made, newest first, 50 a page
 //   GET    /api/v1/garages/:id/refused-attempts[/:lineId]  { refused: [line], next, count: { lines, attempts } } apart
 //   A request that changes nothing writes no line (the same before and after).
-//   PATCH  /api/v1/garages/:id              { transient_available?, ban_tailgaters?, ban_reach?, spaces? } -> { garage }
+//   PATCH  /api/v1/garages/:id              { transient_available?, ban_tailgaters?, ban_reach?, spaces?, stuck_after_hours? } -> { garage }
+//   GET    /api/v1/garages/:id/stays/stuck  -> { older_than_hours, stuck_after_hours, stays: [{ id, plate, plate_whole, ticket, unread, entered_at, entry_lane, at_exit, last_seen_on_walk, why, pictures }] }  (0043)
+//   GET    /api/v1/garages/:id/stays/:stayId/pictures/:pictureId  -> the picture, image/png  (0043)
+//   POST   /api/v1/garages/:id/stays/:stayId/end  { outcome, reason, left_at? } -> { stay: { id, entered_at, exit_at, ended, owed_minor, currency } }  (0043)
 //   GET    /api/v1/garages/:id/banned       -> { ban_tailgaters, ban_reach, cars: [{ id, listed_at, entry_at, garage_id, garage_name, plate, pictures: [{ id, taken_at }] }] }  (U7f)
 //   POST   /api/v1/garages/:id/banned/:banId/remove  -> { removed: true }; 404 banned_car_not_found  (U7f)
 //   GET    /api/v1/garages/:id/banned/:banId/pictures/:pictureId  -> the picture, image/png  (U7f)
@@ -87,6 +90,17 @@ import { instantOf } from '../src/rates.js';
 import { startEngine } from '../scripts/engine-at-pin.js';
 
 const MINUTE = 60_000;
+
+/**
+ * Platform 0043: the cars the recording of the stuck stays lets in at the
+ * entry lane (test/record-stuck.js), each with one picture -- the platform's
+ * demo garage and the stand-in's first garage alike. The last is not listed.
+ */
+export const STUCK_LET_IN = [
+  { hoursAgo: 30, plate: 'STK3001' },
+  { hoursAgo: 26, plate: 'STK2601' },
+  { hoursAgo: 1, plate: 'NEW0101' },
+];
 
 /** Three owners. A has two garages, so the list to pick from shows; B has one; C, a new account, has none (U7c). */
 export function owners(now = Date.now()) {
@@ -382,6 +396,26 @@ const BAN_REACHES = ['garage', 'all'];
 const BAN_TAILGATERS_REFUSED = { error: 'ban_tailgaters must be true or false when given' };
 const BAN_REACH_REFUSED = { error: 'ban_reach must be one of garage, all when given' };
 const BANNED_CAR_NOT_FOUND = { error: 'banned car not found', code: 'banned_car_not_found' };
+// Platform 0043, its src/stuckStays.js and src/app.js, word for word.
+const STUCK_DEFAULT_HOURS = 24;
+const STUCK_MAX_HOURS = 90 * 24;
+const REASON_MAX = 500;
+const MAX_CLOCK_SKEW_SECONDS = 120;
+const STUCK_HOURS_REFUSED = { error: `stuck_after_hours must be a whole number of hours from 1 to ${STUCK_MAX_HOURS} when given`, code: 'stuck_after_hours_invalid' };
+const OUTCOME_REFUSED = { error: 'outcome must be one of ended, abandoned', code: 'outcome_invalid' };
+const REASON_REQUIRED = { error: `reason is required: why the stay is ended, at most ${REASON_MAX} characters`, code: 'reason_required' };
+const REASON_INVALID = { error: 'reason must be words on one line: no line breaks or control characters', code: 'reason_invalid' };
+const LEFT_AT_ABANDONED = { error: 'left_at is for a car that left (outcome "ended") only', code: 'left_at_not_for_abandoned' };
+const LEFT_AT_UNREADABLE = { error: 'left_at is not a valid timestamp' };
+const LEFT_BEFORE_ENTRY = { error: 'left_at is before the stay came in', code: 'left_at_before_entry' };
+const STAY_NOT_FOUND = { error: 'stay not found', code: 'stay_not_found' };
+const STAY_NOT_OPEN = { error: 'this stay is not open: it has already been closed or ended', code: 'stay_not_open' };
+const STAY_AT_EXIT = { error: 'a car is at an exit lane on this stay: let it out there instead', code: 'stay_at_an_exit' };
+const LEFT_AT_AHEAD = (seconds) => ({
+  error: `left_at is ${seconds}s ahead of this server's clock, more than the ${MAX_CLOCK_SKEW_SECONDS}s of drift tolerated — a time in the future is not a stay that has happened`,
+  code: 'clock_skew',
+});
+const REASON_CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
 // A 1x1 PNG: what the picture route serves at the stand-in.
 const PICTURE_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 const DRIVERS_REFUSED = (v) => ({ error: `transient_available is true or false, not ${JSON.stringify(v)}; unstated is the absence of the field, never a value` });
@@ -655,6 +689,14 @@ export async function startStub({ port = 0 } = {}) {
   const money = moneyData();
   /** U6: what the stand-in holds of a garage's taxes, account, place and connections. */
   const moneyOf = (garageId) => (money[garageId] ??= { taxSets: [], account: null, place: null, connections: [] });
+  /** Platform 0043: a garage's stuck-stays hours, and the stays a person ended there. */
+  const cleanup = new Map();
+  const cleanupOf = (garageId) => {
+    if (!cleanup.has(garageId)) cleanup.set(garageId, { stuck_after_hours: STUCK_DEFAULT_HOURS, ended: [] });
+    return cleanup.get(garageId);
+  };
+  const stayPictures = new Map(); // stay id -> [{ id, taken_at }], newest first
+  const atAnExit = new Set(); // stay ids a car is at an exit lane on
   let connectOn = true; // a platform with Stripe Connect set up (STRIPE_API_KEY and the two return addresses)
   let engineOn = true; // the rate engine answers
   let stripeOn = true; // Stripe answers
@@ -937,7 +979,7 @@ export async function startStub({ port = 0 } = {}) {
     return {
       id, tenant_id: who.tenant_id, name, timezone, currency, created_at: new Date().toISOString(), default_action: 'allow', space_class: 'standard',
       transient_available: null, activated_at: setups[id].opened_at, garage_pass_link: null, monthly_billing_link: null, validations_link: null,
-      ban_tailgaters: false, ban_reach: 'garage', spaces: null,
+      ban_tailgaters: false, ban_reach: 'garage', spaces: null, walk_complete_percent: 80, stuck_after_hours: STUCK_DEFAULT_HOURS,
     };
   }
 
@@ -1084,13 +1126,15 @@ export async function startStub({ port = 0 } = {}) {
       if ('ban_reach' in body && !BAN_REACHES.includes(body.ban_reach)) return refuse(res, who, 400, BAN_REACH_REFUSED, at);
       // The fill rule (platform 0034): a whole number from 1 to 100000, or null.
       if ('spaces' in body && body.spaces !== null && !(Number.isInteger(body.spaces) && body.spaces >= 1 && body.spaces <= 100000)) return refuse(res, who, 400, SPACES_REFUSED, at);
-      const fields = ['transient_available', 'ban_tailgaters', 'ban_reach', 'spaces'].filter((f) => f in body);
+      // Platform 0043: how old an open stay is before it is listed as stuck.
+      if ('stuck_after_hours' in body && !(Number.isInteger(body.stuck_after_hours) && body.stuck_after_hours >= 1 && body.stuck_after_hours <= STUCK_MAX_HOURS)) return refuse(res, who, 400, STUCK_HOURS_REFUSED, at);
+      const fields = ['transient_available', 'ban_tailgaters', 'ban_reach', 'spaces', 'stuck_after_hours'].filter((f) => f in body);
       if (fields.length === 0) return refuse(res, who, 400, { error: 'default_action, transient_available, ban_tailgaters, ban_reach or spaces is required' }, at);
       // Not cleared under rates that charge more when the garage is full.
       if (body.spaces === null && garage.spaces !== null && hasFill(byStart(plansOf(garage.id)).at(-1)?.plan)) return refuse(res, who, 409, SPACES_NEEDED, at);
       const extra = setups[garage.id];
       const bans = bansOf(garage.id);
-      const holder = (f) => (f === 'transient_available' ? extra : f === 'spaces' ? garage : bans);
+      const holder = (f) => (f === 'transient_available' ? extra : f === 'spaces' ? garage : f === 'stuck_after_hours' ? cleanupOf(garage.id) : bans);
       const before = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
       for (const f of fields) holder(f)[f] = body[f];
       const after = Object.fromEntries(fields.map((f) => [f, holder(f)[f]]));
@@ -1104,6 +1148,7 @@ export async function startStub({ port = 0 } = {}) {
           transient_available: extra.transient_available, activated_at: extra.opened_at ?? (garage.live ? '2026-01-02T15:00:00.000Z' : null),
           garage_pass_link: null, monthly_billing_link: null, validations_link: null,
           ban_tailgaters: bans.ban_tailgaters, ban_reach: bans.ban_reach, spaces: garage.spaces ?? null,
+          walk_complete_percent: 80, stuck_after_hours: cleanupOf(garage.id).stuck_after_hours,
         },
       });
     }
@@ -1649,6 +1694,118 @@ export async function startStub({ port = 0 } = {}) {
         ? { error: `every stay in this garage is priced as space class "standard", and the plan declares only: ${(plan.space_classes ?? []).map((c) => JSON.stringify(c)).join(', ') || 'nothing'}`, code: 'plan_does_not_price_garage_space_class' }
         : null;
 
+  /**
+   * Platform 0043: what a stay a person ended because the car left owes --
+   * the exit's own quote at `leftAt`, then the tax at that time, as its
+   * owedOf keeps it. Nothing covers a stay at the stand-in.
+   */
+  async function owedFor(garage, stay, leftAt) {
+    const documents = plansOf(garage.id).map((r) => r.plan);
+    const refused = { outcome: 'transient', fee_minor: null, subtotal_minor: null, currency: garage.currency, breakdown: null, plan_version: null, covered_by: [], refused: true };
+    if (!documents.length) return refused;
+    const q = await ask('/v1/quote', { plans: documents, currency: garage.currency, space_class: 'standard', entry_at: new Date(stay.entry_at).toISOString(), exit_at: leftAt.toISOString() });
+    if (q.status === 422 && q.body.refused === true) return refused;
+    if (q.status !== 200) throw new Error(`the stand-in's engine answered a quote with HTTP ${q.status}`);
+    const sets = (moneyOf(garage.id).taxSets ?? []).filter((s) => Date.parse(s.effective_from) <= leftAt.getTime());
+    let taxLines = [];
+    if (sets.length) {
+      const tx = await ask('/v1/tax', { tax_sets: sets.map((s) => ({ effective_from: s.effective_from, rules: s.rules })), subtotal_minor: q.body.fee_minor, currency: garage.currency, at: leftAt.toISOString() });
+      if (tx.status !== 200) throw new Error(`the stand-in's engine answered the tax with HTTP ${tx.status}`);
+      taxLines = tx.body.lines;
+    }
+    return {
+      outcome: 'transient',
+      fee_minor: q.body.fee_minor + taxLines.reduce((sum, l) => sum + l.delta_minor, 0),
+      subtotal_minor: q.body.fee_minor,
+      currency: garage.currency,
+      breakdown: [...q.body.breakdown, ...taxLines],
+      plan_version: q.body.plan_version,
+      covered_by: [],
+      refused: false,
+    };
+  }
+
+  /** Platform 0043: the stays that look stuck, their entry pictures, and a person ending one. */
+  async function stayRoutes(req, res, path, who) {
+    const m = /^\/api\/v1\/garages\/([^/]+)\/stays\/(stuck|([^/]+)\/end|([^/]+)\/pictures\/([^/]+))$/.exec(path);
+    if (!m) return undefined;
+    const garage = who.garages.find((g) => g.id === m[1]);
+    const open = garage ? who.open[garage.id] ?? [] : [];
+    if (m[2] === 'stuck' && req.method === 'GET') {
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      const hours = cleanupOf(garage.id).stuck_after_hours;
+      const before = Date.now() - hours * 3600_000;
+      const lanes = who.lanes[garage.id] ?? [];
+      const stays = open
+        .filter((s) => Date.parse(s.entry_at) <= before)
+        .sort((a, b) => Date.parse(a.entry_at) - Date.parse(b.entry_at) || (a.id < b.id ? -1 : 1))
+        .map((s) => ({
+          id: s.id,
+          plate: s.plate ?? null,
+          plate_whole: s.plate !== null,
+          ticket: s.ticket_ref !== null,
+          unread: s.unread === true,
+          entered_at: s.entry_at,
+          entry_lane: lanes.some((l) => l.name === s.entry_lane) ? s.entry_lane : null,
+          at_exit: atAnExit.has(s.id),
+          last_seen_on_walk: null,
+          why: 'old',
+          pictures: stayPictures.get(s.id) ?? [],
+        }));
+      return answer(res, 200, { older_than_hours: hours, stuck_after_hours: hours, stays });
+    }
+    if (m[5] && req.method === 'GET') {
+      if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+      const known = open.some((s) => s.id === m[4]) || cleanupOf(garage.id).ended.some((s) => s.id === m[4]);
+      if (!known || !(stayPictures.get(m[4]) ?? []).some((p) => p.id === m[5])) return answer(res, 404, { error: 'picture not found' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(PICTURE_PNG);
+      return true;
+    }
+    if (!m[3] || req.method !== 'POST') return undefined;
+    const body = (await readBody(req)) ?? {};
+    const at = garage
+      ? { garageId: garage.id, action: 'stay.end', subject: { kind: 'garage', id: garage.id, name: garage.name } }
+      : { action: 'stay.end', subject: { kind: 'unknown', id: null, name: null }, missing: 'garage_not_found' };
+    // The platform's checks, in its order: what was asked, then the garage, then the stay.
+    if (!['ended', 'abandoned'].includes(body.outcome)) return refuse(res, who, 400, OUTCOME_REFUSED, at);
+    if (typeof body.reason !== 'string' || body.reason.trim() === '' || body.reason.length > REASON_MAX) return refuse(res, who, 400, REASON_REQUIRED, at);
+    if (REASON_CONTROL.test(body.reason)) return refuse(res, who, 400, REASON_INVALID, at);
+    let leftAt = null;
+    if (body.left_at !== undefined && body.left_at !== null) {
+      if (body.outcome !== 'ended') return refuse(res, who, 400, LEFT_AT_ABANDONED, at);
+      leftAt = new Date(body.left_at);
+      if (Number.isNaN(leftAt.getTime())) return refuse(res, who, 400, LEFT_AT_UNREADABLE, at);
+    }
+    if (!garage) return refuse(res, who, 404, GARAGE_NOT_FOUND, at);
+    const stay = open.find((s) => s.id === m[3]);
+    if (!stay) {
+      if (cleanupOf(garage.id).ended.some((s) => s.id === m[3])) return refuse(res, who, 409, STAY_NOT_OPEN, at);
+      return refuse(res, who, 404, STAY_NOT_FOUND, at);
+    }
+    if (atAnExit.has(stay.id)) return refuse(res, who, 409, STAY_AT_EXIT, at);
+    const now = new Date();
+    if (leftAt) {
+      const ahead = (leftAt.getTime() - now.getTime()) / 1000;
+      if (ahead > MAX_CLOCK_SKEW_SECONDS) return refuse(res, who, 409, LEFT_AT_AHEAD(Math.round(ahead)), at);
+    }
+    const exitAt = leftAt ?? now;
+    if (exitAt.getTime() < Date.parse(stay.entry_at)) return refuse(res, who, 400, LEFT_BEFORE_ENTRY, at);
+    const owed = body.outcome === 'ended' ? await owedFor(garage, stay, exitAt) : null;
+    const ended = { reason: body.outcome, at: now.toISOString(), by: `owner:${who.email}`, why: body.reason.trim(), ...(owed ? { owed } : {}) };
+    who.open[garage.id] = open.filter((s) => s !== stay);
+    const row = { id: stay.id, entered_at: stay.entry_at, exit_at: exitAt.toISOString(), ended, owed_minor: owed ? owed.fee_minor : null, currency: stay.currency };
+    cleanupOf(garage.id).ended.push(row);
+    line(who, {
+      garageId: garage.id,
+      action: 'stay.end',
+      subject: { kind: 'stay', id: stay.id, name: null },
+      before: { open: true, entered_at: stay.entry_at, exit_at: null },
+      after: { open: false, outcome: body.outcome, reason: ended.why, entered_at: stay.entry_at, exit_at: row.exit_at, owed_minor: row.owed_minor, currency: stay.currency },
+    });
+    return answer(res, 200, { stay: row });
+  }
+
   let gapNext = false;
   let tryDelay = 0;
   let changesDelay = 0;
@@ -1977,6 +2134,8 @@ export async function startStub({ port = 0 } = {}) {
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
     if (path === '/api/v1/garages' && req.method === 'POST') return addGarage(req, res, who);
 
+    const stays = await stayRoutes(req, res, path, who);
+    if (stays !== undefined) return stays;
     const u7g = await rateRoutes(req, res, path, who);
     if (u7g !== undefined) return u7g;
     const u6 = await moneyRoutes(req, res, path, who);
@@ -2150,6 +2309,31 @@ export async function startStub({ port = 0 } = {}) {
     freshBans: (garageId) => {
       banState[garageId] = { ban_tailgaters: false, ban_reach: 'garage', cars: [] };
     },
+    // ── Platform 0043 ──
+    /**
+     * A car let in at the garage's first entry lane `hoursAgo` hours ago,
+     * read as `plate`, with one entry picture, as test/record-stuck.js lets
+     * one in on the platform. Its open stay.
+     */
+    letIn: (garageId, { hoursAgo, plate }) => {
+      const owner = Object.values(data).find((o) => o.garages.some((g) => g.id === garageId));
+      const garage = owner.garages.find((g) => g.id === garageId);
+      const n = Object.values(owner.open).flat().length + cleanupOf(garageId).ended.length + 1;
+      const id = `5e${String(n).padStart(6, '0')}-0000-4000-8000-${String(Date.now()).slice(-12).padStart(12, '0')}`;
+      const entryAt = new Date(Date.now() - hoursAgo * 3600_000).toISOString();
+      const lane = (owner.lanes[garageId] ?? []).find((l) => l.direction === 'entry');
+      const stay = { id, entry_at: entryAt, currency: garage.currency, entry_confirmation: 'confirmed', plate, plate_region: null, ticket_ref: null, entry_lane: lane?.name ?? null };
+      (owner.open[garageId] ??= []).push(stay);
+      stayPictures.set(id, [{ id: `5f${String(n).padStart(6, '0')}-0000-4000-8000-000000000001`, taken_at: entryAt }]);
+      return stay;
+    },
+    /** A car at an exit lane on the stay `stayId` (on), or gone from it (off): a person lets that one out there. */
+    carAtExit: (stayId, on = true) => {
+      if (on) atAnExit.add(stayId);
+      else atAnExit.delete(stayId);
+    },
+    /** Every stay a person ended at the garage, as the end answered it. */
+    endedStays: (garageId) => structuredClone(cleanupOf(garageId).ended),
     /** Put `lines` (oldest first) as the owner's change log, for the file checks. */
     setChanges: (owner, lines) => log.set(owner.tenant_id, lines.slice()),
     /** The change log the stand-in kept, per owner, oldest first. */

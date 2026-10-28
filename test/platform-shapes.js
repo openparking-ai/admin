@@ -132,6 +132,13 @@ const STRUCTURE = {
     sending: data.sending,
     contact: Object.keys(data.contacts[0]).sort(),
   }),
+  // Platform 0043: the change log after a stay was ended, its times said as "a time" -- when the
+  // stay came in and left are the data's, not the contract's.
+  stayChanges: (data) => {
+    const out = STRUCTURE.changes(data);
+    const timed = (side) => side && Object.fromEntries(Object.entries(side).map(([k, v]) => [k, ['entered_at', 'exit_at'].includes(k) && v !== null ? 'a time' : v]));
+    return { ...out, newest: { ...out.newest, before: timed(out.newest.before), after: timed(out.newest.after) } };
+  },
   refused: (data) => {
     const [line] = data.refused;
     return {
@@ -301,6 +308,46 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
   await call('banned cars, after the removal', 'GET', '/garages/{garage}/banned');
   await call('tailgaters not banned, this garage only', 'PATCH', '/garages/{garage}', { ban_tailgaters: false, ban_reach: 'garage' });
   await call('changes, after the banned cars', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  return state.out;
+}
+
+/**
+ * Platform 0043: the stuck stays, as the Stuck stays page meets them -- the
+ * list, the garage's hours, a stay ended (the car left) and one written off,
+ * with every refusal the page can meet. `hooks.stays(garage)` lets in three
+ * cars as the entry lane lets one in, each with one picture: 30 and 26 hours
+ * ago, and one an hour ago that is not listed. Recorded apart from `record`,
+ * after it, on a garage with no stay of its own.
+ */
+export async function recordStuck(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
+  const { state, call } = recorder(base, origin);
+  const HOUR = 3600 * 1000;
+  await call('sign-in, for the stuck stays', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('garages, for the stuck stays', 'GET', '/garages', undefined, {}, { quiet: true })).garages[0].id;
+  await call('stuck stays, none yet', 'GET', '/garages/{garage}/stays/stuck');
+  await hooks.stays(state.garage);
+  await call('stuck stays, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/stays/stuck`);
+  const [first, second] = (await call('stuck stays, two listed', 'GET', '/garages/{garage}/stays/stuck')).stays;
+  await call('stuck after, from a page at another address', 'PATCH', '/garages/{garage}', { stuck_after_hours: 28 }, { origin: elsewhere });
+  await call('stuck after, zero', 'PATCH', '/garages/{garage}', { stuck_after_hours: 0 });
+  await call('stuck after, as text', 'PATCH', '/garages/{garage}', { stuck_after_hours: '28' });
+  await call('stuck after, 28 hours', 'PATCH', '/garages/{garage}', { stuck_after_hours: 28 });
+  await call('stuck stays, one listed after 28 hours', 'GET', '/garages/{garage}/stays/stuck');
+  await call('stuck after, back to 24 hours', 'PATCH', '/garages/{garage}', { stuck_after_hours: 24 });
+  await call("a stay's picture, asked through another stay", 'GET', `/garages/{garage}/stays/${second.id}/pictures/${first.pictures[0].id}`);
+  const end = (stay) => `/garages/{garage}/stays/${stay.id}/end`;
+  const leftAt = new Date(Date.parse(first.entered_at) + 2 * HOUR).toISOString();
+  await call('a stay ended, from a page at another address', 'POST', end(first), { outcome: 'ended', reason: 'Backed out at the gate', left_at: leftAt }, { origin: elsewhere });
+  await call('a stay ended, with no reason', 'POST', end(first), { outcome: 'ended', reason: ' ', left_at: leftAt });
+  await call('a stay ended, its reason on two lines', 'POST', end(first), { outcome: 'ended', reason: 'Backed out\nat the gate', left_at: leftAt });
+  await call('a stay ended, before it came in', 'POST', end(first), { outcome: 'ended', reason: 'Backed out at the gate', left_at: new Date(Date.parse(first.entered_at) - HOUR).toISOString() });
+  await call('a stay not theirs, ended', 'POST', end({ id: NOT_THEIRS }), { outcome: 'ended', reason: 'Backed out at the gate' });
+  await call('a stay ended, two hours after it came in', 'POST', end(first), { outcome: 'ended', reason: 'Backed out at the gate', left_at: leftAt });
+  await call('a stay ended again', 'POST', end(first), { outcome: 'ended', reason: 'Backed out at the gate', left_at: leftAt });
+  await call('a stay written off', 'POST', end(second), { outcome: 'abandoned', reason: 'Plate misread twice' });
+  await call('stuck stays, after both were ended', 'GET', '/garages/{garage}/stays/stuck');
+  await call('changes, after a stay was written off', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'stayChanges' });
+  await call('refused attempts, after the stays', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
   return state.out;
 }
 

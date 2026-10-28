@@ -17,6 +17,8 @@ export const PAGES = [
   { id: 'paid', path: '/getting-paid', icon: 'paid' },
   // U7a: Garage View, once "Cars inside": its old address still opens it.
   { id: 'inside', path: '/garage-view', was: ['/cars-inside'], icon: 'car' },
+  // Platform 0043: the stays that look stuck, each ended or written off by a person.
+  { id: 'stuck', path: '/stuck-stays', icon: 'clock' },
   // U7f: the cars banned at this garage, and taking one off the list.
   { id: 'banned', path: '/banned-cars', icon: 'ban' },
   { id: 'alerts', path: '/alerts', icon: 'bell' },
