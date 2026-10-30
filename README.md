@@ -62,7 +62,10 @@ The build publishes no source maps.
   kept). A closed window is "no passkey used", never a refusal; a refused passkey,
   passkeys not set up, a challenge that took too long, each has its own words. On
   Settings the admin lists, adds (named, up to 60 characters), renames and removes
-  their own; a person from a linked accounts module is told theirs are kept with
+  their own; adding one asks for the password again, which the platform needs
+  unless the admin signed in with it in the last five minutes (platform 0047's
+  `403 password_required`, and a wrong one `password_not_accepted`, each in its
+  own words); a person from a linked accounts module is told theirs are kept with
   their account. The server in front must not switch off
   `publickey-credentials-get` or `publickey-credentials-create` in its
   `Permissions-Policy`. `src/PasskeysSection.jsx`.

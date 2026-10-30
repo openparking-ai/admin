@@ -1479,9 +1479,12 @@ try {
   check(await showsText(keys.page, EN['passkeys.none']), `the admin's Settings lists their passkeys: "${EN['passkeys.none']}"`);
   await keys.page.click('[data-action="add-passkey"]');
   await keys.page.fill('[data-field="passkey-name"]', 'Laptop');
+  await keys.page.fill('[data-field="passkey-password"]', 'a password typed');
   await keys.page.click('[data-panel="add-passkey"] button[type="submit"]');
   check(await showsText(keys.page, EN['problem.passkeysOff']), `adding one where none are set up says "${EN['problem.passkeysOff']}"`);
-  await checkDescribed(keys.page, 'Settings, adding a passkey', 'en', 3);
+  check((await keys.page.inputValue('[data-field="passkey-password"]')) === '', 'the password typed to add a passkey is emptied after the attempt');
+  // Its name, and the password asked again (platform 0047), each described.
+  await checkDescribed(keys.page, 'Settings, adding a passkey', 'en', 4);
   await keys.page.click('[data-action="sign-out"]');
   await keys.context.close();
 

@@ -44,6 +44,8 @@ export const PROBLEM_KINDS = [
   'notAllowed', 'undecided',
   // Passkeys (platform 0035): signing in with one, and the admin's own.
   'passkeyRefused', 'passkeyStopped', 'passkeysOff', 'passkeyEnded', 'passkeyNotAdded', 'passkeyKnown', 'passkeysFull', 'passkeyName', 'passkeysElsewhere',
+  // Adding a passkey is proved again by the password (platform 0047).
+  'passwordAgain', 'passwordNotAccepted',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -146,7 +148,9 @@ const NAMED = [
   [503, 'sign_in_undecided', 'undecided'],
   [503, 'accounts_undecided', 'undecided'],
   [409, 'passkeys_not_configured', 'passkeysOff'],
-  [503, 'passkeys_busy', 'busy'],
+  [429, 'passkeys_busy', 'busy'],
+  [403, 'password_required', 'passwordAgain'],
+  [403, 'password_not_accepted', 'passwordNotAccepted'],
   [409, 'passkey_challenge_ended', 'passkeyEnded'],
   [400, 'passkey_not_added', 'passkeyNotAdded'],
   [409, 'passkey_known', 'passkeyKnown'],
@@ -428,9 +432,13 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     },
     /** The admin's own passkeys: { id, name, created_at, last_used_at }, as the platform lists them. */
     passkeys: async () => list(await request('/auth/passkeys'), 'passkeys'),
-    /** Add a passkey named `name`: the platform's options, the browser's new passkey (`make`), then both sent back. */
-    async addPasskey(name, make) {
-      const asked = object(await request('/auth/passkeys/options', { method: 'POST' }));
+    /**
+     * Add a passkey named `name`: the platform's options, the browser's new passkey (`make`), then
+     * both sent back. The platform asks for the password again unless the admin signed in with it
+     * in the last five minutes (platform 0047): `password`, when typed, goes with the first step.
+     */
+    async addPasskey(name, make, password) {
+      const asked = object(await request('/auth/passkeys/options', { method: 'POST', ...(password ? { body: { password } } : {}) }));
       if (typeof asked.challenge_id !== 'string' || !asked.options) throw new Problem('unexpected');
       const response = await make(asked.options);
       return object(object(await request('/auth/passkeys', { method: 'POST', body: { challenge_id: asked.challenge_id, name, response } })).passkey);

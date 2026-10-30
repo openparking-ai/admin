@@ -115,6 +115,7 @@ function NameField({ t, value, onChange }) {
 
 function AddPasskey({ t, client, onDone, onClose }) {
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [working, setWorking] = useState(false);
   const [problem, setProblem, fail] = useProblem();
   const add = async (e) => {
@@ -124,11 +125,13 @@ function AddPasskey({ t, client, onDone, onClose }) {
     setWorking(true);
     setProblem(null);
     try {
-      await client.addPasskey(name.trim(), (options) => makePasskey(options));
+      await client.addPasskey(name.trim(), (options) => makePasskey(options), password || undefined);
       onDone();
     } catch (p) {
       fail(p);
     } finally {
+      // The password is never kept past the attempt, as on the sign-in screen.
+      setPassword('');
       setWorking(false);
     }
     return undefined;
@@ -136,6 +139,10 @@ function AddPasskey({ t, client, onDone, onClose }) {
   return (
     <form className="setup-form" data-panel="add-passkey" onSubmit={add} noValidate>
       <NameField t={t} value={name} onChange={setName} />
+      <label className="field">
+        <FieldName t={t} name="passkeys.password" />
+        <input type="password" value={password} autoComplete="current-password" data-field="passkey-password" onChange={(e) => setPassword(e.target.value)} />
+      </label>
       <button type="submit" className="primary-button" disabled={working}>
         {t('passkeys.addButton')}
       </button>{' '}

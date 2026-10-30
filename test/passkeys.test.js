@@ -139,7 +139,9 @@ test('every passkey refusal, and the new refusals of every route, become their o
     ['a name refused', 400, 'passkey_name_refused', 'passkeyName', (c) => c.renamePasskey('k', 'n')],
     ['kept elsewhere', 409, 'passkeys_elsewhere', 'passkeysElsewhere', (c) => c.passkeys()],
     ['not found', 404, 'passkey_not_found', 'notFound', (c) => c.removePasskey('k')],
-    ['busy', 503, 'passkeys_busy', 'busy', (c) => c.passkeySignIn(async () => ({}))],
+    ['busy: too many challenges from here', 429, 'passkeys_busy', 'busy', (c) => c.passkeySignIn(async () => ({}))],
+    ['the password asked for again', 403, 'password_required', 'passwordAgain', (c) => c.addPasskey('Phone', async () => ({}))],
+    ['the password typed not accepted', 403, 'password_not_accepted', 'passwordNotAccepted', (c) => c.addPasskey('Phone', async () => ({}), 'typed')],
   ];
   for (const [what, status, code, kind, call] of cases) {
     const client = createClient({ fetch: fakeFetch(() => ({ status, body: { error: 'raw words', code } })).fn });
@@ -195,4 +197,21 @@ test('an options answer without its challenge id is refused before the browser i
   const problem = await problemOf(client.passkeySignIn(async () => ((asked = true), {})));
   assert.equal(problem.kind, 'unexpected');
   assert.equal(asked, false);
+});
+
+test('adding a passkey sends the password typed with the first step, and only there; none typed sends no body', async () => {
+  const { fn, asked } = fakeFetch((url) => (url.endsWith('/passkeys/options')
+    ? { status: 200, body: { challenge_id: 'c3', options: { challenge: 'AQID', user: { id: 'Bgc' } } } }
+    : { status: 201, body: { passkey: { id: 'k2', name: 'Phone' } } }));
+  const client = createClient({ fetch: fn });
+  await client.addPasskey('Phone', async () => ({ id: 'new' }), 'the password typed');
+  await client.addPasskey('Phone', async () => ({ id: 'new' }));
+  assert.deepEqual(asked.map((a) => [a.url, a.body]), [
+    ['/api/v1/auth/passkeys/options', { password: 'the password typed' }],
+    ['/api/v1/auth/passkeys', { challenge_id: 'c3', name: 'Phone', response: { id: 'new' } }],
+    ['/api/v1/auth/passkeys/options', undefined],
+    ['/api/v1/auth/passkeys', { challenge_id: 'c3', name: 'Phone', response: { id: 'new' } }],
+  ]);
+  // Never in an address.
+  for (const a of asked) assert.doesNotMatch(a.url, /password/);
 });
