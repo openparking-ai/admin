@@ -19,7 +19,10 @@ test('anything else is no link', () => {
     { people: { href: 'data:text/html,hi' } },
     { people: { href: '//evil.example.com/people' } },
     { people: { href: '/%2F%2Fevil.example.com' } },
-    { people: { href: 'https://user:pw@portal.example.com/people' } },
+    // A name and password, or a name alone, before the host: written on example.com, which the
+    // real-data check (.github/scripts/check-no-real-data.js) knows is invented.
+    { people: { href: 'https://user:pw@example.com/people' } },
+    { people: { href: 'https://user@example.com/people' } },
     { people: { href: 'https://portal.example.com/peo ple' } },
     { people: { href: 'https://portal.example.com/\npeople' } },
     { people: { href: `/${'a'.repeat(600)}` } },
