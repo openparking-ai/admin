@@ -1832,6 +1832,10 @@ fieldset.dates[data-wrong='yes'],
 .confirm-notice {
   border-color: var(--accent);
 }
+/* The two rules of rate setup, by the caps and by the special rates: one sentence a line. */
+.rate-rules p + p {
+  margin-top: 6px;
+}
 .saved-note {
   margin-top: 24px;
   padding: 12px 16px;

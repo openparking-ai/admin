@@ -14,6 +14,7 @@
 // sentences and the finding words are in the dictionaries.
 
 import { garageInstant } from './taxes.js';
+import { minorUnitDigits } from './currencyDigits.js';
 
 const LOCALES = { en: 'en-US', es: 'es-US' };
 const locale = (language) => LOCALES[language] ?? LOCALES.en;
@@ -50,14 +51,13 @@ export const ADJUST_ROUNDINGS = ['down', 'up'];
 
 // --- money -------------------------------------------------------------------
 
-/** How many digits after the point this currency has: 2 for dollars, 0 for yen. */
-export function currencyDigits(currency) {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
-  } catch {
-    return 2;
-  }
-}
+/**
+ * How many digits after the point this currency has: 2 for dollars, 0 for
+ * yen, 3 for dinars -- the rate engine's own table (src/currencyDigits.js),
+ * never the browser's, which differs for some (OP-NODE-006). A code the engine
+ * does not price in has no rates to show; it is written with 2.
+ */
+export const currencyDigits = (currency) => minorUnitDigits(currency) ?? 2;
 
 /** An amount in the currency's smallest unit as people write it: 800 is "$8.00". */
 export function moneyText(minor, currency, language) {
@@ -349,7 +349,24 @@ export function changes(t, before, after, language) {
   was.forEach((rule, i) => {
     if (!is.some((r) => r.id === rule.id)) out.push({ key: rule.id, name: specialName(t, rule, i), was: t('rates.change.current'), is: t('rates.change.removed') });
   });
+  // The order the discounts and extra charges apply in, among those in both:
+  // it changes the price of a stay that two of them fit (OP-NODE-009).
+  const wasOrder = (before?.adjust_order ?? []).filter((id) => (after?.adjust_order ?? []).includes(id));
+  const isOrder = (after?.adjust_order ?? []).filter((id) => wasOrder.includes(id));
+  if (JSON.stringify(wasOrder) !== JSON.stringify(isOrder)) out.push({ key: 'rates.change.order', was: orderWords(t, before, wasOrder), is: orderWords(t, after, isOrder) });
   return out;
+}
+
+/** The discounts and extra charges named, in the order given: "Members, Two off". */
+function orderWords(t, plan, ids) {
+  const windows = orderedWindows(plan);
+  return ids
+    .map((id) => {
+      const rule = (plan?.rules ?? []).find((r) => r.id === id);
+      if (rule?.type === 'time_window') return specialName(t, rule, windows.indexOf(rule));
+      return t(`rates.ruleName.${rule?.type === FILL_TYPE ? FILL_TYPE : 'other'}`);
+    })
+    .join(', ');
 }
 
 // --- the list ----------------------------------------------------------------
@@ -357,19 +374,20 @@ export function changes(t, before, after, language) {
 const startOf = (plan) => Date.parse(plan.effective_from);
 
 /**
- * The plans as the page shows them, at `now`: the one in force (the latest
- * that has started) and the ones before it (newest first), each earlier one
- * with until when it was in force. `later` is kept for a plan stored before
- * U7i that starts later; nothing the page saves does.
+ * The plans as the page and its files show them: the one in force -- the
+ * newest stored -- and the ones before it (newest first), each with until when
+ * it was in force. Nothing is scheduled (U7i), and the platform takes a start
+ * at most a minute from its own clock, so the newest is in force now or within
+ * that minute, whatever this computer's clock says. It is the plan a save is
+ * built on and names as checked against (`based_on`), so none is hidden as
+ * "later" (OP-NODE-012), and the files never name a state they have no words
+ * for (OP-NODE-015).
  */
-export function arrange(plans, now = new Date()) {
+export function arrange(plans) {
   const sorted = [...(plans ?? [])].sort((a, b) => startOf(a) - startOf(b));
-  const at = now.getTime();
-  const started = sorted.filter((p) => startOf(p) <= at);
-  const current = started.at(-1) ?? null;
-  const later = sorted.filter((p) => startOf(p) > at);
-  const earlier = started.slice(0, -1).map((p) => ({ ...p, until: sorted[sorted.indexOf(p) + 1].effective_from })).reverse();
-  return { current, later, earlier };
+  const current = sorted.at(-1) ?? null;
+  const earlier = sorted.slice(0, -1).map((p, i) => ({ ...p, until: sorted[i + 1].effective_from })).reverse();
+  return { current, earlier };
 }
 
 // --- the form ----------------------------------------------------------------
@@ -446,11 +464,17 @@ export function formFromPlan(plan, currency) {
 /**
  * A plan's specials in the order it applies them: its stated order for the
  * discounts and increases, else as written. The order the page lists them in.
+ * Each special that is not in the stated order (one price, its own hourly
+ * rate) keeps its place; the discounts and increases fill the other places in
+ * the stated order. Never a sort whose comparison says "equal" across a
+ * special between two discounts: that left them as written, and the next save
+ * wrote them reversed (OP-NODE-009).
  */
 export function orderedWindows(plan) {
   const windows = (plan?.rules ?? []).filter((r) => r.type === 'time_window');
   const order = plan?.adjust_order ?? [];
-  return windows.sort((a, b) => (order.includes(a.id) && order.includes(b.id) ? order.indexOf(a.id) - order.indexOf(b.id) : 0));
+  const stated = windows.filter((r) => order.includes(r.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  return windows.map((r) => (order.includes(r.id) ? stated.shift() : r));
 }
 
 /** One special of a plan, as the form would hold it typed in full. */
@@ -482,18 +506,25 @@ export function specialForm(r, currency) {
 // No field starts with a value (the owner's walk, 2026-10-12: "no field should look like
 // prefilled"). The form holds only what the owner typed; the rates in force are
 // shown under each field ("Now: $15.00"). A field left empty keeps the value in
-// force, a typed one replaces it. A tick starts as it is now. With no rates in
-// force there is nothing to keep, so every field is needed.
+// force, a typed one replaces it. A tick, or a special's day, is untouched
+// (null) until the owner presses it, and an untouched one is the rates in
+// force at the moment they are read -- never a copy taken when the owner
+// started, which another owner's save meanwhile would make stale
+// (OP-NODE-008). With no rates in force there is nothing to keep, so every
+// field is needed.
 
-/** The regular part of the form, as the owner starts it: every field empty, each tick as it is now. */
-export function typedRegular(now) {
+/** The regular part of the form, as the owner starts it: every field empty, each tick untouched (as it is now). */
+export function typedRegular(_now) {
   return {
     time: blankRate(),
-    dayMax: { on: now.dayMax.on, price: '', kind: '' },
-    weekMax: { on: now.weekMax.on, price: '', kind: '', startsOn: '' },
-    grace: { on: now.grace.on, minutes: '' },
+    dayMax: { on: null, price: '', kind: '' },
+    weekMax: { on: null, price: '', kind: '', startsOn: '' },
+    grace: { on: null, minutes: '' },
   };
 }
+
+/** A tick as it is shown and saved: as the owner pressed it, else as it is in the rates in force (`now`, or none). */
+export const tickOf = (typed, now) => (typed === true || typed === false ? typed : Boolean(now));
 
 const typedOr = (typed, now) => (String(typed ?? '').trim() !== '' ? typed : now);
 const mergeRate = (typed, now) => Object.fromEntries(Object.keys(blankRate()).map((k) => [k, typedOr(typed[k], now[k])]));
@@ -505,7 +536,7 @@ const mergeRate = (typed, now) => Object.fromEntries(Object.keys(blankRate()).ma
  */
 export function mergeRegular(typed, now) {
   const part = (name, fields) => {
-    const on = typed[name].on;
+    const on = tickOf(typed[name].on, now[name].on);
     const was = now[name].on ? now[name] : Object.fromEntries(fields.map((f) => [f, '']));
     return { on, ...Object.fromEntries(fields.map((f) => [f, on ? typedOr(typed[name][f], was[f]) : ''])) };
   };
@@ -518,10 +549,10 @@ export function mergeRegular(typed, now) {
   };
 }
 
-/** A special as the owner starts changing it: every field empty, its day ticks as they are now. A new one: all empty. */
+/** A special as the owner starts changing it: every field empty, its days untouched (as they are now). A new one: all empty. */
 export function typedSpecial(now = null) {
   const s = blankSpecial();
-  if (now) s.days = [...now.days];
+  if (now) s.days = null;
   return s;
 }
 
@@ -534,7 +565,8 @@ export function mergeSpecial(typed, now = null) {
     key: typed.key,
     name: typedOr(typed.name, was.name),
     preset,
-    days: typed.days,
+    // Days untouched: the special's days in force when it is read.
+    days: typed.days ?? was.days,
     dates: preset === 'dates' ? (typedDates || was.preset !== 'dates' ? typed.dates : was.dates) : [],
     enterFrom: typedOr(typed.enterFrom, was.enterFrom),
     enterBy: typedOr(typed.enterBy, was.enterBy),
@@ -543,8 +575,25 @@ export function mergeSpecial(typed, now = null) {
     charge: typedOr(typed.charge, was.charge),
     flat: typedOr(typed.flat, was.flat),
     rate: mergeRate(typed.rate, was.rate),
-    // A percent's cents: rounded down unless the owner says otherwise (the approved page's default).
-    adjust: { ...Object.fromEntries(['direction', 'kind', 'value', 'rounding'].map((k) => [k, typedOr(typed.adjust[k], was.adjust[k])])), rounding: typedOr(typed.adjust.rounding, was.adjust.rounding) || 'down' },
+    adjust: mergeAdjust(typed.adjust, was.adjust),
+  };
+}
+
+/**
+ * A discount or extra charge as it will be. The amount and its cents are kept
+ * only while the amount stays of the same kind: a percent changed to an amount
+ * (or back) needs its own number, so "10" off never becomes $10.00 off
+ * (OP-NODE-007). A percent's cents: rounded down unless the owner says
+ * otherwise (the approved page's default).
+ */
+function mergeAdjust(typed, was) {
+  const kind = typedOr(typed.kind, was.kind);
+  const keep = kind === was.kind ? was : { value: '', rounding: '' };
+  return {
+    direction: typedOr(typed.direction, was.direction),
+    kind,
+    value: typedOr(typed.value, keep.value),
+    rounding: typedOr(typed.rounding, keep.rounding) || 'down',
   };
 }
 
@@ -739,7 +788,7 @@ const PART_OF = { increment: 'time', daily_max: 'dayMax', weekly_max: 'weekMax',
 /** Whether the owner left a part of the regular section as it is in force: its tick as it was, nothing typed. */
 export function partUntouched(typed, now, part) {
   const t = typed[part];
-  if (part !== 'time' && t.on !== now[part].on) return false;
+  if (part !== 'time' && tickOf(t.on, now[part].on) !== now[part].on) return false;
   return Object.entries(t).every(([k, v]) => k === 'on' || String(v ?? '').trim() === '');
 }
 
@@ -784,6 +833,37 @@ export function regularPlan(base, typed, now, opts) {
   return { ...base, plan_version: built.plan_version, effective_from: built.effective_from, adjust_order: base.adjust_order ?? null, rules };
 }
 
+/** A special to change or remove that the rates read no longer hold: another owner removed it meanwhile. */
+export class RatesChangedMeanwhile extends Error {
+  constructor() {
+    super('the special is no longer in these rates: they changed while they were being checked');
+  }
+}
+
+/** A special the form cannot show whole: changing it here would rewrite what the owner never saw. */
+export class NotShownHere extends Error {
+  constructor() {
+    super('this special has settings the form cannot show, so it is not changed here');
+  }
+}
+
+/** The day spans the special form offers: the same day, or the next day ("leave by" the day after). */
+const FORM_SPANS = ['same_day', 'next_day'];
+
+/**
+ * Whether the special form can show everything a special says, so that a
+ * change made with it rewrites nothing the owner did not see: a day span it
+ * offers (not "any span"), a price it offers, and on a special's own hourly
+ * rate no longest stay and a started period charged in full. Rates written
+ * elsewhere can say more; such a special is not changed here, only removed
+ * (OP-NODE-011).
+ */
+export function formShows(rule) {
+  if (!rule || !FORM_SPANS.includes(rule.day_span) || !CHARGES.includes(rule.effect?.kind)) return false;
+  if (rule.effect.kind === 'rate') return (rule.effect.max_duration_minutes ?? null) === null && (rule.effect.rounding ?? PERIOD_ROUNDING) === PERIOD_ROUNDING;
+  return true;
+}
+
 /** A special id not in the plan: one after the highest "special-N", from 10. */
 function nextSpecialId(rules) {
   const ids = new Set(rules.map((r) => r.id));
@@ -803,6 +883,11 @@ export function specialsPlan(base, change, { garage, spaceClass, start, name }) 
   const rules = base.rules ?? [];
   const list = orderedWindows(base);
   const classes = pricedClasses(base, spaceClass);
+  // A special changed or removed must be one of these rates: never the last
+  // one in its place (an index of -1), never a crash (OP-NODE-010).
+  if ((change.kind === 'change' || change.kind === 'remove') && !list[change.index]) throw new RatesChangedMeanwhile();
+  // And one changed must be one the form can show whole (OP-NODE-011).
+  if (change.kind === 'change' && !formShows(list[change.index])) throw new NotShownHere();
   if (change.kind === 'add') list.push(specialRule(change.special, nextSpecialId(rules), classes, garage.currency));
   // A special changed keeps what the form does not show, its id and the kinds it prices.
   else if (change.kind === 'change') list[change.index] = { ...list[change.index], ...specialRule(change.special, list[change.index].id, list[change.index].space_classes, garage.currency) };
@@ -843,6 +928,29 @@ export function currencySign(currency, language) {
  */
 export const startNow = (_garage, now = Date.now()) => new Date(now).toISOString();
 
+/**
+ * The platform's clock now (milliseconds): the time its last answer said it
+ * was (`clock.date`, the answer's own Date) plus the time this computer has
+ * counted since it came (`clock.local`). Never this computer's own date and
+ * time, which may be minutes off: the platform refuses rates dated more than
+ * a minute from its clock (OP-NODE-014). With no such answer, this computer's.
+ */
+export function platformNow(clock, local = Date.now()) {
+  if (!clock || !Number.isFinite(clock.date) || !Number.isFinite(clock.local)) return local;
+  return clock.date + (local - clock.local);
+}
+
+/**
+ * When new rates start: `now` (the platform's clock), and in any case after
+ * the start of the rates they are built on (`base`), which another owner's
+ * save may have dated up to a minute ahead -- so new rates are never taken
+ * over by the rates they replace (OP-NODE-012).
+ */
+export function saveStart(base, now) {
+  const after = base ? Date.parse(base.effective_from) + 1 : NaN;
+  return new Date(Number.isFinite(after) ? Math.max(now, after) : now).toISOString();
+}
+
 // --- the garage's clock ------------------------------------------------------
 
 const WALL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
@@ -870,6 +978,33 @@ export function instantOf(wall, timeZone) {
 
 /** A wall-clock reading plus `minutes`, as the garage's clock reads it after that long. */
 export const wallPlus = (wall, minutes, timeZone) => wallAt(instantOf(wall, timeZone) + minutes * 60000, timeZone);
+
+// --- the longest stay --------------------------------------------------------
+
+/**
+ * The longest stay the rate engine prices, in days (decided 2026-10-16). A
+ * longer stay can't be priced automatically: it needs an operator. The one
+ * number for it on these screens: the Rates page says it by the caps and by
+ * the special rates (`rates.rule.longest`, its {days} from here), and its
+ * calculators price no stay longer. The engine refuses a longer stay from the
+ * version that sets the limit; when rate-engine.pin moves to it, the two must
+ * be equal.
+ */
+export const LONGEST_STAY_DAYS = 90;
+
+/**
+ * Whether a stay is longer than the rate engine prices: more than
+ * LONGEST_STAY_DAYS days from `entry` to `exit` (each the garage's clock,
+ * 'YYYY-MM-DDTHH:MM'), in real time, as the engine counts a stay's length --
+ * across a change of the clocks the garage's clock shows an hour more or less.
+ */
+export function tooLongToPrice(entry, exit, timeZone) {
+  const from = instantOf(entry, timeZone);
+  const to = instantOf(exit, timeZone);
+  // A moment the clocks skip has no instant: then the clock's own readings, at most an hour off.
+  const ms = from !== null && to !== null ? to - from : Date.parse(`${exit}:00Z`) - Date.parse(`${entry}:00Z`);
+  return ms > LONGEST_STAY_DAYS * 86400000;
+}
 
 /** The day of the week of a 'YYYY-MM-DD'. */
 const weekdayOf = (day) => DAYS[(new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7];

@@ -278,7 +278,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
    * first load, as the platform holds every door's answer to its floor --
    * does not throw it away.
    */
-  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false, named: ownNames = [], whole = false } = {}) {
+  async function request(path, { method = 'GET', body, signingIn = false, byStatus = null, sessionless = false, named: ownNames = [], whole = false, dated = false } = {}) {
     const asked = epoch;
     const stale = (at) => (sessionless ? null : staleSince(at));
     let res;
@@ -339,6 +339,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       throw new Problem(named ?? byRoute ?? (code === undefined && fromPlatform && method !== 'GET' ? BY_STATUS[res.status] : undefined) ?? 'unexpected');
     }
     if (data === undefined) throw new Problem('unexpected');
+    // `dated`: the body and the platform's clock as it answered (the answer's
+    // own Date, to the second), for new rates dated by the platform's clock.
+    if (dated) return { data, date: Date.parse(res.headers?.get?.('date') ?? '') };
     return data;
   }
 
@@ -589,13 +592,18 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      * are priced as (a plan the Rates form builds declares it).
      */
     ratePlans: async (garageId) => {
-      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS }));
+      const answer = await request(`/garages/${encodeURIComponent(garageId)}/rate-plans`, { byStatus: PLAN_BY_STATUS, dated: true });
+      const data = object(answer.data);
       if (!Array.isArray(data.rate_plans) || typeof data.space_class !== 'string') throw new Problem('unexpected');
       const plans = data.rate_plans.map((row) => object(row.plan));
       // U7i: each stored row's id, which its change-log line names (who saved it), and
       // which a save names as the rates it was checked against (`based_on`).
       const saved = data.rate_plans.map((row) => ({ id: typeof row.id === 'string' ? row.id : null, plan_version: row.plan_version ?? row.plan?.plan_version }));
-      return { plans, spaceClass: data.space_class, saved };
+      // The platform's clock as it answered, and this computer's when the answer
+      // came: new rates are dated by the platform's clock (rates.js platformNow,
+      // OP-NODE-014). Null when the answer carried no Date.
+      const clock = Number.isFinite(answer.date) ? { date: answer.date, local: Date.now() } : null;
+      return { plans, spaceClass: data.space_class, saved, clock };
     },
     /**
      * U7g: what cars would pay, priced the way the platform prices a car that
