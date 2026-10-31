@@ -1456,7 +1456,7 @@ try {
   const lead = await open();
   await signIn(lead.page, B);
   check(await showsText(lead.page, EN.signOut), 'a linked person signs in');
-  for (const [href, has] of [['#/lanes', true], ['#/garage-view', true], ['#/change-log', true], ['#/exceptions', true], ['#/rates', false], ['#/getting-paid', false], ['#/card-readers', false], ['#/taxes', false]]) {
+  for (const [href, has] of [['#/lanes', true], ['#/garage-view', true], ['#/change-log', true], ['#/exceptions', true], ['#/stuck-stays', true], ['#/rates', false], ['#/getting-paid', false], ['#/card-readers', false], ['#/taxes', false]]) {
     check((await navHas(lead.page, href)) === has, `a linked person's menu ${has ? 'lists' : 'does not list'} ${href}`);
   }
   await lead.page.goto(`${base}#/rates`);

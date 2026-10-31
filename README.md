@@ -75,7 +75,7 @@ The build publishes no source maps.
   it names the person's permissions and garages. Each page lists the reads it makes
   (`src/access.js` `PAGE_NEEDS`; `test/access.test.js` fails when a page makes a
   read its list leaves out; the cars let out, Exceptions, read the stays and the
-  lanes, as the platform names those routes); the side menu and Quick Find show
+  lanes, and the stuck stays read the stays, as the platform names those routes); the side menu and Quick Find show
   only the pages the person holds every read of, a page opened by its address that they may not open
   says so and draws nothing of its own, Home shows lanes and cars inside only to
   someone who may read them, and "Add a garage" is offered only with a change to

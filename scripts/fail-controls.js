@@ -1716,6 +1716,12 @@ const CONTROLS = [
     names: ['the dashboard ranks, as the linked accounts module gives them, each open their own pages only'],
   },
   {
+    check: 'access: the stuck stays open without the stays',
+    plant: { file: 'src/access.js', anchor: "  stuck: ['stays:read'],", with: '  stuck: [],' },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['the dashboard ranks, as the linked accounts module gives them, each open their own pages only'],
+  },
+  {
     check: 'access: an answer with no permissions opens nothing',
     plant: { file: 'src/access.js', anchor: "  if (!who || typeof who !== 'object' || who.permissions === undefined) return EVERYTHING;", with: "  if (!who || typeof who !== 'object') return EVERYTHING;" },
     run: ['node', '--test', 'test/access.test.js'],

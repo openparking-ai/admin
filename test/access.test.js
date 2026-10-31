@@ -28,14 +28,14 @@ const READS = {
   garages: 'garages:read', setup: 'garages:read', banned: 'garages:read', alerts: 'garages:read', board: 'garages:read',
   lanes: 'lanes:read', carsInside: 'stays:read', ratePlans: 'rates:read', taxLists: 'rates:read', changes: 'log:read', refused: 'log:read',
   paymentAccount: 'payments:read', readerPlace: 'payments:read', readerConnections: 'payments:read',
-  letOutDay: 'stays:read', letOutStory: 'stays:read',
+  letOutDay: 'stays:read', letOutStory: 'stays:read', stuckStays: 'stays:read',
 };
 // Home reads the lanes and the cars inside only for someone who holds them (checked below).
 const FILES = {
   home: [], setup: ['SetupPage.jsx'], garages: ['GaragesPage.jsx'], lanes: ['LanesPage.jsx', 'BoardSection.jsx'],
   drawings: ['DrawingsPage.jsx'], readers: ['CardReadersPage.jsx'], rates: ['RatesPage.jsx'], taxes: ['TaxesPage.jsx'],
   paid: ['GettingPaidPage.jsx'], inside: ['InsidePage.jsx'], banned: ['BannedPage.jsx'], alerts: ['AlertsPage.jsx'],
-  changes: ['ChangesPage.jsx'], settings: ['SettingsPage.jsx'], exceptions: ['ExceptionsPage.jsx'],
+  changes: ['ChangesPage.jsx'], settings: ['SettingsPage.jsx'], exceptions: ['ExceptionsPage.jsx'], stuck: ['StuckPage.jsx'],
 };
 
 test("each page's needs cover every platform read its screens make", () => {
@@ -81,7 +81,7 @@ test('a change covers its read; a read never covers a change', () => {
 test('the dashboard ranks, as the linked accounts module gives them, each open their own pages only', () => {
   // Site manager: garages, lanes, money, stays, inventory and log, each read.
   const site = linked(['garages:read', 'lanes:read', 'money:read', 'stays:read', 'inventory:read', 'log:read'], ['g1']);
-  assert.deepEqual(opened(site), ['home', 'setup', 'garages', 'lanes', 'drawings', 'inside', 'banned', 'exceptions', 'alerts', 'changes', 'settings']);
+  assert.deepEqual(opened(site), ['home', 'setup', 'garages', 'lanes', 'drawings', 'inside', 'stuck', 'banned', 'exceptions', 'alerts', 'changes', 'settings']);
   assert.equal(addsGarages(site), false);
   // Money controller: garages, payments and payouts read; money and refunds change.
   const money = linked(['garages:read', 'payments:read', 'payouts:read', 'money:change', 'refunds:change']);
@@ -91,6 +91,9 @@ test('the dashboard ranks, as the linked accounts module gives them, each open t
   assert.equal(opens(linked(['stays:read', 'lanes:read']), 'exceptions'), true);
   assert.equal(opens(linked(['stays:change', 'lanes:read']), 'exceptions'), true);
   assert.equal(opens(linked(['lanes:read', 'garages:read', 'log:read']), 'exceptions'), false);
+  // The stuck stays (platform 0043) too: the stays read opens them; without it, not.
+  assert.equal(opens(linked(['stays:read']), 'stuck'), true);
+  assert.equal(opens(linked(['garages:change', 'lanes:change']), 'stuck'), false);
   // Garages changed at a list of garages is still not adding one: that needs every garage.
   assert.equal(addsGarages(linked(['garages:change'], ['g1'])), false);
   assert.equal(addsGarages(linked(['garages:change'], 'all')), true);
