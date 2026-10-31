@@ -19,7 +19,7 @@ test('the top: Home, Garage View, Alerts, in that order', () => {
 
 test('Setup: every other page, in the order the pages are listed, each once', () => {
   const { top, setup } = menuPages();
-  assert.deepEqual(setup.map((p) => p.id), ['setup', 'garages', 'lanes', 'drawings', 'readers', 'rates', 'taxes', 'paid', 'banned', 'exceptions', 'changes', 'settings']);
+  assert.deepEqual(setup.map((p) => p.id), ['setup', 'garages', 'lanes', 'drawings', 'readers', 'rates', 'taxes', 'paid', 'stuck', 'banned', 'exceptions', 'changes', 'settings']);
   assert.equal(top.length + setup.length, PAGES.length);
   assert.equal(new Set([...top, ...setup].map((p) => p.id)).size, PAGES.length);
 });

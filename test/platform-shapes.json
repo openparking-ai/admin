@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. The fill rule, 2026-10-14: the garage's `spaces` (0034, null on every garage here) added to the three answers above that carry a garage -- the list, and the whole row a PATCH answers -- by the measured difference: 'add_garage_answers' recorded again from platform 9bdf1ec differ from their earlier recording by that key alone, on the same two shapes.",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. The fill rule, 2026-10-14: the garage's `spaces` (0034, null on every garage here) added to the three answers above that carry a garage -- the list, and the whole row a PATCH answers -- by the measured difference: 'add_garage_answers' recorded again from platform 9bdf1ec differ from their earlier recording by that key alone, on the same two shapes. Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to the two answers above that carry the garage's whole row by the difference measured on 'stuck_answers' (see its header).",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -579,6 +579,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -597,6 +602,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -677,6 +687,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -695,6 +710,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -4694,7 +4714,7 @@
       }
     }
   ],
-  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged. U7f, 2026-10-11: \"a garage, added\" is recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans) by the same call, the same way: the row gained ban_tailgaters and ban_reach (0033), every other key the same. The fill rule, 2026-10-14: recorded again from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847, npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true: against the answers above, the only difference is the garage's new `spaces` (null), on the garage added and on each garage of the list.",
+  "add_garage_recorded_from": "openparking-ai/platform 130d38d (main, U7d-1 merged), 2026-10-10, U7d-2, in a cloud session: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordAddGarage (test/platform-shapes.js) alone. It was first recorded from 31277d9 (U7c); since 130d38d the platform refuses a name, a time zone and money it does not take, each in its own sentence with its code, where \"usd\" was a 500 (its src/garageFields.js), so the money in small letters, its line in the refused attempts and the three refusals after it are this recording's. The 158 answers above are unchanged. U7f, 2026-10-11: \"a garage, added\" is recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans) by the same call, the same way: the row gained ban_tailgaters and ban_reach (0033), every other key the same. The fill rule, 2026-10-14: recorded again from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847, npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true: against the answers above, the only difference is the garage's new `spaces` (null), on the garage added and on each garage of the list. Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to \"a garage, added\" by the difference measured on 'stuck_answers' (see its header).",
   "add_garage_answers": [
     {
       "what": "a garage, added from a page at another address",
@@ -4823,6 +4843,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -4841,6 +4866,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -5089,7 +5119,7 @@
       }
     }
   ],
-  "banned_recorded_from": "openparking-ai/platform 96dff3a (u7f/pictures-bans), 2026-10-11, U7f, on the Mac: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordBanned (test/platform-shapes.js) alone, its tailgater listed by the demo's entry-lane computer as a lane lists one -- a stay opened with tailgater: true and a descriptor, and one picture -- while the garage banned tailgaters. The fill rule, 2026-10-14: the garage's `spaces` (null) added to the four answers that carry the garage's whole row, by the difference measured on 'add_garage_answers' (see its header).",
+  "banned_recorded_from": "openparking-ai/platform 96dff3a (u7f/pictures-bans), 2026-10-11, U7f, on the Mac: a fresh database, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true; then recordBanned (test/platform-shapes.js) alone, its tailgater listed by the demo's entry-lane computer as a lane lists one -- a stay opened with tailgater: true and a descriptor, and one picture -- while the garage banned tailgaters. The fill rule, 2026-10-14: the garage's `spaces` (null) added to the four answers that carry the garage's whole row, by the difference measured on 'add_garage_answers' (see its header). Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to the four answers that carry the garage's whole row by the difference measured on 'stuck_answers' (see its header).",
   "banned_answers": [
     {
       "what": "banned cars, none listed",
@@ -5219,6 +5249,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5237,6 +5272,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -5317,6 +5357,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5335,6 +5380,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -5415,6 +5465,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5433,6 +5488,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -5664,6 +5724,11 @@
                   "null"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -5682,6 +5747,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -8120,7 +8190,7 @@
       }
     }
   ],
-  "spaces_recorded_from": "The fill rule, 2026-10-14: 'spaces_answers' recorded from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847 (schema 6), npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-spaces.js, after the add-garage answers were recorded again on the same database.",
+  "spaces_recorded_from": "The fill rule, 2026-10-14: 'spaces_answers' recorded from openparking-ai/platform fill/spaces-and-occupancy 9bdf1ec (migration 0034) with rate-engine 8c58847 (schema 6), npm run demo on a fresh database, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-spaces.js, after the add-garage answers were recorded again on the same database. Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to the two answers that carry the garage's whole row by the difference measured on 'stuck_answers' (see its header).",
   "spaces_answers": [
     {
       "what": "spaces, none yet",
@@ -8290,6 +8360,11 @@
                   "number"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -8308,6 +8383,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -8388,6 +8468,11 @@
                   "number"
                 ]
               },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
               "tenant_id": {
                 "types": [
                   "string"
@@ -8406,6 +8491,11 @@
               "validations_link": {
                 "types": [
                   "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
                 ]
               }
             }
@@ -8763,6 +8853,1240 @@
           }
         },
         "subject_name": "string",
+        "subject_removed": false
+      }
+    }
+  ],
+  "stuck_recorded_from": "Platform 0043 and 0045, 2026-10-31: 'stuck_answers' recorded from openparking-ai/platform feat/garage-cleanup-20261028 4f693de (#88, with main's exit stack and its 0041, 0042, 0045 and 0046 merged in) with rate-engine 9acb5e5 (its pin), npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-stuck.js: the demo garage, with no stay of its own and the demo's rates in force, three cars let in by the demo's entry lane as STUCK_LET_IN (test/stub-platform.js) says, each with one picture, and then the demo's exit lane opening a case on the last of them, as a lane opens one for a car on its loop. Recorded before from 69d8b53 (2026-10-28); against that recording the garage's whole row a PATCH answers is unchanged.",
+  "stuck_answers": [
+    {
+      "what": "stuck stays, none yet",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "older_than_hours": {
+            "types": [
+              "number"
+            ]
+          },
+          "stays": {
+            "types": [
+              "array"
+            ]
+          },
+          "stuck_after_hours": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "stuck stays, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "stuck stays, two listed",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "older_than_hours": {
+            "types": [
+              "number"
+            ]
+          },
+          "stays": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "at_exit": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "entered_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "entry_lane": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "last_seen_on_walk": {
+                  "types": [
+                    "null"
+                  ]
+                },
+                "pictures": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "taken_at": {
+                        "types": [
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "plate": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "plate_whole": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "ticket": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "unread": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "why": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "stuck_after_hours": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "stuck after, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "stuck after, zero",
+      "status": 400,
+      "body": {
+        "error": "stuck_after_hours must be a whole number of hours from 1 to 2160 when given",
+        "code": "stuck_after_hours_invalid"
+      }
+    },
+    {
+      "what": "stuck after, as text",
+      "status": 400,
+      "body": {
+        "error": "stuck_after_hours must be a whole number of hours from 1 to 2160 when given",
+        "code": "stuck_after_hours_invalid"
+      }
+    },
+    {
+      "what": "stuck after, 28 hours",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "stuck stays, one listed after 28 hours",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "older_than_hours": {
+            "types": [
+              "number"
+            ]
+          },
+          "stays": {
+            "types": [
+              "array"
+            ],
+            "items": {
+              "types": [
+                "object"
+              ],
+              "keys": {
+                "at_exit": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "entered_at": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "entry_lane": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "id": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "last_seen_on_walk": {
+                  "types": [
+                    "null"
+                  ]
+                },
+                "pictures": {
+                  "types": [
+                    "array"
+                  ],
+                  "items": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "taken_at": {
+                        "types": [
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "plate": {
+                  "types": [
+                    "string"
+                  ]
+                },
+                "plate_whole": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "ticket": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "unread": {
+                  "types": [
+                    "boolean"
+                  ]
+                },
+                "why": {
+                  "types": [
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "stuck_after_hours": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "stuck after, back to 24 hours",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "garage": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "activated_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_reach": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ban_tailgaters": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "default_action": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_pass_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "monthly_billing_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "name": {
+                "types": [
+                  "string"
+                ]
+              },
+              "space_class": {
+                "types": [
+                  "string"
+                ]
+              },
+              "spaces": {
+                "types": [
+                  "null"
+                ]
+              },
+              "stuck_after_hours": {
+                "types": [
+                  "number"
+                ]
+              },
+              "tenant_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "timezone": {
+                "types": [
+                  "string"
+                ]
+              },
+              "transient_available": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "validations_link": {
+                "types": [
+                  "null"
+                ]
+              },
+              "walk_complete_percent": {
+                "types": [
+                  "number"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a stay's picture, asked through another stay",
+      "status": 404,
+      "body": {
+        "error": "picture not found"
+      }
+    },
+    {
+      "what": "a stay ended, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "a stay ended, with no reason",
+      "status": 400,
+      "body": {
+        "error": "reason is required: why the stay is ended, at most 500 characters; no plate -- the reason goes to the change log",
+        "code": "reason_required"
+      }
+    },
+    {
+      "what": "a stay ended, its reason on two lines",
+      "status": 400,
+      "body": {
+        "error": "reason must be words on one line: no line breaks or control characters",
+        "code": "reason_invalid"
+      }
+    },
+    {
+      "what": "a stay ended, before it came in",
+      "status": 400,
+      "body": {
+        "error": "left_at is before the stay came in",
+        "code": "left_at_before_entry"
+      }
+    },
+    {
+      "what": "a stay not theirs, ended",
+      "status": 404,
+      "body": {
+        "error": "stay not found",
+        "code": "stay_not_found"
+      }
+    },
+    {
+      "what": "a stay ended, two hours after it came in",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stay": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ended": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "by": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "owed": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "breakdown": {
+                        "types": [
+                          "array"
+                        ],
+                        "items": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "code": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "delta_minor": {
+                              "types": [
+                                "number"
+                              ]
+                            },
+                            "rule_id": {
+                              "types": [
+                                "null",
+                                "string"
+                              ]
+                            },
+                            "text": {
+                              "types": [
+                                "string"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "covered_by": {
+                        "types": [
+                          "array"
+                        ]
+                      },
+                      "currency": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entitlement": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "asked_at": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "garage_pass": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          },
+                          "identity": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "monthly_billing": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "fee_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "outcome": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "pass_unasked": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "plan_version": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "refused": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "subtotal_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      }
+                    }
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "why": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "entered_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "pass_unasked": {
+                "types": [
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "a stay ended again",
+      "status": 409,
+      "body": {
+        "error": "this stay is not open: it has already been closed or ended",
+        "code": "stay_not_open"
+      }
+    },
+    {
+      "what": "a stay written off",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stay": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ended": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "by": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "why": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "entered_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "null"
+                ]
+              },
+              "pass_unasked": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "stuck stays, after both were ended",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "older_than_hours": {
+            "types": [
+              "number"
+            ]
+          },
+          "stays": {
+            "types": [
+              "array"
+            ]
+          },
+          "stuck_after_hours": {
+            "types": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a stay was written off",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "stay.end",
+          "outcome": "done",
+          "before": {
+            "open": true,
+            "exit_at": null,
+            "entered_at": "a time"
+          },
+          "after": {
+            "open": false,
+            "reason": "Plate misread twice",
+            "exit_at": "a time",
+            "outcome": "abandoned",
+            "currency": "USD",
+            "entered_at": "a time",
+            "owed_minor": null
+          }
+        },
+        "subject_name": "null",
+        "subject_removed": false
+      }
+    },
+    {
+      "what": "refused attempts, after the stays",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "next",
+          "refused"
+        ],
+        "count": [
+          "attempts",
+          "lines"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "stay.end",
+          "outcome": "refused",
+          "refusal": "stay_not_open",
+          "before": null,
+          "after": null
+        }
+      }
+    },
+    {
+      "what": "a stay an exit lane has open, ended",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stay": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ended": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "by": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "exit_cases": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  },
+                  "owed": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "breakdown": {
+                        "types": [
+                          "array"
+                        ],
+                        "items": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "code": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "delta_minor": {
+                              "types": [
+                                "number"
+                              ]
+                            },
+                            "rule_id": {
+                              "types": [
+                                "null",
+                                "string"
+                              ]
+                            },
+                            "text": {
+                              "types": [
+                                "string"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "covered_by": {
+                        "types": [
+                          "array"
+                        ]
+                      },
+                      "currency": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entitlement": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "asked_at": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "garage_pass": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          },
+                          "identity": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "monthly_billing": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "fee_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "outcome": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "pass_unasked": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "plan_version": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "refused": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "subtotal_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      }
+                    }
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "why": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "entered_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "pass_unasked": {
+                "types": [
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a stay an exit lane had open was ended",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "stay.end",
+          "outcome": "done",
+          "before": {
+            "open": true,
+            "exit_at": null,
+            "entered_at": "a time"
+          },
+          "after": {
+            "open": false,
+            "reason": "Left while the exit lane was down",
+            "exit_at": "a time",
+            "outcome": "ended",
+            "currency": "USD",
+            "entered_at": "a time",
+            "owed_minor": "an amount",
+            "exit_cases_closed": [
+              {
+                "exit_id": "an id",
+                "payment": null
+              }
+            ]
+          }
+        },
+        "subject_name": "null",
         "subject_removed": false
       }
     }

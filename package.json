@@ -41,6 +41,7 @@
     "check-first-load": "node scripts/check-first-load.js",
     "check-extras": "node scripts/check-extras.js",
     "check-rates": "node scripts/check-rates.js",
+    "check-stuck": "node scripts/check-stuck.js",
     "check-exceptions": "node scripts/check-exceptions.js",
     "check-rates-meanwhile": "node scripts/check-rates-meanwhile.js",
     "check-rate-rules": "node scripts/check-rate-rules.js",

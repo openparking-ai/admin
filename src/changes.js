@@ -16,6 +16,7 @@
 
 import { garageDateTime, localSaid, zoneSaid } from './time.js';
 import { alertName } from './alerts.js';
+import { moneyText } from './rates.js';
 
 /** The actions the platform writes, each with words of its own for a change made and for one tried. */
 export const ACTIONS = [
@@ -28,6 +29,8 @@ export const ACTIONS = [
   'alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices',
   'board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices',
   'garage.banned_car_remove',
+  // Platform 0043: a stay a person ended, or wrote off.
+  'stay.end',
 ];
 
 /** The refusals the platform names, each with words of its own; any other is "it was not allowed". */
@@ -45,6 +48,12 @@ export const REFUSALS = [
   'tax_set_effective_from_taken', 'tax_set_not_storable', 'bad_country', 'stripe_account_ambiguous', 'no_stripe_account',
   'card_payments_not_active', 'bad_location', 'no_terminal_location', 'bad_reader', 'lane_has_reader', 'reader_bound_elsewhere',
   'no_reader_bound',
+  // Platform 0043: ending a stay, and the garage's hours before one is listed.
+  'stay_not_found', 'stay_not_open', 'reason_required', 'reason_invalid', 'outcome_invalid',
+  'left_at_before_entry', 'left_at_not_for_abandoned', 'clock_skew', 'stuck_after_hours_invalid',
+  // Platform 0045: ending a stay an exit lane still has open, stopped by that lane's payment at Stripe.
+  // (Stripe out of reach is a 503, which the platform does not log.)
+  'payment_in_progress', 'stay_payment_moving', 'payment_amount_mismatch',
 ];
 
 /**
@@ -63,7 +72,7 @@ const named = (text, name) => {
 };
 
 /** A refusal that says what the request named was not found: from the account it belongs to, it is not the asker's. */
-const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found', 'alert_contact_not_found', 'board_message_not_found'];
+const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_not_found', 'key_not_found', 'alert_contact_not_found', 'board_message_not_found', 'stay_not_found'];
 
 /** The fields a before or after can hold, each with a name of its own. */
 export const FIELDS = [
@@ -73,6 +82,9 @@ export const FIELDS = [
   'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
   'text', 'lanes', 'starts', 'ends', 'prices', 'messages_off', 'messages_removed',
   'ban_tailgaters', 'ban_reach', 'banned',
+  'stuck_after_hours', 'outcome', 'entered_at', 'exit_at', 'owed_minor',
+  // Platform 0045: a stay ended with an exit lane's case still open on it.
+  'paid_minor', 'exit_cases_closed',
 ];
 
 /**
@@ -95,6 +107,17 @@ const GARAGE_LOCAL = new Set(['starts', 'ends']);
 /** A line about a person to tell: its fields are all of a known few, the name too. */
 const PERSON = 'alert_contact';
 const PERSON_CHOICES = { name: ['changed'] };
+
+/**
+ * A line about a stay a person ended (platform 0043): its reason is what the
+ * person typed, kept as it is; how it ended is one of two; its times are
+ * instants; what it owes is money, in the stay's own currency. Since 0045,
+ * what it owes is what is left after what was paid at an exit (`paid_minor`,
+ * money too), and the exit lanes' cases it closed are counted, never named.
+ */
+const STAY = 'stay';
+const STAY_OUTCOMES = ['ended', 'abandoned'];
+const STAY_TIMES = new Set(['entered_at', 'exit_at']);
 
 /**
  * Fields whose value is one of a known few: each said in words. A value the
@@ -146,11 +169,21 @@ export function whatPieces(t, line) {
   return pieces;
 }
 
-/** One value of a before or after, in words. */
-function valueWords(t, field, value, garage, language, kind) {
+/** One value of a before or after, in words. `currency`: the line's own, for an amount it holds. */
+function valueWords(t, field, value, garage, language, kind, currency) {
   if (value === null || value === undefined) return { words: NOTHING };
   if (kind === PERSON && PERSON_CHOICES[field]) {
     return { words: PERSON_CHOICES[field].includes(value) ? t(`changes.value.${field}.${value}`) : t('changes.value.another') };
+  }
+  if (kind === STAY) {
+    if (field === 'reason') return { stored: String(value) };
+    if (field === 'outcome') return { words: STAY_OUTCOMES.includes(value) ? t(`changes.value.outcome.${value}`) : t('changes.value.another') };
+    if (STAY_TIMES.has(field)) return Number.isNaN(Date.parse(value)) ? { words: t('changes.value.another') } : { words: garageDateTime(value, garage.timezone, language) };
+    if (field === 'owed_minor' || field === 'paid_minor') return Number.isInteger(value) && currency ? { words: moneyText(value, currency, language) } : { words: t('changes.value.another') };
+    if (field === 'exit_cases_closed') return Array.isArray(value) ? { words: value.length.toLocaleString(language === 'es' ? 'es-US' : 'en-US') } : { words: t('changes.value.another') };
+  }
+  if (field === 'stuck_after_hours' && Number.isInteger(value)) {
+    return { words: value === 1 ? t('changes.value.hoursOne') : t('changes.value.hours', { hours: value.toLocaleString(language === 'es' ? 'es-US' : 'en-US') }) };
   }
   if (typeof value === 'boolean') {
     if (field === 'transient_available') return { words: t(value ? 'changes.value.anyDriver' : 'changes.value.passOnly') };
@@ -200,10 +233,12 @@ export function changedFields(t, line, garage, language) {
   const before = line.before ?? {};
   const after = line.after ?? {};
   const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+  const kind = line.subject?.kind;
+  const currency = typeof after.currency === 'string' ? after.currency : typeof before.currency === 'string' ? before.currency : garage.currency;
   return fields.map((field) => ({
     field: FIELDS.includes(field) ? t(`changes.field.${field}`) : t('changes.field.other'),
-    before: field in before ? valueWords(t, field, before[field], garage, language, line.subject?.kind) : { words: NOTHING },
-    after: field in after ? valueWords(t, field, after[field], garage, language, line.subject?.kind) : { words: NOTHING },
+    before: field in before ? valueWords(t, field, before[field], garage, language, kind, currency) : { words: NOTHING },
+    after: field in after ? valueWords(t, field, after[field], garage, language, kind, currency) : { words: NOTHING },
   }));
 }
 
@@ -266,6 +301,7 @@ export const KINDS = {
   people: ['alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices'],
   keys: ['key.cancel'],
   language: ['language.change'],
+  stays: ['stay.end'],
 };
 // Then the attempts counted together on one line, and any action these pages do not know yet.
 const KIND_ORDER = [...Object.keys(KINDS), 'many', 'other'];
