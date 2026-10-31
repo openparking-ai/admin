@@ -20,6 +20,9 @@ export const PAGE_NEEDS = {
   taxes: ['rates:read'],
   paid: ['payments:read', 'garages:read'],
   inside: ['stays:read'],
+  // The cars a person let out (platform 0048): its day and each story are stays:read on the
+  // platform (#78), and it names the lanes.
+  exceptions: ['stays:read', 'lanes:read'],
   banned: ['garages:read'],
   alerts: ['garages:read'],
   changes: ['log:read'],

@@ -1710,6 +1710,12 @@ const CONTROLS = [
     names: ['a change covers its read; a read never covers a change'],
   },
   {
+    check: 'access: the cars let out open without the stays',
+    plant: { file: 'src/access.js', anchor: "  exceptions: ['stays:read', 'lanes:read'],", with: "  exceptions: ['lanes:read']," },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['the dashboard ranks, as the linked accounts module gives them, each open their own pages only'],
+  },
+  {
     check: 'access: an answer with no permissions opens nothing',
     plant: { file: 'src/access.js', anchor: "  if (!who || typeof who !== 'object' || who.permissions === undefined) return EVERYTHING;", with: "  if (!who || typeof who !== 'object') return EVERYTHING;" },
     run: ['node', '--test', 'test/access.test.js'],
