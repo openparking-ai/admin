@@ -10,11 +10,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DICTIONARIES, translate } from '../src/i18n/index.js';
-import { createClient, problemKey } from '../src/api.js';
+import { createClient, letOutPicturePath, problemKey } from '../src/api.js';
 import {
   AUTHORISATIONS, AUTHORITIES, CALL_CASES, CALL_OUTCOMES, COPY_STATES, DELIVERY_STATES, KINDS, LANE_KINDS, MESSAGE_CODES, READER_REFUSALS,
-  SINK_KINDS, TARGET_KINDS, TRANSITIONS, clockSaid, copyPieces, dayOn, daySaid, gateRecords, gateSummary, isDay, kindPieces, newestFirst,
-  piecesText, sourceState, storyOf, whoPieces,
+  PICTURE_KINDS, SINK_KINDS, TARGET_KINDS, TRANSITIONS, clockSaid, copyPieces, dayOn, daySaid, gateLine, gateRecords, isDay, kindPieces,
+  newestFirst, piecesText, picturesOf, sourceState, storyOf, whoPieces,
 } from '../src/exceptions.js';
 import { moneyText } from '../src/rates.js';
 import { exceptionStories } from './exceptions-fixtures.js';
@@ -25,12 +25,12 @@ const HARBOR = A.garages[0];
 const ZONE = HARBOR.timezone;
 const [ENTRY, EXIT] = A.lanes[HARBOR.id];
 const LANES = A.lanes[HARBOR.id];
-// The first let out at 4:00 PM in New York on 10 March 2026; the others 20 and 40 minutes later.
+// The first let out at 4:00 PM in New York on 10 March 2026; the others 20, 40 and 50 minutes later.
 const AT = Date.parse('2026-03-10T20:00:00Z');
 const MINUTE = 60_000;
-const stories = (at = [AT, AT + 20 * MINUTE, AT + 40 * MINUTE]) =>
+const stories = (at = [AT, AT + 20 * MINUTE, AT + 40 * MINUTE, AT + 50 * MINUTE]) =>
   exceptionStories({ garageId: HARBOR.id, exitLaneId: EXIT.id, entryLaneId: ENTRY.id, device: EXIT.devices[0], owner: A.email, at });
-const [OWING, OPENED, UNREACHED] = stories();
+const [OWING, OPENED, UNREACHED, BLANKED] = stories();
 const text = (pieces) => piecesText(pieces);
 const recorded = JSON.parse(readFileSync(new URL('./platform-shapes.json', import.meta.url), 'utf8'));
 
@@ -54,8 +54,8 @@ test("every time on the garage's clock, to the second, with the date when it is 
 
 test('the day\'s list, newest first, whatever order it came in', () => {
   const summaries = stories().map(({ id, let_out_at }) => ({ id, let_out_at }));
-  assert.deepEqual(newestFirst(summaries).map((x) => x.id), [UNREACHED.id, OPENED.id, OWING.id]);
-  assert.deepEqual(newestFirst([...summaries].reverse()).map((x) => x.id), [UNREACHED.id, OPENED.id, OWING.id]);
+  assert.deepEqual(newestFirst(summaries).map((x) => x.id), [BLANKED.id, UNREACHED.id, OPENED.id, OWING.id]);
+  assert.deepEqual(newestFirst([...summaries].reverse()).map((x) => x.id), [BLANKED.id, UNREACHED.id, OPENED.id, OWING.id]);
 });
 
 for (const language of ['en', 'es']) {
@@ -74,22 +74,54 @@ for (const language of ['en', 'es']) {
     assert.deepEqual(whoPieces(t, 'someone:<b>x</b>'), [{ stored: 'someone:<b>x</b>' }], 'anything else, as the platform wrote it, as stored text');
   });
 
-  test(`${language}: the list's gate agent column -- messages and calls counted once each, not set up, not reached`, () => {
-    // Copied at the let-out (3 messages) and again once the window passed (4): each counted once.
+  test(`${language}: the list's gate agent column, from the platform's own summary: counts, not delivered, answered, and where the copy stands`, () => {
+    // The day's list as platform #90 answered it (test/platform-shapes.json), oldest first.
+    const [owing, opened, unreached, blanked] = recorded.exceptions_answers.find((a) => a.what === 'exceptions, today').structure.order.map((o) => o[4]);
+    const messages = t('exceptions.gate.messagesFailed', { messages: t('exceptions.gate.messagesMany', { n: '4' }), n: '1' });
+    const calls = t('exceptions.gate.callsAnswered', { calls: t('exceptions.gate.callsMany', { n: '3' }), n: '1' });
+    assert.deepEqual(gateLine(t, owing, language), { state: 'complete', text: `${t('exceptions.gate.counts', { messages, calls })} ${t('exceptions.gate.copy.complete')}` });
+    assert.deepEqual(gateLine(t, opened, language), { state: 'not_configured', text: t('exceptions.gate.copy.not_configured') });
+    assert.deepEqual(gateLine(t, unreached, language), { state: 'not_reachable', text: t('exceptions.gate.copy.not_reachable') });
+    assert.deepEqual(gateLine(t, blanked, language), { state: 'purged', text: t('exceptions.gate.purged') });
+    // Copied part-way, nothing failed or answered: the counts alone, and that more may come.
+    const pending = { ...owing, failed_deliveries: 0, calls_answered: 0, messages: 1, calls: 0, copy: 'pending', copies: { messages: 'pending', calls: 'pending' } };
+    assert.equal(gateLine(t, pending, language).text, `${t('exceptions.gate.counts', { messages: t('exceptions.gate.messagesOne', { n: '1' }), calls: t('exceptions.gate.callsMany', { n: '0' }) })} ${t('exceptions.gate.copy.pending')}`);
+    assert.equal(gateLine(t, undefined, language).state, 'unknown');
+    // The story's own copies: each record once, though copied twice.
     assert.equal(gateRecords(OWING.gate_agent.messages, 'messages').length, 4);
     assert.equal(gateRecords(OWING.gate_agent.calls, 'calls').length, 3);
-    assert.deepEqual(gateSummary(t, OWING, language), {
-      state: 'copied',
-      text: t('exceptions.gate.summary', { messages: t('exceptions.gate.messagesMany', { n: '4' }), calls: t('exceptions.gate.callsMany', { n: '3' }) }),
-    });
-    assert.deepEqual(gateSummary(t, OPENED, language), { state: 'not_configured', text: t('exceptions.gate.notConfigured') });
-    assert.deepEqual(gateSummary(t, UNREACHED, language), { state: 'not_reachable', text: t('exceptions.gate.notReachable') });
-    // Messages copied, the calls not reached: each said as it is.
-    const half = { ...OWING, gate_agent: { messages: OWING.gate_agent.messages.slice(0, 1), calls: UNREACHED.gate_agent.calls } };
-    assert.equal(gateSummary(t, half, language).text, t('exceptions.gate.summary', { messages: t('exceptions.gate.messagesMany', { n: '3' }), calls: t('exceptions.gate.calls.notReachable') }));
-    assert.equal(gateSummary(t, { ...OWING, gate_agent: { messages: [], calls: [] } }, language).text, t('exceptions.gate.notAsked'));
     assert.equal(sourceState(UNREACHED.gate_agent.calls), 'refused');
     assert.equal(sourceState(UNREACHED.gate_agent.messages), 'not_reachable');
+  });
+
+  test(`${language}: the record's pictures, each kind apart, oldest first, with when and where, by the record's own ids`, () => {
+    const groups = picturesOf(t, OWING, { lanes: LANES, timeZone: ZONE, language });
+    assert.deepEqual(groups.map((g) => [g.kind, g.pictures.map((p) => p.id)]), PICTURE_KINDS.map((kind) => [kind, OWING.pictures[kind].map((p) => p.id)]));
+    const [entry, exit, lane] = groups.map((g) => g.pictures[0]);
+    assert.equal(text(entry.caption), t('exceptions.picture.entry', { time: at(OWING.pictures.entry[0].taken_at) }));
+    assert.equal(text(exit.caption), t('exceptions.picture.exit', { time: at(OWING.pictures.exit[0].taken_at) }));
+    assert.equal(text(lane.caption), t('exceptions.picture.lane', { lane: EXIT.name, time: at(OWING.pictures.lane[0].taken_at) }));
+    assert.equal(entry.alt, text(entry.caption));
+    // An exit picture of an earlier visit of the same stay says so.
+    const earlier = structuredClone(OWING);
+    earlier.pictures.exit[0].exit_id = '00000000-0000-4000-8000-000000000009';
+    assert.equal(text(picturesOf(t, earlier, { lanes: LANES, timeZone: ZONE, language })[1].pictures[0].caption), t('exceptions.picture.exitEarlier', { time: at(OWING.pictures.exit[0].taken_at) }));
+    assert.deepEqual(picturesOf(t, OPENED, { lanes: LANES, timeZone: ZONE, language }).map((g) => g.pictures.length), [0, 0, 2]);
+    assert.deepEqual(picturesOf(t, { ...OWING, pictures: undefined }, { lanes: LANES, timeZone: ZONE, language }).map((g) => g.pictures.length), [0, 0, 0]);
+    assert.equal(letOutPicturePath(HARBOR.id, OWING.id, 'a/b'), `/api/v1/garages/${HARBOR.id}/exceptions/${OWING.id}/pictures/a%2Fb`);
+  });
+
+  test(`${language}: a refund at Stripe said on its payment, and refunds that could not be checked said on the case`, () => {
+    const refunded = structuredClone(OWING);
+    refunded.payment_after_let_out.refunded_minor = 200;
+    refunded.story.case.fee.refunds_unread = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'];
+    const items = storyOf(t, refunded, { lanes: LANES, timeZone: ZONE, language });
+    assert.ok(items.some((i) => i.type === 'payment' && i.lines.some((l) => text(l) === t('exceptions.payment.refunded', { amount: usd(200) }))), 'what was refunded of the payment');
+    assert.ok(items.find((i) => i.type === 'case').lines.some((l) => text(l) === t('exceptions.story.refundsUnreadMany', { n: '2' })), 'refunds not checked, said on the case');
+    refunded.story.case.fee.refunds_unread = ['00000000-0000-4000-8000-000000000001'];
+    assert.ok(storyOf(t, refunded, { lanes: LANES, timeZone: ZONE, language }).find((i) => i.type === 'case').lines.some((l) => text(l) === t('exceptions.story.refundsUnreadOne')));
+    // As recorded, nothing refunded: nothing said.
+    assert.ok(!story(OWING).some((i) => i.lines.some((l) => text(l).includes(usd(0)) && i.type === 'payment')));
   });
 
   test(`${language}: one car's story, in order: came in, the exit, the payment declined, the reader offline, the let-out, the payment canceled`, () => {
@@ -117,7 +149,8 @@ for (const language of ['en', 'es']) {
     assert.ok(Date.parse(canceled.at) >= Date.parse(letOut.at) && text(canceled.title).includes(usd(500)), 'the let-out canceled the payment, after it');
     // This car's own payment and let-out are said once, by the payments and the let-out; another car's are said as another car's.
     const others = items.filter((i) => i.type === 'lane' && i.lines.some((l) => text(l) === t('exceptions.lane.anotherCar')));
-    assert.equal(others.length, 3);
+    // The other cars at this lane in its window: the second's payment and pay, the third's and fourth's let-outs.
+    assert.equal(others.length, 4);
     assert.ok(!items.some((i) => i.type === 'lane' && text(i.title) === t('exceptions.lane.exit_payment_canceled')), "this car's payment canceled is not said twice");
   });
 
@@ -238,15 +271,16 @@ function fakeFetch(answer) {
 }
 const recordedAnswer = (what) => recorded.exceptions_answers.find((a) => a.what === what);
 
-test("the day's list: the garage's own day asked for by its date, today when none; a day that is not one never sent", async () => {
+test("the day's list: the garage's own day asked for by its date in the path, today when none; a day that is not one never sent", async () => {
   const day = { garage_id: HARBOR.id, day: '2026-03-10', from: 'x', to: 'y', count: 0, let_out_unpaid: 0, exceptions: [] };
   const { fn, asked } = fakeFetch(() => ({ status: 200, body: day }));
   const client = createClient({ fetch: fn });
   assert.deepEqual(await client.letOutDay(HARBOR.id), { day: '2026-03-10', count: 0, owing: 0, letOuts: [] });
   await client.letOutDay(HARBOR.id, '2026-03-09');
+  // The day named in the path (#90): no query string.
   assert.deepEqual(asked.map((a) => [a.method, a.url]), [
     ['GET', `/api/v1/garages/${HARBOR.id}/exceptions`],
-    ['GET', `/api/v1/garages/${HARBOR.id}/exceptions?day=2026-03-09`],
+    ['GET', `/api/v1/garages/${HARBOR.id}/exceptions/day/2026-03-09`],
   ]);
   await assert.rejects(client.letOutDay(HARBOR.id, '9 March'), { kind: 'dayRefused' });
   assert.equal(asked.length, 2, 'nothing sent for a day that is not one');

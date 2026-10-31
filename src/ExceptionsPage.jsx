@@ -1,14 +1,11 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Email, Pager, ProblemNote, useGarageRead, usePaging } from './parts.jsx';
-import { STALE } from './api.js';
+import { STALE, letOutPicturePath } from './api.js';
 import { garageDateTime } from './time.js';
 import {
-  clockSaid, copyPieces, dayOn, daySaid, garageDayOf, gateSummary, isDay, kindPieces, money, newestFirst, sentence, storyOf, whoPieces,
+  clockSaid, copyPieces, dayOn, daySaid, garageDayOf, gateLine, isDay, kindPieces, money, newestFirst, picturesOf, sentence, storyOf, whoPieces,
 } from './exceptions.js';
 import FieldName from './FieldName.jsx';
-
-/** How many stories are read at once, for the list's gate agent column. */
-const AT_ONCE = 4;
 
 /** Pieces of words: stored text kept apart in <bdi>, an address as one, never markup. */
 function Pieces({ pieces }) {
@@ -25,38 +22,24 @@ function LaneName({ t, lanes, id }) {
 }
 
 /**
- * Each car's whole story, read for the day's list: the list carries no word
- * of the gate agent, so its column is each story's. A few at a time; each
- * one once. An answer after the page has gone, or after a sign-out, is dropped.
+ * One car's whole story, read when it is opened. An answer after the page has
+ * gone, or after a sign-out, is dropped.
  */
-function useStories(client, garageId, letOuts) {
-  const [held, setHeld] = useState({});
-  const asked = useRef(new Set());
-  const live = useRef(true);
+function useStory(client, garageId, id) {
+  const [held, setHeld] = useState(null);
   useEffect(() => {
-    live.current = true;
+    if (!id) return undefined;
+    let live = true;
+    setHeld(null);
+    client.letOutStory(garageId, id).then(
+      (whole) => live && setHeld({ id, whole }),
+      (p) => live && p?.kind !== STALE && p?.kind !== 'ended' && setHeld({ id, problem: p?.kind ?? 'unexpected' }),
+    );
     return () => {
-      live.current = false;
+      live = false;
     };
-  }, []);
-  useEffect(() => {
-    if (!letOuts) return;
-    const queue = letOuts.map((x) => x.id).filter((id) => !asked.current.has(id));
-    for (const id of queue) asked.current.add(id);
-    const next = async () => {
-      const id = queue.shift();
-      if (id === undefined || !live.current) return;
-      try {
-        const whole = await client.letOutStory(garageId, id);
-        if (live.current) setHeld((h) => ({ ...h, [id]: { whole } }));
-      } catch (p) {
-        if (live.current && p?.kind !== STALE && p?.kind !== 'ended') setHeld((h) => ({ ...h, [id]: { problem: p?.kind ?? 'unexpected' } }));
-      }
-      await next();
-    };
-    for (let i = 0; i < AT_ONCE; i += 1) next();
-  }, [client, garageId, letOuts]);
-  return held;
+  }, [client, garageId, id]);
+  return held?.id === id ? held : null;
 }
 
 /**
@@ -78,7 +61,7 @@ export default function ExceptionsPage({ t, language, client, garage }) {
     if (day === null && shown) setToday(shown);
   }, [day, shown]);
   const letOuts = list.data ? newestFirst(list.data.letOuts) : null;
-  const stories = useStories(client, garage.id, list.data?.letOuts ?? null);
+  const story = useStory(client, garage.id, open);
   const paging = usePaging(letOuts?.length ?? 0);
 
   const go = (next) => {
@@ -96,7 +79,8 @@ export default function ExceptionsPage({ t, language, client, garage }) {
         language={language}
         garage={garage}
         lanes={lanes}
-        held={stories[open]}
+        held={story}
+        summary={letOuts?.find((x) => x.id === open)?.gate_agent ?? null}
         day={shown}
         onBack={() => setOpen(null)}
       />
@@ -179,8 +163,7 @@ export default function ExceptionsPage({ t, language, client, garage }) {
                 </thead>
                 <tbody>
                   {letOuts.map((x, i) => {
-                    const held = stories[x.id];
-                    const gate = held?.whole ? gateSummary(t, held.whole, language) : null;
+                    const gate = gateLine(t, x.gate_agent, language);
                     return (
                       <tr key={x.id} data-let-out={x.id} data-kind={x.kind} className={paging.row(i)}>
                         <td data-time={x.let_out_at}>{clockSaid(x.let_out_at, garage.timezone, language, shown)}</td>
@@ -191,9 +174,7 @@ export default function ExceptionsPage({ t, language, client, garage }) {
                           <Pieces pieces={whoPieces(t, x.by)} />
                         </td>
                         <td data-owed={x.owed_minor}>{x.kind === 'barrier_opened' ? t('exceptions.owedNothing') : money(x.owed_minor, x.currency, language)}</td>
-                        <td data-gate={gate?.state ?? (held?.problem ? 'problem' : 'reading')}>
-                          {gate ? gate.text : held?.problem ? <ProblemNote t={t} kind={held.problem} /> : <span className="quiet">{t('loading')}</span>}
-                        </td>
+                        <td data-gate={gate.state}>{gate.text}</td>
                         <td>
                           <button type="button" className="link-button" data-action="open-let-out" onClick={() => setOpen(x.id)}>
                             {t('exceptions.openButton')}
@@ -214,7 +195,7 @@ export default function ExceptionsPage({ t, language, client, garage }) {
 }
 
 /** One car's whole story: what is known of it at a glance, then every step in order, then what the gate agent was asked. */
-function Story({ t, language, garage, lanes, held, day, onBack }) {
+function Story({ t, language, garage, lanes, held, summary, day, onBack }) {
   const back = (
     <p className="no-print">
       <button type="button" className="link-button" data-action="back-to-day" onClick={onBack}>
@@ -241,6 +222,7 @@ function Story({ t, language, garage, lanes, held, day, onBack }) {
   const x = held.whole;
   const zone = garage.timezone;
   const items = storyOf(t, x, { lanes: lanes.data ?? [], timeZone: zone, language });
+  const pictures = picturesOf(t, x, { lanes: lanes.data ?? [], timeZone: zone, language });
   // The garage's day of the let-out: a time on another day says its date.
   const storyDay = garageDayOf(x.let_out_at, zone);
   return (
@@ -301,17 +283,43 @@ function Story({ t, language, garage, lanes, held, day, onBack }) {
           <dt>
             <FieldName t={t} name="exceptions.gate" />
           </dt>
-          <dd data-fact="gate">{gateSummary(t, x, language).text}</dd>
-        </div>
-        <div>
-          <dt>
-            <FieldName t={t} name="exceptions.pictures" />
-          </dt>
-          <dd data-fact="pictures" className="quiet">
-            {t('exceptions.noPictures')}
-          </dd>
+          <dd data-fact="gate">{gateLine(t, summary, language).text}</dd>
         </div>
       </dl>
+
+      <h3 className="section-title">
+        <FieldName t={t} name="exceptions.pictures" />
+      </h3>
+      {pictures.every((g) => g.pictures.length === 0) ? (
+        <p className="quiet" data-notice="no-pictures">
+          {t('exceptions.noPictures')}
+        </p>
+      ) : (
+        <div className="exception-pictures">
+          {pictures
+            .filter((g) => g.pictures.length)
+            .map((g) => (
+              <div key={g.kind} data-pictures={g.kind}>
+                <p>{t(`exceptions.pictures.${g.kind}`)}</p>
+                <ul className="exception-picture-list">
+                  {g.pictures.map((p) => {
+                    const path = letOutPicturePath(garage.id, x.id, p.id);
+                    return (
+                      <li key={p.id} data-picture={p.id} data-at={p.at}>
+                        <a href={path} target="_blank" rel="noopener noreferrer">
+                          <img className="banned-picture" src={path} alt={p.alt} width="120" height="80" loading="lazy" />
+                        </a>
+                        <span className="quiet">
+                          <Pieces pieces={p.caption} />
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+        </div>
+      )}
 
       <h3 className="section-title">
         <FieldName t={t} name="exceptions.story" />

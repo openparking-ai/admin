@@ -67,12 +67,6 @@ const SESSION_RULES = [
   [/setItem\s*\([^)]*(password|token|email|session)/i, 'a password, token or email written to storage'],
 ];
 
-// The one query these pages send (platform 0048): the day of the Exceptions list, which the
-// platform's GET /garages/:id/exceptions takes only as `?day=`. It is a calendar day, held to
-// YYYY-MM-DD before it is sent (src/api.js letOutDay), never a token, a name or anything typed as
-// text. Exactly this text is allowed, nothing like it.
-const DAY_QUERY = '`?day=${encodeURIComponent(day)}`';
-
 // Comments say what code does; only code is held to these rules.
 const code = (text) => text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
@@ -95,7 +89,7 @@ for (const path of scanned) {
       address.push(`${at}: an absolute address ${absolute}`);
     }
     if (/\bfetch\s*\(|XMLHttpRequest|\bWebSocket\b|\bEventSource\b|sendBeacon/.test(line) && name !== 'src/api.js') address.push(`${at}: a request made outside src/api.js`);
-    if (name === 'src/api.js' && /[?&][\w-]+=|URLSearchParams|searchParams/.test(line.replace(DAY_QUERY, ''))) address.push(`${at}: a query string built in api.js`);
+    if (name === 'src/api.js' && /[?&][\w-]+=|URLSearchParams|searchParams/.test(line)) address.push(`${at}: a query string built in api.js`);
   });
 }
 

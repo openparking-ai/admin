@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Platform 0048: record what the platform answers the Exceptions page into
-// test/platform-shapes.json (`exceptions_answers`).
+// Platform 0048 (and #90): record what the platform answers the Exceptions
+// page into test/platform-shapes.json (`exceptions_answers`).
 //
 // The record of a car let out holds what only a real exit makes: a card
 // declined at the reader, the reader gone offline, the lane's own events,
 // the payment canceled by the let-out, the gate agent's messages and calls
-// copied, and the sweep that finishes the record. So this starts the
+// copied, the lane's pictures, the sweep that finishes the record and the
+// retention purge that blanks a copy. So this starts the
 // platform itself, from a checkout of it (PLATFORM_DIR, with its npm
 // packages), on its own test harness: the rate engine at its pin, its Stripe
 // stand-in (no Stripe account or key), its gate-agent stand-in, an owner
@@ -45,6 +46,8 @@ const exceptions = await from('src/exceptions.js');
 const { pool, withTenant } = await from('src/db.js');
 
 const MINUTE = 60_000;
+// One picture, as a lane sends one: a PNG of one pixel.
+const PICTURE = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const at = (ms) => new Date(Date.now() + ms).toISOString();
 const hex32 = () => randomBytes(16).toString('hex');
 const TOKEN = `gate-agent-recording-${hex32()}`;
@@ -119,6 +122,10 @@ async function ownerCookie() {
   return res.headers.get('set-cookie').split(';')[0];
 }
 
+/** A picture a lane computer sends: for an event (its entry, its exit case) or none of them. */
+const lanePicture = async (device, eventId, takenAt) =>
+  ok(await h.call(device, 'POST', '/lane/pictures', { picture_ref: `p-${hex32().slice(0, 12)}`, event_id: eventId, taken_at: takenAt, image: PICTURE }), 'a lane sends a picture');
+
 const hooks = {
   async letOuts() {
     const { garage, exitLane } = g.world;
@@ -126,8 +133,14 @@ const hooks = {
     //    for a person; the gate agent paging and called; the owner lets it out.
     exitLaneFile = gateAt(gate.url, gate.url);
     process.env.GATE_AGENTS_FILE = exitLaneFile;
-    const first = await H.enter(h, g, { inMin: 95 });
-    const exit = await H.caseAt(h, g, first.plate);
+    const entryEvent = randomUUID();
+    const exitEvent = randomUUID();
+    const first = await H.enter(h, g, { inMin: 95, eventId: entryEvent });
+    const exit = await H.caseAt(h, g, first.plate, { eventId: exitEvent });
+    // Its pictures: at the entry with its stay, at the exit with its case, and one the exit lane kept in its window.
+    await lanePicture(g.entry, entryEvent, at(-95 * MINUTE));
+    await lanePicture(g.exit, exitEvent, at(-0.5 * MINUTE));
+    await lanePicture(g.exit, randomUUID(), at(-0.4 * MINUTE));
     const started = await H.pay(h, g, exit.id);
     h.stub.presentCard(started.payment.payment_intent_id, { decline: 'generic_decline' });
     await H.caseOf(h, g, exit.id);
@@ -207,11 +220,17 @@ const hooks = {
     const owing = await H.caseAt(h, g, third.plate);
     await ok(await h.call(g.op, 'POST', `/garages/${garage}/exits/${owing.id}/let-out`, { reason: 'Barrier stuck open <b>again</b>' }), 'the key lets the third car out');
 
+    // 4. Owing, let out with the key, the gate agent copied -- and those copies later blanked by the retention purge.
+    process.env.GATE_AGENTS_FILE = exitLaneFile;
+    const fourth = await H.enter(h, g, { inMin: 10 });
+    const blanked = await H.caseAt(h, g, fourth.plate);
+    await ok(await h.call(g.op, 'POST', `/garages/${garage}/exits/${blanked.id}/let-out`, { reason: 'Driver showed a paid receipt from the pay station' }), 'the key lets the fourth car out');
+
     // The sweep, once each window has passed: the lane's events after the let-out,
     // and the gate agent's whole window again (said after the first let-out: recovered).
     const rows = await withTenant(g.tenant, async (c) => (await c.query('SELECT * FROM exceptions WHERE garage_id = $1 ORDER BY let_out_at', [garage])).rows);
     const byCase = (id) => rows.find((x) => x.exit_id === id);
-    const [one, three] = [byCase(exit.id), byCase(owing.id)];
+    const [one, three, four] = [byCase(exit.id), byCase(owing.id), byCase(blanked.id)];
     await withTenant(g.tenant, (c) => c.query(
       "INSERT INTO events (tenant_id, garage_id, lane_id, event_id, kind, occurred_at, detail) VALUES ($1, $2, $3, $4, 'exit_confirmed', $5, $6)",
       [g.tenant, garage, exitLane, randomUUID(), new Date(one.let_out_at.getTime() + MINUTE), JSON.stringify({ state: 'crossed', plate: first.plate })],
@@ -222,10 +241,17 @@ const hooks = {
     const write = (fn) => withTenant(g.tenant, fn);
     const finished = (x) => ({ now: new Date(x.window_to.getTime() + MINUTE) });
     for (const x of rows) {
-      process.env.GATE_AGENTS_FILE = x === one ? exitLaneFile : x === three ? unreachableFile : '';
+      process.env.GATE_AGENTS_FILE = x === one || x === four ? exitLaneFile : x === three ? unreachableFile : '';
       if (!process.env.GATE_AGENTS_FILE) delete process.env.GATE_AGENTS_FILE;
       await exceptions.finish(write, g.tenant, x, finished(x));
     }
+    // The retention purge, as blankExpiredCopies writes it, for the fourth car's copies alone: the
+    // others must keep theirs, and its window is the account's, not one record's.
+    await withTenant(g.tenant, (c) => c.query(
+      `UPDATE exception_records SET records = '[]'::jsonb, purged_at = now()
+        WHERE tenant_id = $1 AND exception_id = $2 AND source = ANY($3::text[]) AND purged_at IS NULL`,
+      [g.tenant, four.id, exceptions.GATE_AGENT_SOURCES],
+    ));
   },
 };
 

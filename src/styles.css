@@ -2114,3 +2114,18 @@ fieldset.dates[data-wrong='yes'],
     gap: 2px;
   }
 }
+.exception-picture-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  margin: 6px 0 16px;
+  padding: 0;
+}
+.exception-picture-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 160px;
+  font-size: 12px;
+}

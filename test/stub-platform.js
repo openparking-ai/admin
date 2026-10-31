@@ -78,10 +78,14 @@
 // owner, English until changed; anything but {"language": "en" | "es"} sent
 // as JSON is 400 `language_refused`.
 //
-// Platform 0048, the cars a person let out, as the platform's src/exceptions.js and src/app.js answer:
+// Platform 0048 (and #90), the cars a person let out, as the platform's src/exceptions.js and src/app.js answer:
 //   GET  /api/v1/garages/:id/exceptions[?day=YYYY-MM-DD]  { garage_id, day, from, to, count, let_out_unpaid, exceptions }
-//        the garage's own day (today when unnamed), oldest first; a day that is not a date is 400 day_invalid
-//   GET  /api/v1/garages/:id/exceptions/:exceptionId       { exception } its whole story; 404 exception_not_found
+//   GET  /api/v1/garages/:id/exceptions/day/:day           the same, the day named in the path (#90)
+//        the garage's own day (today when unnamed), oldest first, each with the gate agent in short
+//        (#90's gateSummaries); a day that is not a date is 400 day_invalid
+//   GET  /api/v1/garages/:id/exceptions/:exceptionId       { exception } its whole story and its pictures; 404 exception_not_found
+//   GET  /api/v1/garages/:id/exceptions/:exceptionId/pictures/:pictureId  the image, private no-store, of a picture
+//        that record lists and no other (#90); 404 picture not found
 //   The records are test/exceptions-fixtures.js's, placed by `letOutStories`; none at first.
 // Every name, address and plate here is invented.
 
@@ -308,12 +312,43 @@ function garageDay(raw, timezone) {
   return { day, from: start(day), to: start(next) };
 }
 
+/**
+ * The gate agent in short, as #90's gateSummaries works it out from the copies:
+ * the counts from the latest copy made of each source (a blanked copy counts
+ * none), its state from the latest try of any kind, and the worse of the two.
+ */
+function gateInShort(x) {
+  const ORDER = ['not_reachable', 'pending', 'not_configured', 'complete'];
+  const of = (copies) => {
+    const copied = copies.filter((c) => c.state === 'copied').at(-1);
+    const last = copies.at(-1);
+    let state = 'pending';
+    if (copied && copies.some((c) => c.complete)) state = 'complete';
+    else if (last?.state === 'not_configured') state = 'not_configured';
+    else if (last?.state === 'not_reachable' || last?.state === 'refused') state = 'not_reachable';
+    return { copied, state };
+  };
+  const m = of(x.gate_agent.messages);
+  const c = of(x.gate_agent.calls);
+  const records = (copy) => copy?.records ?? [];
+  return {
+    messages: records(m.copied).length,
+    failed_deliveries: records(m.copied).flatMap((r) => (Array.isArray(r.deliveries) ? r.deliveries : [])).filter((d) => d.state === 'failed').length,
+    calls: records(c.copied).length,
+    calls_answered: records(c.copied).filter((r) => (r.person_answered_at ?? '') !== '').length,
+    copy: ORDER.find((s) => s === m.state || s === c.state),
+    copies: { messages: m.state, calls: c.state },
+    purged: Boolean(m.copied?.purged_at || c.copied?.purged_at),
+  };
+}
+
 /** A record as the day's list shows it: the platform's presentSummary, with how many records were appended. */
 const exceptionSummary = (x) => ({
   id: x.id, kind: x.kind, source: x.source, garage_id: x.garage_id, lane_id: x.lane_id, exit_id: x.exit_id, stay_id: x.stay_id,
   by: x.by, authority: x.authority, reason: x.reason, let_out_at: x.let_out_at, owed_minor: x.owed_minor, paid_minor: x.paid_minor,
   currency: x.currency,
   records: x.gate_agent.messages.length + x.gate_agent.calls.length + (x.payment_after_let_out ? 1 : 0) + (x.lane_events_after ? 1 : 0),
+  gate_agent: gateInShort(x),
 });
 const LANGUAGE_REFUSED = { error: 'The language must be "en" or "es", sent as JSON: {"language"}.', code: 'language_refused' };
 const LANGUAGES = ['en', 'es'];
@@ -1056,34 +1091,42 @@ export async function startStub({ port = 0 } = {}) {
   const letOut = new Map(); // garage id -> records, as GET .../exceptions/:id answers each
   const letOutAt = (garageId) => (letOut.has(garageId) ? letOut.get(garageId) : letOut.set(garageId, []).get(garageId));
   /** test/exceptions-fixtures.js's records placed at a garage, each let out at its `at`. Answers them. */
-  function letOutStories(garageId, { at, batch = letOutAt(garageId).length / 3 + 1 } = {}) {
+  function letOutStories(garageId, { at, batch = letOutAt(garageId).length / 4 + 1 } = {}) {
     const owner = Object.values(data).find((o) => o.garages.some((g) => g.id === garageId));
     const lanes = owner.lanes[garageId] ?? [];
     const exitLane = lanes.find((l) => l.direction === 'exit') ?? { id: 'la900000-0000-4000-8000-000000000002', devices: [] };
     const entryLane = lanes.find((l) => l.direction === 'entry') ?? { id: 'la900000-0000-4000-8000-000000000001' };
     const device = exitLane.devices[0] ?? { id: 'dv900000-0000-4000-8000-000000000002', name: 'Exit equipment' };
     // By default, as recorded: a few hundredths of a second apart, a minute ago.
-    const when = at ?? [0, 41, 73].map((ms) => Date.now() - 60_000 + ms);
+    const when = at ?? [0, 45, 78, 96].map((ms) => Date.now() - 60_000 + ms);
     const made = exceptionStories({ garageId, exitLaneId: exitLane.id, entryLaneId: entryLane.id, device, owner: owner.email, at: when, batch });
     letOutAt(garageId).push(...made);
     return structuredClone(made);
   }
 
   function exceptionRoutes(req, res, url, who) {
-    const m = /^\/api\/v1\/garages\/([^/]+)\/exceptions(?:\/([^/]+))?$/.exec(url.pathname);
+    // The day named in the path (#90), a record, a picture it lists, or the day's list.
+    const m = /^\/api\/v1\/garages\/([^/]+)\/exceptions(?:\/day\/([^/]+)|\/([^/]+)(?:\/pictures\/([^/]+))?)?$/.exec(url.pathname);
     if (!m || req.method !== 'GET') return undefined;
-    // The platform's id check (its checkIds) comes first: a garage or record id not shaped as one names nothing.
-    if (!UUID.test(m[1])) return answer(res, 404, GARAGE_NOT_FOUND);
-    if (m[2] !== undefined && !UUID.test(m[2])) return answer(res, 404, EXCEPTION_NOT_FOUND);
-    const garage = who.garages.find((g) => g.id === m[1]);
+    const [, garageId, pathDay, recordId, pictureId] = m;
+    // The platform's id check (its checkIds) comes first: a garage, record or picture id not shaped as one names nothing.
+    if (!UUID.test(garageId)) return answer(res, 404, GARAGE_NOT_FOUND);
+    if (recordId !== undefined && !UUID.test(recordId)) return answer(res, 404, EXCEPTION_NOT_FOUND);
+    if (pictureId !== undefined && !UUID.test(pictureId)) return answer(res, 404, { error: 'picture not found' });
+    const garage = who.garages.find((g) => g.id === garageId);
     if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
     const held = letOutAt(garage.id);
-    if (m[2] !== undefined) {
-      const found = held.find((x) => x.id === m[2]);
-      return found ? answer(res, 200, { exception: structuredClone(found) }) : answer(res, 404, EXCEPTION_NOT_FOUND);
+    if (recordId !== undefined) {
+      const found = held.find((x) => x.id === recordId);
+      if (pictureId === undefined) return found ? answer(res, 200, { exception: structuredClone(found) }) : answer(res, 404, EXCEPTION_NOT_FOUND);
+      // Only a picture this record lists, as #90's pictureOf: another record's is not found here.
+      const listed = found ? [...found.pictures.entry, ...found.pictures.exit, ...found.pictures.lane].some((p) => p.id === pictureId) : false;
+      if (!listed) return answer(res, 404, { error: 'picture not found' });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(PICTURE_PNG);
     }
     const days = url.searchParams.getAll('day');
-    const day = garageDay(days.length > 1 ? days : days[0], garage.timezone);
+    const day = garageDay(pathDay ?? (days.length > 1 ? days : days[0]), garage.timezone);
     if (!day) return answer(res, 400, DAY_INVALID);
     const rows = held
       .filter((x) => Date.parse(x.let_out_at) >= day.from && Date.parse(x.let_out_at) < day.to)

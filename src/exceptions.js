@@ -167,28 +167,32 @@ export function sourceState(copies) {
   return COPY_STATES.includes(last) ? last : 'refused';
 }
 
-const UNREACHED = ['not_reachable', 'refused'];
+/** Where the gate agent's copies stand, as the day's list says it in short (#90). */
+export const GATE_COPY = ['complete', 'pending', 'not_reachable', 'not_configured'];
 
 /**
- * The gate agent in one line, for the day's list: "Gate agent: 3 messages,
- * 1 call", or that none is set up, or that it could not be reached.
+ * The gate agent in one line, for the day's list, from the platform's own
+ * summary of each record (#90's `gate_agent`): how many messages (and of them
+ * not delivered) and calls (and of them answered) its latest copy holds, then
+ * where the copy stands -- copied whole, still being copied, not reached, not
+ * set up -- or that the retention purge blanked it. Its figures, never
+ * counted here.
  */
-export function gateSummary(t, whole, language) {
-  const copies = whole.gate_agent ?? {};
-  const states = { messages: sourceState(copies.messages), calls: sourceState(copies.calls) };
-  if (states.messages === 'not_configured' && states.calls === 'not_configured') return { state: 'not_configured', text: t('exceptions.gate.notConfigured') };
-  if (UNREACHED.includes(states.messages) && UNREACHED.includes(states.calls)) return { state: 'not_reachable', text: t('exceptions.gate.notReachable') };
-  if (states.messages === 'none' && states.calls === 'none') return { state: 'none', text: t('exceptions.gate.notAsked') };
-  const n = (x) => x.toLocaleString(LOCALES[language] ?? LOCALES.en);
-  const part = (source) => {
-    const state = states[source];
-    if (state === 'copied') {
-      const count = gateRecords(copies[source], source).length;
-      return t(`exceptions.gate.${source}${count === 1 ? 'One' : 'Many'}`, { n: n(count) });
-    }
-    return t(`exceptions.gate.${source}.${state === 'none' ? 'notAsked' : state === 'not_configured' ? 'notConfigured' : 'notReachable'}`);
-  };
-  return { state: 'copied', text: t('exceptions.gate.summary', { messages: part('messages'), calls: part('calls') }) };
+export function gateLine(t, summary, language) {
+  if (!summary || typeof summary !== 'object') return { state: 'unknown', text: t('exceptions.gate.notAsked') };
+  if (summary.purged) return { state: 'purged', text: t('exceptions.gate.purged') };
+  const n = (x) => Number(x ?? 0).toLocaleString(LOCALES[language] ?? LOCALES.en);
+  const state = GATE_COPY.includes(summary.copy) ? summary.copy : 'pending';
+  const words = [];
+  if (summary.messages > 0 || summary.calls > 0) {
+    let messages = t(`exceptions.gate.messages${summary.messages === 1 ? 'One' : 'Many'}`, { n: n(summary.messages) });
+    if (summary.failed_deliveries > 0) messages = t('exceptions.gate.messagesFailed', { messages, n: n(summary.failed_deliveries) });
+    let calls = t(`exceptions.gate.calls${summary.calls === 1 ? 'One' : 'Many'}`, { n: n(summary.calls) });
+    if (summary.calls_answered > 0) calls = t('exceptions.gate.callsAnswered', { calls, n: n(summary.calls_answered) });
+    words.push(t('exceptions.gate.counts', { messages, calls }));
+  }
+  words.push(t(`exceptions.gate.copy.${state}`));
+  return { state, text: words.join(' ') };
 }
 
 /** What each copy of a source holds, for the story's foot: when it was made and what it holds, or why there is none. */
@@ -349,6 +353,11 @@ export function storyOf(t, x, { lanes, timeZone, language }) {
     }
     const needs = exitCase.settled_before?.needs;
     if (['payment', 'driver_word', 'person'].includes(needs)) lines.push(sentence(t, `exceptions.story.needs.${needs}`));
+    // Earlier payments Stripe could not be asked about for refunds when it was priced: credited as last read.
+    const unread = fee?.refunds_unread ?? exitCase.refunds_unread;
+    if (Array.isArray(unread) && unread.length) {
+      lines.push(unread.length === 1 ? sentence(t, 'exceptions.story.refundsUnreadOne') : sentence(t, 'exceptions.story.refundsUnreadMany', { n: unread.length.toLocaleString(LOCALES[language] ?? LOCALES.en) }));
+    }
     add(x.case_opened_at ?? exitCase.exit_at, 'case', sentence(t, 'exceptions.story.reachedExit', { lane: laneName(t, lanes, x.lane_id) }), lines);
   }
   // Each payment once, as it last stood: after the let-out when the platform appended that.
@@ -359,11 +368,14 @@ export function storyOf(t, x, { lanes, timeZone, language }) {
     const lines = [];
     if (p.last_failure) lines.push(failurePieces(t, p.last_failure));
     if (p.status === 'open' && !(now.succeeded_at || now.canceled_at)) lines.push(sentence(t, 'exceptions.payment.open'));
+    // What Stripe says was refunded of it, as last read (#89): never counted as paid.
+    if (Number(now.refunded_minor) > 0) lines.push(sentence(t, 'exceptions.payment.refunded', { amount: amount(now.refunded_minor, now.currency) }));
     add(p.created_at, 'payment', sentence(t, `exceptions.payment.started.${via}`, { amount: amount(p.amount_minor, p.currency) }), lines);
     if (now.succeeded_at) add(now.succeeded_at, 'payment', sentence(t, 'exceptions.payment.paid', { amount: amount(now.amount_minor, now.currency) }));
     if (now.canceled_at) add(now.canceled_at, 'payment', sentence(t, now === after ? 'exceptions.payment.canceledByLetOut' : 'exceptions.payment.canceled', { amount: amount(now.amount_minor, now.currency) }));
   }
   if (after && !(story.payments ?? []).some((p) => p.id === after.id)) {
+    if (Number(after.refunded_minor) > 0) add(after.canceled_at ?? after.succeeded_at ?? x.let_out_at, 'payment', sentence(t, 'exceptions.payment.refunded', { amount: amount(after.refunded_minor, after.currency) }));
     if (after.canceled_at) add(after.canceled_at, 'payment', sentence(t, 'exceptions.payment.canceledByLetOut', { amount: amount(after.amount_minor, after.currency) }));
     if (after.succeeded_at) add(after.succeeded_at, 'payment', sentence(t, 'exceptions.payment.paid', { amount: amount(after.amount_minor, after.currency) }));
   }
@@ -400,4 +412,31 @@ export function storyOf(t, x, { lanes, timeZone, language }) {
     .map((item, i) => [item, i])
     .sort(([a, i], [b, j]) => Date.parse(a.at) - Date.parse(b.at) || i - j)
     .map(([item]) => ({ ...item, time: at(item.at) }));
+}
+
+export const PICTURE_KINDS = ['entry', 'exit', 'lane'];
+
+/**
+ * The record's pictures (#90), each kind in its own group, oldest first:
+ * those with the stay's entry, those with its exit -- this visit's case, or
+ * an earlier visit of the same stay -- and any other the exit lane kept in
+ * the record's window. Each with when it was taken, on the garage's clock,
+ * and what it shows, in words; the image is the platform's, by its id.
+ */
+export function picturesOf(t, x, { lanes, timeZone, language }) {
+  const day = garageDayOf(x.let_out_at, timeZone);
+  const listed = x.pictures ?? {};
+  return PICTURE_KINDS.map((kind) => ({
+    kind,
+    pictures: [...(Array.isArray(listed[kind]) ? listed[kind] : [])]
+      .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at))
+      .map((p) => {
+        const time = clockSaid(p.taken_at, timeZone, language, day);
+        let caption;
+        if (kind === 'exit') caption = sentence(t, p.exit_id && p.exit_id !== x.exit_id ? 'exceptions.picture.exitEarlier' : 'exceptions.picture.exit', { time });
+        else if (kind === 'lane') caption = sentence(t, 'exceptions.picture.lane', { time, lane: laneName(t, lanes, p.lane_id) });
+        else caption = sentence(t, 'exceptions.picture.entry', { time });
+        return { id: p.id, at: p.taken_at, time, caption, alt: piecesText(caption) };
+      }),
+  }));
 }

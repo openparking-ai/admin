@@ -268,6 +268,16 @@ export function bannedPicturePath(garageId, banId, pictureId) {
   return `${BASE}/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/pictures/${encodeURIComponent(pictureId)}`;
 }
 
+/**
+ * Where one picture a record of a car let out lists is (platform #90): its
+ * stay's entry, its exit, or the lane's around then. Fetched by the browser,
+ * as a banned car's picture is; the platform serves only a picture that
+ * record lists.
+ */
+export function letOutPicturePath(garageId, letOutId, pictureId) {
+  return `${BASE}/garages/${encodeURIComponent(garageId)}/exceptions/${encodeURIComponent(letOutId)}/pictures/${encodeURIComponent(pictureId)}`;
+}
+
 export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
   let epoch = 0;
   let signedIn = false;
@@ -585,14 +595,14 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     // ── The cars a person let out (platform 0048): read only ──
     /**
      * One day's cars let out at the garage, the garage's own day: `day`
-     * (YYYY-MM-DD), or today when null -- the answer says which day it read.
-     * The platform's order (oldest first) is kept; the page orders it.
+     * (YYYY-MM-DD), named in the path (#90), or today when null -- the answer
+     * says which day it read. Each carries the gate agent in short. The
+     * platform's order (oldest first) is kept; the page orders it.
      */
     letOutDay: async (garageId, day = null) => {
-      // The one query these pages send: a calendar day, checked first (scripts/check-page-stays-home.js).
       if (day !== null && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Problem('dayRefused');
-      const query = day === null ? '' : `?day=${encodeURIComponent(day)}`;
-      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/exceptions${query}`));
+      const named = day === null ? '' : `/day/${encodeURIComponent(day)}`;
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/exceptions${named}`));
       if (typeof data.day !== 'string' || !Array.isArray(data.exceptions) || !Number.isInteger(data.count)) throw new Problem('unexpected');
       return { day: data.day, count: data.count, owing: Number.isInteger(data.let_out_unpaid) ? data.let_out_unpaid : null, letOuts: data.exceptions };
     },
