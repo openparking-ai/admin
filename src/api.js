@@ -41,7 +41,9 @@ export const PROBLEM_KINDS = [
   // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
   'databaseUnavailable', 'databaseSaving',
   // Stuck stays (platform 0043): the garage's hours, and a stay ended or written off.
-  'stuckHoursRefused', 'stayGone', 'stayNotOpen', 'stayAtExit', 'reasonRequired', 'reasonOneLine', 'leftBeforeEntry', 'leftInFuture', 'leftTimeOdd',
+  'stuckHoursRefused', 'stayGone', 'stayNotOpen', 'reasonRequired', 'reasonOneLine', 'leftBeforeEntry', 'leftInFuture', 'leftTimeOdd',
+  // Ending a stay with an exit lane's case still open on it (platform 0045): its payment, at Stripe.
+  'stayPaymentInProgress', 'stayPaymentMoving', 'stayPaymentUnsettled', 'stayPaymentMismatch',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -143,7 +145,6 @@ const NAMED = [
   [400, 'stuck_after_hours_invalid', 'stuckHoursRefused'],
   [404, 'stay_not_found', 'stayGone'],
   [409, 'stay_not_open', 'stayNotOpen'],
-  [409, 'stay_at_an_exit', 'stayAtExit'],
   [400, 'reason_required', 'reasonRequired'],
   [400, 'reason_invalid', 'reasonOneLine'],
   [400, 'left_at_before_entry', 'leftBeforeEntry'],
@@ -160,6 +161,21 @@ const PLAN_BY_STATUS = { 400: 'planRefused', 404: 'garageNotFound' };
 const TRY_BY_STATUS = { 400: 'tryRefused', 404: 'garageNotFound' };
 /** The try answers "no engine to ask" as a 503, which elsewhere is the taxes' words. */
 const TRY_NAMED = [[503, 'rate_engine_unavailable', 'ratesNotChecked']];
+
+/**
+ * Ending a stay (platform 0045): an exit lane's case left open on the stay
+ * never blocks it -- the platform cancels the case's unpaid payment at Stripe
+ * first, then closes the case with the stay. What can stop that, each in its
+ * own words, as the platform's src/app.js names them on this route; nothing
+ * changed in any of them. Named here, not for every route: on an exit
+ * lane's own routes the same codes mean something else.
+ */
+const END_NAMED = [
+  [409, 'payment_in_progress', 'stayPaymentInProgress'],
+  [409, 'stay_payment_moving', 'stayPaymentMoving'],
+  [503, 'payment_unsettled', 'stayPaymentUnsettled'],
+  [409, 'payment_amount_mismatch', 'stayPaymentMismatch'],
+];
 
 /**
  * What a refusal carries that the screens show in their own words: the
@@ -613,14 +629,28 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      * End one stay: `ended` (the car left at `leftAt`, an instant) or
      * `abandoned` (written off), with the person's reason. Nothing is charged:
      * an ended stay's price comes back as what it owes (`owedMinor`, null
-     * when the rates could not price it).
+     * when the rates could not price it). Since platform 0045 that is what
+     * it still owes: the price (`priceMinor`) less what was paid on the stay
+     * at an exit (`paid`, null when nothing was), never below 0 -- the
+     * platform's figure, never worked out here. `passUnasked`: the garage
+     * has no exit lane, so a pass it links was not asked about this car.
      */
     endStay: async (garageId, stayId, { outcome, reason, leftAt = null }) => {
       const body = { outcome, reason, ...(outcome === 'ended' && leftAt ? { left_at: leftAt } : {}) };
-      const stay = object(object(await request(`/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/end`, { method: 'POST', body })).stay);
+      const stay = object(object(await request(`/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/end`, { method: 'POST', body, named: END_NAMED })).stay);
       const owed = stay.ended?.owed ?? null;
       if (stay.owed_minor !== null && !Number.isInteger(stay.owed_minor)) throw new Problem('unexpected');
-      return { owedMinor: stay.owed_minor, currency: stay.currency, covered: owed?.outcome === 'covered', priced: owed !== null && owed.refused !== true };
+      const paid = stay.ended?.paid ?? null;
+      const paidOk = paid !== null && typeof paid === 'object' && Number.isInteger(paid.amount_minor) && typeof paid.currency === 'string';
+      return {
+        owedMinor: stay.owed_minor,
+        currency: stay.currency,
+        covered: owed?.outcome === 'covered',
+        priced: owed !== null && owed.refused !== true,
+        priceMinor: Number.isInteger(owed?.fee_minor) ? owed.fee_minor : null,
+        paid: paidOk ? { amountMinor: paid.amount_minor, currency: paid.currency.toUpperCase() } : null,
+        passUnasked: stay.pass_unasked === true,
+      };
     },
     /**
      * Every list of taxes the garage has stated, each with when it starts and

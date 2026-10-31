@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient, problemKey } from '../src/api.js';
-import { translate } from '../src/i18n/index.js';
+import { DICTIONARIES, translate } from '../src/i18n/index.js';
 import { moneyText } from '../src/rates.js';
-import { endedWords, hoursTyped, leftAtTyped, plateParts, reasonProblem, whyListed } from '../src/stuck.js';
+import { endedWords, hoursTyped, leftAtTyped, passWords, plateParts, reasonProblem, whyListed } from '../src/stuck.js';
 
 const T = (language) => (key, values) => translate(language, key, values);
 const garage = { id: 'a1000000-0000-4000-8000-000000000001', timezone: 'America/New_York', currency: 'USD' };
@@ -89,11 +89,11 @@ test('what became of the stay: what it owes in money, or that it owes nothing --
 });
 
 test('ending a stay sends the outcome, the reason and, for a car that left, its time -- never a time for one written off', async () => {
-  const answer = { status: 200, body: { stay: { id: stay.id, entered_at: stay.entered_at, exit_at: '2026-03-10T02:00:00.000Z', ended: { owed: { outcome: 'transient', fee_minor: 3000, refused: false } }, owed_minor: 3000, currency: 'USD' } } };
+  const answer = { status: 200, body: { stay: { id: stay.id, entered_at: stay.entered_at, exit_at: '2026-03-10T02:00:00.000Z', ended: { owed: { outcome: 'transient', fee_minor: 3000, refused: false, pass_unasked: false } }, owed_minor: 3000, pass_unasked: false, currency: 'USD' } } };
   const { fn, asked } = fakeFetch(answer);
   const client = createClient({ fetch: fn });
   const result = await client.endStay(garage.id, stay.id, { outcome: 'ended', reason: 'Backed out', leftAt: '2026-03-10T02:00:00.000Z' });
-  assert.deepEqual(result, { owedMinor: 3000, currency: 'USD', covered: false, priced: true });
+  assert.deepEqual(result, { owedMinor: 3000, currency: 'USD', covered: false, priced: true, priceMinor: 3000, paid: null, passUnasked: false });
   assert.equal(asked[0].url, `/api/v1/garages/${garage.id}/stays/${stay.id}/end`);
   assert.equal(asked[0].init.method, 'POST');
   assert.deepEqual(JSON.parse(asked[0].init.body), { outcome: 'ended', reason: 'Backed out', left_at: '2026-03-10T02:00:00.000Z' });
@@ -102,6 +102,49 @@ test('ending a stay sends the outcome, the reason and, for a car that left, its 
   await client.setStuckAfterHours(garage.id, 48);
   assert.equal(asked[2].init.method, 'PATCH');
   assert.deepEqual(JSON.parse(asked[2].init.body), { stuck_after_hours: 48 });
+});
+
+// Platform 0045: a stay that paid at an exit before a person ended it. The platform answers what it
+// still owes (owed_minor: the price less what was paid, never below 0); the page shows that figure as
+// given, beside the price and what was paid, each named -- it works out none of them.
+test('a stay that paid at an exit: what it still owes is the platform\'s figure, shown beside its price and what was paid', async () => {
+  const paidAnswer = (owed, fee, paidMinor) => ({ status: 200, body: { stay: { id: stay.id, entered_at: stay.entered_at, exit_at: '2026-03-10T02:00:00.000Z', ended: { owed: { outcome: 'transient', fee_minor: fee, refused: false, pass_unasked: false }, exit_cases: ['e1000000-0000-4000-8000-000000000001'], paid: { exit_id: 'e1000000-0000-4000-8000-000000000001', amount_minor: paidMinor, currency: 'usd' } }, owed_minor: owed, pass_unasked: false, currency: 'USD' } } });
+  const rest = await createClient({ fetch: fakeFetch(paidAnswer(1000, 3000, 2000)).fn }).endStay(garage.id, stay.id, { outcome: 'ended', reason: 'x' });
+  assert.deepEqual(rest, { owedMinor: 1000, currency: 'USD', covered: false, priced: true, priceMinor: 3000, paid: { amountMinor: 2000, currency: 'USD' }, passUnasked: false });
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const m = (minor) => moneyText(minor, 'USD', language);
+    assert.equal(endedWords(t, 'ended', rest, language), t('stuck.donePaidOwes', { price: m(3000), paid: m(2000), amount: m(1000) }));
+    // The amount shown is the one the platform answered, whatever the price and payment would make it.
+    const odd = { ...rest, owedMinor: 1234 };
+    assert.match(endedWords(t, 'ended', odd, language), /12[.,]34/);
+    // Paid more than the price: the platform says 0, and the page says it owes nothing.
+    const over = await createClient({ fetch: fakeFetch(paidAnswer(0, 3000, 3500)).fn }).endStay(garage.id, stay.id, { outcome: 'ended', reason: 'x' });
+    assert.equal(endedWords(t, 'ended', over, language), t('stuck.donePaidOwesNothing', { price: m(3000), paid: m(3500) }));
+    // Not priced, but paid: no amount owed, and what was paid still said.
+    const unpriced = { owedMinor: null, currency: 'USD', covered: false, priced: false, priceMinor: null, paid: { amountMinor: 500, currency: 'USD' }, passUnasked: false };
+    assert.equal(endedWords(t, 'ended', unpriced, language), `${t('stuck.doneNotPriced')} ${t('stuck.paidAtExit', { paid: m(500) })}`);
+    // Written off after it paid at an exit: it owes nothing, and what was paid is still said.
+    assert.equal(endedWords(t, 'abandoned', { ...unpriced, paid: { amountMinor: 500, currency: 'USD' } }, language), `${t('stuck.doneAbandoned')} ${t('stuck.paidAtExit', { paid: m(500) })}`);
+  }
+});
+
+// Platform 0043: a garage with no exit lane has nowhere to ask about a pass; the platform says so on
+// the end's answer (pass_unasked), and the page says it beside what the stay owes.
+test('a pass not asked because the garage has no exit lane: said beside what is owed; never for a stay written off', async () => {
+  const unasked = { status: 200, body: { stay: { id: stay.id, entered_at: stay.entered_at, exit_at: '2026-03-10T02:00:00.000Z', ended: { owed: { outcome: 'transient', fee_minor: 3000, refused: false, pass_unasked: true } }, owed_minor: 3000, pass_unasked: true, currency: 'USD' } } };
+  const result = await createClient({ fetch: fakeFetch(unasked).fn }).endStay(garage.id, stay.id, { outcome: 'ended', reason: 'x' });
+  assert.equal(result.passUnasked, true);
+  const writtenOff = { status: 200, body: { stay: { id: stay.id, entered_at: stay.entered_at, exit_at: '2026-03-10T02:00:00.000Z', ended: {}, owed_minor: null, pass_unasked: null, currency: 'USD' } } };
+  const off = await createClient({ fetch: fakeFetch(writtenOff).fn }).endStay(garage.id, stay.id, { outcome: 'abandoned', reason: 'x' });
+  assert.equal(off.passUnasked, false);
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    assert.equal(passWords(t, 'ended', result), t('stuck.passUnasked'));
+    assert.notEqual(t('stuck.passUnasked'), 'stuck.passUnasked');
+    assert.equal(passWords(t, 'ended', { ...result, passUnasked: false }), null);
+    assert.equal(passWords(t, 'abandoned', { ...result, passUnasked: true }), null);
+  }
 });
 
 test('the list reads the garage\'s hours with it; an answer without them is not shown', async () => {
@@ -116,11 +159,15 @@ test('each refusal of ending a stay, or of the hours, has words of its own, in b
     [400, { error: 'stuck_after_hours must be a whole number of hours from 1 to 2160 when given', code: 'stuck_after_hours_invalid' }, 'stuckHoursRefused'],
     [404, { error: 'stay not found', code: 'stay_not_found' }, 'stayGone'],
     [409, { error: 'this stay is not open: it has already been closed or ended', code: 'stay_not_open' }, 'stayNotOpen'],
-    [409, { error: 'a car is at an exit lane on this stay: let it out there instead', code: 'stay_at_an_exit' }, 'stayAtExit'],
-    [400, { error: 'reason is required: why the stay is ended, at most 500 characters', code: 'reason_required' }, 'reasonRequired'],
+    [400, { error: 'reason is required: why the stay is ended, at most 500 characters; no plate -- the reason goes to the change log', code: 'reason_required' }, 'reasonRequired'],
     [400, { error: 'reason must be words on one line: no line breaks or control characters', code: 'reason_invalid' }, 'reasonOneLine'],
     [400, { error: 'left_at is before the stay came in', code: 'left_at_before_entry' }, 'leftBeforeEntry'],
     [409, { error: 'left_at is 3600s ahead', code: 'clock_skew' }, 'leftInFuture'],
+    // Platform 0045: an exit lane's case open on the stay, its payment at Stripe (src/app.js, word for word).
+    [409, { error: 'a card is being authorised at an exit for this stay: ask again in a few seconds', code: 'payment_in_progress' }, 'stayPaymentInProgress'],
+    [409, { error: 'a car reached an exit or started paying on this stay just now: ask again', code: 'stay_payment_moving' }, 'stayPaymentMoving'],
+    [503, { error: "this stay's exit payment could not be settled with Stripe now; nothing was changed, ask again", code: 'payment_unsettled' }, 'stayPaymentUnsettled'],
+    [409, { error: "Stripe took an amount other than this case's fee: a person decides", code: 'payment_amount_mismatch' }, 'stayPaymentMismatch'],
   ];
   const seen = new Set();
   for (const [status, body, kind] of cases) {
@@ -135,4 +182,29 @@ test('each refusal of ending a stay, or of the hours, has words of its own, in b
     }
   }
   assert.equal(seen.size, cases.length * 2, 'two refusals share their words');
+});
+
+test('the refusal a car at an exit lane once got is gone: a person\'s end closes that lane\'s case (platform 0045)', async () => {
+  const client = createClient({ fetch: fakeFetch({ status: 409, body: { error: 'a car is at an exit lane on this stay: let it out there instead', code: 'stay_at_an_exit' } }).fn });
+  assert.equal((await problemOf(client.endStay(garage.id, stay.id, { outcome: 'ended', reason: 'x' }))).kind, 'unexpected');
+  for (const language of ['en', 'es']) {
+    assert.equal(Object.hasOwn(DICTIONARIES[language], 'problem.stayAtExit'), false, `${language}: no words left for it`);
+    assert.equal(Object.hasOwn(DICTIONARIES[language], 'changes.refusal.stay_at_an_exit'), false, `${language}: nor in the change log`);
+  }
+});
+
+test('the payment answers are this route\'s own: another route meeting the same code is not told a stay\'s words', async () => {
+  const body = { error: 'a card is being authorised for this exit: ask again in a few seconds', code: 'payment_in_progress' };
+  const client = createClient({ fetch: fakeFetch({ status: 409, body }).fn });
+  assert.equal((await problemOf(client.setStuckAfterHours(garage.id, 48))).kind, 'unexpected');
+});
+
+test('the reason field says, in both languages, that the reason goes to the change log: no plate, no personal details', () => {
+  for (const language of ['en', 'es']) {
+    const words = translate(language, 'stuck.reasonPrivate');
+    assert.notEqual(words, 'stuck.reasonPrivate');
+    assert.match(words, language === 'en' ? /change log/ : /registro de cambios/);
+    assert.match(words, language === 'en' ? /plate/ : /placa/);
+    assert.match(words, language === 'en' ? /personal details/ : /datos personales/);
+  }
 });

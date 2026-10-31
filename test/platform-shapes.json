@@ -8857,7 +8857,7 @@
       }
     }
   ],
-  "stuck_recorded_from": "Platform 0043, 2026-10-28: 'stuck_answers' recorded from openparking-ai/platform feat/garage-cleanup-20261028 69d8b53 (migrations 0043 and 0044, stacked on #84) with rate-engine 9acb5e5 (its pin), npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-stuck.js: the demo garage, with no stay of its own and the demo's rates in force, and three cars let in by the demo's entry lane as STUCK_LET_IN (test/stub-platform.js) says, each with one picture. The garage's whole row a PATCH answers now carries `walk_complete_percent` and `stuck_after_hours`; against the rows recorded before, those two keys are the only difference, and they are added to the earlier recordings by it.",
+  "stuck_recorded_from": "Platform 0043 and 0045, 2026-10-31: 'stuck_answers' recorded from openparking-ai/platform feat/garage-cleanup-20261028 4f693de (#88, with main's exit stack and its 0041, 0042, 0045 and 0046 merged in) with rate-engine 9acb5e5 (its pin), npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true, by test/record-stuck.js: the demo garage, with no stay of its own and the demo's rates in force, three cars let in by the demo's entry lane as STUCK_LET_IN (test/stub-platform.js) says, each with one picture, and then the demo's exit lane opening a case on the last of them, as a lane opens one for a car on its loop. Recorded before from 69d8b53 (2026-10-28); against that recording the garage's whole row a PATCH answers is unchanged.",
   "stuck_answers": [
     {
       "what": "stuck stays, none yet",
@@ -9361,7 +9361,7 @@
       "what": "a stay ended, with no reason",
       "status": 400,
       "body": {
-        "error": "reason is required: why the stay is ended, at most 500 characters",
+        "error": "reason is required: why the stay is ended, at most 500 characters; no plate -- the reason goes to the change log",
         "code": "reason_required"
       }
     },
@@ -9470,6 +9470,62 @@
                           "string"
                         ]
                       },
+                      "entitlement": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "asked_at": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "garage_pass": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          },
+                          "identity": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "monthly_billing": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
                       "fee_minor": {
                         "types": [
                           "number"
@@ -9478,6 +9534,11 @@
                       "outcome": {
                         "types": [
                           "string"
+                        ]
+                      },
+                      "pass_unasked": {
+                        "types": [
+                          "boolean"
                         ]
                       },
                       "plan_version": {
@@ -9527,6 +9588,11 @@
               "owed_minor": {
                 "types": [
                   "number"
+                ]
+              },
+              "pass_unasked": {
+                "types": [
+                  "boolean"
                 ]
               }
             }
@@ -9603,6 +9669,11 @@
                 ]
               },
               "owed_minor": {
+                "types": [
+                  "null"
+                ]
+              },
+              "pass_unasked": {
                 "types": [
                   "null"
                 ]
@@ -9736,6 +9807,287 @@
           "before": null,
           "after": null
         }
+      }
+    },
+    {
+      "what": "a stay an exit lane has open, ended",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stay": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "ended": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "by": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "exit_cases": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  },
+                  "owed": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "breakdown": {
+                        "types": [
+                          "array"
+                        ],
+                        "items": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "code": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "delta_minor": {
+                              "types": [
+                                "number"
+                              ]
+                            },
+                            "rule_id": {
+                              "types": [
+                                "null",
+                                "string"
+                              ]
+                            },
+                            "text": {
+                              "types": [
+                                "string"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "covered_by": {
+                        "types": [
+                          "array"
+                        ]
+                      },
+                      "currency": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entitlement": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "asked_at": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "garage_pass": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          },
+                          "identity": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "monthly_billing": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "consulted": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "reason": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "fee_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "outcome": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "pass_unasked": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "plan_version": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "refused": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "subtotal_minor": {
+                        "types": [
+                          "number"
+                        ]
+                      }
+                    }
+                  },
+                  "reason": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "why": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "entered_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "pass_unasked": {
+                "types": [
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "changes, after a stay an exit lane had open was ended",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "changes",
+          "next"
+        ],
+        "newest": {
+          "keys": [
+            "action",
+            "after",
+            "at",
+            "attempts",
+            "before",
+            "garage_id",
+            "id",
+            "last_at",
+            "outcome",
+            "refusal",
+            "subject",
+            "who"
+          ],
+          "who": [
+            "kind",
+            "name"
+          ],
+          "subject": [
+            "id",
+            "kind",
+            "name",
+            "removed"
+          ],
+          "action": "stay.end",
+          "outcome": "done",
+          "before": {
+            "open": true,
+            "exit_at": null,
+            "entered_at": "a time"
+          },
+          "after": {
+            "open": false,
+            "reason": "Left while the exit lane was down",
+            "exit_at": "a time",
+            "outcome": "ended",
+            "currency": "USD",
+            "entered_at": "a time",
+            "owed_minor": "an amount",
+            "exit_cases_closed": [
+              {
+                "exit_id": "an id",
+                "payment": null
+              }
+            ]
+          }
+        },
+        "subject_name": "null",
+        "subject_removed": false
       }
     }
   ]

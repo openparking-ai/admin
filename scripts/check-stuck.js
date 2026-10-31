@@ -6,7 +6,7 @@
 // answers as test/platform-shapes.json records the platform does), at a
 // garage with rates in force and three cars let in by its entry lane -- 30,
 // 26 and 1 hour ago, each with one picture -- beside its own three old stays,
-// one of them with a car at an exit lane now. The page must:
+// one of them still open at an exit lane. The page must:
 //
 //   - list the stays older than the garage's hours, oldest first, each with
 //     when it came in (the garage's clock), the plate read, the lane and its
@@ -15,9 +15,17 @@
 //   - end a stay only with a reason, at the time the person types on the
 //     garage's clock, and say what it owes -- never charging a card: no call
 //     to anything that takes money, from the first page to the last;
+//   - say under the reason that it goes to the change log: no plate, no
+//     personal details;
 //   - write a stay off with a reason and no time;
-//   - offer no End on a stay a car is at an exit lane on;
 //   - say so, and read the list again, for a stay ended elsewhere meanwhile;
+//   - say, beside what is owed, that no pass was asked about when the garage
+//     has no exit lane to ask at (platform 0043, pass_unasked);
+//   - offer End on a stay an exit lane still has open, saying the end closes
+//     that too (platform 0045); say in its own words what stops it -- Stripe
+//     out of reach, a car paying just then -- and keep the stay listed; and,
+//     once ended, name its price, what was paid at the exit and what it still
+//     owes, as the platform gives each;
 //   - show each ending in the change log, the reason as typed: never as markup.
 //
 //   node scripts/check-stuck.js     (run `npm run build` first)
@@ -100,7 +108,9 @@ const picture = await page.waitForFunction((id) => {
 check(Boolean(picture?.includes(`/garages/${HARBOR.id}/stays/${old30.id}/pictures/`)), `${old30.plate}: its entry picture, shown, from its own stay at its own garage`);
 check((await rowText(ownB.id)).includes(EN['stuck.ticket']), 'a ticket-only stay says no plate was read');
 const atExit = await rowText(ownC.id);
-check(atExit.includes(EN['stuck.atExit']) && (await page.$$(`tr[data-stay="${ownC.id}"] [data-action="end-stay"], tr[data-stay="${ownC.id}"] [data-action="abandon-stay"]`)).length === 0, 'a stay with a car at an exit lane: said so, and no End or Write off');
+const offered = (id) => page.$$eval(`tr[data-stay="${id}"] [data-action="end-stay"], tr[data-stay="${id}"] [data-action="abandon-stay"]`, (bs) => bs.filter((b) => b.checkVisibility() && !b.disabled).length);
+check(atExit.includes(EN['stuck.atExit']) && (await offered(ownC.id)) === 2, 'a stay an exit lane still has open: said so, and End and Write off offered');
+check(!(await rowText(ownA.id)).includes(EN['stuck.atExit']), 'and only on that stay');
 check(await shows('[data-notice="never-charged"]', EN['stuck.neverCharged']), 'the page says ending a stay never charges a card');
 
 console.log('The garage\'s hours:');
@@ -123,6 +133,13 @@ console.log('A stay ended -- the car left:');
 const endsSent = () => sent.filter((s) => s.method === 'POST' && s.path.includes('/stays/') && s.path.endsWith('/end'));
 await page.click(`tr[data-stay="${old30.id}"] [data-action="end-stay"]`);
 await page.waitForSelector(`[data-ending="${old30.id}"] [data-form="end-stay"]`);
+const hint = await page.evaluate((id) => {
+  const box = document.querySelector(`[data-ending="${id}"] [data-field="reason"]`);
+  const said = document.getElementById(box?.getAttribute('aria-describedby') ?? '');
+  const r = said?.getBoundingClientRect();
+  return said ? { text: said.textContent, kind: said.dataset.notice, shown: r.width > 0 && r.height > 0 && r.top >= box.getBoundingClientRect().bottom - 1 } : null;
+}, old30.id);
+check(hint?.kind === 'reason-private' && hint.text === EN['stuck.reasonPrivate'] && hint.shown, `under the reason, shown and tied to its box: "${EN['stuck.reasonPrivate']}"`);
 const wall = wallAt(Date.parse(old30.entry_at) + 2 * HOUR, HARBOR.timezone);
 await page.fill(`[data-ending="${old30.id}"] [data-field="left-at"]`, wall);
 await page.fill(`[data-ending="${old30.id}"] [data-field="reason"]`, '   ');
@@ -139,6 +156,7 @@ const theirs = stub.endedStays(HARBOR.id).find((s) => s.id === old30.id);
 check(Number.isInteger(theirs?.owed_minor) && theirs.owed_minor > 0, `the platform priced it by the rates: owes ${theirs?.owed_minor}`);
 const amount = theirs ? moneyText(theirs.owed_minor, theirs.currency, 'en') : 'nothing';
 check(owed === EN['stuck.doneOwes'].replace('{amount}', amount), `the page says what it owes: "${owed}"`);
+check(theirs?.pass_unasked === false && (await page.$$('[data-notice="pass-unasked"]')).length === 0, 'a garage with exit lanes: nothing said of a pass');
 check(await settled([ownA, ownB, ownC, old26].map((s) => s.id)), 'and reads the list again, without it');
 
 console.log('A stay written off:');
@@ -161,6 +179,50 @@ await page.click(`[data-ending="${ownA.id}"] [data-action="abandon-stay-yes"]`);
 check(await shows('[data-list="stuck"] > [data-problem="stayNotOpen"]', EN['problem.stayNotOpen']), `the page says "${EN['problem.stayNotOpen']}"`);
 check(await settled([ownB, ownC].map((s) => s.id)), 'and the list read again, without it');
 
+console.log('A stay ended where no exit lane can ask about a pass:');
+// The garage links a pass and, for this one ending, has no exit lane: the platform prices it without asking.
+const lanesBefore = A.lanes[HARBOR.id];
+A.lanes[HARBOR.id] = lanesBefore.filter((l) => l.direction !== 'exit');
+stub.linkPass(HARBOR.id);
+await page.click(`tr[data-stay="${ownB.id}"] [data-action="end-stay"]`);
+await page.waitForSelector(`[data-ending="${ownB.id}"] [data-form="end-stay"]`);
+await page.fill(`[data-ending="${ownB.id}"] [data-field="left-at"]`, wallAt(Date.parse(ownB.entry_at) + 3 * HOUR, HARBOR.timezone));
+await page.fill(`[data-ending="${ownB.id}"] [data-field="reason"]`, 'Left while the gate was up');
+await page.click(`[data-ending="${ownB.id}"] [data-action="end-stay-yes"]`);
+check(await shows('[data-notice="stay-ended"] [data-notice="pass-unasked"]', EN['stuck.passUnasked']), `beside what it owes: "${EN['stuck.passUnasked']}"`);
+const passEnded = stub.endedStays(HARBOR.id).find((s) => s.id === ownB.id);
+const passOwes = await page.textContent('[data-notice="stay-ended"] [data-notice="stay-owes"]').catch(() => null);
+check(passEnded?.pass_unasked === true && passOwes === EN['stuck.doneOwes'].replace('{amount}', moneyText(passEnded.owed_minor, passEnded.currency, 'en')), `the platform said so (pass_unasked), and what it owes is still said: "${passOwes}"`);
+A.lanes[HARBOR.id] = lanesBefore;
+stub.linkPass(HARBOR.id, false);
+check(await settled([ownC.id]), 'and the list read again, without it');
+
+console.log('A stay an exit lane still has open:');
+// The exit lane's case took a payment before the car left without its close (platform 0045).
+stub.carAtExit(ownC.id, true, { paidMinor: 500 });
+const EXIT_REASON = 'Left while the exit lane was down';
+await page.click(`tr[data-stay="${ownC.id}"] [data-action="end-stay"]`);
+await page.waitForSelector(`[data-ending="${ownC.id}"] [data-form="end-stay"]`);
+await page.fill(`[data-ending="${ownC.id}"] [data-field="left-at"]`, wallAt(Date.parse(ownC.entry_at) + 2 * HOUR, HARBOR.timezone));
+await page.fill(`[data-ending="${ownC.id}"] [data-field="reason"]`, EXIT_REASON);
+stub.stopNextEnd('payment_unsettled');
+await page.click(`[data-ending="${ownC.id}"] [data-action="end-stay-yes"]`);
+check(await shows(`[data-ending="${ownC.id}"] [data-problem="stayPaymentUnsettled"]`, EN['problem.stayPaymentUnsettled']), `Stripe out of reach: "${EN['problem.stayPaymentUnsettled']}"`);
+check(JSON.stringify(await listed()) === JSON.stringify([ownC.id]) && !stub.endedStays(HARBOR.id).some((s) => s.id === ownC.id), 'and the stay is still open, still listed');
+stub.stopNextEnd('stay_payment_moving');
+await page.click(`[data-ending="${ownC.id}"] [data-action="end-stay-yes"]`);
+check(await shows(`[data-ending="${ownC.id}"] [data-problem="stayPaymentMoving"]`, EN['problem.stayPaymentMoving']), `a car paying just then: "${EN['problem.stayPaymentMoving']}"`);
+await page.click(`[data-ending="${ownC.id}"] [data-action="end-stay-yes"]`);
+const paidWords = await page.waitForFunction(() => document.querySelector('[data-notice="stay-ended"]')?.textContent ?? null, null, { timeout: 5000 }).then((h) => h.jsonValue(), () => null);
+const exitEnded = stub.endedStays(HARBOR.id).find((s) => s.id === ownC.id);
+const fee = exitEnded?.ended?.owed?.fee_minor;
+check(Number.isInteger(fee) && exitEnded.ended.paid?.amount_minor === 500 && exitEnded.ended.exit_cases?.length === 1 && exitEnded.owed_minor === Math.max(0, fee - 500), `the platform closed the lane's case with it, and owes the rest: ${fee} less 500 is ${exitEnded?.owed_minor}`);
+const m = (minor) => moneyText(minor, 'USD', 'en');
+const wantPaid = exitEnded && (exitEnded.owed_minor === 0 ? EN['stuck.donePaidOwesNothing'] : EN['stuck.donePaidOwes'])
+  .replace('{price}', m(fee)).replace('{paid}', m(500)).replace('{amount}', m(exitEnded.owed_minor));
+check(paidWords === wantPaid, `its price, what was paid at the exit and what it still owes, each named: "${paidWords}"`);
+check(await shows('[data-list="stuck"] [data-notice="none-stuck"]', EN['stuck.empty']), 'and the list read again: nothing stuck now');
+
 console.log('The change log:');
 await page.evaluate(() => { window.location.hash = '#/change-log'; });
 await page.waitForSelector('[data-list="changes"] tbody tr');
@@ -172,6 +234,9 @@ check(Boolean(endedLine) && endedLine.includes(garageDateTime(leftAt, HARBOR.tim
 check((await page.$$('[data-list="changes"] tbody b')).length === 0, 'the reason shown as words, never as markup');
 check(log.some((r) => r.includes('Plate misread twice') && r.includes(EN['changes.value.outcome.abandoned'])), `the stay written off: "${EN['changes.value.outcome.abandoned']}", with its reason`);
 check(log.some((r) => r.includes(EN['changes.field.stuck_after_hours'])), 'the hours changed, in the log too');
+const exitLine = log.find((r) => r.includes(EXIT_REASON));
+check(Boolean(exitLine) && exitLine.includes(EN['changes.field.paid_minor']) && exitLine.includes(m(500)) && exitLine.includes(EN['changes.field.exit_cases_closed']), `the stay an exit lane had open: what was paid there (${m(500)}) and the lane's case closed with it`);
+check(Boolean(exitLine) && !/e7\d{6}-/.test(exitLine), 'the case never shown by its id');
 
 console.log('Money:');
 const MONEY = /charge|capture|payment|refund|terminal|stripe|checkout/i;

@@ -153,7 +153,15 @@ test('the stand-in answers the stuck stays, the garage hours and a stay ended as
     const garageId = stub.data.a.garages[0].id;
     stub.data.a.open[garageId] = [];
     stub.storeRates(garageId, recordedPlans('2020-01-01T00:00:00.000Z').regular);
-    const hooks = { stays: async (g) => STUCK_LET_IN.forEach((car) => stub.letIn(g, car)) };
+    const cars = [];
+    const hooks = {
+      stays: async (g) => STUCK_LET_IN.forEach((car) => cars.push(stub.letIn(g, car))),
+      // Platform 0045: the exit lane's case on the car of an hour ago, with no payment.
+      atExit: async () => {
+        stub.carAtExit(cars.at(-1).id);
+        return cars.at(-1).id;
+      },
+    };
     const answers = await recordStuck(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks });
     assert.deepEqual(answers.map((a) => a.what), recorded.stuck_answers.map((a) => a.what));
     for (const [i, real] of recorded.stuck_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);

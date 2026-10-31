@@ -49,8 +49,11 @@ export const REFUSALS = [
   'card_payments_not_active', 'bad_location', 'no_terminal_location', 'bad_reader', 'lane_has_reader', 'reader_bound_elsewhere',
   'no_reader_bound',
   // Platform 0043: ending a stay, and the garage's hours before one is listed.
-  'stay_not_found', 'stay_not_open', 'stay_at_an_exit', 'reason_required', 'reason_invalid', 'outcome_invalid',
+  'stay_not_found', 'stay_not_open', 'reason_required', 'reason_invalid', 'outcome_invalid',
   'left_at_before_entry', 'left_at_not_for_abandoned', 'clock_skew', 'stuck_after_hours_invalid',
+  // Platform 0045: ending a stay an exit lane still has open, stopped by that lane's payment at Stripe.
+  // (Stripe out of reach is a 503, which the platform does not log.)
+  'payment_in_progress', 'stay_payment_moving', 'payment_amount_mismatch',
 ];
 
 /**
@@ -80,6 +83,8 @@ export const FIELDS = [
   'text', 'lanes', 'starts', 'ends', 'prices', 'messages_off', 'messages_removed',
   'ban_tailgaters', 'ban_reach', 'banned',
   'stuck_after_hours', 'outcome', 'entered_at', 'exit_at', 'owed_minor',
+  // Platform 0045: a stay ended with an exit lane's case still open on it.
+  'paid_minor', 'exit_cases_closed',
 ];
 
 /**
@@ -106,7 +111,9 @@ const PERSON_CHOICES = { name: ['changed'] };
 /**
  * A line about a stay a person ended (platform 0043): its reason is what the
  * person typed, kept as it is; how it ended is one of two; its times are
- * instants; what it owes is money, in the stay's own currency.
+ * instants; what it owes is money, in the stay's own currency. Since 0045,
+ * what it owes is what is left after what was paid at an exit (`paid_minor`,
+ * money too), and the exit lanes' cases it closed are counted, never named.
  */
 const STAY = 'stay';
 const STAY_OUTCOMES = ['ended', 'abandoned'];
@@ -172,7 +179,8 @@ function valueWords(t, field, value, garage, language, kind, currency) {
     if (field === 'reason') return { stored: String(value) };
     if (field === 'outcome') return { words: STAY_OUTCOMES.includes(value) ? t(`changes.value.outcome.${value}`) : t('changes.value.another') };
     if (STAY_TIMES.has(field)) return Number.isNaN(Date.parse(value)) ? { words: t('changes.value.another') } : { words: garageDateTime(value, garage.timezone, language) };
-    if (field === 'owed_minor') return Number.isInteger(value) && currency ? { words: moneyText(value, currency, language) } : { words: t('changes.value.another') };
+    if (field === 'owed_minor' || field === 'paid_minor') return Number.isInteger(value) && currency ? { words: moneyText(value, currency, language) } : { words: t('changes.value.another') };
+    if (field === 'exit_cases_closed') return Array.isArray(value) ? { words: value.length.toLocaleString(language === 'es' ? 'es-US' : 'en-US') } : { words: t('changes.value.another') };
   }
   if (field === 'stuck_after_hours' && Number.isInteger(value)) {
     return { words: value === 1 ? t('changes.value.hoursOne') : t('changes.value.hours', { hours: value.toLocaleString(language === 'es' ? 'es-US' : 'en-US') }) };

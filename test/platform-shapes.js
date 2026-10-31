@@ -133,10 +133,17 @@ const STRUCTURE = {
     contact: Object.keys(data.contacts[0]).sort(),
   }),
   // Platform 0043: the change log after a stay was ended, its times said as "a time" -- when the
-  // stay came in and left are the data's, not the contract's.
+  // stay came in and left are the data's, not the contract's -- and, since 0045, what it owes said as
+  // "an amount" (the garage's rates price it) and each exit lane case it closed by "an id".
   stayChanges: (data) => {
     const out = STRUCTURE.changes(data);
-    const timed = (side) => side && Object.fromEntries(Object.entries(side).map(([k, v]) => [k, ['entered_at', 'exit_at'].includes(k) && v !== null ? 'a time' : v]));
+    const said = (k, v) => {
+      if (['entered_at', 'exit_at'].includes(k) && v !== null) return 'a time';
+      if (['owed_minor', 'paid_minor'].includes(k) && typeof v === 'number') return 'an amount';
+      if (k === 'exit_cases_closed' && Array.isArray(v)) return v.map((c) => ({ ...c, exit_id: typeof c.exit_id === 'string' ? 'an id' : c.exit_id }));
+      return v;
+    };
+    const timed = (side) => side && Object.fromEntries(Object.entries(side).map(([k, v]) => [k, said(k, v)]));
     return { ...out, newest: { ...out.newest, before: timed(out.newest.before), after: timed(out.newest.after) } };
   },
   refused: (data) => {
@@ -317,7 +324,10 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
  * with every refusal the page can meet. `hooks.stays(garage)` lets in three
  * cars as the entry lane lets one in, each with one picture: 30 and 26 hours
  * ago, and one an hour ago that is not listed. Recorded apart from `record`,
- * after it, on a garage with no stay of its own.
+ * after it, on a garage with no stay of its own. Then (0045) the exit lane
+ * opens a case on the car of an hour ago, as a lane opens one for a car on
+ * its loop (`hooks.atExit(garage)`, which answers that stay's id), and a
+ * person ends the stay: the case is closed with it, in the change log.
  */
 export async function recordStuck(base, { origin, owner, elsewhere = 'http://elsewhere.example', hooks }) {
   const { state, call } = recorder(base, origin);
@@ -348,6 +358,9 @@ export async function recordStuck(base, { origin, owner, elsewhere = 'http://els
   await call('stuck stays, after both were ended', 'GET', '/garages/{garage}/stays/stuck');
   await call('changes, after a stay was written off', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'stayChanges' });
   await call('refused attempts, after the stays', 'GET', '/garages/{garage}/refused-attempts', undefined, {}, { structure: 'refused' });
+  const atExit = await hooks.atExit(state.garage);
+  await call('a stay an exit lane has open, ended', 'POST', end({ id: atExit }), { outcome: 'ended', reason: 'Left while the exit lane was down' });
+  await call('changes, after a stay an exit lane had open was ended', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'stayChanges' });
   return state.out;
 }
 

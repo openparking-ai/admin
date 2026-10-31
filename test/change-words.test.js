@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DICTIONARIES, translate } from '../src/i18n/index.js';
-import { ACTIONS, FIELDS, STORED, changedFields, whatPieces, whoPieces, whyWords } from '../src/changes.js';
+import { ACTIONS, FIELDS, REFUSALS, STORED, changedFields, whatPieces, whoPieces, whyWords } from '../src/changes.js';
 
 // U4 fix round, findings 3-6: every line of the change log, of every kind the
 // platform writes, said in words that are true and that a garage owner reads:
@@ -81,6 +81,8 @@ function STAY_LINES() {
   return [
     ['stay.end', before, { open: false, outcome: 'ended', reason: 'Backed out at the gate', entered_at: before.entered_at, exit_at: '2026-03-09T02:00:00.000Z', owed_minor: 3000, currency: 'USD' }],
     ['stay.end', before, { open: false, outcome: 'abandoned', reason: 'Plate misread twice', entered_at: before.entered_at, exit_at: '2026-03-10T15:00:00.000Z', owed_minor: null, currency: 'USD' }],
+    // Platform 0045: ended with an exit lane's case still open on it, which had taken a payment.
+    ['stay.end', before, { open: false, outcome: 'ended', reason: 'Left while the exit lane was down', entered_at: before.entered_at, exit_at: '2026-03-09T02:00:00.000Z', owed_minor: 1000, currency: 'USD', exit_cases_closed: [{ exit_id: 'e1000000-0000-4000-8000-000000000001', payment: 'succeeded' }], paid_minor: 2000 }],
   ];
 }
 /** A stay, as the platform's line names one: by its id, with no name. */
@@ -187,6 +189,39 @@ test('platform 0043: a stay ended says how, why as typed, when in the garage\'s 
     const laneReason = by(done('lane.close', { state: 'open' }, { state: 'closed', reason: 'full' }))[t('changes.field.reason')];
     assert.equal(laneReason.after.words, t('changes.value.reason.full'));
     assert.equal(whatPieces(t, done(...left))[0].words, t('changes.action.stay_end'));
+  }
+});
+
+test('platform 0045: a stay ended with an exit lane\'s case open says what was paid there in money, and how many cases it closed -- never a case\'s id', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const [, , atExit] = STAY_LINES();
+    const fields = changedFields(t, done(...atExit), GARAGE, language);
+    const by = Object.fromEntries(fields.map((f) => [f.field, f]));
+    assert.match(by[t('changes.field.paid_minor')].after.words, /20[.,]00/);
+    assert.match(by[t('changes.field.owed_minor')].after.words, /10[.,]00/);
+    assert.equal(by[t('changes.field.exit_cases_closed')].after.words, '1');
+    assert.equal(fields.some((f) => f.field === t('changes.field.other')), false, `${language}: a field with no name of its own`);
+    assert.equal(JSON.stringify(fields).includes('e1000000'), false, `${language}: a case shown by its id`);
+    // A line the platform may write otherwise is "another value", never raw.
+    const odd = Object.fromEntries(changedFields(t, done('stay.end', null, { exit_cases_closed: 'two', paid_minor: 'lots', currency: 'USD' }), GARAGE, language).map((f) => [f.field, f]));
+    assert.equal(odd[t('changes.field.exit_cases_closed')].after.words, t('changes.value.another'));
+    assert.equal(odd[t('changes.field.paid_minor')].after.words, t('changes.value.another'));
+  }
+});
+
+test('platform 0045: the refusals an exit lane\'s payment gives a person\'s end have words of their own in the change log', () => {
+  for (const language of ['en', 'es']) {
+    const t = T(language);
+    const said = new Set();
+    for (const code of ['payment_in_progress', 'stay_payment_moving', 'payment_amount_mismatch']) {
+      assert.ok(REFUSALS.includes(code), code);
+      const words = t(`changes.refusal.${code}`);
+      assert.notEqual(words, t('changes.refusal.other'), `${language} ${code}`);
+      said.add(words);
+    }
+    assert.equal(said.size, 3, `${language}: two refusals share their words`);
+    assert.equal(REFUSALS.includes('stay_at_an_exit'), false, 'the refusal the platform no longer gives');
   }
 });
 

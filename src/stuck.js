@@ -66,12 +66,30 @@ export function leftAtTyped(wall, stay, garage, now = Date.now()) {
 /**
  * What became of a stay a person ended, in one sentence: what it owes -- to
  * be collected the garage's own way, never charged here -- or that it owes
- * nothing.
+ * nothing. A stay that paid at an exit before it was ended (platform 0045)
+ * names each figure the platform gave: its price, what was paid, and what it
+ * still owes -- the platform's own figure, never worked out here.
  */
 export function endedWords(t, outcome, result, language) {
-  if (outcome === 'abandoned') return t('stuck.doneAbandoned');
-  if (result.covered) return t('stuck.doneCovered');
-  if (!result.priced || result.owedMinor === null) return t('stuck.doneNotPriced');
-  if (result.owedMinor === 0) return t('stuck.doneOwesNothing');
-  return t('stuck.doneOwes', { amount: moneyText(result.owedMinor, result.currency, language) });
+  const money = (minor, currency = result.currency) => moneyText(minor, currency, language);
+  const paid = result.paid ? money(result.paid.amountMinor, result.paid.currency) : null;
+  const plusPaid = (words) => (paid ? `${words} ${t('stuck.paidAtExit', { paid })}` : words);
+  if (outcome === 'abandoned') return plusPaid(t('stuck.doneAbandoned'));
+  if (result.covered) return plusPaid(t('stuck.doneCovered'));
+  if (!result.priced || result.owedMinor === null) return plusPaid(t('stuck.doneNotPriced'));
+  if (paid && result.priceMinor !== null) {
+    const figures = { price: money(result.priceMinor), paid, amount: money(result.owedMinor) };
+    return t(result.owedMinor === 0 ? 'stuck.donePaidOwesNothing' : 'stuck.donePaidOwes', figures);
+  }
+  if (result.owedMinor === 0) return plusPaid(t('stuck.doneOwesNothing'));
+  return plusPaid(t('stuck.doneOwes', { amount: money(result.owedMinor) }));
+}
+
+/**
+ * Said beside what a stay owes when the platform priced it without asking
+ * about a pass (`pass_unasked`, platform 0043): the garage has no exit lane
+ * to ask at. Null otherwise, and for a stay written off, which owes nothing.
+ */
+export function passWords(t, outcome, result) {
+  return outcome === 'ended' && result.passUnasked === true ? t('stuck.passUnasked') : null;
 }

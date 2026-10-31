@@ -78,13 +78,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 119, 703); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 119, 710); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 115, 699); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 115, 706); only the last is ever shown'],
   },
   // The side menu (src/menu.js): its shape, kept open or closed, and
   // the group of the page shown opening itself, each red on its plant.
@@ -1702,6 +1702,74 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ["the specials, one by one"],
   },
+  // Stuck stays after platform 0045: a person's end closes an exit lane's case left open on the stay.
+  // Each change of that round red on its plant.
+  {
+    check: 'stuck: the exit lane payment answers of the end not named',
+    plant: { file: 'src/api.js', anchor: "{ method: 'POST', body, named: END_NAMED }", with: "{ method: 'POST', body }" },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ['each refusal of ending a stay, or of the hours, has words of its own, in both languages'],
+  },
+  {
+    check: 'stuck: the end payment answers named for every route',
+    plant: { file: 'src/api.js', anchor: "  [409, 'stay_not_open', 'stayNotOpen'],\n", with: "  [409, 'stay_not_open', 'stayNotOpen'],\n  [409, 'payment_in_progress', 'stayPaymentInProgress'],\n" },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ["the payment answers are this route's own"],
+  },
+  {
+    check: 'stuck: the refusal the platform no longer gives still named',
+    plant: { file: 'src/api.js', anchor: "  [409, 'stay_not_open', 'stayNotOpen'],\n", with: "  [409, 'stay_not_open', 'stayNotOpen'],\n  [409, 'stay_at_an_exit', 'stayNotOpen'],\n" },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ['the refusal a car at an exit lane once got is gone'],
+  },
+  {
+    check: 'stuck: pass_unasked dropped from the end answer',
+    plant: { file: 'src/api.js', anchor: '        passUnasked: stay.pass_unasked === true,', with: '        passUnasked: false,' },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ['a pass not asked because the garage has no exit lane'],
+  },
+  {
+    check: 'stuck: what a stay that paid at an exit still owes worked out here, not the platform\'s figure',
+    plant: { file: 'src/stuck.js', anchor: '    const figures = { price: money(result.priceMinor), paid, amount: money(result.owedMinor) };', with: '    const figures = { price: money(result.priceMinor), paid, amount: money(Math.max(0, result.priceMinor - result.paid.amountMinor)) };' },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ["a stay that paid at an exit: what it still owes is the platform's figure"],
+  },
+  {
+    check: 'stuck: the price shown as what a stay that paid at an exit owes',
+    plant: { file: 'src/api.js', anchor: '        owedMinor: stay.owed_minor,', with: '        owedMinor: owed?.fee_minor ?? stay.owed_minor,' },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ["a stay that paid at an exit: what it still owes is the platform's figure"],
+  },
+  {
+    check: 'stuck: the reason hint no longer says personal details',
+    plant: { file: 'src/i18n/es.js', anchor: '"stuck.reasonPrivate": "Queda en el registro de cambios: no escriba una placa ni datos personales.",', with: '"stuck.reasonPrivate": "Queda en el registro de cambios: no escriba una placa.",' },
+    run: ['node', '--test', 'test/stuck.test.js'],
+    names: ['the reason field says, in both languages, that the reason goes to the change log'],
+  },
+  {
+    check: 'stuck: what was paid at an exit shown as a setting in the change log',
+    plant: { file: 'src/changes.js', anchor: "  'paid_minor', 'exit_cases_closed',\n", with: "  'exit_cases_closed',\n" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ["a stay ended with an exit lane's case open says what was paid there in money"],
+  },
+  {
+    check: 'stuck: an exit lane case closed shown as a link in the change log',
+    plant: { file: 'src/changes.js', anchor: "    if (field === 'exit_cases_closed') return Array.isArray(value)", with: "    if (field === 'exit_cases_closed' && false) return Array.isArray(value)" },
+    run: ['node', '--test', 'test/change-words.test.js'],
+    names: ["a stay ended with an exit lane's case open says what was paid there in money"],
+  },
+  {
+    check: 'stuck: the stand-in refuses a reason in the words of the platform before #88',
+    plant: { file: 'test/stub-platform.js', anchor: 'at most ${REASON_MAX} characters; no plate -- the reason goes to the change log`', with: 'at most ${REASON_MAX} characters`' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "a stay ended, with no reason"'],
+  },
+  {
+    check: 'stuck: the stand-in keeps an exit lane case open when a person ends the stay',
+    plant: { file: 'test/stub-platform.js', anchor: "    const closedCases = exitCase ? [{ exit_id: exitCase.id, payment: paid ? 'succeeded' : exitCase.payment?.status ?? null }] : [];", with: '    const closedCases = [];' },
+    run: ['node', '--test', 'test/stub-matches-platform.test.js'],
+    names: ['the stand-in differs from the platform at "a stay an exit lane has open, ended"'],
+  },
 ];
 
 const BROWSER_CONTROLS = [
@@ -1775,11 +1843,46 @@ const BROWSER_CONTROLS = [
     names: ['FAIL STK3001: its entry picture, shown, from its own stay at its own garage'],
   },
   {
-    check: 'stuck: End offered on a stay a car is at an exit lane on (browser)',
+    check: 'stuck: a stay an exit lane still has open, not said so (browser)',
     plant: { file: 'src/StuckPage.jsx', anchor: '                      {s.at_exit ? (', with: '                      {false ? (' },
     before: BUILD,
     run: ['node', 'scripts/check-stuck.js'],
-    names: ['FAIL a stay with a car at an exit lane: said so, and no End or Write off'],
+    names: ['FAIL a stay an exit lane still has open: said so, and End and Write off offered'],
+  },
+  {
+    check: 'stuck: End held back on a stay an exit lane still has open, as before platform 0045 (browser)',
+    plant: { file: 'src/StuckPage.jsx', anchor: "onClick={() => open(s, 'ended')}>", with: "onClick={() => open(s, 'ended')} hidden={s.at_exit}>" },
+    before: BUILD,
+    run: ['node', 'scripts/check-stuck.js'],
+    names: ['FAIL a stay an exit lane still has open: said so, and End and Write off offered'],
+  },
+  {
+    check: 'stuck: the hint under the reason left out (browser)',
+    plant: { file: 'src/StuckPage.jsx', anchor: "          {t('stuck.reasonPrivate')}\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-stuck.js'],
+    names: ['FAIL under the reason, shown and tied to its box'],
+  },
+  {
+    check: 'stuck: a pass not asked, not said beside what is owed (browser)',
+    plant: { file: 'src/StuckPage.jsx', anchor: '          {said.pass ? (', with: '          {false ? (' },
+    before: BUILD,
+    run: ['node', 'scripts/check-stuck.js'],
+    names: ['FAIL beside what it owes: "Pass not checked'],
+  },
+  {
+    check: 'stuck: Stripe out of reach at the end said as something unexpected (browser)',
+    plant: { file: 'src/api.js', anchor: "  [503, 'payment_unsettled', 'stayPaymentUnsettled'],\n", with: '' },
+    before: BUILD,
+    run: ['node', 'scripts/check-stuck.js'],
+    names: ['FAIL Stripe out of reach:'],
+  },
+  {
+    check: 'stuck: what was paid at an exit left out of what the page says (browser)',
+    plant: { file: 'src/api.js', anchor: "        paid: paidOk ? { amountMinor: paid.amount_minor, currency: paid.currency.toUpperCase() } : null,", with: '        paid: null,' },
+    before: BUILD,
+    run: ['node', 'scripts/check-stuck.js'],
+    names: ['FAIL its price, what was paid at the exit and what it still owes, each named'],
   },
   {
     check: 'stuck: hours that are not a number sent to the platform (browser)',

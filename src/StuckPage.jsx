@@ -3,7 +3,7 @@ import { Pager, ProblemNote, Stored, useGarageRead, usePaging } from './parts.js
 import { STALE, stayPicturePath } from './api.js';
 import { garageTime } from './time.js';
 import { wallAt } from './rates.js';
-import { REASON_MAX, endedWords, hoursTyped, leftAtTyped, leftNow, plateParts, reasonProblem, whyListed } from './stuck.js';
+import { REASON_MAX, endedWords, hoursTyped, leftAtTyped, leftNow, passWords, plateParts, reasonProblem, whyListed } from './stuck.js';
 import FieldName from './FieldName.jsx';
 
 const COLUMNS = 6;
@@ -15,7 +15,8 @@ const GONE = ['stayGone', 'stayNotOpen'];
  * number of hours, or not seen on its latest walk, oldest first, each with
  * its entry pictures. A person ends one -- the car left, at a time they say,
  * priced by the rates and shown as owed -- or writes it off, owing nothing;
- * each with a reason. Nothing here charges a card.
+ * each with a reason. Nothing here charges a card. A stay an exit lane still
+ * has open is ended the same way: the platform closes that too (0045).
  */
 export default function StuckPage({ t, language, client, garage }) {
   const stuck = useGarageRead(useCallback((id) => client.stuckStays(id), [client]), garage.id);
@@ -45,7 +46,13 @@ export default function StuckPage({ t, language, client, garage }) {
       </p>
       {said ? (
         <p className="saved-note" role="status" data-notice="stay-ended">
-          {said}
+          <span data-notice="stay-owes">{said.words}</span>
+          {said.pass ? (
+            <>
+              {' '}
+              <span data-notice="pass-unasked">{said.pass}</span>
+            </>
+          ) : null}
         </p>
       ) : null}
       {gone ? <ProblemNote t={t} kind={gone} /> : null}
@@ -115,17 +122,18 @@ export default function StuckPage({ t, language, client, garage }) {
                     </td>
                     <td>
                       {s.at_exit ? (
-                        <span data-notice="at-exit">{t('stuck.atExit')}</span>
-                      ) : (
-                        <div className="lane-actions">
-                          <button type="button" className="link-button" data-action="end-stay" aria-pressed={asking === 'ended'} onClick={() => open(s, 'ended')}>
-                            {t('stuck.endButton')}
-                          </button>
-                          <button type="button" className="link-button" data-action="abandon-stay" aria-pressed={asking === 'abandoned'} onClick={() => open(s, 'abandoned')}>
-                            {t('stuck.abandonButton')}
-                          </button>
-                        </div>
-                      )}
+                        <p className="quiet" data-notice="at-exit">
+                          {t('stuck.atExit')}
+                        </p>
+                      ) : null}
+                      <div className="lane-actions">
+                        <button type="button" className="link-button" data-action="end-stay" aria-pressed={asking === 'ended'} onClick={() => open(s, 'ended')}>
+                          {t('stuck.endButton')}
+                        </button>
+                        <button type="button" className="link-button" data-action="abandon-stay" aria-pressed={asking === 'abandoned'} onClick={() => open(s, 'abandoned')}>
+                          {t('stuck.abandonButton')}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   {asking ? (
@@ -140,9 +148,9 @@ export default function StuckPage({ t, language, client, garage }) {
                           stay={s}
                           outcome={asking}
                           onClose={() => setEnding(null)}
-                          onEnded={(words) => {
+                          onEnded={(ended) => {
                             setEnding(null);
-                            setSaid(words);
+                            setSaid(ended);
                             readAgain();
                           }}
                           onGone={(kind) => {
@@ -229,7 +237,8 @@ function StuckHours({ t, language, client, garage, hours, onChanged }) {
 
 /**
  * Ending one stay: when the car left, on the garage's clock (the car left
- * only), and the reason, which the platform requires and keeps as typed.
+ * only), and the reason, which the platform requires and keeps as typed --
+ * in the change log, so the field says not to name the car or a person.
  */
 function EndForm({ t, language, client, garage, stay, outcome, onClose, onEnded, onGone }) {
   const left = outcome === 'ended';
@@ -251,7 +260,7 @@ function EndForm({ t, language, client, garage, stay, outcome, onClose, onEnded,
     setProblem(null);
     try {
       const result = await client.endStay(garage.id, stay.id, { outcome, reason, leftAt });
-      onEnded(endedWords(t, outcome, result, language));
+      onEnded({ words: endedWords(t, outcome, result, language), pass: passWords(t, outcome, result) });
     } catch (p) {
       if (p?.kind === STALE || p?.kind === 'ended') return;
       if (GONE.includes(p?.kind)) return onGone(p.kind);
@@ -277,7 +286,10 @@ function EndForm({ t, language, client, garage, stay, outcome, onClose, onEnded,
       ) : null}
       <label className="field">
         <FieldName t={t} name="stuck.reason" />
-        <input type="text" value={reason} maxLength={REASON_MAX} data-field="reason" onChange={(e) => setReason(e.target.value)} autoComplete="off" />
+        <input type="text" value={reason} maxLength={REASON_MAX} data-field="reason" aria-describedby={`reason-private-${stay.id}`} onChange={(e) => setReason(e.target.value)} autoComplete="off" />
+        <span className="field-hint" id={`reason-private-${stay.id}`} data-notice="reason-private">
+          {t('stuck.reasonPrivate')}
+        </span>
       </label>
       <p className="quiet" data-notice={left ? 'priced-owed' : 'owes-nothing'}>
         {left ? t('stuck.endNote') : t('stuck.abandonNote')}
