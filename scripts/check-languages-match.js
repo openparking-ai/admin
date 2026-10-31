@@ -51,6 +51,8 @@ export const SAME_ON_PURPOSE = {
   // U7i: the Rates page.
   'rates.line.total': '"Total" is the same word in both languages',
   'rates.change.period': 'a period in minutes and its price: "min" is the same in both languages',
+  // Platform 0048: the Exceptions page joins words it has already said, with punctuation only.
+  'exceptions.message.whatOf': 'what the gate agent reported, then in brackets what it named: punctuation only',
 };
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');

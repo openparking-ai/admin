@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordRates, recordSpaces, signInAnswer } from './platform-shapes.js';
+import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordExceptions, recordRates, recordSpaces, signInAnswer } from './platform-shapes.js';
 import { FILL_RULE, STAY_LIST, recordedPlans } from './rates-forms.js';
 import { startStub } from './stub-platform.js';
 
@@ -139,6 +139,20 @@ test('the stand-in answers the number of spaces and rates with a fill rule as th
     const answers = await recordSpaces(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans(), fill: FILL_RULE });
     assert.deepEqual(answers.map((a) => a.what), recorded.spaces_answers.map((a) => a.what));
     for (const [i, real] of recorded.spaces_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
+  } finally {
+    await stub.close();
+  }
+});
+
+// Platform 0048: the cars let out, recorded from platform #89 on its own harness (test/record-exceptions.js):
+// three records at the garage today, each one's whole story, and every refusal the Exceptions page meets.
+test('the stand-in answers a day of cars let out, and each one\'s whole story, as the platform does (0048)', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const answers = await recordExceptions(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks: { letOuts: async (g) => stub.letOutStories(g) } });
+    assert.deepEqual(answers.map((a) => a.what), recorded.exceptions_answers.map((a) => a.what));
+    for (const [i, real] of recorded.exceptions_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

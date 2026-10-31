@@ -40,6 +40,8 @@ export const PROBLEM_KINDS = [
   'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
   // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
   'databaseUnavailable', 'databaseSaving',
+  // The cars a person let out (platform 0048): a day the list cannot take, and a record not this garage's.
+  'dayRefused', 'letOutGone',
 ];
 
 /** U7d-2: what an invite link can be, as the platform's status door says it. */
@@ -137,6 +139,9 @@ const NAMED = [
   [409, 'no_rate_plan', 'noRatesYet'],
   [429, 'too_many_tries', 'tooManyTries'],
   [409, 'garage_not_activatable', 'notReadyToOpen'],
+  // The cars a person let out, as the platform's src/app.js names them (0048).
+  [400, 'day_invalid', 'dayRefused'],
+  [404, 'exception_not_found', 'letOutGone'],
 ];
 
 /**
@@ -261,6 +266,16 @@ export const problemKey = (problem) =>
  */
 export function bannedPicturePath(garageId, banId, pictureId) {
   return `${BASE}/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/pictures/${encodeURIComponent(pictureId)}`;
+}
+
+/**
+ * Where one picture a record of a car let out lists is (platform #90): its
+ * stay's entry, its exit, or the lane's around then. Fetched by the browser,
+ * as a banned car's picture is; the platform serves only a picture that
+ * record lists.
+ */
+export function letOutPicturePath(garageId, letOutId, pictureId) {
+  return `${BASE}/garages/${encodeURIComponent(garageId)}/exceptions/${encodeURIComponent(letOutId)}/pictures/${encodeURIComponent(pictureId)}`;
 }
 
 export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
@@ -577,6 +592,26 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     /** The whole of what a person gets: { by_text: [alert], by_email: [alert] }. */
     setChoices: async (garageId, personId, choices) =>
       object(await request(`/garages/${encodeURIComponent(garageId)}/alert-contacts/${encodeURIComponent(personId)}/choices`, { method: 'PUT', body: choices })),
+    // ── The cars a person let out (platform 0048): read only ──
+    /**
+     * One day's cars let out at the garage, the garage's own day: `day`
+     * (YYYY-MM-DD), named in the path (#90), or today when null -- the answer
+     * says which day it read. Each carries the gate agent in short. The
+     * platform's order (oldest first) is kept; the page orders it.
+     */
+    letOutDay: async (garageId, day = null) => {
+      if (day !== null && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Problem('dayRefused');
+      const named = day === null ? '' : `/day/${encodeURIComponent(day)}`;
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/exceptions${named}`));
+      if (typeof data.day !== 'string' || !Array.isArray(data.exceptions) || !Number.isInteger(data.count)) throw new Problem('unexpected');
+      return { day: data.day, count: data.count, owing: Number.isInteger(data.let_out_unpaid) ? data.let_out_unpaid : null, letOuts: data.exceptions };
+    },
+    /** One car let out: its whole story as the platform kept it, and everything appended after. */
+    letOutStory: async (garageId, letOutId) => {
+      const x = object(object(await request(`/garages/${encodeURIComponent(garageId)}/exceptions/${encodeURIComponent(letOutId)}`)).exception);
+      if (typeof x.id !== 'string' || !x.story || typeof x.story !== 'object' || !x.gate_agent || typeof x.gate_agent !== 'object') throw new Problem('unexpected');
+      return x;
+    },
     carsInside: async (garageId) => {
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/sessions/open`));
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');
