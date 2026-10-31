@@ -208,8 +208,8 @@ The build publishes no source maps.
   (`ZONE_RENAMED` in `src/garages.js`). On Setup, a garage's details say they
   were set when it was created and can't be changed.
 - **Pages**: Home, Setup, Garages, Lanes and equipment, Installer drawings, Card
-  readers, Rates, Taxes and fees, Getting paid, Garage View, Banned cars, Alerts,
-  Change log, Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
+  readers, Rates, Taxes and fees, Getting paid, Garage View, Banned cars, Exceptions,
+  Alerts, Change log, Settings. `src/pages.js`. A page with nothing on it yet says so under its line.
 - **Setup** is the garage's checklist, as the platform works it out
   (`GET /garages/:id/setup`): each step's name and what it is, done or not yet,
   its facts in plain words and where it is done (the page that does it) -- or
@@ -248,7 +248,12 @@ The build publishes no source maps.
   way the engine counts days and weeks, and each says only what the engine's
   breakdown of that stay says. `rate-engine.pin` names the engine the recorded answers came
   from; `npm run check-finding-codes` reads that engine's `ALL_CODES` and holds
-  the finding sentences to it, both ways.
+  the finding sentences to it, both ways. A price is typed, stored and shown
+  with each currency's digits after the point as that engine has them
+  (`src/currencyDigits.js`, never the browser's own currency data);
+  `npm run check-currency-digits` reads the engine's `MINOR_UNIT_DIGITS` and
+  holds the table to it, entry for entry, for every currency a garage can be
+  added with.
   U7i (the page the owner approved, 2026-10-13): nothing is scheduled. Rates
   are charged to cars that come in from the moment the owner confirms them; a
   car already parked pays the rates it came in under. **Current rates** says
@@ -281,6 +286,37 @@ The build publishes no source maps.
   `img-src 'self'`), and takes one off the list after asking
   (`POST /garages/:id/banned/:banId/remove`). No screen adds a car: the lane lists
   a tailgater whose plate it read, where the garage bans them.
+- **Exceptions** (platform 0048 and #90, `#/exceptions`, under Setup): every car a
+  person let out, and every barrier a person opened, at the garage, one day at a
+  time -- the garage's own day, today unless another is picked, with the day before
+  and after and a calendar box -- newest first. Each row: when (the garage's clock,
+  to the second), the exit lane, who let it out (the owner by email, the key by its
+  name, or a person at the lane through the lane's equipment), what it owed, and
+  the gate agent in a line from the list's own summary ("Gate agent: 4 messages, 1
+  not delivered; 3 calls, 1 answered. Copied whole, once the window had passed.",
+  still being copied, not reached, not set up, or removed by the retention purge).
+  Today is `GET /garages/:id/exceptions`; another day is named in the path,
+  `GET /garages/:id/exceptions/day/YYYY-MM-DD` -- no query string, as everywhere.
+  **See what happened** reads one car's story (`GET /garages/:id/exceptions/:exceptionId`),
+  only when it is opened: who, when, the reason as typed, what it owed and had
+  paid; its pictures -- at the entry, at the exit (this visit or an earlier one of
+  the stay), and others the exit lane kept around then -- each shown from that
+  record's own picture route (`.../exceptions/:exceptionId/pictures/:pictureId`)
+  with when and where, and a link to the whole picture ("This record keeps no
+  pictures." only when it lists none); then every step in time order -- it came in,
+  reached the exit and what it was asked, each card payment and what became of it
+  (and what Stripe says was refunded of it), refunds Stripe could not be asked
+  about when it was priced, what the lane reported (the reader offline, a person
+  asked for; another car's events said as another car's), each message of the gate
+  agent with every address it went to and what became of it there (delivered and
+  when, not delivered, an address refused, trying again and when, each failed try
+  with the gate agent's own reason), each call (who called, what the driver was
+  told, who was rung and when, who answered, what they pressed, a call-back number
+  by its last two digits as the platform keeps it, how it ended), and the let-out;
+  and each time the gate agent was asked, with what it gave or why not. Every text
+  the platform kept is shown as stored text, never as markup; no code is shown.
+  Read only: nothing on it writes or takes money. `src/ExceptionsPage.jsx`,
+  `src/exceptions.js`.
 - **Lanes and equipment** also sets lanes up: add, rename, remove (a used lane is
   kept, with the reason), connect a lane computer or cancel its access, close
   (full, or closed to everyone, with a message picked from English and Spanish
@@ -408,11 +444,15 @@ name it.
 | The built site in a browser, signed in against a stand-in platform (`test/stub-platform.js`, never built into the site): sign-in, refusals, every failure, sign-out and any 401 clearing everything, garage time with the browser in another zone, print, English by default, the language kept on the profile across browsers and chosen at sign-in, a failed save said plainly, every description visible under its name on screen and in print (the choosers' and Quick Find's too), a lane whose only computer was cancelled, none confirmed inside, the page policy enforced; no request leaves it | `npm run build && npm run check-browser` |
 | A print reads right with the browser's default settings (backgrounds off), on every page that prints, both languages: each state the screen shows -- a tick, confirmed or not, a step done or not yet, a lane open or closed, the answer chosen, which list is which -- read from the screen by what it is and found on paper as its word, beside what it belongs to | `npm run build && npm run check-print` |
 | Rates and the Open button (U7g; U7i, the approved page, nothing scheduled) in a browser, against the stand-in, which prices every stay through the rate engine at `rate-engine.pin` as the platform does (`scripts/engine-at-pin.js`; the platform's own answers recorded by `test/record-rates.js` in `test/platform-shapes.json`, and the stand-in held to them): the approved page's words and table rows, the engine's prices row for row, the form sending exactly the document it builds and naming the rates it was checked against, a save starting at Confirm, saved only ticked and confirmed and on a current table, a save made elsewhere while the check page is open refused and priced again with the typing kept, the max per day in one line with what it would be by the hour, who set each set of rates, missing fields marked and linked, nothing prefilled, units, whole frames, empty date boxes, the Rates list and the price table downloaded and printed, findings in plain words, Open only with nothing missing | `npm run build && npm run check-rates` |
+| The Rates page when things change under the owner, in a browser against the stand-in: rates saved a moment ahead by another owner's fast computer shown as in force, a save built on them and starting after them; this computer's clock two minutes slow and Confirm still saving, dated by the platform's clock; a special removed elsewhere while it is being changed, said as "the rates changed", never a blank screen; a special with settings the form cannot show offered only for removal, with the reason; a tax line named from the list in force when the car left; a fault while a page is drawn said in plain words with a way to load it again | `npm run build && npm run check-rates-meanwhile` |
+| The Rates page's two rules of rate setup, in a browser against the stand-in, in English and Spanish: "When more than one price applies, the car always pays the cheapest." and "Stays longer than 90 days can't be priced automatically; they need an operator." by the caps (right after Max per week) and by the special rates, the 90 from `LONGEST_STAY_DAYS` in `src/rates.js`; a stay of exactly 90 days priced in the calculator, a minute more said in that sentence instead of a price, with nothing sent; the same in the check page's calculator, and such a stay not added to its price table | `npm run build && npm run check-rate-rules` |
+| Every currency's digits after the point as the rate engine at `rate-engine.pin` has them, entry for entry, and every currency a garage can be added with typed, stored and shown with them | `npm run check-currency-digits` |
 | Taxes and fees, Getting paid and Card readers in a browser, against the stand-in, with the browser in Tokyo, both languages, day and night: no platform words on screen for any refusal, 18.5 sent as 1850 and "no tax" as a list with no lines, the start of a day in the garage's own time across a clock change, the Taxes page's only write a new list, the reader's code kept nowhere, who sees what (a pass-only garage, an account that cannot take cards yet), the words true in every state, every connection printed and downloaded and read back | `npm run build && npm run check-money-pages` |
 | The owner's screens tidied (U7a), in a browser against the stand-in, both languages: no Language or Look chooser but on Settings and the sign-in screen; never "Cars inside" nor "Carros adentro" on a page, in Quick Find, a print or a file; a list of 312 (Garage View, the change log read across the platform's pages, its refused attempts, Alerts' 25 people) shows 20 a page, pages through every row once, and downloads and prints all of them; an empty list shows no Download or Print; a Confirm email that differs never saves; Home lists both garages and each opens its own | `npm run build && npm run check-tidy` |
 | The change log sorted and chosen from (U7b), in a browser against the stand-in, both languages, with 312 changes and 57 refused attempts of many kinds: sorted each way, every line in that order across every page, none missed or repeated, and Excel, PDF and Print in that order; ticks only for kinds and reasons the log holds; two ticked, every line shown one of them, the count saying so, and Excel, PDF and Print holding exactly those and naming the choice; one drawing at a time, View, PDF and Print each that sheet only and the same as in the whole set; refused attempts one line a row at 1280 px, whole when pointed at, focused and printed; who gets which alert at most 20 rows a page, printed whole; Getting paid's Cancel at the right | `npm run build && npm run check-choices` |
 | The Garages page and adding a garage (U7c), in a browser against the stand-in, both languages: two garages listed with their name, time zone, money, open or not and Setup steps done as the platform counts them, each row opening its own Setup; 45 paged at 20 with none missed or repeated; nothing picked until the owner picks, US time zones and US dollars first; Create garage pressed twice sends exactly one `POST /garages` of exactly name, timezone and currency, and the new garage is chosen with its "Garage details" done; a blank field (or a name of spaces) sends nothing and says why; a refusal says so and chooses nothing; an account with no garage is offered Add a garage on every page; the refused attempts' count with a choice ("24 of 120"); Quick Find | `npm run build && npm run check-garages` |
 | Accepting an invite, a forgotten password, a new one chosen (U7d-2), in a browser against the stand-in (its four doors recorded from the platform), both languages: a ready invite accepted with a matching password signs in on the Garages page, the account in the language picked; used, expired, replaced and invalid each say so with no form; the token out of the address once read (back and forward too) and in no request's address or query, only a POST body; a password sent only when typed twice the same and at least 12 characters; Forgot the same for an email with an account and one without; a reset said on the sign-in screen, the old session ended, a used or ended link offering Forgot again; the United States' time zones whole, old names shown by today's, once; Setup's garage details; a Spanish name on one line beside a long zone | `npm run build && npm run check-invites` |
+| The Exceptions page (platform 0048, #90) in a browser, against the stand-in (its answers recorded from platform #90 by `test/record-exceptions.js`, and its four records that run's own, ids, addresses and times replaced), with the browser in Tokyo: in the menu under Setup; today asked for unnamed, another day by its date in the path, and the garage's day shown; newest first, each time on the garage's clock, the lane, who, what was owed, the gate agent in a line from the list's own summary with no story read for it, not set up, not reached and removed by the purge said so; each picture shown from its own record's picture route; one car's story in time order, each address paged with what became of it (a failed delivery and an address refused among them), the answered call with who was rung and who answered, each copy of the gate agent's records or why there is none; the reason as words, never markup; the day before, an empty day, a day typed; no write but sign-in, nothing to anything that takes money | `npm run build && npm run check-exceptions` |
 | A person removed is named in no view of the change log: added with a number in their name, renamed, changed and given alerts, then removed -- the page, the PDF, the Excel file and the print, both languages, say "A person who was removed" for each of their lines and hold none of their names, numbers, address or id; a printed row is never split across two sheets | `npm run build && npm run check-removed-person` |
 
 ## Licence

@@ -1832,6 +1832,10 @@ fieldset.dates[data-wrong='yes'],
 .confirm-notice {
   border-color: var(--accent);
 }
+/* The two rules of rate setup, by the caps and by the special rates: one sentence a line. */
+.rate-rules p + p {
+  margin-top: 6px;
+}
 .saved-note {
   margin-top: 24px;
   padding: 12px 16px;
@@ -2035,4 +2039,93 @@ fieldset.dates[data-wrong='yes'],
   .extra-frame {
     display: none;
   }
+}
+
+/* ── Exceptions (platform 0048): a day of cars let out, and one car's story ── */
+.exceptions-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin: 12px 0;
+}
+.exceptions-day .lane-actions {
+  padding-bottom: 10px;
+}
+.list.exceptions td[data-who] {
+  overflow-wrap: anywhere;
+}
+.exception-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 24px;
+  margin: 12px 0 20px;
+}
+.exception-facts dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.story {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  border-left: 2px solid var(--border-2);
+}
+.story-step {
+  display: grid;
+  grid-template-columns: 9.5em 1fr;
+  gap: 12px;
+  padding: 6px 0 6px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.story-step[data-type='let-out'] {
+  background: var(--accent-soft);
+}
+.story-time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.story-title {
+  color: var(--text-primary);
+}
+.story-step[data-type='let-out'] .story-title {
+  font-weight: 600;
+}
+.story-body {
+  overflow-wrap: anywhere;
+}
+.story-deliveries {
+  margin: 4px 0 0;
+  padding-inline-start: 18px;
+}
+.story-why {
+  display: block;
+}
+.story-copies ul {
+  margin: 4px 0 12px;
+  padding-inline-start: 18px;
+}
+@media (max-width: 640px) {
+  .story-step {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+.exception-picture-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  margin: 6px 0 16px;
+  padding: 0;
+}
+.exception-picture-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 160px;
+  font-size: 12px;
 }
