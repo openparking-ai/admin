@@ -324,13 +324,15 @@ export function readersFile({ t, language, garage, data, readAt }) {
 
 /**
  * U7g: the garage's rates. One row per thing each set charges, in plain
- * sentences: the ones that start later, the ones in force, then the earlier
- * ones -- each with when it starts, in the garage's time.
+ * sentences: the ones in force -- the newest stored, as the Rates page shows
+ * them (U7i: nothing starts later), whatever the viewer's clock says -- then
+ * the earlier ones, each with when it starts, in the garage's time
+ * (OP-NODE-015).
  */
 export function ratesFile({ t, language, garage, data, readAt }) {
   const { title, lines } = head(t, 'rates', garage, language, readAt);
-  const { current, later, earlier } = arrange(data.plans, readAt);
-  const groups = [...later.map((p) => [p, 'later']), ...(current ? [[current, 'current']] : []), ...earlier.map((p) => [p, 'earlier'])];
+  const { current, earlier } = arrange(data.plans);
+  const groups = [...(current ? [[current, 'current']] : []), ...earlier.map((p) => [p, 'earlier'])];
   const rows = groups.flatMap(([plan, state]) =>
     planSentences(t, plan, language).map((s) => [
       time(plan.effective_from, garage, language),

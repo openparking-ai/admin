@@ -10090,5 +10090,4134 @@
         "subject_removed": false
       }
     }
+  ],
+  "exceptions_recorded_from": "openparking-ai/platform 519c843 (#90, feat/exceptions-pictures-summary-20261031, on #89 as merged at 9750534; migration 0048), 2026-10-31, by test/record-exceptions.js: the platform started on its own test harness (test/exit-harness.js: the rate engine at its pin 9acb5e5, its Stripe stand-in test/stripe-stub.js with no Stripe account or key, its gate-agent stand-in test/gate-agent-stub.js), a scratch database prepared and migrated as its README says (each run on an account of its own), an owner made with its createAdmin, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. Four cars let out at the garage that day, with the lanes' pictures; then the sweep (src/exceptions.js finish) run once each window had passed, and the fourth car's copies blanked as the retention purge blanks them. The stand-in's records (test/exceptions-fixtures.js) are this run's own stories, kept with WHOLE_TO, every id, address and time replaced; their shapes are this recording's.",
+  "exceptions_answers": [
+    {
+      "what": "exceptions, none yet",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "day",
+          "exceptions",
+          "from",
+          "garage_id",
+          "let_out_unpaid",
+          "to"
+        ],
+        "day": "a date",
+        "from": "string",
+        "to": "string",
+        "count": 0,
+        "let_out_unpaid": 0,
+        "order": [],
+        "item": {
+          "types": [
+            "array"
+          ]
+        }
+      }
+    },
+    {
+      "what": "exceptions, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "exceptions, a day that is not on the calendar",
+      "status": 400,
+      "body": {
+        "error": "day is a date in the garage's own time, written YYYY-MM-DD",
+        "code": "day_invalid"
+      }
+    },
+    {
+      "what": "exceptions, a day not written as a date",
+      "status": 400,
+      "body": {
+        "error": "day is a date in the garage's own time, written YYYY-MM-DD",
+        "code": "day_invalid"
+      }
+    },
+    {
+      "what": "exceptions, today",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "day",
+          "exceptions",
+          "from",
+          "garage_id",
+          "let_out_unpaid",
+          "to"
+        ],
+        "day": "a date",
+        "from": "string",
+        "to": "string",
+        "count": 4,
+        "let_out_unpaid": 3,
+        "order": [
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            6,
+            {
+              "messages": 4,
+              "failed_deliveries": 1,
+              "calls": 3,
+              "calls_answered": 1,
+              "copy": "complete",
+              "copies": {
+                "messages": "complete",
+                "calls": "complete"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "barrier_opened",
+            "lane",
+            "human_open_now",
+            3,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "not_configured",
+              "copies": {
+                "messages": "not_configured",
+                "calls": "not_configured"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            5,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "not_reachable",
+              "copies": {
+                "messages": "not_reachable",
+                "calls": "not_reachable"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            5,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "complete",
+              "copies": {
+                "messages": "complete",
+                "calls": "complete"
+              },
+              "purged": true
+            }
+          ]
+        ],
+        "item": {
+          "types": [
+            "array"
+          ],
+          "items": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "null",
+                  "string"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "calls_answered": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "copies": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "calls": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "messages": {
+                        "types": [
+                          "string"
+                        ]
+                      }
+                    }
+                  },
+                  "copy": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "failed_deliveries": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "messages": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "purged": {
+                    "types": [
+                      "boolean"
+                    ]
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "reason": {
+                "types": [
+                  "null",
+                  "string"
+                ]
+              },
+              "records": {
+                "types": [
+                  "number"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "exceptions, today by its date",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "day",
+          "exceptions",
+          "from",
+          "garage_id",
+          "let_out_unpaid",
+          "to"
+        ],
+        "day": "a date",
+        "from": "string",
+        "to": "string",
+        "count": 4,
+        "let_out_unpaid": 3,
+        "order": [
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            6,
+            {
+              "messages": 4,
+              "failed_deliveries": 1,
+              "calls": 3,
+              "calls_answered": 1,
+              "copy": "complete",
+              "copies": {
+                "messages": "complete",
+                "calls": "complete"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "barrier_opened",
+            "lane",
+            "human_open_now",
+            3,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "not_configured",
+              "copies": {
+                "messages": "not_configured",
+                "calls": "not_configured"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            5,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "not_reachable",
+              "copies": {
+                "messages": "not_reachable",
+                "calls": "not_reachable"
+              },
+              "purged": false
+            }
+          ],
+          [
+            "let_out_unpaid",
+            "attendant",
+            null,
+            5,
+            {
+              "messages": 0,
+              "failed_deliveries": 0,
+              "calls": 0,
+              "calls_answered": 0,
+              "copy": "complete",
+              "copies": {
+                "messages": "complete",
+                "calls": "complete"
+              },
+              "purged": true
+            }
+          ]
+        ],
+        "item": {
+          "types": [
+            "array"
+          ],
+          "items": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "null",
+                  "string"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "calls_answered": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "copies": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "calls": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "messages": {
+                        "types": [
+                          "string"
+                        ]
+                      }
+                    }
+                  },
+                  "copy": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "failed_deliveries": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "messages": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "purged": {
+                    "types": [
+                      "boolean"
+                    ]
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "reason": {
+                "types": [
+                  "null",
+                  "string"
+                ]
+              },
+              "records": {
+                "types": [
+                  "number"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "exceptions, the day before",
+      "status": 200,
+      "structure": {
+        "keys": [
+          "count",
+          "day",
+          "exceptions",
+          "from",
+          "garage_id",
+          "let_out_unpaid",
+          "to"
+        ],
+        "day": "a date",
+        "from": "string",
+        "to": "string",
+        "count": 0,
+        "let_out_unpaid": 0,
+        "order": [],
+        "item": {
+          "types": [
+            "array"
+          ]
+        }
+      }
+    },
+    {
+      "what": "exceptions, a day of a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "one exception, owing, let out by the owner, the gate agent copied",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "exception": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "null"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "case_opened_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ],
+                          "items": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "agent_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "authorisation": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "authorisation_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "call_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "caller_stated_identity": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "case": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "case_spoken_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "disposition": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "ended_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "events": {
+                                "types": [
+                                  "array"
+                                ],
+                                "items": {
+                                  "types": [
+                                    "object"
+                                  ],
+                                  "keys": {
+                                    "agent_id": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "at": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "authorisation": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "authorised_by": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "caller_stated_identity": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "case": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "cause": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "code": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "display": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "geometry": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "human": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "intercom": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "keyed_last2": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "kind": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "lane": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "lane_event_cursor": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "reason": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "relay_ms": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "relay_port": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "released": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "site_id": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "ticket_id": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "intercom": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "keyed_last2": {
+                                "types": [
+                                  "null"
+                                ]
+                              },
+                              "lane": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "outcome": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "person_answered_as": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "person_answered_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "person_called": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "rang_person_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "recording": {
+                                "types": [
+                                  "null"
+                                ]
+                              },
+                              "revision": {
+                                "types": [
+                                  "number"
+                                ]
+                              },
+                              "site_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "started_at": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "ticket_id": {
+                                "types": [
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "messages": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ],
+                          "items": {
+                            "types": [
+                              "object"
+                            ],
+                            "keys": {
+                              "at": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "caveat": {
+                                "types": [
+                                  "null"
+                                ]
+                              },
+                              "cleared_at": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "code": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "deliveries": {
+                                "types": [
+                                  "array"
+                                ],
+                                "items": {
+                                  "types": [
+                                    "object"
+                                  ],
+                                  "keys": {
+                                    "acknowledged_at": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "acknowledged_by": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    },
+                                    "acknowledgement": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "attempts": {
+                                      "types": [
+                                        "array"
+                                      ],
+                                      "items": {
+                                        "types": [
+                                          "object"
+                                        ],
+                                        "keys": {
+                                          "at": {
+                                            "types": [
+                                              "string"
+                                            ]
+                                          },
+                                          "http_status": {
+                                            "types": [
+                                              "null",
+                                              "number"
+                                            ]
+                                          },
+                                          "reason": {
+                                            "types": [
+                                              "null",
+                                              "string"
+                                            ]
+                                          },
+                                          "refused_recipients": {
+                                            "types": [
+                                              "array"
+                                            ],
+                                            "items": {
+                                              "types": [
+                                                "string"
+                                              ]
+                                            }
+                                          },
+                                          "reply": {
+                                            "types": [
+                                              "null",
+                                              "string"
+                                            ]
+                                          },
+                                          "reply_code": {
+                                            "types": [
+                                              "null",
+                                              "number"
+                                            ]
+                                          },
+                                          "result": {
+                                            "types": [
+                                              "string"
+                                            ]
+                                          },
+                                          "transient": {
+                                            "types": [
+                                              "boolean",
+                                              "null"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "delivered_at": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "kind": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "next_attempt_at": {
+                                      "types": [
+                                        "null",
+                                        "string"
+                                      ]
+                                    },
+                                    "recipient_configured": {
+                                      "types": [
+                                        "boolean"
+                                      ]
+                                    },
+                                    "recipients": {
+                                      "types": [
+                                        "array"
+                                      ],
+                                      "items": {
+                                        "types": [
+                                          "string"
+                                        ]
+                                      }
+                                    },
+                                    "sent_at": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "sink": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "state": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "superseded_by": {
+                                      "types": [
+                                        "null"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "first_seen_at": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "kind": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "lane_id": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "monitor_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "origin": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "paged": {
+                                "types": [
+                                  "boolean"
+                                ]
+                              },
+                              "record_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "revision": {
+                                "types": [
+                                  "number"
+                                ]
+                              },
+                              "site_id": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "source": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "status": {
+                                "types": [
+                                  "null"
+                                ]
+                              },
+                              "subject": {
+                                "types": [
+                                  "null",
+                                  "string"
+                                ]
+                              },
+                              "target": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "target_kind": {
+                                "types": [
+                                  "string"
+                                ]
+                              },
+                              "transition": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_events_after": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "detail": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "actor": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "amount_minor": {
+                          "types": [
+                            "absent",
+                            "number"
+                          ]
+                        },
+                        "channel": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "currency": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "owed": {
+                          "types": [
+                            "absent",
+                            "object"
+                          ],
+                          "keys": {
+                            "needs": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "settled": {
+                              "types": [
+                                "boolean"
+                              ]
+                            }
+                          }
+                        },
+                        "payment_intent_id": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "reason": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "why": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "event_id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "kind": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "payment_after_let_out": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "amount_minor": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "canceled_at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "channel": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "created_at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "currency": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "exit_id": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "id": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "last_failure": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "payment_intent_id": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "read_at": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "reader_id": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "receipt_sent": {
+                    "types": [
+                      "boolean"
+                    ]
+                  },
+                  "refunded_minor": {
+                    "types": [
+                      "number"
+                    ]
+                  },
+                  "started_by": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "status": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "stripe_status": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "succeeded_at": {
+                    "types": [
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "pictures": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "entry": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "exit": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "exit_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "lane": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "lane_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "reason": {
+                "types": [
+                  "string"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "story": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "case": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "candidates": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "claimed_entry_at": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "event_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "exit_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "fee": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "credit_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "currency": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "due_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "outcome": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "refused": {
+                            "types": [
+                              "boolean"
+                            ]
+                          },
+                          "stay_fee_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          }
+                        }
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "method": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "opened_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "person": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "picker": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "settled_before": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "needs": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "settled": {
+                            "types": [
+                              "boolean"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "lane_events": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "actor": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "amount_minor": {
+                              "types": [
+                                "absent",
+                                "number"
+                              ]
+                            },
+                            "cause": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "channel": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "code": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "currency": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "exit_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            }
+                          }
+                        },
+                        "event_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "payments": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "amount_minor": {
+                          "types": [
+                            "number"
+                          ]
+                        },
+                        "canceled_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "channel": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "created_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "currency": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "last_failure": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "payment_intent_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "read_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "reader_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "receipt_sent": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "refunded_minor": {
+                          "types": [
+                            "number"
+                          ]
+                        },
+                        "started_by": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "status": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "stripe_status": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "succeeded_at": {
+                          "types": [
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "stay": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "entry_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_confirmation": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_qr": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "identified_by": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "no_open_command": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "pass_session": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "tailgater": {
+                        "types": [
+                          "boolean"
+                        ]
+                      }
+                    }
+                  },
+                  "what": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "window": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "from": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "to": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "one exception, paid, opened at the lane, no gate agent set up",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "exception": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "string"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "case_opened_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "messages": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_events_after": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "detail": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "actor": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "owed": {
+                          "types": [
+                            "absent",
+                            "object"
+                          ],
+                          "keys": {
+                            "needs": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "settled": {
+                              "types": [
+                                "boolean"
+                              ]
+                            }
+                          }
+                        },
+                        "reason": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "event_id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "kind": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "payment_after_let_out": {
+                "types": [
+                  "null"
+                ]
+              },
+              "pictures": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "entry": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "exit": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "lane": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "lane_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "reason": {
+                "types": [
+                  "null"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "story": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "case": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "candidates": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "claimed_entry_at": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "event_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "exit_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "fee": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "credit_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "currency": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "due_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "outcome": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "refused": {
+                            "types": [
+                              "boolean"
+                            ]
+                          },
+                          "stay_fee_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          }
+                        }
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "method": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "opened_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "person": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "picker": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "settled_before": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "settled": {
+                            "types": [
+                              "boolean"
+                            ]
+                          },
+                          "why": {
+                            "types": [
+                              "string"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "lane_events": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "actor": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "amount_minor": {
+                              "types": [
+                                "absent",
+                                "number"
+                              ]
+                            },
+                            "cause": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "channel": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "code": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "currency": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "exit_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "owed": {
+                              "types": [
+                                "absent",
+                                "object"
+                              ],
+                              "keys": {
+                                "needs": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                },
+                                "settled": {
+                                  "types": [
+                                    "boolean"
+                                  ]
+                                }
+                              }
+                            },
+                            "payment_intent_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "reason": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "why": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            }
+                          }
+                        },
+                        "event_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "payments": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "amount_minor": {
+                          "types": [
+                            "number"
+                          ]
+                        },
+                        "canceled_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "channel": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "created_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "currency": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "last_failure": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "payment_intent_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "read_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "reader_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "receipt_sent": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "refunded_minor": {
+                          "types": [
+                            "number"
+                          ]
+                        },
+                        "started_by": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "status": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "stripe_status": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "succeeded_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "stay": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "entry_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_confirmation": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_qr": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "identified_by": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "no_open_command": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "pass_session": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "tailgater": {
+                        "types": [
+                          "boolean"
+                        ]
+                      }
+                    }
+                  },
+                  "what": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "window": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "from": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "to": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "one exception, owing, let out with the key, the gate agent not answering",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "exception": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "null"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "case_opened_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "messages": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_events_after": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "detail": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "actor": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "owed": {
+                          "types": [
+                            "absent",
+                            "object"
+                          ],
+                          "keys": {
+                            "needs": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "settled": {
+                              "types": [
+                                "boolean"
+                              ]
+                            }
+                          }
+                        },
+                        "reason": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "event_id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "kind": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "payment_after_let_out": {
+                "types": [
+                  "null"
+                ]
+              },
+              "pictures": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "entry": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "exit": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "lane": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "lane_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "reason": {
+                "types": [
+                  "string"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "story": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "case": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "candidates": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "claimed_entry_at": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "event_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "exit_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "fee": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "credit_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "currency": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "due_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "outcome": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "refused": {
+                            "types": [
+                              "boolean"
+                            ]
+                          },
+                          "stay_fee_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          }
+                        }
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "method": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "opened_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "person": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "picker": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "settled_before": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "needs": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "settled": {
+                            "types": [
+                              "boolean"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "lane_events": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "actor": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "amount_minor": {
+                              "types": [
+                                "absent",
+                                "number"
+                              ]
+                            },
+                            "cause": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "channel": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "code": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "currency": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "exit_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "owed": {
+                              "types": [
+                                "absent",
+                                "object"
+                              ],
+                              "keys": {
+                                "needs": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                },
+                                "settled": {
+                                  "types": [
+                                    "boolean"
+                                  ]
+                                }
+                              }
+                            },
+                            "payment_intent_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "reason": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "why": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            }
+                          }
+                        },
+                        "event_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "payments": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "stay": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "entry_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_confirmation": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_qr": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "identified_by": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "no_open_command": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "pass_session": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "tailgater": {
+                        "types": [
+                          "boolean"
+                        ]
+                      }
+                    }
+                  },
+                  "what": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "window": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "from": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "to": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "one exception, owing, let out with the key, its copies blanked by the retention purge",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "exception": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "authority": {
+                "types": [
+                  "null"
+                ]
+              },
+              "by": {
+                "types": [
+                  "string"
+                ]
+              },
+              "case_opened_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "created_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "currency": {
+                "types": [
+                  "string"
+                ]
+              },
+              "exit_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "gate_agent": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "calls": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "messages": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "asked_from": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_lane": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "asked_to": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "complete": {
+                          "types": [
+                            "boolean"
+                          ]
+                        },
+                        "copied_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "purged_at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "records": {
+                          "types": [
+                            "array"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "types": [
+                  "string"
+                ]
+              },
+              "lane_events_after": {
+                "types": [
+                  "array"
+                ],
+                "items": {
+                  "types": [
+                    "object"
+                  ],
+                  "keys": {
+                    "at": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "detail": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "actor": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "exit_id": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "owed": {
+                          "types": [
+                            "absent",
+                            "object"
+                          ],
+                          "keys": {
+                            "needs": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "settled": {
+                              "types": [
+                                "boolean"
+                              ]
+                            }
+                          }
+                        },
+                        "reason": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        },
+                        "state": {
+                          "types": [
+                            "absent",
+                            "string"
+                          ]
+                        }
+                      }
+                    },
+                    "event_id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "id": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "kind": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              },
+              "lane_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "let_out_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "owed_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "paid_minor": {
+                "types": [
+                  "number"
+                ]
+              },
+              "payment_after_let_out": {
+                "types": [
+                  "null"
+                ]
+              },
+              "pictures": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "entry": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "exit": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "lane": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "lane_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "taken_at": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "reason": {
+                "types": [
+                  "string"
+                ]
+              },
+              "source": {
+                "types": [
+                  "string"
+                ]
+              },
+              "stay_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "story": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "case": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "candidates": {
+                        "types": [
+                          "number"
+                        ]
+                      },
+                      "claimed_entry_at": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "event_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "exit_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "fee": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "covered_by": {
+                            "types": [
+                              "array"
+                            ]
+                          },
+                          "credit_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "currency": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "due_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          },
+                          "outcome": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "refused": {
+                            "types": [
+                              "boolean"
+                            ]
+                          },
+                          "stay_fee_minor": {
+                            "types": [
+                              "number"
+                            ]
+                          }
+                        }
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "method": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "opened_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "person": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "picker": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "settled_before": {
+                        "types": [
+                          "object"
+                        ],
+                        "keys": {
+                          "needs": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "settled": {
+                            "types": [
+                              "boolean"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "lane_events": {
+                    "types": [
+                      "array"
+                    ],
+                    "items": {
+                      "types": [
+                        "object"
+                      ],
+                      "keys": {
+                        "at": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "detail": {
+                          "types": [
+                            "object"
+                          ],
+                          "keys": {
+                            "actor": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "amount_minor": {
+                              "types": [
+                                "absent",
+                                "number"
+                              ]
+                            },
+                            "cause": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "channel": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "code": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "currency": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "exit_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "owed": {
+                              "types": [
+                                "absent",
+                                "object"
+                              ],
+                              "keys": {
+                                "needs": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                },
+                                "settled": {
+                                  "types": [
+                                    "boolean"
+                                  ]
+                                }
+                              }
+                            },
+                            "payment_intent_id": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "reason": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            },
+                            "why": {
+                              "types": [
+                                "absent",
+                                "string"
+                              ]
+                            }
+                          }
+                        },
+                        "event_id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "kind": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "payments": {
+                    "types": [
+                      "array"
+                    ]
+                  },
+                  "stay": {
+                    "types": [
+                      "object"
+                    ],
+                    "keys": {
+                      "entry_at": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_confirmation": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_lane_id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "entry_qr": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "identified_by": {
+                        "types": [
+                          "string"
+                        ]
+                      },
+                      "no_open_command": {
+                        "types": [
+                          "boolean"
+                        ]
+                      },
+                      "pass_session": {
+                        "types": [
+                          "null"
+                        ]
+                      },
+                      "tailgater": {
+                        "types": [
+                          "boolean"
+                        ]
+                      }
+                    }
+                  },
+                  "what": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              },
+              "window": {
+                "types": [
+                  "object"
+                ],
+                "keys": {
+                  "from": {
+                    "types": [
+                      "string"
+                    ]
+                  },
+                  "to": {
+                    "types": [
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "one exception, not this garage's",
+      "status": 404,
+      "body": {
+        "error": "exception not found",
+        "code": "exception_not_found"
+      }
+    },
+    {
+      "what": "one exception, through a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    },
+    {
+      "what": "one exception, its address not one",
+      "status": 404,
+      "body": {
+        "error": "exception not found",
+        "code": "exception_not_found"
+      }
+    },
+    {
+      "what": "a picture the record lists",
+      "status": 200,
+      "type": "image/png",
+      "cache": "private, no-store",
+      "sniff": "nosniff",
+      "image": true
+    },
+    {
+      "what": "a picture another record lists, asked through this one",
+      "status": 404,
+      "body": {
+        "error": "picture not found"
+      }
+    },
+    {
+      "what": "a picture no record lists",
+      "status": 404,
+      "body": {
+        "error": "picture not found"
+      }
+    },
+    {
+      "what": "a picture, through a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found"
+      }
+    }
   ]
 }

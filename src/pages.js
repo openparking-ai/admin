@@ -21,6 +21,8 @@ export const PAGES = [
   { id: 'stuck', path: '/stuck-stays', icon: 'clock' },
   // U7f: the cars banned at this garage, and taking one off the list.
   { id: 'banned', path: '/banned-cars', icon: 'ban' },
+  // Platform 0048: every car a person let out, and what happened, read only.
+  { id: 'exceptions', path: '/exceptions', icon: 'barrier' },
   { id: 'alerts', path: '/alerts', icon: 'bell' },
   { id: 'changes', path: '/change-log', icon: 'log' },
   // U7a: the language and the look, once at the top of every page.

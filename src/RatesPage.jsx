@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pager, PrintHead, ProblemNote, Segmented, useGarageRead, useNow, usePaging, usePrint } from './parts.jsx';
 import { STALE } from './api.js';
+import { taxNamesAt } from './taxes.js';
 import ListActions from './ListActions.jsx';
 import FieldName, { FieldAbout } from './FieldName.jsx';
 import { garageDateTime, localSaid, zoneSaid } from './time.js';
@@ -11,6 +12,7 @@ import {
   DAYS,
   DAY_KINDS,
   DIRECTIONS,
+  LONGEST_STAY_DAYS,
   PRESETS,
   PRESET_KEYS,
   TABLE_MAX,
@@ -27,6 +29,7 @@ import {
   daysWords,
   findingWords,
   formFromPlan,
+  formShows,
   instantOf,
   lengthWords,
   lineWords,
@@ -38,8 +41,11 @@ import {
   percentWords,
   planName,
   planSentences,
+  platformNow,
+  saveStart,
   stayToTry,
   fillNote,
+  tickOf,
   regularPlan,
   regularProblems,
   regularUntouched,
@@ -51,6 +57,7 @@ import {
   specialsPlan,
   startNow,
   tableStays,
+  tooLongToPrice,
   typedRegular,
   typedSpecial,
 } from './rates.js';
@@ -74,7 +81,7 @@ import {
 export default function RatesPage({ t, language, client, garage }) {
   const ticking = useNow();
   const read = useGarageRead(useCallback((id) => client.ratePlans(id), [client]), garage.id);
-  const taxNames = useTaxNames(client, garage);
+  const taxLists = useTaxLists(client, garage);
   const savers = useSavers(client, garage, read.data?.saved);
   const { printedAt, print } = usePrint();
   const [regular, setRegular] = useState(null);
@@ -88,10 +95,15 @@ export default function RatesPage({ t, language, client, garage }) {
   }, [read, savers.refresh]);
 
   // A special being changed or removed that the rates read again no longer
-  // hold (another owner removed it): back to the rates, saying they changed.
+  // hold (another owner removed it), or one being changed that they now hold
+  // with settings the form cannot show: back to the rates, saying they changed.
   const plansNow = read.data?.plans;
-  const currentNow = plansNow ? arrange(plansNow, new Date(Math.max(ticking.getTime(), read.readAt?.getTime() ?? 0))).current : null;
-  const goneId = [reviewing, special].find((x) => x?.id && !orderedWindows(currentNow).some((r) => r.id === x.id))?.id ?? null;
+  const currentNow = plansNow ? arrange(plansNow).current : null;
+  const goneId =
+    [reviewing, special].find((x) => {
+      const rule = x?.id ? orderedWindows(currentNow).find((r) => r.id === x.id) : null;
+      return x?.id && (!rule || (x.kind === 'change' && !formShows(rule)));
+    })?.id ?? null;
   useEffect(() => {
     if (!goneId || !plansNow) return;
     setReviewing(null);
@@ -101,14 +113,13 @@ export default function RatesPage({ t, language, client, garage }) {
 
   if (read.problem) return <ProblemNote t={t} kind={read.problem} onRetry={read.retry} />;
   if (!read.data) return <p className="quiet">{t('loading')}</p>;
-  // Which plan is in force is judged at the later of the clock and the read:
-  // rates confirmed now are in force the moment the page reads them back.
   const now = new Date(Math.max(ticking.getTime(), read.readAt?.getTime() ?? 0));
-  const { plans, spaceClass } = read.data;
-  const { current, later, earlier } = arrange(plans, now);
-  // What a save says it was checked against: the newest rates stored (U7i, `based_on`).
-  const newest = later.at(-1) ?? current;
-  const basedOn = newest ? (read.data.saved.find((r) => r.plan_version === newest.plan_version)?.id ?? null) : null;
+  const { plans, spaceClass, clock } = read.data;
+  // The rates in force are the newest stored, whatever this computer's clock
+  // says: the ones shown, the ones a save is built on, and the ones it says it
+  // was checked against (U7i, `based_on`) are one (OP-NODE-012).
+  const { current, earlier } = arrange(plans);
+  const basedOn = current ? (read.data.saved.find((r) => r.plan_version === current.plan_version)?.id ?? null) : null;
   const at = (iso) => garageDateTime(iso, garage.timezone, language);
   const zone = zoneSaid(garage.timezone, language, now);
   const opts = (start, name) => ({ garage, spaceClass, start, name });
@@ -124,13 +135,16 @@ export default function RatesPage({ t, language, client, garage }) {
     make: (start, name) => regularPlan(current, regularTyped, nowForm, opts(start, name)),
   };
 
-  // The special being added or changed, as it will be.
+  // The special being added or changed, as it will be. One being changed that
+  // the rates read no longer hold (another owner removed it) has nothing built
+  // for it: the effect above goes back to the rates, saying they changed (OP-NODE-010).
   const editIndex = special?.kind === 'change' ? list.findIndex((r) => r.id === special.id) : -1;
+  const editing = special && (special.kind !== 'change' || (editIndex >= 0 && formShows(list[editIndex]))) ? special : null;
   const specialNow = editIndex >= 0 ? specialForm(list[editIndex], garage.currency) : null;
-  const specialMerged = special ? mergeSpecial(special.typed, specialNow) : null;
-  const others = list.filter((r) => r.id !== special?.id).map((r) => r.label ?? '');
+  const specialMerged = editing ? mergeSpecial(editing.typed, specialNow) : null;
+  const others = list.filter((r) => r.id !== editing?.id).map((r) => r.label ?? '');
   const specialUnchanged =
-    special?.kind === 'change' && editIndex >= 0 && Object.keys(specialProblems(specialMerged, 'special', garage, others)).length === 0
+    editing?.kind === 'change' && Object.keys(specialProblems(specialMerged, 'special', garage, others)).length === 0
       ? (() => {
           const was = list[editIndex];
           const is = specialsPlan(current, { kind: 'change', index: editIndex, special: specialMerged }, opts(current.effective_from, 'x'));
@@ -138,12 +152,12 @@ export default function RatesPage({ t, language, client, garage }) {
           return specialSentence(t, was, current.currency, language) === specialSentence(t, isRule, current.currency, language) && was.label === isRule.label;
         })()
       : false;
-  const specialDraft = special
+  const specialDraft = editing
     ? {
-        what: t(special.kind === 'add' ? 'rates.review.whatAdd' : 'rates.review.whatChange', { name: specialMerged.name.trim() }),
+        what: t(editing.kind === 'add' ? 'rates.review.whatAdd' : 'rates.review.whatChange', { name: specialMerged.name.trim() }),
         problems: { ...specialProblems(specialMerged, 'special', garage, others), ...(specialUnchanged ? { 'special.nothing': 'rates.nothingToSave.special' } : {}) },
         names: { name: specialMerged.name.trim() },
-        make: (start, name) => specialsPlan(current, { kind: special.kind, index: editIndex, special: specialMerged }, opts(start, name)),
+        make: (start, name) => specialsPlan(current, { kind: editing.kind, index: editIndex, special: specialMerged }, opts(start, name)),
       }
     : null;
 
@@ -182,8 +196,9 @@ export default function RatesPage({ t, language, client, garage }) {
         garage={garage}
         current={current}
         basedOn={basedOn}
+        clock={clock}
         draft={reviewDraft}
-        taxNames={taxNames}
+        taxLists={taxLists}
         reread={reread}
         onBack={() => setReviewing(null)}
         onSaved={done}
@@ -196,9 +211,9 @@ export default function RatesPage({ t, language, client, garage }) {
     const problems = { ...regularDraft.problems, ...(specialDraft ? specialProblems(specialMerged, 'special', garage, others) : {}) };
     if (Object.keys(problems).length) return { problems };
     const base = regularDraft.make(current?.effective_from ?? startNow(garage), 'calc');
-    if (!special) return { plan: base };
-    const index = special.kind === 'change' ? orderedWindows(base).findIndex((r) => r.id === special.id) : null;
-    return { plan: specialsPlan(base, { kind: special.kind, index, special: specialMerged }, opts(base.effective_from, 'calc')) };
+    if (!editing) return { plan: base };
+    const index = editing.kind === 'change' ? orderedWindows(base).findIndex((r) => r.id === editing.id) : null;
+    return { plan: specialsPlan(base, { kind: editing.kind, index, special: specialMerged }, opts(base.effective_from, 'calc')) };
   })();
 
   return (
@@ -264,7 +279,7 @@ export default function RatesPage({ t, language, client, garage }) {
         canAdd={Boolean(current)}
         list={list}
         current={current}
-        editing={special}
+        editing={editing}
         now={specialNow}
         draft={specialDraft}
         onEdit={(next) => {
@@ -277,7 +292,7 @@ export default function RatesPage({ t, language, client, garage }) {
           setLost(false);
           setReviewing({ kind: 'remove', id });
         }}
-        onSave={() => setReviewing({ kind: special.kind, id: special.id ?? null })}
+        onSave={() => setReviewing({ kind: editing.kind, id: editing.id ?? null })}
       />
 
       <Calculator
@@ -285,7 +300,7 @@ export default function RatesPage({ t, language, client, garage }) {
         language={language}
         client={client}
         garage={garage}
-        taxNames={taxNames}
+        taxLists={taxLists}
         sources={[
           { value: 'force', text: t('rates.calc.force'), plan: current, problem: current ? null : t('rates.calc.noRates') },
           {
@@ -315,14 +330,13 @@ export default function RatesPage({ t, language, client, garage }) {
   );
 }
 
-/** The names of the garage's taxes, by their line's id, for the words of a priced stay. */
-function useTaxNames(client, garage) {
+/**
+ * The garage's lists of taxes, for the names of a priced stay's tax lines:
+ * each stay's from the list in force when it left (OP-NODE-013).
+ */
+function useTaxLists(client, garage) {
   const taxes = useGarageRead(useCallback((id) => client.taxLists(id), [client]), garage.id);
-  return useMemo(() => {
-    const names = {};
-    for (const list of taxes.data ?? []) for (const rule of list.rules ?? []) names[rule.id] = rule.label;
-    return names;
-  }, [taxes.data]);
+  return taxes.data ?? [];
 }
 
 /** The most pages of the change log read to find who set each set of rates. */
@@ -742,6 +756,21 @@ function BoxName({ t, name }) {
   return <span className="field-name">{t(name)}</span>;
 }
 
+/**
+ * The two rules of rate setup (decided 2026-10-16), said by the caps and by
+ * the special rates (`where`): when more than one price applies, the car
+ * always pays the cheapest; and a stay longer than the rate engine prices
+ * (LONGEST_STAY_DAYS) needs an operator.
+ */
+function RateRules({ t, where }) {
+  return (
+    <div className="rates-note rate-rules" data-rules={where}>
+      <p data-rule="cheapest">{t('rates.rule.cheapest')}</p>
+      <p data-rule="longest">{t('rates.rule.longest', { days: LONGEST_STAY_DAYS })}</p>
+    </div>
+  );
+}
+
 // --- the regular rates --------------------------------------------------------
 
 /**
@@ -755,6 +784,8 @@ function RegularSection({ t, language, garage, now, typed, problems, nothing, on
   const id = (at) => fieldId('regular', at);
   const set = (part) => (value) => onChange({ ...typed, [part]: value });
   const part = (name) => (change) => onChange({ ...typed, [name]: { ...typed[name], ...change } });
+  // A tick as shown: as the owner pressed it, else as it is in the rates in force now (OP-NODE-008).
+  const on = (name) => tickOf(typed[name].on, now?.[name].on);
   // The value in force of a part ticked on now, else "none" to show.
   const was = (name) => (now && now[name].on ? now[name] : null);
   const none = now ? t('rates.change.none') : null;
@@ -783,9 +814,9 @@ function RegularSection({ t, language, garage, now, typed, problems, nothing, on
           <legend>
             <BoxName t={t} name="rates.dayMax" />
           </legend>
-          <Tick t={t} tick="day-max-on" on={typed.dayMax.on} onChange={(on) => part('dayMax')({ on })} words={t('rates.dayMax.use')} />
+          <Tick t={t} tick="day-max-on" on={on('dayMax')} onChange={(v) => part('dayMax')({ on: v })} words={t('rates.dayMax.use')} />
           {now ? <NowWas t={t} text={nowOnOff(t, now.dayMax.on)} /> : null}
-          {typed.dayMax.on ? (
+          {on('dayMax') ? (
             <div className="tax-line-fields">
               <Text t={t} language={language} garage={garage} name="rates.dayMax.price" field="day-max-price" id={id('dayMax.price')} value={typed.dayMax.price} onChange={(v) => part('dayMax')({ price: v })} unit="money" now={was('dayMax') ? nowMoney(was('dayMax').price, garage, language) : none} problem={p('dayMax.price')} />
               <Choice t={t} name="rates.dayMax.kind" field="day-max-kind" id={id('dayMax.kind')} value={typed.dayMax.kind} options={DAY_KINDS.map((k) => ({ value: k, text: t(`rates.dayKind.${k}`) }))} onChange={(v) => part('dayMax')({ kind: v })} now={was('dayMax') ? t(`rates.dayKind.${was('dayMax').kind}`) : none} problem={p('dayMax.kind')} />
@@ -797,9 +828,9 @@ function RegularSection({ t, language, garage, now, typed, problems, nothing, on
           <legend>
             <BoxName t={t} name="rates.weekMax" />
           </legend>
-          <Tick t={t} tick="week-max-on" on={typed.weekMax.on} onChange={(on) => part('weekMax')({ on })} words={t('rates.weekMax.use')} />
+          <Tick t={t} tick="week-max-on" on={on('weekMax')} onChange={(v) => part('weekMax')({ on: v })} words={t('rates.weekMax.use')} />
           {now ? <NowWas t={t} text={nowOnOff(t, now.weekMax.on)} /> : null}
-          {typed.weekMax.on ? (
+          {on('weekMax') ? (
             <div className="tax-line-fields">
               <Text t={t} language={language} garage={garage} name="rates.weekMax.price" field="week-max-price" id={id('weekMax.price')} value={typed.weekMax.price} onChange={(v) => part('weekMax')({ price: v })} unit="money" now={was('weekMax') ? nowMoney(was('weekMax').price, garage, language) : none} problem={p('weekMax.price')} />
               <Choice t={t} name="rates.weekMax.kind" field="week-max-kind" id={id('weekMax.kind')} value={typed.weekMax.kind} options={WEEK_KINDS.map((k) => ({ value: k, text: t(`rates.weekKind.${k}`) }))} onChange={(v) => part('weekMax')({ kind: v })} now={was('weekMax') ? t(`rates.weekKind.${was('weekMax').kind}`) : none} problem={p('weekMax.kind')} />
@@ -810,13 +841,15 @@ function RegularSection({ t, language, garage, now, typed, problems, nothing, on
           ) : null}
         </fieldset>
 
+        <RateRules t={t} where="caps" />
+
         <fieldset className="rates-part" data-part="grace">
           <legend>
             <FieldName t={t} name="rates.grace" />
           </legend>
-          <Tick t={t} tick="grace-on" on={typed.grace.on} onChange={(on) => part('grace')({ on })} words={t('rates.grace.use')} />
+          <Tick t={t} tick="grace-on" on={on('grace')} onChange={(v) => part('grace')({ on: v })} words={t('rates.grace.use')} />
           {now ? <NowWas t={t} text={nowOnOff(t, now.grace.on)} /> : null}
-          {typed.grace.on ? (
+          {on('grace') ? (
             <div className="tax-line-fields">
               <Text t={t} language={language} garage={garage} name="rates.grace.minutes" field="grace-minutes" id={id('grace.minutes')} value={typed.grace.minutes} onChange={(v) => part('grace')({ minutes: v })} unit="minutes" now={was('grace') ? nowMinutes(t, was('grace').minutes) : none} problem={p('grace.minutes')} inputMode="numeric" maxLength={5} />
             </div>
@@ -870,6 +903,7 @@ function SpecialSection({ t, language, garage, canAdd, list, current, editing, n
       <h2 className="section-title">
         <FieldName t={t} name="rates.specials" />
       </h2>
+      <RateRules t={t} where="specials" />
       <p className="quiet">{t('rates.specials.cheaper')}</p>
       {list.length ? (
         <ol className="special-list">
@@ -883,9 +917,16 @@ function SpecialSection({ t, language, garage, canAdd, list, current, editing, n
               </div>
               {editing ? null : (
                 <div className="lane-actions">
-                  <button type="button" className="link-button" data-action="change-special" onClick={() => open('change', rule)}>
-                    {t('rates.special.change')}
-                  </button>
+                  {formShows(rule) ? (
+                    <button type="button" className="link-button" data-action="change-special" onClick={() => open('change', rule)}>
+                      {t('rates.special.change')}
+                    </button>
+                  ) : (
+                    // Settings the form cannot show (written elsewhere): not changed here, so nothing is rewritten unseen (OP-NODE-011).
+                    <span className="quiet small" data-notice="special-not-here">
+                      {t('rates.special.notHere')}
+                    </span>
+                  )}
                   <button type="button" className="link-button" data-action="remove-special" onClick={() => onRemove(rule.id)}>
                     {t('rates.special.remove')}
                   </button>
@@ -953,6 +994,8 @@ function SpecialFields({ t, language, garage, typed: s, now, problems, names, tr
   const id = (f) => fieldId('special', `special.${f}`);
   const merged = mergeSpecial(s, now);
   const pickPreset = (preset) => onChange({ preset, days: PRESETS[preset] ? [...PRESETS[preset]] : now ? s.days : [], dates: preset === 'dates' ? (s.dates.length ? s.dates : ['']) : [] });
+  // The days as shown: as the owner ticked them, else as they are in force (OP-NODE-008).
+  const days = merged.days;
   const clock = (v) => (v ? clockWords(v, language) : null);
   const money = (v) => (v ? nowMoney(v, garage, language) : null);
   const amountKind = merged.adjust.kind;
@@ -970,7 +1013,7 @@ function SpecialFields({ t, language, garage, typed: s, now, problems, names, tr
           </legend>
           <div className="day-ticks">
             {DAYS.map((d) => (
-              <Tick key={d} t={t} tick={`day-${d}`} on={s.days.includes(d)} onChange={(on) => onChange({ days: on ? DAYS.filter((x) => x === d || s.days.includes(x)) : s.days.filter((x) => x !== d) })} words={dayShort(d, language)} />
+              <Tick key={d} t={t} tick={`day-${d}`} on={days.includes(d)} onChange={(on) => onChange({ days: on ? DAYS.filter((x) => x === d || days.includes(x)) : days.filter((x) => x !== d) })} words={dayShort(d, language)} />
             ))}
           </div>
           {now && now.preset !== 'dates' ? <NowWas t={t} text={daysWords(t, { kind: 'days_of_week', days: now.days }, language)} /> : null}
@@ -1066,6 +1109,38 @@ function forStay(plan, entry, garage, name) {
   return { ...plan, plan_version: name, effective_from: startNow(garage, from) };
 }
 
+/** What a calculator says, instead of a price, for a stay longer than the rate engine prices. */
+const TOO_LONG = 'rates.rule.longest';
+
+/**
+ * Why a stay typed in is not priced, as its sentence's key, or null: a time
+ * missing, left before it came in, or longer than the rate engine prices
+ * (LONGEST_STAY_DAYS) -- that one needs an operator, and nothing is sent.
+ */
+function notPriced(entry, exit, timeZone) {
+  if (!wallOf(entry) || !wallOf(exit)) return 'rates.try.need';
+  if (exit < entry) return 'rates.try.backwards';
+  if (tooLongToPrice(entry, exit, timeZone)) return TOO_LONG;
+  return null;
+}
+
+/** A stay not priced, said under its fields: `notice` is the calculator's ("try") or the price table's ("add"). */
+function NotPricedNote({ t, said, notice }) {
+  if (!said) return null;
+  if (said === TOO_LONG) {
+    return (
+      <p className="warning" data-notice={`${notice}-too-long`}>
+        {t(TOO_LONG, { days: LONGEST_STAY_DAYS })}
+      </p>
+    );
+  }
+  return (
+    <p className="warning" data-notice={`${notice}-need`}>
+      {t(said)}
+    </p>
+  );
+}
+
 /**
  * The price calculator (U7i, item 7): came in, left, and what the driver pays
  * with each line in plain words. Nothing is saved. `sources` are the rates it
@@ -1074,7 +1149,7 @@ function forStay(plan, entry, garage, name) {
  * answer is tied to the rates and the stay it was priced for: change either
  * and it is greyed, with a line saying to work it out again (U7i fix 1, F1).
  */
-function Calculator({ t, language, client, garage, sources, taxNames, onCheckPage = false }) {
+function Calculator({ t, language, client, garage, sources, taxLists, onCheckPage = false }) {
   const [source, setSource] = useState(sources[0].value);
   const [entry, setEntry] = useState('');
   const [exit, setExit] = useState('');
@@ -1088,8 +1163,10 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
 
   const run = async () => {
     setProblem(null);
-    if (!wallOf(entry) || !wallOf(exit)) return setSaid('rates.try.need');
-    if (exit < entry) return setSaid('rates.try.backwards');
+    const why = notPriced(entry, exit, garage.timezone);
+    // Longer than the engine prices: its sentence instead of a price, the price before it gone too.
+    if (why === TOO_LONG) setAnswer(null);
+    if (why) return setSaid(why);
     if (!chosen.plan) return setSaid(null);
     setSaid(null);
     if (busy) return;
@@ -1145,11 +1222,7 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
           </Act>
         </div>
       </form>
-      {said ? (
-        <p className="warning" data-notice="try-need">
-          {t(said)}
-        </p>
-      ) : null}
+      <NotPricedNote t={t} said={said} notice="try" />
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
       {stay && !busy && stale ? (
         <p className="warning" data-notice="calc-stale">
@@ -1158,7 +1231,7 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
       ) : null}
       {stay && !busy ? (
         <div className={stale ? 'tried-stale' : undefined} data-stale={stale ? 'yes' : 'no'}>
-          <TriedStay t={t} language={language} garage={garage} stay={stay} plan={answer.plan} taxNames={taxNames} />
+          <TriedStay t={t} language={language} garage={garage} stay={stay} plan={answer.plan} taxLists={taxLists} />
         </div>
       ) : null}
     </section>
@@ -1166,7 +1239,7 @@ function Calculator({ t, language, client, garage, sources, taxNames, onCheckPag
 }
 
 /** One priced stay: "Nothing is saved.", what the driver pays, how long it stayed, each part of the price and why. */
-function TriedStay({ t, language, garage, stay, plan, taxNames }) {
+function TriedStay({ t, language, garage, stay, plan, taxLists }) {
   if (stay.refused) {
     return (
       <div className="tried" data-tried="refused">
@@ -1182,7 +1255,9 @@ function TriedStay({ t, language, garage, stay, plan, taxNames }) {
     );
   }
   const money = (minor) => moneyText(minor, garage.currency, language);
-  const { lines, byHour } = lineWords(t, stay, plan, taxNames, garage.currency, language);
+  // Each tax line named from the list the stay was taxed by: the one in force when it left (OP-NODE-013).
+  const left = Date.parse(stay.exit_at ?? '') || instantOf(stay.exit, garage.timezone);
+  const { lines, byHour } = lineWords(t, stay, plan, taxNamesAt(taxLists, left), garage.currency, language);
   return (
     <div className="tried" data-tried="priced" data-fee={stay.fee_minor}>
       <p className="quiet small">{t('rates.calc.nothingSaved')}</p>
@@ -1245,7 +1320,7 @@ function TriedStay({ t, language, garage, stay, plan, taxNames }) {
  * stored meanwhile by someone else refuse the save, and the page reads the
  * rates again and prices again, keeping what was typed.
  */
-function Review({ t, language, client, garage, current, basedOn, draft, taxNames, reread, onBack, onSaved }) {
+function Review({ t, language, client, garage, current, basedOn, clock, draft, taxLists, reread, onBack, onSaved }) {
   const [added, setAdded] = useState([]);
   const [priced, setPriced] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -1259,12 +1334,14 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
   const name = useRef(planName(Date.now(), garage.timezone));
   // The moment the new rates are priced from: when the page opened, and again
   // whenever the rates are read anew (another owner saved), so the new rates
-  // always start after every rates stored.
-  const opened = useRef(Date.now());
+  // always start after every rates stored -- by the platform's clock, never
+  // this computer's (OP-NODE-014), and after the start of the rates they are
+  // built on (OP-NODE-012).
+  const opened = useRef(null);
   const openedOn = useRef(basedOn);
-  if (openedOn.current !== basedOn) {
+  if (opened.current === null || openedOn.current !== basedOn) {
     openedOn.current = basedOn;
-    opened.current = Date.now();
+    opened.current = Date.parse(saveStart(current, platformNow(clock)));
   }
   const asking = useRef(null);
   const { printedAt, print } = usePrint();
@@ -1313,7 +1390,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
     setSaving(true);
     setProblem(null);
     setSaveFindings([]);
-    const start = startNow(garage);
+    const start = saveStart(current, platformNow(clock));
     try {
       await client.addRatePlan(garage.id, { ...priced.plan, effective_from: start }, { confirmed: true, basedOn });
       onSaved(start);
@@ -1332,8 +1409,8 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
   const addStay = () => {
     const entry = wallOf(extra.entry);
     const exit = wallOf(extra.exit);
-    if (!entry || !exit) return setAddSaid('rates.try.need');
-    if (exit < entry) return setAddSaid('rates.try.backwards');
+    const why = notPriced(entry, exit, garage.timezone);
+    if (why) return setAddSaid(why);
     if (stays.length >= TABLE_MAX) return setAddSaid(null);
     setAddSaid(null);
     setAdded((was) => [...was, { entry, exit, why: { key: 'added' } }]);
@@ -1388,7 +1465,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
         language={language}
         client={client}
         garage={garage}
-        taxNames={taxNames}
+        taxLists={taxLists}
         onCheckPage
         sources={[
           { value: 'new', text: t('rates.calc.new'), plan: shown, problem: null },
@@ -1415,11 +1492,7 @@ function Review({ t, language, client, garage, current, basedOn, draft, taxNames
             {t('rates.table.add')}
           </Act>
         </div>
-        {addSaid ? (
-          <p className="warning" data-notice="add-need">
-            {t(addSaid)}
-          </p>
-        ) : null}
+        <NotPricedNote t={t} said={addSaid} notice="add" />
       </section>
 
       {findings.length ? (

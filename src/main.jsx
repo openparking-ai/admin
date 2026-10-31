@@ -6,6 +6,7 @@ import { createTheme } from './theme.js';
 import { createClient } from './api.js';
 import { takeLink } from './links.js';
 import App from './App.jsx';
+import PageCatcher from './PageCatcher.jsx';
 
 // U7d-2: an emailed link's token, taken out of the address before anything
 // else runs or is drawn, so it is never left there (src/links.js).
@@ -28,8 +29,12 @@ const theme = createTheme({
 
 const client = createClient();
 
+// Anything that goes wrong while the screens are drawn is said in plain
+// words, never a blank page (src/PageCatcher.jsx).
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App theme={theme} storage={storage} client={client} link={link} />
+    <PageCatcher storage={storage}>
+      <App theme={theme} storage={storage} client={client} link={link} />
+    </PageCatcher>
   </StrictMode>,
 );

@@ -146,6 +146,19 @@ const STRUCTURE = {
     const timed = (side) => side && Object.fromEntries(Object.entries(side).map(([k, v]) => [k, said(k, v)]));
     return { ...out, newest: { ...out.newest, before: timed(out.newest.before), after: timed(out.newest.after) } };
   },
+  // Platform 0048: a day's cars let out -- its keys, the counts and each one's kind, source and
+  // gate agent in short (#90) in the platform's order (oldest first); the day and its two edges by
+  // kind only (the run's date).
+  exceptionsDay: (data) => ({
+    keys: Object.keys(data).sort(),
+    day: /^\d{4}-\d{2}-\d{2}$/.test(data.day) ? 'a date' : data.day,
+    from: typeof data.from,
+    to: typeof data.to,
+    count: data.count,
+    let_out_unpaid: data.let_out_unpaid,
+    order: data.exceptions.map((x) => [x.kind, x.source, x.authority, x.records, x.gate_agent]),
+    item: shapeOf(data.exceptions),
+  }),
   refused: (data) => {
     const [line] = data.refused;
     return {
@@ -315,6 +328,71 @@ export async function recordBanned(base, { origin, owner, elsewhere = 'http://el
   await call('banned cars, after the removal', 'GET', '/garages/{garage}/banned');
   await call('tailgaters not banned, this garage only', 'PATCH', '/garages/{garage}', { ban_tailgaters: false, ban_reach: 'garage' });
   await call('changes, after the banned cars', 'GET', '/garages/{garage}/changes', undefined, {}, { structure: 'changes' });
+  return state.out;
+}
+
+/** A day written YYYY-MM-DD, `n` days on (or back): calendar days, no clock. */
+const dayOn = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Platform 0048 (and #90): the cars a person let out, as the Exceptions page
+ * meets them -- a day's list (today unnamed, then a day named in the path:
+ * today and the day before), each one's whole story with its pictures, a
+ * picture through its record, and every refusal the page can meet. Read
+ * only: the page sends nothing else. `hooks.letOuts(garage)` lets four cars
+ * out at the garage today, as the platform's own harness does
+ * (test/record-exceptions.js): one owing, let out by the owner, with a
+ * declined card, a reader gone offline, its pictures, and the gate agent's
+ * messages and calls copied; one paid that a person at the lane opened for
+ * anyway, with no gate agent set up; one owing, let out with the account's
+ * key, its gate agent not answering; one let out with the key whose copies
+ * the retention purge blanked -- then the sweep finishes each record.
+ * `hooks.whole(what, data)`, when given, sees each story as answered (the
+ * recording keeps them to build the stand-in's from). A picture is written
+ * down by its status, its kind and its headers, never its bytes. Recorded
+ * apart from `record`, on a garage of its own.
+ */
+export async function recordExceptions(base, { origin, owner, hooks }) {
+  const { state, call } = recorder(base, origin);
+  const picture = async (what, path) => {
+    const res = await fetch(`${base}/api/v1${path.replace('{garage}', state.garage)}`, { headers: { origin, cookie: state.cookie } });
+    const bytes = Buffer.from(await res.arrayBuffer());
+    state.out.push(res.ok
+      ? { what, status: res.status, type: res.headers.get('content-type'), cache: res.headers.get('cache-control'), sniff: res.headers.get('x-content-type-options'), image: bytes.length > 0 }
+      : { what, status: res.status, body: JSON.parse(bytes.toString('utf8')) });
+  };
+  await call('sign-in, for the exceptions', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('garages, for the exceptions', 'GET', '/garages', undefined, {}, { quiet: true })).garages[0].id;
+  await call('exceptions, none yet', 'GET', '/garages/{garage}/exceptions', undefined, {}, { structure: 'exceptionsDay' });
+  await hooks.letOuts(state.garage);
+  await call('exceptions, a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/exceptions`);
+  await call('exceptions, a day that is not on the calendar', 'GET', '/garages/{garage}/exceptions/day/2026-02-30');
+  await call('exceptions, a day not written as a date', 'GET', '/garages/{garage}/exceptions/day/yesterday');
+  const today = await call('exceptions, today', 'GET', '/garages/{garage}/exceptions', undefined, {}, { structure: 'exceptionsDay' });
+  await call('exceptions, today by its date', 'GET', `/garages/{garage}/exceptions/day/${today.day}`, undefined, {}, { structure: 'exceptionsDay' });
+  await call('exceptions, the day before', 'GET', `/garages/{garage}/exceptions/day/${dayOn(today.day, -1)}`, undefined, {}, { structure: 'exceptionsDay' });
+  await call('exceptions, a day of a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/exceptions/day/${today.day}`);
+  const names = [
+    'owing, let out by the owner, the gate agent copied', 'paid, opened at the lane, no gate agent set up',
+    'owing, let out with the key, the gate agent not answering', 'owing, let out with the key, its copies blanked by the retention purge',
+  ];
+  const stories = [];
+  for (const [i, x] of today.exceptions.entries()) {
+    const what = `one exception, ${names[i] ?? `number ${i + 1}`}`;
+    const whole = await call(what, 'GET', `/garages/{garage}/exceptions/${x.id}`);
+    stories.push(whole.exception);
+    await hooks.whole?.(what, whole);
+  }
+  await call('one exception, not this garage\'s', 'GET', `/garages/{garage}/exceptions/${NOT_THEIRS}`);
+  await call('one exception, through a garage not theirs', 'GET', `/garages/${NOT_THEIRS}/exceptions/${today.exceptions[0]?.id ?? NOT_THEIRS}`);
+  await call('one exception, its address not one', 'GET', '/garages/{garage}/exceptions/not-one');
+  // #90: a picture through the record that lists it; another record's, through one that does not.
+  const [first, , third] = stories;
+  const entry = first?.pictures.entry[0]?.id ?? NOT_THEIRS;
+  await picture('a picture the record lists', `/garages/{garage}/exceptions/${first?.id ?? NOT_THEIRS}/pictures/${entry}`);
+  await picture('a picture another record lists, asked through this one', `/garages/{garage}/exceptions/${third?.id ?? NOT_THEIRS}/pictures/${entry}`);
+  await picture('a picture no record lists', `/garages/{garage}/exceptions/${first?.id ?? NOT_THEIRS}/pictures/${NOT_THEIRS}`);
+  await picture('a picture, through a garage not theirs', `/garages/${NOT_THEIRS}/exceptions/${first?.id ?? NOT_THEIRS}/pictures/${entry}`);
   return state.out;
 }
 

@@ -99,6 +99,8 @@ jobs:
         run: npm test
       - name: Every finding code the rate engine can return has its own sentence, read from the engine at its pin
         run: npm run check-finding-codes
+      - name: Every currency's digits after the point, as the rate engine at its pin has them, for every currency a garage can be added with
+        run: npm run check-currency-digits
       - name: The page never touches the session, and asks only its own origin
         run: npm run check-page-stays-home
       - name: Home says only what it shows
@@ -246,6 +248,15 @@ jobs:
 
       - name: Stuck stays -- listed with the garage's time, plate, lane and picture; the hours a whole number; ended or written off only with a reason, at the garage's time; what it owes said, no card charged; the change log shows the reason as words
         run: npm run check-stuck
+
+      - name: Exceptions -- every car a person let out, newest first, on the garage's own day and clock; the gate agent in a line, not set up or not reached said so; one car's story in order, each address paged with what became of it, the calls; the reason as words; read only
+        run: npm run check-exceptions
+
+      - name: The Rates page when things change under the owner -- another owner's save dated ahead, this computer's clock two minutes slow, a special removed while it is changed, a special the form cannot show, two tax lists that number their lines alike, a fault while drawing said in plain words
+        run: npm run check-rates-meanwhile
+
+      - name: The Rates page's two rules -- the cheapest price wins, and a stay longer than 90 days needs an operator -- by the caps and the special rates, both languages; no price in either calculator for a stay past it
+        run: npm run check-rate-rules
 
       - name: The owner's screens tidied -- the choosers on Settings only, Garage View's name, lists of 312 paged and downloaded and printed whole, no Download or Print on an empty list, Confirm email, Home's garages
         run: npm run check-tidy
