@@ -246,6 +246,9 @@ jobs:
       - name: Rates and the Open button -- the form sends the document it builds, the engine's prices row for row (recorded), findings in plain words, saved only once ticked and confirmed, a stale table refused, downloads and print, Open only with nothing missing
         run: npm run check-rates
 
+      - name: Stuck stays -- listed with the garage's time, plate, lane and picture; the hours a whole number; ended or written off only with a reason, at the garage's time; what it owes said, no card charged; the change log shows the reason as words
+        run: npm run check-stuck
+
       - name: Exceptions -- every car a person let out, newest first, on the garage's own day and clock; the gate agent in a line, not set up or not reached said so; one car's story in order, each address paged with what became of it, the calls; the reason as words; read only
         run: npm run check-exceptions
 

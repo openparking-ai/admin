@@ -40,6 +40,10 @@ export const PROBLEM_KINDS = [
   'planNeedsSpaces', 'fillChoiceMissing', 'spacesRefused', 'spacesNeeded',
   // The platform could not reach its database (its src/db.js): nothing changed, or a change that may have been saved.
   'databaseUnavailable', 'databaseSaving',
+  // Stuck stays (platform 0043): the garage's hours, and a stay ended or written off.
+  'stuckHoursRefused', 'stayGone', 'stayNotOpen', 'reasonRequired', 'reasonOneLine', 'leftBeforeEntry', 'leftInFuture', 'leftTimeOdd',
+  // Ending a stay with an exit lane's case still open on it (platform 0045): its payment, at Stripe.
+  'stayPaymentInProgress', 'stayPaymentMoving', 'stayPaymentUnsettled', 'stayPaymentMismatch',
   // The cars a person let out (platform 0048): a day the list cannot take, and a record not this garage's.
   'dayRefused', 'letOutGone',
 ];
@@ -139,6 +143,14 @@ const NAMED = [
   [409, 'no_rate_plan', 'noRatesYet'],
   [429, 'too_many_tries', 'tooManyTries'],
   [409, 'garage_not_activatable', 'notReadyToOpen'],
+  // Stuck stays, as the platform's src/stuckStays.js and src/app.js name them (0043).
+  [400, 'stuck_after_hours_invalid', 'stuckHoursRefused'],
+  [404, 'stay_not_found', 'stayGone'],
+  [409, 'stay_not_open', 'stayNotOpen'],
+  [400, 'reason_required', 'reasonRequired'],
+  [400, 'reason_invalid', 'reasonOneLine'],
+  [400, 'left_at_before_entry', 'leftBeforeEntry'],
+  [409, 'clock_skew', 'leftInFuture'],
   // The cars a person let out, as the platform's src/app.js names them (0048).
   [400, 'day_invalid', 'dayRefused'],
   [404, 'exception_not_found', 'letOutGone'],
@@ -154,6 +166,21 @@ const PLAN_BY_STATUS = { 400: 'planRefused', 404: 'garageNotFound' };
 const TRY_BY_STATUS = { 400: 'tryRefused', 404: 'garageNotFound' };
 /** The try answers "no engine to ask" as a 503, which elsewhere is the taxes' words. */
 const TRY_NAMED = [[503, 'rate_engine_unavailable', 'ratesNotChecked']];
+
+/**
+ * Ending a stay (platform 0045): an exit lane's case left open on the stay
+ * never blocks it -- the platform cancels the case's unpaid payment at Stripe
+ * first, then closes the case with the stay. What can stop that, each in its
+ * own words, as the platform's src/app.js names them on this route; nothing
+ * changed in any of them. Named here, not for every route: on an exit
+ * lane's own routes the same codes mean something else.
+ */
+const END_NAMED = [
+  [409, 'payment_in_progress', 'stayPaymentInProgress'],
+  [409, 'stay_payment_moving', 'stayPaymentMoving'],
+  [503, 'payment_unsettled', 'stayPaymentUnsettled'],
+  [409, 'payment_amount_mismatch', 'stayPaymentMismatch'],
+];
 
 /**
  * What a refusal carries that the screens show in their own words: the
@@ -266,6 +293,11 @@ export const problemKey = (problem) =>
  */
 export function bannedPicturePath(garageId, banId, pictureId) {
   return `${BASE}/garages/${encodeURIComponent(garageId)}/banned/${encodeURIComponent(banId)}/pictures/${encodeURIComponent(pictureId)}`;
+}
+
+/** Where one entry picture of a stay is (platform 0043): fetched by the browser, as a banned car's is. */
+export function stayPicturePath(garageId, stayId, pictureId) {
+  return `${BASE}/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/pictures/${encodeURIComponent(pictureId)}`;
 }
 
 /**
@@ -616,6 +648,47 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
       const data = object(await request(`/garages/${encodeURIComponent(garageId)}/sessions/open`));
       if (!Array.isArray(data.sessions)) throw new Problem('unexpected');
       return data;
+    },
+    // ── Stuck stays (platform 0043) ──
+    /**
+     * The open stays that look stuck, oldest first: older than the garage's
+     * own number of hours, or not seen on its latest walk. The hours are the
+     * platform's setting, read with the list, never kept here.
+     */
+    stuckStays: async (garageId) => {
+      const data = object(await request(`/garages/${encodeURIComponent(garageId)}/stays/stuck`));
+      if (!Number.isInteger(data.stuck_after_hours) || data.stuck_after_hours < 1) throw new Problem('unexpected');
+      return { stuckAfterHours: data.stuck_after_hours, stays: list(data, 'stays') };
+    },
+    /** How many hours an open stay waits before it is listed: a whole number the platform bounds. */
+    setStuckAfterHours: async (garageId, hours) =>
+      object(await request(`/garages/${encodeURIComponent(garageId)}`, { method: 'PATCH', body: { stuck_after_hours: hours } })),
+    /**
+     * End one stay: `ended` (the car left at `leftAt`, an instant) or
+     * `abandoned` (written off), with the person's reason. Nothing is charged:
+     * an ended stay's price comes back as what it owes (`owedMinor`, null
+     * when the rates could not price it). Since platform 0045 that is what
+     * it still owes: the price (`priceMinor`) less what was paid on the stay
+     * at an exit (`paid`, null when nothing was), never below 0 -- the
+     * platform's figure, never worked out here. `passUnasked`: the garage
+     * has no exit lane, so a pass it links was not asked about this car.
+     */
+    endStay: async (garageId, stayId, { outcome, reason, leftAt = null }) => {
+      const body = { outcome, reason, ...(outcome === 'ended' && leftAt ? { left_at: leftAt } : {}) };
+      const stay = object(object(await request(`/garages/${encodeURIComponent(garageId)}/stays/${encodeURIComponent(stayId)}/end`, { method: 'POST', body, named: END_NAMED })).stay);
+      const owed = stay.ended?.owed ?? null;
+      if (stay.owed_minor !== null && !Number.isInteger(stay.owed_minor)) throw new Problem('unexpected');
+      const paid = stay.ended?.paid ?? null;
+      const paidOk = paid !== null && typeof paid === 'object' && Number.isInteger(paid.amount_minor) && typeof paid.currency === 'string';
+      return {
+        owedMinor: stay.owed_minor,
+        currency: stay.currency,
+        covered: owed?.outcome === 'covered',
+        priced: owed !== null && owed.refused !== true,
+        priceMinor: Number.isInteger(owed?.fee_minor) ? owed.fee_minor : null,
+        paid: paidOk ? { amountMinor: paid.amount_minor, currency: paid.currency.toUpperCase() } : null,
+        passUnasked: stay.pass_unasked === true,
+      };
     },
     /**
      * Every list of taxes the garage has stated, each with when it starts and

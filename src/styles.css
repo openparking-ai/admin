@@ -1015,6 +1015,15 @@ ul {
   margin-top: 2px;
   max-width: 34ch;
 }
+/* A word of care under a field's box, after what is typed: shown, never behind a pointer. */
+.field-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  max-width: 48ch;
+}
 
 /* ── Printing a list: the browser's own print, plain dark text, no frame ── */
 /* ── Setup (U4): the checklist, lane setup, the change log ─────────────── */

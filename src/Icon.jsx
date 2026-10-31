@@ -12,6 +12,7 @@ const PATHS = {
   car: ['M5 16l1.5-5.5A2 2 0 0 1 8.4 9h7.2a2 2 0 0 1 1.9 1.5L19 16', 'M3 16h18v3H3z', 'M7 19v2', 'M17 19v2'],
   // U7f: banned cars -- a circle with a bar across it.
   ban: ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18', 'M5.6 5.6l12.8 12.8'],
+  clock: ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18', 'M12 7v5l3 2'],
   // Platform 0048: the cars let out -- a barrier arm raised beside its post.
   barrier: ['M5 21V8', 'M3 21h4', 'M5 9l14-6', 'M8 7.7l1 2.3', 'M12 6l1 2.3', 'M16 4.3l1 2.3'],
   search: ['M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13', 'M15.5 15.5L20 20'],
