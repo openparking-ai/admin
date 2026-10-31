@@ -43,14 +43,17 @@ function entry(kind, id, title, words, extra) {
   };
 }
 
-/** Every page and setting, with its title and other words, in `language`. */
-export function buildIndex(language) {
+/**
+ * Every page and setting, with its title and other words, in `language`; only the pages
+ * `opens` lets the person signed in see, and only the settings on those pages (src/access.js).
+ */
+export function buildIndex(language, opens = () => true) {
   const t = (key) => translate(language, key);
   return [
     ...PAGES.map((page) =>
       entry('page', page.id, t(`page.${page.id}.title`), t(`page.${page.id}.words`), { page }),
-    ),
-    ...FEATURES.map((feature) =>
+    ).filter((e) => opens(e.id)),
+    ...FEATURES.filter((feature) => !feature.action?.page || opens(feature.action.page)).map((feature) =>
       entry('feature', feature.id, t(`feature.${feature.id}.title`), t(`feature.${feature.id}.words`), {
         action: feature.action,
       }),

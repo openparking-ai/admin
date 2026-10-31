@@ -7,7 +7,12 @@
 // test/platform-shapes.json, recorded from the real platform:
 //   POST /api/v1/auth/sign-in    { email, password } -> sets the session cookie; { email, tenant_id, session_ends_at, language }
 //   POST /api/v1/auth/sign-out   ends the session: 204, no body
-//   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }
+//   GET  /api/v1/auth/me         { email, tenant_id, session_ends_at, language }; with setAccess (platform 0035),
+//                                also { kind, name, permissions, garages }
+// Platform 0035, passkeys, as a platform with none set up (no PASSKEY_RP_ID) answers:
+//   POST /api/v1/auth/passkey/options   409 passkeys_not_configured
+//   GET  /api/v1/auth/passkeys          { passkeys: [] }; 409 passkeys_elsewhere for a linked person
+//   POST /api/v1/auth/passkeys/options  409 passkeys_not_configured; 409 passkeys_elsewhere for a linked person
 //   PUT  /api/v1/auth/language   { language } -> the signed-in owner's own language, 'en' or 'es'; { language }
 //   GET  /api/v1/garages         { garages: [{ id, name, timezone, currency, live }] }
 //   POST /api/v1/garages         { name, timezone, currency } -> 201 { garage } (U7c), the garage's whole row,
@@ -283,6 +288,9 @@ const SESSION_ENDED = { error: 'The session has ended. Sign in again.', code: 's
 const REFUSED = { error: 'Sign-in refused. Check the email and password.', code: 'sign_in_refused' };
 const UNREADABLE = { error: 'The sign-in request could not be read. Send JSON: {"email", "password"}.', code: 'sign_in_unreadable' };
 const ORIGIN_REFUSED = { error: 'This request did not come from the admin site.', code: 'origin_refused' };
+// Platform 0035, its src/passkeys.js.
+const PASSKEYS_OFF = { error: 'This deployment has no passkeys configured. Use your password.', code: 'passkeys_not_configured' };
+const PASSKEYS_ELSEWHERE = { error: 'Your passkeys are kept where your account is kept.', code: 'passkeys_elsewhere' };
 // The fill rule (platform 0034), word for word as the platform says them.
 const SPACES_REFUSED = { error: 'spaces must be a whole number from 1 to 100000, or null', code: 'garage_spaces_refused' };
 const SPACES_NEEDED = {
@@ -2286,6 +2294,11 @@ export async function startStub({ port = 0 } = {}) {
     }
 
     if (path === '/api/v1/auth/sign-in' && req.method === 'POST') return signIn(req, res);
+    // Platform 0035: this stand-in has no passkeys set up, as a platform with no PASSKEY_RP_ID.
+    if (path === '/api/v1/auth/passkey/options' && req.method === 'POST') {
+      if (!allowedOrigin || req.headers.origin !== allowedOrigin) return send(res, 403, ORIGIN_REFUSED);
+      return send(res, 409, PASSKEYS_OFF);
+    }
     // U7d-2: the four doors read no cookie, and no query.
     if (DOORS[path] && req.method === 'POST') return door(req, res, send, DOORS[path]);
 
@@ -2303,7 +2316,17 @@ export async function startStub({ port = 0 } = {}) {
       return send(res, 204, undefined, clearCookie);
     }
     if (path === '/api/v1/auth/me' && req.method === 'GET') {
-      return send(res, 200, { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language });
+      const me = { email: who.email, tenant_id: who.tenant_id, session_ends_at: new Date(Date.now() + 30 * MINUTE).toISOString(), language: who.language };
+      // Platform 0035, only when a check asks for it (setAccess): the recording predates it.
+      return send(res, 200, who.access ? { kind: who.access.kind, name: who.access.name ?? null, ...me, permissions: who.access.permissions, garages: who.access.garages } : me);
+    }
+    if (path === '/api/v1/auth/passkeys' && req.method === 'GET') {
+      if (who.access?.kind === 'linked') return send(res, 409, PASSKEYS_ELSEWHERE);
+      return send(res, 200, { passkeys: [] });
+    }
+    if (path === '/api/v1/auth/passkeys/options' && req.method === 'POST') {
+      if (who.access?.kind === 'linked') return send(res, 409, PASSKEYS_ELSEWHERE);
+      return send(res, 409, PASSKEYS_OFF);
     }
     if (path === '/api/v1/auth/language' && req.method === 'PUT') {
       // The owner is the session's; nothing else in the body is read.
@@ -2353,6 +2376,13 @@ export async function startStub({ port = 0 } = {}) {
     issued,
     failNext: (kind) => {
       failNext = kind;
+    },
+    /**
+     * Platform 0035: `/auth/me` for `owner` names `{ kind, name, permissions, garages }`, as for
+     * a person from a linked accounts module; null puts it back to the recorded answer.
+     */
+    setAccess: (owner, access) => {
+      owner.access = access;
     },
     /** The next read that is not an auth route answers `ms` later. */
     slowNext: (ms) => {

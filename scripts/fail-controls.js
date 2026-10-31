@@ -1702,6 +1702,67 @@ const CONTROLS = [
     run: ['node', '--test', 'test/rates-two-saves.test.js'],
     names: ["the specials, one by one"],
   },
+  // Platform 0035: what the person signed in may open (src/access.js), passkeys (src/passkeys.js) and the People link.
+  {
+    check: 'access: a change no longer covers its read',
+    plant: { file: 'src/access.js', anchor: "  return verb === 'read' && access.permissions.includes(`${area}:change`);", with: '  return false;' },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['a change covers its read; a read never covers a change'],
+  },
+  {
+    check: 'access: the cars let out open without the stays',
+    plant: { file: 'src/access.js', anchor: "  exceptions: ['stays:read', 'lanes:read'],", with: "  exceptions: ['lanes:read']," },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['the dashboard ranks, as the linked accounts module gives them, each open their own pages only'],
+  },
+  {
+    check: 'access: the stuck stays open without the stays',
+    plant: { file: 'src/access.js', anchor: "  stuck: ['stays:read'],", with: '  stuck: [],' },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['the dashboard ranks, as the linked accounts module gives them, each open their own pages only'],
+  },
+  {
+    check: 'access: an answer with no permissions opens nothing',
+    plant: { file: 'src/access.js', anchor: "  if (!who || typeof who !== 'object' || who.permissions === undefined) return EVERYTHING;", with: "  if (!who || typeof who !== 'object') return EVERYTHING;" },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['a platform from before permissions, and the admin, open every page'],
+  },
+  {
+    check: 'access: Home reads the cars inside for someone who may not',
+    plant: { file: 'src/Home.jsx', anchor: '  const inside = useGarageRead(useCallback(readIf(shows.inside, (id) => client.carsInside(id)), [client, shows.inside]), garage.id);\n  const part', with: '  const inside = useGarageRead(useCallback((id) => client.carsInside(id), [client, shows.inside]), garage.id);\n  const part' },
+    run: ['node', '--test', 'test/access.test.js'],
+    names: ['Home makes each read beyond the garages only behind the permission it needs'],
+  },
+  {
+    check: 'access: a sign-in does not ask /auth/me',
+    plant: { file: 'src/api.js', anchor: "      return { ...answer, ...object(await request('/auth/me')) };", with: '      return answer;' },
+    run: ['node', '--test', 'test/passkeys.test.js'],
+    names: ['a password sign-in learns what the person may open from /auth/me', 'signing in with a passkey: the options, the answer to them, and the challenge id sent back'],
+  },
+  {
+    check: 'passkeys: a closed window said as a refusal',
+    plant: { file: 'src/passkeys.js', anchor: "err?.name === 'NotAllowedError' || err?.name === 'AbortError'", with: "err?.name === 'AbortError'" },
+    run: ['node', '--test', 'test/passkeys.test.js'],
+    names: ["the browser's window: closed is 'no passkey used'"],
+  },
+  {
+    check: 'passkeys: a refused passkey said as a wrong password',
+    plant: { file: 'src/api.js', anchor: "code === 'passkey_refused' ? 'passkeyRefused' : 'refused'", with: "'refused'" },
+    run: ['node', '--test', 'test/passkeys.test.js'],
+    names: ['every passkey refusal, and the new refusals of every route, become their own words'],
+  },
+  {
+    check: 'people link: an address that is not https',
+    plant: { file: 'src/extras.js', anchor: "  if (url.protocol !== 'https:' || url.username", with: '  if (url.username' },
+    run: ['node', '--test', 'test/people-link.test.js'],
+    names: ['anything else is no link'],
+  },
+  {
+    check: 'people link: a name and password in the address',
+    plant: { file: 'src/extras.js', anchor: '|| url.username || url.password ||', with: '||' },
+    run: ['node', '--test', 'test/people-link.test.js'],
+    names: ['anything else is no link'],
+  },
   // Stuck stays after platform 0045: a person's end closes an exit lane's case left open on the stay.
   // Each change of that round red on its plant.
   {
@@ -2245,6 +2306,21 @@ const BROWSER_CONTROLS = [
     before: BUILD,
     run: ['node', 'scripts/check-browser.js'],
     names: ['FAIL the menu has "Banned cars"', 'FAIL the menu: Setup holds every other page, in order', 'FAIL the menu: every page once'],
+  },
+  // Platform 0035 in a browser: the menu and the pages follow /auth/me.
+  {
+    check: 'access: the menu lists every page whatever the person may open (browser)',
+    plant: { file: 'src/App.jsx', anchor: '  const menu = menuPages(PAGES.filter((p) => pageOpens(p.id)));', with: '  const menu = menuPages(PAGES);' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ["FAIL a linked person's menu does not list #/rates"],
+  },
+  {
+    check: 'access: a page outside the permissions drawn when opened by its address (browser)',
+    plant: { file: 'src/App.jsx', anchor: '  } else if (!menuEntry && !pageOpens(page.id)) {', with: '  } else if (false) {' },
+    before: BUILD,
+    run: ['node', 'scripts/check-browser.js'],
+    names: ['FAIL a page outside their permissions, opened by its address'],
   },
   {
     check: 'menu: a group row drawn bold, apart from the page rows (browser)',
@@ -3064,7 +3140,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'U7a-6 Home shows the first garage whichever is chosen',
-    plant: { file: 'src/Home.jsx', anchor: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garage} /> : null}', with: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garages[0]} /> : null}' },
+    plant: { file: 'src/Home.jsx', anchor: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garage} shows={shows} /> : null}', with: '      {garage ? <GarageDetail key={garage.id} t={t} language={language} client={client} garage={garages[0]} shows={shows} /> : null}' },
     before: BUILD,
     run: TIDY,
     names: ['FAIL 6 Home, Riverside Deck chosen: its own garage below the list'],

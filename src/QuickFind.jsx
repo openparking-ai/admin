@@ -9,7 +9,7 @@ const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userA
  * The search pill in the frame, and the finder it opens. Opened by a click or
  * by Cmd/Ctrl+K from anywhere; arrow keys move, Enter goes, Escape closes.
  */
-export default function QuickFind({ language, t, actions }) {
+export default function QuickFind({ language, t, actions, opens }) {
   const [open, setOpen] = useState(false);
   const pillRef = useRef(null);
 
@@ -43,19 +43,19 @@ export default function QuickFind({ language, t, actions }) {
         <span className="find-pill-text">{t('quickFind.pill')}</span>
         <kbd className="find-kbd">{t(isMac() ? 'quickFind.shortcutMac' : 'quickFind.shortcutOther')}</kbd>
       </button>
-      {open ? <Finder language={language} t={t} actions={actions} onClose={close} /> : null}
+      {open ? <Finder language={language} t={t} actions={actions} opens={opens} onClose={close} /> : null}
     </>
   );
 }
 
-function Finder({ language, t, actions, onClose }) {
+function Finder({ language, t, actions, opens, onClose }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const listId = useId();
 
-  const index = useMemo(() => buildIndex(language), [language]);
+  const index = useMemo(() => buildIndex(language, opens), [language, opens]);
   const results = useMemo(() => search(index, query), [index, query]);
   const pages = results.filter((r) => r.kind === 'page');
   const settings = results.filter((r) => r.kind === 'feature');

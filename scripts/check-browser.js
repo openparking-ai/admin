@@ -1446,6 +1446,48 @@ try {
   check(await showsLook(dark.page, 'night'), 'first visit on a dark computer is night');
   await dark.context.close();
 
+  // ── Platform 0035: the menus follow /auth/me, and passkeys ──────────────
+  // B signed in as a person from a linked accounts module who looks after garages, lanes,
+  // the cars inside and the change log: the menu and Quick Find list only those pages, a
+  // page outside them reached by its address draws nothing of its own, and Settings says
+  // their passkeys are kept with their account. Then the admin's own passkeys, and the
+  // sign-in screen's passkey button against a platform with none set up.
+  stub.setAccess(B, { kind: 'linked', name: 'Site lead', permissions: ['garages:read', 'lanes:read', 'stays:read', 'log:read'], garages: 'all' });
+  const lead = await open();
+  await signIn(lead.page, B);
+  check(await showsText(lead.page, EN.signOut), 'a linked person signs in');
+  for (const [href, has] of [['#/lanes', true], ['#/garage-view', true], ['#/change-log', true], ['#/exceptions', true], ['#/stuck-stays', true], ['#/rates', false], ['#/getting-paid', false], ['#/card-readers', false], ['#/taxes', false]]) {
+    check((await navHas(lead.page, href)) === has, `a linked person's menu ${has ? 'lists' : 'does not list'} ${href}`);
+  }
+  await lead.page.goto(`${base}#/rates`);
+  check(await showsText(lead.page, EN['page.notAllowed']), `a page outside their permissions, opened by its address, says "${EN['page.notAllowed']}"`);
+  check((await lead.page.locator('[data-section="rates"], .rates-form, [data-list="rate-plans"]').count()) === 0, 'and draws nothing of the page');
+  await lead.page.goto(`${base}#/settings`);
+  check(await showsText(lead.page, EN['passkeys.elsewhere']), `a linked person's Settings says "${EN['passkeys.elsewhere']}"`);
+  check((await lead.page.locator('[data-action="add-passkey"]').count()) === 0, "and offers no passkey to add here");
+  await lead.page.click('[data-action="sign-out"]');
+  await lead.context.close();
+  stub.setAccess(B, null);
+
+  const keys = await open();
+  check((await keys.page.locator('[data-action="passkey"]').count()) === 1, 'the sign-in screen offers a passkey in a browser that has them');
+  await keys.page.click('[data-action="passkey"]');
+  check(await showsText(keys.page, EN['problem.passkeysOff']), `a passkey asked of a platform with none set up: "${EN['problem.passkeysOff']}"`);
+  await signIn(keys.page, A);
+  check(await showsText(keys.page, EN.signOut), 'the password still signs in after');
+  await keys.page.goto(`${base}#/settings`);
+  check(await showsText(keys.page, EN['passkeys.none']), `the admin's Settings lists their passkeys: "${EN['passkeys.none']}"`);
+  await keys.page.click('[data-action="add-passkey"]');
+  await keys.page.fill('[data-field="passkey-name"]', 'Laptop');
+  await keys.page.fill('[data-field="passkey-password"]', 'a password typed');
+  await keys.page.click('[data-panel="add-passkey"] button[type="submit"]');
+  check(await showsText(keys.page, EN['problem.passkeysOff']), `adding one where none are set up says "${EN['problem.passkeysOff']}"`);
+  check((await keys.page.inputValue('[data-field="passkey-password"]')) === '', 'the password typed to add a passkey is emptied after the attempt');
+  // Its name, and the password asked again (platform 0047), each described.
+  await checkDescribed(keys.page, 'Settings, adding a passkey', 'en', 4);
+  await keys.page.click('[data-action="sign-out"]');
+  await keys.context.close();
+
   // ── Every other answer the sign-in route gives, each in its own words ───
   // As the platform gives them (test/platform-shapes.json): the stand-in is
   // asked for the ones only a platform set up for them gives; an empty

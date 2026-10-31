@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { problemKey } from './api.js';
+import { askForPasskey, passkeysHere } from './passkeys.js';
 import SignedOut from './SignedOut.jsx';
 import FieldName from './FieldName.jsx';
 
@@ -9,14 +10,30 @@ const SAID = { passwordChanged: 'signIn.passwordChanged' };
 /**
  * Email and password. The password lives in this form only while it is being
  * typed: it is cleared after every attempt, whatever the answer, and is never
- * put in the address, in browser storage or in a log.
+ * put in the address, in browser storage or in a log. A passkey is a second way
+ * in, offered only where the browser has passkeys; the password always stays.
  */
-export default function SignIn({ t, client, notice, controls, onSignedIn, onForgot }) {
+export default function SignIn({ t, client, notice, controls, onSignedIn, onForgot, passkeys = passkeysHere() }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [problem, setProblem] = useState(null);
   const [working, setWorking] = useState(false);
   const passwordRef = useRef(null);
+
+  const withPasskey = async () => {
+    if (working) return;
+    setWorking(true);
+    setProblem(null);
+    setPassword('');
+    try {
+      const who = await client.passkeySignIn((options) => askForPasskey(options));
+      onSignedIn(who);
+    } catch (caught) {
+      setProblem({ kind: caught?.kind });
+    } finally {
+      setWorking(false);
+    }
+  };
 
   // What to say: this form's own answer first, else why the owner is here.
   const said = SAID[notice] ?? null;
@@ -82,6 +99,13 @@ export default function SignIn({ t, client, notice, controls, onSignedIn, onForg
           {working ? t('signIn.working') : t('signIn.submit')}
         </button>
       </form>
+      {passkeys ? (
+        <p className="signin-more">
+          <button type="button" className="secondary-button" data-action="passkey" disabled={working} onClick={withPasskey}>
+            {t('signIn.passkey')}
+          </button>
+        </p>
+      ) : null}
       <p className="signin-more">
         <button type="button" className="link-button" data-action="forgot" onClick={onForgot}>
           {t('signIn.forgot')}

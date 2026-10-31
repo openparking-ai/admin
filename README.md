@@ -55,6 +55,34 @@ The build publishes no source maps.
   password field is emptied after every attempt. On sign-out, and on any 401 from
   any request, everything held about the owner is dropped and the sign-in screen
   shown. `src/SignIn.jsx`, `src/owner.js`.
+- **Passkeys** (platform 0035): where the browser has passkeys, the sign-in screen
+  offers "Sign in with a passkey" beside the password, which always stays. The
+  platform's options go to the browser's own window and its answer goes back with
+  the challenge's id (`src/passkeys.js` converts base64url both ways; nothing is
+  kept). A closed window is "no passkey used", never a refusal; a refused passkey,
+  passkeys not set up, a challenge that took too long, each has its own words. On
+  Settings the admin lists, adds (named, up to 60 characters), renames and removes
+  their own; adding one asks for the password again, which the platform needs
+  unless the admin signed in with it in the last five minutes (platform 0047's
+  `403 password_required`, and a wrong one `password_not_accepted`, each in its
+  own words); a person from a linked accounts module is told theirs are kept with
+  their account. The server in front must not switch off
+  `publickey-credentials-get` or `publickey-credentials-create` in its
+  `Permissions-Policy`. `src/PasskeysSection.jsx`.
+- **The menus and the pages follow `/auth/me`** (platform 0035, its README
+  "Permissions: one on every operator route"). Every way of signing in (password,
+  passkey, an accepted invite) asks `/auth/me` before a screen is drawn, since only
+  it names the person's permissions and garages. Each page lists the reads it makes
+  (`src/access.js` `PAGE_NEEDS`; `test/access.test.js` fails when a page makes a
+  read its list leaves out; the cars let out, Exceptions, read the stays and the
+  lanes, and the stuck stays read the stays, as the platform names those routes); the side menu and Quick Find show
+  only the pages the person holds every read of, a page opened by its address that they may not open
+  says so and draws nothing of its own, Home shows lanes and cars inside only to
+  someone who may read them, and "Add a garage" is offered only with a change to
+  garages at every garage. A `/auth/me` that names no permissions is a platform
+  from before them: everything, as before. None of this is the protection: the
+  platform refuses every route on its own, and a refusal is "Your account does not
+  allow this."
 - **One place talks to the platform**, `src/api.js`. A body that is not JSON, a
   dropped connection or a code it does not know each become words from the
   dictionaries; no code, status number or error text reaches a screen.
@@ -443,6 +471,13 @@ The file makers use jsPDF and fflate, both MIT.
 Built by 72 Knots Method by 72Knots.ai
 
 ## Extra pages from the host
+
+**A People page.** The same file may name where the host keeps a page for the people
+beside the admin, `"people": { "href": "/people/" }`: a path of this origin, or an
+`https` address with no name or password in it. The site then draws one link, "People",
+beside Sign out, for whoever is signed in; the page there decides what each person may
+do. Anything else, or nothing, is no link (`src/extras.js` `readPeopleLink`,
+`test/people-link.test.js`).
 
 A host that serves this site may serve pages of its own beside it and say so in one file
 at its origin, `/extra-pages.json` (`src/extras.js`). Each entry names a page of this
