@@ -78,13 +78,19 @@
 // owner, English until changed; anything but {"language": "en" | "es"} sent
 // as JSON is 400 `language_refused`.
 //
+// Platform 0048, the cars a person let out, as the platform's src/exceptions.js and src/app.js answer:
+//   GET  /api/v1/garages/:id/exceptions[?day=YYYY-MM-DD]  { garage_id, day, from, to, count, let_out_unpaid, exceptions }
+//        the garage's own day (today when unnamed), oldest first; a day that is not a date is 400 day_invalid
+//   GET  /api/v1/garages/:id/exceptions/:exceptionId       { exception } its whole story; 404 exception_not_found
+//   The records are test/exceptions-fixtures.js's, placed by `letOutStories`; none at first.
 // Every name, address and plate here is invented.
 
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { CURRENCY_CODES } from '../src/garages.js';
-import { instantOf } from '../src/rates.js';
+import { instantOf, wallAt } from '../src/rates.js';
 import { startEngine } from '../scripts/engine-at-pin.js';
+import { exceptionStories } from './exceptions-fixtures.js';
 
 const MINUTE = 60_000;
 
@@ -283,6 +289,32 @@ const fillAnswersMissing = (plan) => {
   return null;
 };
 const GARAGE_NOT_FOUND = { error: 'garage not found' };
+// Platform 0048: a day the exceptions read cannot take, and a record not this garage's (its src/app.js).
+const DAY_INVALID = { error: "day is a date in the garage's own time, written YYYY-MM-DD", code: 'day_invalid' };
+const EXCEPTION_NOT_FOUND = { error: 'exception not found', code: 'exception_not_found' };
+
+/**
+ * The garage's own day, as the platform's garageDay works it out: `raw`, or
+ * today in `timezone`; from its first moment to the next day's (a midnight
+ * the clocks skip is 1:00). Null for a day that is not one.
+ */
+function garageDay(raw, timezone) {
+  const day = raw === undefined ? wallAt(Date.now(), timezone).slice(0, 10) : raw;
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const at = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(at.getTime()) || at.toISOString().slice(0, 10) !== day) return null;
+  const next = new Date(at.getTime() + 86_400_000).toISOString().slice(0, 10);
+  const start = (d) => instantOf(`${d}T00:00`, timezone) ?? instantOf(`${d}T01:00`, timezone);
+  return { day, from: start(day), to: start(next) };
+}
+
+/** A record as the day's list shows it: the platform's presentSummary, with how many records were appended. */
+const exceptionSummary = (x) => ({
+  id: x.id, kind: x.kind, source: x.source, garage_id: x.garage_id, lane_id: x.lane_id, exit_id: x.exit_id, stay_id: x.stay_id,
+  by: x.by, authority: x.authority, reason: x.reason, let_out_at: x.let_out_at, owed_minor: x.owed_minor, paid_minor: x.paid_minor,
+  currency: x.currency,
+  records: x.gate_agent.messages.length + x.gate_agent.calls.length + (x.payment_after_let_out ? 1 : 0) + (x.lane_events_after ? 1 : 0),
+});
 const LANGUAGE_REFUSED = { error: 'The language must be "en" or "es", sent as JSON: {"language"}.', code: 'language_refused' };
 const LANGUAGES = ['en', 'es'];
 // The platform reads no language body longer than this.
@@ -1018,6 +1050,48 @@ export async function startStub({ port = 0 } = {}) {
     const undone = openingOverride?.get(garage.id)?.undone ?? [];
     for (const st of steps) if (undone.includes(st.key)) st.done = false;
     return { garage_id: garage.id, open, takes_any_driver: extra.transient_available, steps };
+  }
+
+  // ── Platform 0048: the cars a person let out, per garage, as placed by a check ──
+  const letOut = new Map(); // garage id -> records, as GET .../exceptions/:id answers each
+  const letOutAt = (garageId) => (letOut.has(garageId) ? letOut.get(garageId) : letOut.set(garageId, []).get(garageId));
+  /** test/exceptions-fixtures.js's records placed at a garage, each let out at its `at`. Answers them. */
+  function letOutStories(garageId, { at, batch = letOutAt(garageId).length / 3 + 1 } = {}) {
+    const owner = Object.values(data).find((o) => o.garages.some((g) => g.id === garageId));
+    const lanes = owner.lanes[garageId] ?? [];
+    const exitLane = lanes.find((l) => l.direction === 'exit') ?? { id: 'la900000-0000-4000-8000-000000000002', devices: [] };
+    const entryLane = lanes.find((l) => l.direction === 'entry') ?? { id: 'la900000-0000-4000-8000-000000000001' };
+    const device = exitLane.devices[0] ?? { id: 'dv900000-0000-4000-8000-000000000002', name: 'Exit equipment' };
+    // By default, as recorded: a few hundredths of a second apart, a minute ago.
+    const when = at ?? [0, 41, 73].map((ms) => Date.now() - 60_000 + ms);
+    const made = exceptionStories({ garageId, exitLaneId: exitLane.id, entryLaneId: entryLane.id, device, owner: owner.email, at: when, batch });
+    letOutAt(garageId).push(...made);
+    return structuredClone(made);
+  }
+
+  function exceptionRoutes(req, res, url, who) {
+    const m = /^\/api\/v1\/garages\/([^/]+)\/exceptions(?:\/([^/]+))?$/.exec(url.pathname);
+    if (!m || req.method !== 'GET') return undefined;
+    // The platform's id check (its checkIds) comes first: a garage or record id not shaped as one names nothing.
+    if (!UUID.test(m[1])) return answer(res, 404, GARAGE_NOT_FOUND);
+    if (m[2] !== undefined && !UUID.test(m[2])) return answer(res, 404, EXCEPTION_NOT_FOUND);
+    const garage = who.garages.find((g) => g.id === m[1]);
+    if (!garage) return answer(res, 404, GARAGE_NOT_FOUND);
+    const held = letOutAt(garage.id);
+    if (m[2] !== undefined) {
+      const found = held.find((x) => x.id === m[2]);
+      return found ? answer(res, 200, { exception: structuredClone(found) }) : answer(res, 404, EXCEPTION_NOT_FOUND);
+    }
+    const days = url.searchParams.getAll('day');
+    const day = garageDay(days.length > 1 ? days : days[0], garage.timezone);
+    if (!day) return answer(res, 400, DAY_INVALID);
+    const rows = held
+      .filter((x) => Date.parse(x.let_out_at) >= day.from && Date.parse(x.let_out_at) < day.to)
+      .sort((a, b) => Date.parse(a.let_out_at) - Date.parse(b.let_out_at) || (a.id < b.id ? -1 : 1));
+    return answer(res, 200, {
+      garage_id: m[1], day: day.day, from: new Date(day.from).toISOString(), to: new Date(day.to).toISOString(),
+      count: rows.length, let_out_unpaid: rows.filter((x) => x.kind === 'let_out_unpaid').length, exceptions: rows.map(exceptionSummary),
+    });
   }
 
   // ── U7f: each garage's two tailgater settings and the cars banned there ──
@@ -1977,6 +2051,8 @@ export async function startStub({ port = 0 } = {}) {
     if (path === '/api/v1/garages' && req.method === 'GET') return send(res, 200, { garages: who.garages });
     if (path === '/api/v1/garages' && req.method === 'POST') return addGarage(req, res, who);
 
+    const exceptions = exceptionRoutes(req, res, url, who);
+    if (exceptions !== undefined) return exceptions;
     const u7g = await rateRoutes(req, res, path, who);
     if (u7g !== undefined) return u7g;
     const u6 = await moneyRoutes(req, res, path, who);
@@ -2152,6 +2228,11 @@ export async function startStub({ port = 0 } = {}) {
     lines: (who) => [...linesOf(who)],
     /** Every owner's tries forgotten, as a minute passing would (the recording waits it out). */
     forgetTries: () => tries.clear(),
+    // ── Platform 0048 ──
+    /** test/exceptions-fixtures.js's three records placed at a garage, each let out at its `at` (ms; a minute ago by default). */
+    letOutStories,
+    /** The records placed at a garage, as each one's whole story answers it. */
+    letOuts: (garageId) => structuredClone(letOutAt(garageId)),
     // ── U7f ──
     /** A tailgater listed at this garage, as the platform lists one; its row as the Banned cars read answers it. */
     listTailgater,

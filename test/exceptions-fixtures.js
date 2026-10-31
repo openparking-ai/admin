@@ -1,0 +1,760 @@
+// The stand-in's cars let out (platform 0048): three records, each as the
+// platform's GET /garages/:id/exceptions/:id answers it (`exception`).
+//
+// They are the recording's own stories (test/record-exceptions.js, kept whole
+// with WHOLE_TO, outside this repository), made from platform #89's harness:
+// every key and every kind of value as the platform gave them. Every id,
+// address and time is replaced: ids invented, addresses at example.com, and
+// each time said as milliseconds from that record's own let-out ({ $at }).
+// `{garage}`, `{exitLane}`, `{entryLane}`, `{device}`, `{deviceName}` and
+// `{owner}` are the stand-in's garage, its lanes, the exit lane's equipment and
+// the owner, filled in by `exceptionStories`.
+//
+//   1. Owing $5.00, let out by the owner: a card declined, the reader offline
+//      when tried again, the lane asking for a person; the gate agent's
+//      messages (one delivered on its second try, one not delivered -- the
+//      email refused for good, one person refused by name, the pager still
+//      retrying -- and the monitor's own, to its log) and calls (one
+//      answered, "open now"; one rung with no answer; one refused busy),
+//      copied at the let-out and again, whole, once its window passed.
+//   2. Paid, and a person at the lane opened the barrier anyway: no gate
+//      agent set up for the garage.
+//   3. Owing $2.50, let out with the account's key named "desk": the gate
+//      agent's monitor not answering and its agent refusing, each asked twice.
+//      Its reason holds markup, kept as typed.
+
+const STORIES = [
+  {
+    id: "e9000001-0000-4000-8000-000000000001",
+    kind: "let_out_unpaid",
+    source: "attendant",
+    garage_id: "{garage}",
+    lane_id: "{exitLane}",
+    exit_id: "e9000002-0000-4000-8000-000000000002",
+    stay_id: "e9000003-0000-4000-8000-000000000003",
+    by: "owner:{owner}",
+    authority: null,
+    reason: "Card declined twice; reader offline. Driver gave a name and will pay by phone.",
+    let_out_at: {"$at":0},
+    owed_minor: 500,
+    paid_minor: 0,
+    currency: "USD",
+    case_opened_at: {"$at":-30200},
+    window: {"from":{"$at":-930200},"to":{"$at":900000}},
+    story: {
+      case: {
+        id: "e9000002-0000-4000-8000-000000000002",
+        fee: {
+          outcome: "transient",
+          refused: false,
+          currency: "USD",
+          due_minor: 500,
+          covered_by: [],
+          credit_minor: 0,
+          stay_fee_minor: 500,
+        },
+        method: "single",
+        person: null,
+        picker: null,
+        exit_at: {"$at":-30200},
+        lane_id: "{exitLane}",
+        event_id: "e9000004-0000-4000-8000-000000000004",
+        opened_at: {"$at":-193},
+        candidates: 1,
+        settled_before: {"needs":"payment","settled":false},
+        claimed_entry_at: null,
+      },
+      stay: {
+        id: "e9000003-0000-4000-8000-000000000003",
+        entry_at: {"$at":-5700214},
+        entry_qr: null,
+        tailgater: false,
+        pass_session: null,
+        entry_lane_id: "{entryLane}",
+        identified_by: "plate",
+        no_open_command: false,
+        entry_confirmation: "confirmed",
+      },
+      what: "a person let the car out while it still owed",
+      payments: [
+        {
+          id: "e9000005-0000-4000-8000-000000000005",
+          status: "open",
+          channel: "lane_reader",
+          exit_id: "e9000002-0000-4000-8000-000000000002",
+          read_at: {"$at":-169},
+          currency: "usd",
+          reader_id: "tmr_exampleExitReader",
+          created_at: {"$at":-176},
+          started_by: "lane_device:{device}",
+          canceled_at: null,
+          amount_minor: 500,
+          last_failure: "card_declined:generic_decline",
+          receipt_sent: false,
+          succeeded_at: null,
+          stripe_status: "requires_payment_method",
+          payment_intent_id: "pi_example0001",
+        },
+      ],
+      lane_events: [
+        {
+          at: {"$at":-18164},
+          id: "e9000006-0000-4000-8000-000000000006",
+          kind: "fallback_needs_human",
+          detail: {"cause":"reader_declined"},
+          event_id: "e9000007-0000-4000-8000-000000000007",
+        },
+        {
+          at: {"$at":-562},
+          id: "e9000008-0000-4000-8000-000000000008",
+          kind: "lane_reader_bound",
+          detail: {},
+          event_id: "lane-reader-bound:e9000009-0000-4000-8000-000000000009",
+        },
+        {
+          at: {"$at":-174},
+          id: "e9000010-0000-4000-8000-000000000010",
+          kind: "exit_payment_started",
+          detail: {
+            actor: "lane_device:{device}",
+            channel: "lane_reader",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+            currency: "usd",
+            amount_minor: 500,
+          },
+          event_id: "exit_payment_started:e9000005-0000-4000-8000-000000000005",
+        },
+        {
+          at: {"$at":-165},
+          id: "e9000011-0000-4000-8000-000000000011",
+          kind: "exit_reader_refused",
+          detail: {
+            code: "reader_offline",
+            actor: "lane_device:{device}",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+          },
+          event_id: "exit_reader_refused:e9000012-0000-4000-8000-000000000012",
+        },
+      ],
+    },
+    payment_after_let_out: {
+      id: "e9000005-0000-4000-8000-000000000005",
+      status: "canceled",
+      channel: "lane_reader",
+      exit_id: "e9000002-0000-4000-8000-000000000002",
+      read_at: {"$at":9},
+      currency: "usd",
+      reader_id: "tmr_exampleExitReader",
+      created_at: {"$at":-176},
+      started_by: "lane_device:{device}",
+      canceled_at: {"$at":9},
+      amount_minor: 500,
+      last_failure: "card_declined:generic_decline",
+      receipt_sent: false,
+      succeeded_at: null,
+      stripe_status: "canceled",
+      payment_intent_id: "pi_example0001",
+    },
+    lane_events_after: [
+      {
+        at: {"$at":7},
+        id: "e9000013-0000-4000-8000-000000000013",
+        kind: "exit_let_out_by_person",
+        detail: {
+          owed: {"needs":"payment","settled":false},
+          actor: "owner:{owner}",
+          reason: "Card declined twice; reader offline. Driver gave a name and will pay by phone.",
+          exit_id: "e9000002-0000-4000-8000-000000000002",
+        },
+        event_id: "exit_let_out_by_person:e9000002-0000-4000-8000-000000000002",
+      },
+      {
+        at: {"$at":11},
+        id: "e9000014-0000-4000-8000-000000000014",
+        kind: "exit_payment_canceled",
+        detail: {
+          why: "let_out_by_person",
+          actor: "platform:exit",
+          exit_id: "e9000002-0000-4000-8000-000000000002",
+          payment_intent_id: "pi_example0001",
+        },
+        event_id: "exit_payment_canceled:e9000005-0000-4000-8000-000000000005",
+      },
+      {
+        at: {"$at":34},
+        id: "e9000015-0000-4000-8000-000000000015",
+        kind: "exit_payment_started",
+        detail: {
+          actor: "lane_device:{device}",
+          channel: "lane_reader",
+          exit_id: "e9000016-0000-4000-8000-000000000016",
+          currency: "usd",
+          amount_minor: 250,
+        },
+        event_id: "exit_payment_started:e9000017-0000-4000-8000-000000000017",
+      },
+      {
+        at: {"$at":40},
+        id: "e9000018-0000-4000-8000-000000000018",
+        kind: "exit_paid",
+        detail: {
+          actor: "platform:exit",
+          channel: "lane_reader",
+          exit_id: "e9000016-0000-4000-8000-000000000016",
+          currency: "usd",
+          amount_minor: 250,
+          payment_intent_id: "pi_example0002",
+        },
+        event_id: "exit_paid:e9000017-0000-4000-8000-000000000017",
+      },
+      {
+        at: {"$at":75},
+        id: "e9000019-0000-4000-8000-000000000019",
+        kind: "exit_let_out_by_person",
+        detail: {
+          owed: {"needs":"payment","settled":false},
+          actor: "key:desk",
+          reason: "Barrier stuck open <b>again</b>",
+          exit_id: "e9000020-0000-4000-8000-000000000020",
+        },
+        event_id: "exit_let_out_by_person:e9000020-0000-4000-8000-000000000020",
+      },
+      {
+        at: {"$at":60000},
+        id: "e9000021-0000-4000-8000-000000000021",
+        kind: "exit_confirmed",
+        detail: {"state":"crossed"},
+        event_id: "e9000022-0000-4000-8000-000000000022",
+      },
+    ],
+    gate_agent: {
+      messages: [
+        {
+          id: "e9000023-0000-4000-8000-000000000023",
+          state: "copied",
+          detail: null,
+          asked_lane: "lane-1",
+          asked_from: {"$at":-930200},
+          asked_to: {"$at":13},
+          complete: false,
+          copied_at: {"$at":15},
+          records: [
+            {"at":{"$at":-240163},"code":"reader_unreachable","kind":"transition","paged":true,"caveat":null,"origin":"target","source":"measured","status":null,"target":"lane","lane_id":"lane-1","site_id":"site-1","subject":"reader-1","revision":1,"record_id":"m-e9000000000000000000000000000001","cleared_at":null,"deliveries":[{"kind":"log","sink":"log","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":null,"refused_recipients":[]}],"recipients":[],"delivered_at":{"$at":-240163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":false},{"kind":"email","sink":"night-desk","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":"email: Connection unexpectedly closed","result":"failed","transient":true,"reply_code":null,"http_status":null,"refused_recipients":[]},{"at":{"$at":-210163},"reply":"2.0.0 Ok: queued as 4F2A9C01","reason":null,"result":"accepted","transient":null,"reply_code":250,"http_status":null,"refused_recipients":[]}],"recipients":["night-desk@example.com"],"delivered_at":{"$at":-210163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true},{"kind":"webhook","sink":"pager","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":204,"refused_recipients":[]}],"recipients":["paging.example.com"],"delivered_at":{"$at":-240163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true}],"monitor_id":"monitor-1","transition":"raised","target_kind":"lane","first_seen_at":{"$at":-240163}},
+            {"at":{"$at":-180163},"code":"reader_unreachable","kind":"transition","paged":true,"caveat":null,"origin":"target","source":"measured","status":null,"target":"lane","lane_id":"lane-1","site_id":"site-1","subject":"reader-1","revision":2,"record_id":"m-e9000000000000000000000000000002","cleared_at":null,"deliveries":[{"kind":"email","sink":"night-desk","state":"failed","sent_at":{"$at":-180163},"attempts":[{"at":{"$at":-180163},"reply":"4.3.0 Try again later","reason":"email: the mail server asked to try later","result":"failed","transient":true,"reply_code":451,"http_status":null,"refused_recipients":[]},{"at":{"$at":-150163},"reply":"5.1.1 Mailbox unknown","reason":"email: refused for good","result":"failed","transient":false,"reply_code":550,"http_status":null,"refused_recipients":["gate-duty@example.com"]}],"recipients":["night-desk@example.com","gate-duty@example.com"],"delivered_at":null,"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true},{"kind":"webhook","sink":"pager","state":"retrying","sent_at":{"$at":-180163},"attempts":[{"at":{"$at":-180163},"reply":null,"reason":"webhook: the receiver did not take it","result":"failed","transient":true,"reply_code":null,"http_status":502,"refused_recipients":[]}],"recipients":["paging.example.com"],"delivered_at":null,"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":{"$at":59837},"recipient_configured":true}],"monitor_id":"monitor-1","transition":"still_active","target_kind":"lane","first_seen_at":{"$at":-180163}},
+            {"at":{"$at":-120163},"code":"platform_unreachable","kind":"transition","paged":false,"caveat":null,"origin":"monitor","source":"measured","status":null,"target":"platform","lane_id":null,"site_id":"site-1","subject":null,"revision":3,"record_id":"m-e9000000000000000000000000000003","cleared_at":null,"deliveries":[{"kind":"log","sink":"log","state":"delivered","sent_at":{"$at":-120163},"attempts":[{"at":{"$at":-120163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":null,"refused_recipients":[]}],"recipients":[],"delivered_at":{"$at":-120163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":false}],"monitor_id":"monitor-1","transition":"raised","target_kind":"platform","first_seen_at":{"$at":-120163}},
+          ],
+        },
+        {
+          id: "e9000024-0000-4000-8000-000000000024",
+          state: "copied",
+          detail: null,
+          asked_lane: "lane-1",
+          asked_from: {"$at":-930200},
+          asked_to: {"$at":900000},
+          complete: true,
+          copied_at: {"$at":81},
+          records: [
+            {"at":{"$at":-240163},"code":"reader_unreachable","kind":"transition","paged":true,"caveat":null,"origin":"target","source":"measured","status":null,"target":"lane","lane_id":"lane-1","site_id":"site-1","subject":"reader-1","revision":1,"record_id":"m-e9000000000000000000000000000001","cleared_at":null,"deliveries":[{"kind":"log","sink":"log","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":null,"refused_recipients":[]}],"recipients":[],"delivered_at":{"$at":-240163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":false},{"kind":"email","sink":"night-desk","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":"email: Connection unexpectedly closed","result":"failed","transient":true,"reply_code":null,"http_status":null,"refused_recipients":[]},{"at":{"$at":-210163},"reply":"2.0.0 Ok: queued as 4F2A9C01","reason":null,"result":"accepted","transient":null,"reply_code":250,"http_status":null,"refused_recipients":[]}],"recipients":["night-desk@example.com"],"delivered_at":{"$at":-210163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true},{"kind":"webhook","sink":"pager","state":"delivered","sent_at":{"$at":-240163},"attempts":[{"at":{"$at":-240163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":204,"refused_recipients":[]}],"recipients":["paging.example.com"],"delivered_at":{"$at":-240163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true}],"monitor_id":"monitor-1","transition":"raised","target_kind":"lane","first_seen_at":{"$at":-240163}},
+            {"at":{"$at":-180163},"code":"reader_unreachable","kind":"transition","paged":true,"caveat":null,"origin":"target","source":"measured","status":null,"target":"lane","lane_id":"lane-1","site_id":"site-1","subject":"reader-1","revision":2,"record_id":"m-e9000000000000000000000000000002","cleared_at":null,"deliveries":[{"kind":"email","sink":"night-desk","state":"failed","sent_at":{"$at":-180163},"attempts":[{"at":{"$at":-180163},"reply":"4.3.0 Try again later","reason":"email: the mail server asked to try later","result":"failed","transient":true,"reply_code":451,"http_status":null,"refused_recipients":[]},{"at":{"$at":-150163},"reply":"5.1.1 Mailbox unknown","reason":"email: refused for good","result":"failed","transient":false,"reply_code":550,"http_status":null,"refused_recipients":["gate-duty@example.com"]}],"recipients":["night-desk@example.com","gate-duty@example.com"],"delivered_at":null,"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true},{"kind":"webhook","sink":"pager","state":"retrying","sent_at":{"$at":-180163},"attempts":[{"at":{"$at":-180163},"reply":null,"reason":"webhook: the receiver did not take it","result":"failed","transient":true,"reply_code":null,"http_status":502,"refused_recipients":[]}],"recipients":["paging.example.com"],"delivered_at":null,"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":{"$at":59837},"recipient_configured":true}],"monitor_id":"monitor-1","transition":"still_active","target_kind":"lane","first_seen_at":{"$at":-180163}},
+            {"at":{"$at":-120163},"code":"platform_unreachable","kind":"transition","paged":false,"caveat":null,"origin":"monitor","source":"measured","status":null,"target":"platform","lane_id":null,"site_id":"site-1","subject":null,"revision":3,"record_id":"m-e9000000000000000000000000000003","cleared_at":null,"deliveries":[{"kind":"log","sink":"log","state":"delivered","sent_at":{"$at":-120163},"attempts":[{"at":{"$at":-120163},"reply":null,"reason":null,"result":"accepted","transient":null,"reply_code":null,"http_status":null,"refused_recipients":[]}],"recipients":[],"delivered_at":{"$at":-120163},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":false}],"monitor_id":"monitor-1","transition":"raised","target_kind":"platform","first_seen_at":{"$at":-120163}},
+            {"at":{"$at":120000},"code":"reader_unreachable","kind":"transition","paged":true,"caveat":null,"origin":"target","source":"measured","status":null,"target":"lane","lane_id":"lane-1","site_id":"site-1","subject":"reader-1","revision":5,"record_id":"m-e9000000000000000000000000000004","cleared_at":{"$at":120000},"deliveries":[{"kind":"email","sink":"night-desk","state":"delivered","sent_at":{"$at":120000},"attempts":[{"at":{"$at":120000},"reply":"2.0.0 Ok: queued as 4F2A9C02","reason":null,"result":"accepted","transient":null,"reply_code":250,"http_status":null,"refused_recipients":[]}],"recipients":["night-desk@example.com"],"delivered_at":{"$at":120000},"superseded_by":null,"acknowledged_at":null,"acknowledged_by":null,"acknowledgement":"not_acknowledged","next_attempt_at":null,"recipient_configured":true}],"monitor_id":"monitor-1","transition":"recovered","target_kind":"lane","first_seen_at":{"$at":120000}},
+          ],
+        },
+      ],
+      calls: [
+        {
+          id: "e9000025-0000-4000-8000-000000000025",
+          state: "copied",
+          detail: null,
+          asked_lane: "exit",
+          asked_from: {"$at":-930200},
+          asked_to: {"$at":13},
+          complete: false,
+          copied_at: {"$at":15},
+          records: [
+            {"case":"malfunction_active","lane":"exit","events":[{"at":{"$at":-180162},"case":null,"code":null,"kind":"call_answered","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-174162},"case":"malfunction_active","code":null,"kind":"case_spoken","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-174162},"case":null,"code":null,"kind":"human_called","lane":"exit","cause":null,"human":"sip:duty@example.com","reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-162162},"case":null,"code":null,"kind":"authorisation_received","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":"open_now","authorised_by":"sip:duty@example.com","lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-162162},"case":null,"code":"lane_refused","kind":"vend_refused","lane":"exit","cause":null,"human":null,"reason":"the lane is waiting on a payment","display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-156162},"case":null,"code":null,"kind":"call_ended","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"}],"call_id":"c-e9000000000000000000000000000005","outcome":"authorisation_received","site_id":"site-1","agent_id":"agent-1","ended_at":{"$at":-156162},"intercom":"sip:exit-door@example.com","revision":1,"recording":null,"ticket_id":null,"started_at":{"$at":-180162},"disposition":"answered","keyed_last2":null,"authorisation":"open_now","person_called":"sip:duty@example.com","case_spoken_at":{"$at":-174162},"rang_person_at":{"$at":-174162},"authorisation_at":{"$at":-162162},"person_answered_as":"sip:duty@example.com","person_answered_at":{"$at":-168162},"caller_stated_identity":"sip:exit-door@example.com"},
+            {"case":"malfunction_active","lane":"exit","events":[{"at":{"$at":-120162},"case":null,"code":null,"kind":"call_answered","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-114162},"case":null,"code":null,"kind":"human_called","lane":"exit","cause":null,"human":"sip:duty@example.com","reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-84162},"case":null,"code":null,"kind":"human_unreachable","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-84162},"case":null,"code":null,"kind":"call_ended","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"}],"call_id":"c-e9000000000000000000000000000006","outcome":"human_unreachable","site_id":"site-1","agent_id":"agent-1","ended_at":{"$at":-84162},"intercom":"sip:exit-door@example.com","revision":2,"recording":null,"ticket_id":null,"started_at":{"$at":-120162},"disposition":"answered","keyed_last2":null,"authorisation":null,"person_called":"sip:duty@example.com","case_spoken_at":{"$at":-114162},"rang_person_at":{"$at":-114162},"authorisation_at":null,"person_answered_as":null,"person_answered_at":null,"caller_stated_identity":"sip:exit-door@example.com"},
+            {"case":null,"lane":null,"events":[{"at":{"$at":-72162},"case":null,"code":null,"kind":"call_refused_busy","lane":null,"cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"agent-1","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:entry-door@example.com"}],"call_id":"c-e9000000000000000000000000000007","outcome":"refused_busy","site_id":"site-1","agent_id":"agent-1","ended_at":null,"intercom":"agent-1","revision":3,"recording":null,"ticket_id":null,"started_at":{"$at":-72162},"disposition":"refused_busy","keyed_last2":null,"authorisation":null,"person_called":null,"case_spoken_at":null,"rang_person_at":null,"authorisation_at":null,"person_answered_as":null,"person_answered_at":null,"caller_stated_identity":"sip:entry-door@example.com"},
+          ],
+        },
+        {
+          id: "e9000026-0000-4000-8000-000000000026",
+          state: "copied",
+          detail: null,
+          asked_lane: "exit",
+          asked_from: {"$at":-930200},
+          asked_to: {"$at":900000},
+          complete: true,
+          copied_at: {"$at":81},
+          records: [
+            {"case":"malfunction_active","lane":"exit","events":[{"at":{"$at":-180162},"case":null,"code":null,"kind":"call_answered","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-174162},"case":"malfunction_active","code":null,"kind":"case_spoken","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-174162},"case":null,"code":null,"kind":"human_called","lane":"exit","cause":null,"human":"sip:duty@example.com","reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-162162},"case":null,"code":null,"kind":"authorisation_received","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":"open_now","authorised_by":"sip:duty@example.com","lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-162162},"case":null,"code":"lane_refused","kind":"vend_refused","lane":"exit","cause":null,"human":null,"reason":"the lane is waiting on a payment","display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-156162},"case":null,"code":null,"kind":"call_ended","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"}],"call_id":"c-e9000000000000000000000000000005","outcome":"authorisation_received","site_id":"site-1","agent_id":"agent-1","ended_at":{"$at":-156162},"intercom":"sip:exit-door@example.com","revision":1,"recording":null,"ticket_id":null,"started_at":{"$at":-180162},"disposition":"answered","keyed_last2":null,"authorisation":"open_now","person_called":"sip:duty@example.com","case_spoken_at":{"$at":-174162},"rang_person_at":{"$at":-174162},"authorisation_at":{"$at":-162162},"person_answered_as":"sip:duty@example.com","person_answered_at":{"$at":-168162},"caller_stated_identity":"sip:exit-door@example.com"},
+            {"case":"malfunction_active","lane":"exit","events":[{"at":{"$at":-120162},"case":null,"code":null,"kind":"call_answered","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-114162},"case":null,"code":null,"kind":"human_called","lane":"exit","cause":null,"human":"sip:duty@example.com","reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-84162},"case":null,"code":null,"kind":"human_unreachable","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"},{"at":{"$at":-84162},"case":null,"code":null,"kind":"call_ended","lane":"exit","cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"sip:exit-door@example.com","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:exit-door@example.com"}],"call_id":"c-e9000000000000000000000000000006","outcome":"human_unreachable","site_id":"site-1","agent_id":"agent-1","ended_at":{"$at":-84162},"intercom":"sip:exit-door@example.com","revision":2,"recording":null,"ticket_id":null,"started_at":{"$at":-120162},"disposition":"answered","keyed_last2":null,"authorisation":null,"person_called":"sip:duty@example.com","case_spoken_at":{"$at":-114162},"rang_person_at":{"$at":-114162},"authorisation_at":null,"person_answered_as":null,"person_answered_at":null,"caller_stated_identity":"sip:exit-door@example.com"},
+            {"case":null,"lane":null,"events":[{"at":{"$at":-72162},"case":null,"code":null,"kind":"call_refused_busy","lane":null,"cause":null,"human":null,"reason":null,"display":null,"site_id":"site-1","agent_id":"agent-1","geometry":null,"intercom":"agent-1","relay_ms":null,"released":null,"ticket_id":null,"relay_port":null,"keyed_last2":null,"authorisation":null,"authorised_by":null,"lane_event_cursor":null,"caller_stated_identity":"sip:entry-door@example.com"}],"call_id":"c-e9000000000000000000000000000007","outcome":"refused_busy","site_id":"site-1","agent_id":"agent-1","ended_at":null,"intercom":"agent-1","revision":3,"recording":null,"ticket_id":null,"started_at":{"$at":-72162},"disposition":"refused_busy","keyed_last2":null,"authorisation":null,"person_called":null,"case_spoken_at":null,"rang_person_at":null,"authorisation_at":null,"person_answered_as":null,"person_answered_at":null,"caller_stated_identity":"sip:entry-door@example.com"},
+          ],
+        },
+      ],
+    },
+    created_at: {"$at":-1},
+  },
+  {
+    id: "e9000027-0000-4000-8000-000000000027",
+    kind: "barrier_opened",
+    source: "lane",
+    garage_id: "{garage}",
+    lane_id: "{exitLane}",
+    exit_id: "e9000016-0000-4000-8000-000000000016",
+    stay_id: "e9000028-0000-4000-8000-000000000028",
+    by: "lane_device:{device} ({deviceName})",
+    authority: "human_open_now",
+    reason: null,
+    let_out_at: {"$at":0},
+    owed_minor: 0,
+    paid_minor: 250,
+    currency: "USD",
+    case_opened_at: {"$at":-30018},
+    window: {"from":{"$at":-930018},"to":{"$at":900000}},
+    story: {
+      case: {
+        id: "e9000016-0000-4000-8000-000000000016",
+        fee: {
+          outcome: "transient",
+          refused: false,
+          currency: "USD",
+          due_minor: 250,
+          covered_by: [],
+          credit_minor: 0,
+          stay_fee_minor: 250,
+        },
+        method: "single",
+        person: null,
+        picker: null,
+        exit_at: {"$at":-30018},
+        lane_id: "{exitLane}",
+        event_id: "e9000029-0000-4000-8000-000000000029",
+        opened_at: {"$at":-16},
+        candidates: 1,
+        settled_before: {"why":"paid","settled":true},
+        claimed_entry_at: null,
+      },
+      stay: {
+        id: "e9000028-0000-4000-8000-000000000028",
+        entry_at: {"$at":-2400024},
+        entry_qr: null,
+        tailgater: false,
+        pass_session: null,
+        entry_lane_id: "{entryLane}",
+        identified_by: "plate",
+        no_open_command: false,
+        entry_confirmation: "confirmed",
+      },
+      what: "a person opened the barrier for a car that owed nothing more",
+      payments: [
+        {
+          id: "e9000017-0000-4000-8000-000000000017",
+          status: "succeeded",
+          channel: "lane_reader",
+          exit_id: "e9000016-0000-4000-8000-000000000016",
+          read_at: {"$at":-2},
+          currency: "usd",
+          reader_id: "tmr_exampleExitReader",
+          created_at: {"$at":-8},
+          started_by: "lane_device:{device}",
+          canceled_at: null,
+          amount_minor: 250,
+          last_failure: null,
+          receipt_sent: false,
+          succeeded_at: {"$at":-2},
+          stripe_status: "succeeded",
+          payment_intent_id: "pi_example0002",
+        },
+      ],
+      lane_events: [
+        {
+          at: {"$at":-18205},
+          id: "e9000006-0000-4000-8000-000000000006",
+          kind: "fallback_needs_human",
+          detail: {"cause":"reader_declined"},
+          event_id: "e9000007-0000-4000-8000-000000000007",
+        },
+        {
+          at: {"$at":-603},
+          id: "e9000008-0000-4000-8000-000000000008",
+          kind: "lane_reader_bound",
+          detail: {},
+          event_id: "lane-reader-bound:e9000009-0000-4000-8000-000000000009",
+        },
+        {
+          at: {"$at":-215},
+          id: "e9000010-0000-4000-8000-000000000010",
+          kind: "exit_payment_started",
+          detail: {
+            actor: "lane_device:{device}",
+            channel: "lane_reader",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+            currency: "usd",
+            amount_minor: 500,
+          },
+          event_id: "exit_payment_started:e9000005-0000-4000-8000-000000000005",
+        },
+        {
+          at: {"$at":-206},
+          id: "e9000011-0000-4000-8000-000000000011",
+          kind: "exit_reader_refused",
+          detail: {
+            code: "reader_offline",
+            actor: "lane_device:{device}",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+          },
+          event_id: "exit_reader_refused:e9000012-0000-4000-8000-000000000012",
+        },
+        {
+          at: {"$at":-34},
+          id: "e9000013-0000-4000-8000-000000000013",
+          kind: "exit_let_out_by_person",
+          detail: {
+            owed: {"needs":"payment","settled":false},
+            actor: "owner:{owner}",
+            reason: "Card declined twice; reader offline. Driver gave a name and will pay by phone.",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+          },
+          event_id: "exit_let_out_by_person:e9000002-0000-4000-8000-000000000002",
+        },
+        {
+          at: {"$at":-30},
+          id: "e9000014-0000-4000-8000-000000000014",
+          kind: "exit_payment_canceled",
+          detail: {
+            why: "let_out_by_person",
+            actor: "platform:exit",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+            payment_intent_id: "pi_example0001",
+          },
+          event_id: "exit_payment_canceled:e9000005-0000-4000-8000-000000000005",
+        },
+        {
+          at: {"$at":-7},
+          id: "e9000015-0000-4000-8000-000000000015",
+          kind: "exit_payment_started",
+          detail: {
+            actor: "lane_device:{device}",
+            channel: "lane_reader",
+            exit_id: "e9000016-0000-4000-8000-000000000016",
+            currency: "usd",
+            amount_minor: 250,
+          },
+          event_id: "exit_payment_started:e9000017-0000-4000-8000-000000000017",
+        },
+        {
+          at: {"$at":-1},
+          id: "e9000018-0000-4000-8000-000000000018",
+          kind: "exit_paid",
+          detail: {
+            actor: "platform:exit",
+            channel: "lane_reader",
+            exit_id: "e9000016-0000-4000-8000-000000000016",
+            currency: "usd",
+            amount_minor: 250,
+            payment_intent_id: "pi_example0002",
+          },
+          event_id: "exit_paid:e9000017-0000-4000-8000-000000000017",
+        },
+      ],
+    },
+    payment_after_let_out: null,
+    lane_events_after: [
+      {
+        at: {"$at":34},
+        id: "e9000019-0000-4000-8000-000000000019",
+        kind: "exit_let_out_by_person",
+        detail: {
+          owed: {"needs":"payment","settled":false},
+          actor: "key:desk",
+          reason: "Barrier stuck open <b>again</b>",
+          exit_id: "e9000020-0000-4000-8000-000000000020",
+        },
+        event_id: "exit_let_out_by_person:e9000020-0000-4000-8000-000000000020",
+      },
+      {
+        at: {"$at":59959},
+        id: "e9000021-0000-4000-8000-000000000021",
+        kind: "exit_confirmed",
+        detail: {"state":"crossed"},
+        event_id: "e9000022-0000-4000-8000-000000000022",
+      },
+    ],
+    gate_agent: {
+      messages: [
+        {
+          id: "e9000030-0000-4000-8000-000000000030",
+          state: "not_configured",
+          detail: "gate agent not configured: GATE_AGENTS_FILE is not set",
+          asked_lane: null,
+          asked_from: {"$at":-930018},
+          asked_to: {"$at":12},
+          complete: false,
+          copied_at: {"$at":12},
+          records: [],
+        },
+      ],
+      calls: [
+        {
+          id: "e9000031-0000-4000-8000-000000000031",
+          state: "not_configured",
+          detail: "gate agent not configured: GATE_AGENTS_FILE is not set",
+          asked_lane: null,
+          asked_from: {"$at":-930018},
+          asked_to: {"$at":12},
+          complete: false,
+          copied_at: {"$at":12},
+          records: [],
+        },
+      ],
+    },
+    created_at: {"$at":2},
+  },
+  {
+    id: "e9000032-0000-4000-8000-000000000032",
+    kind: "let_out_unpaid",
+    source: "attendant",
+    garage_id: "{garage}",
+    lane_id: "{exitLane}",
+    exit_id: "e9000020-0000-4000-8000-000000000020",
+    stay_id: "e9000033-0000-4000-8000-000000000033",
+    by: "key:desk",
+    authority: null,
+    reason: "Barrier stuck open <b>again</b>",
+    let_out_at: {"$at":0},
+    owed_minor: 250,
+    paid_minor: 0,
+    currency: "USD",
+    case_opened_at: {"$at":-30013},
+    window: {"from":{"$at":-930013},"to":{"$at":900000}},
+    story: {
+      case: {
+        id: "e9000020-0000-4000-8000-000000000020",
+        fee: {
+          outcome: "transient",
+          refused: false,
+          currency: "USD",
+          due_minor: 250,
+          covered_by: [],
+          credit_minor: 0,
+          stay_fee_minor: 250,
+        },
+        method: "single",
+        person: null,
+        picker: null,
+        exit_at: {"$at":-30013},
+        lane_id: "{exitLane}",
+        event_id: "e9000034-0000-4000-8000-000000000034",
+        opened_at: {"$at":-11},
+        candidates: 1,
+        settled_before: {"needs":"payment","settled":false},
+        claimed_entry_at: null,
+      },
+      stay: {
+        id: "e9000033-0000-4000-8000-000000000033",
+        entry_at: {"$at":-1200018},
+        entry_qr: null,
+        tailgater: false,
+        pass_session: null,
+        entry_lane_id: "{entryLane}",
+        identified_by: "plate",
+        no_open_command: false,
+        entry_confirmation: "confirmed",
+      },
+      what: "a person let the car out while it still owed",
+      payments: [],
+      lane_events: [
+        {
+          at: {"$at":-18237},
+          id: "e9000006-0000-4000-8000-000000000006",
+          kind: "fallback_needs_human",
+          detail: {"cause":"reader_declined"},
+          event_id: "e9000007-0000-4000-8000-000000000007",
+        },
+        {
+          at: {"$at":-635},
+          id: "e9000008-0000-4000-8000-000000000008",
+          kind: "lane_reader_bound",
+          detail: {},
+          event_id: "lane-reader-bound:e9000009-0000-4000-8000-000000000009",
+        },
+        {
+          at: {"$at":-247},
+          id: "e9000010-0000-4000-8000-000000000010",
+          kind: "exit_payment_started",
+          detail: {
+            actor: "lane_device:{device}",
+            channel: "lane_reader",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+            currency: "usd",
+            amount_minor: 500,
+          },
+          event_id: "exit_payment_started:e9000005-0000-4000-8000-000000000005",
+        },
+        {
+          at: {"$at":-238},
+          id: "e9000011-0000-4000-8000-000000000011",
+          kind: "exit_reader_refused",
+          detail: {
+            code: "reader_offline",
+            actor: "lane_device:{device}",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+          },
+          event_id: "exit_reader_refused:e9000012-0000-4000-8000-000000000012",
+        },
+        {
+          at: {"$at":-66},
+          id: "e9000013-0000-4000-8000-000000000013",
+          kind: "exit_let_out_by_person",
+          detail: {
+            owed: {"needs":"payment","settled":false},
+            actor: "owner:{owner}",
+            reason: "Card declined twice; reader offline. Driver gave a name and will pay by phone.",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+          },
+          event_id: "exit_let_out_by_person:e9000002-0000-4000-8000-000000000002",
+        },
+        {
+          at: {"$at":-62},
+          id: "e9000014-0000-4000-8000-000000000014",
+          kind: "exit_payment_canceled",
+          detail: {
+            why: "let_out_by_person",
+            actor: "platform:exit",
+            exit_id: "e9000002-0000-4000-8000-000000000002",
+            payment_intent_id: "pi_example0001",
+          },
+          event_id: "exit_payment_canceled:e9000005-0000-4000-8000-000000000005",
+        },
+        {
+          at: {"$at":-39},
+          id: "e9000015-0000-4000-8000-000000000015",
+          kind: "exit_payment_started",
+          detail: {
+            actor: "lane_device:{device}",
+            channel: "lane_reader",
+            exit_id: "e9000016-0000-4000-8000-000000000016",
+            currency: "usd",
+            amount_minor: 250,
+          },
+          event_id: "exit_payment_started:e9000017-0000-4000-8000-000000000017",
+        },
+        {
+          at: {"$at":-33},
+          id: "e9000018-0000-4000-8000-000000000018",
+          kind: "exit_paid",
+          detail: {
+            actor: "platform:exit",
+            channel: "lane_reader",
+            exit_id: "e9000016-0000-4000-8000-000000000016",
+            currency: "usd",
+            amount_minor: 250,
+            payment_intent_id: "pi_example0002",
+          },
+          event_id: "exit_paid:e9000017-0000-4000-8000-000000000017",
+        },
+      ],
+    },
+    payment_after_let_out: null,
+    lane_events_after: [
+      {
+        at: {"$at":2},
+        id: "e9000019-0000-4000-8000-000000000019",
+        kind: "exit_let_out_by_person",
+        detail: {
+          owed: {"needs":"payment","settled":false},
+          actor: "key:desk",
+          reason: "Barrier stuck open <b>again</b>",
+          exit_id: "e9000020-0000-4000-8000-000000000020",
+        },
+        event_id: "exit_let_out_by_person:e9000020-0000-4000-8000-000000000020",
+      },
+      {
+        at: {"$at":59927},
+        id: "e9000021-0000-4000-8000-000000000021",
+        kind: "exit_confirmed",
+        detail: {"state":"crossed"},
+        event_id: "e9000022-0000-4000-8000-000000000022",
+      },
+    ],
+    gate_agent: {
+      messages: [
+        {
+          id: "e9000035-0000-4000-8000-000000000035",
+          state: "not_reachable",
+          detail: "gate agent not reachable: it could not be reached",
+          asked_lane: "lane-1",
+          asked_from: {"$at":-930013},
+          asked_to: {"$at":3},
+          complete: false,
+          copied_at: {"$at":4},
+          records: [],
+        },
+        {
+          id: "e9000036-0000-4000-8000-000000000036",
+          state: "not_reachable",
+          detail: "gate agent not reachable: it could not be reached",
+          asked_lane: "lane-1",
+          asked_from: {"$at":-930013},
+          asked_to: {"$at":900000},
+          complete: false,
+          copied_at: {"$at":11},
+          records: [],
+        },
+      ],
+      calls: [
+        {
+          id: "e9000037-0000-4000-8000-000000000037",
+          state: "refused",
+          detail: "the gate agent answered 403",
+          asked_lane: "exit",
+          asked_from: {"$at":-930013},
+          asked_to: {"$at":3},
+          complete: false,
+          copied_at: {"$at":4},
+          records: [],
+        },
+        {
+          id: "e9000038-0000-4000-8000-000000000038",
+          state: "refused",
+          detail: "the gate agent answered 403",
+          asked_lane: "exit",
+          asked_from: {"$at":-930013},
+          asked_to: {"$at":900000},
+          complete: false,
+          copied_at: {"$at":11},
+          records: [],
+        },
+      ],
+    },
+    created_at: {"$at":-1},
+  },
+];
+
+const fill = (value, names, at) => {
+  if (Array.isArray(value)) return value.map((v) => fill(v, names, at));
+  if (value && typeof value === 'object') {
+    if (Object.keys(value).length === 1 && typeof value.$at === 'number') return new Date(at + value.$at).toISOString();
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v, names, at)]));
+  }
+  if (typeof value === 'string') return value.replace(/\{(\w+)\}/g, (whole, name) => names[name] ?? whole);
+  return value;
+};
+
+/** How many records the stand-in has to place. */
+export const STORY_COUNT = STORIES.length;
+
+/**
+ * The records at a garage, each let out at its `at` (ms since 1970), as new
+ * copies. `batch` (1 to 9) keeps each placing's ids apart from another's.
+ */
+export function exceptionStories({ garageId, exitLaneId, entryLaneId, device, owner, at, batch = 1 }) {
+  const names = { garage: garageId, exitLane: exitLaneId, entryLane: entryLaneId, device: device.id, deviceName: device.name, owner };
+  return STORIES.map((story, i) => {
+    const filled = fill(story, names, at[i]);
+    // Each placing its own ids: the version group of every invented id carries the batch.
+    return JSON.parse(JSON.stringify(filled).replace(/(e9\d{6}-0000-)4000(-8000-\d{12})/g, `$14${String(batch).padStart(3, '0')}$2`));
+  });
+}
