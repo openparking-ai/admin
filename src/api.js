@@ -822,8 +822,7 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
      */
     datedTaxLists: async (garageId) => {
       const answer = await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS, dated: true });
-      const clock = Number.isFinite(answer.date) ? { date: answer.date, local: Date.now() } : null;
-      return { lists: list(answer.data, 'tax_sets'), clock };
+      return { lists: list(answer.data, 'tax_sets'), clock: Number.isFinite(answer.date) ? { date: answer.date, local: Date.now() } : null };
     },
     /**
      * State a new list of taxes: `{ effective_from, rules }`, an empty `rules`
