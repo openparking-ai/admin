@@ -968,16 +968,21 @@ export function wallAt(ms, timeZone) {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
-/** The instant of a wall-clock reading in `timeZone` (the earlier of two), or null for one the clocks skip. */
-export function instantOf(wall, timeZone) {
+/**
+ * Every instant a wall-clock reading in `timeZone` names, earliest first: one,
+ * two in the hour the clocks go back, none for one the clocks skip.
+ */
+export function instantsOf(wall, timeZone) {
   const m = WALL.exec(String(wall ?? ''));
-  if (!m) return null;
+  if (!m) return [];
   const asUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
-  if (new Date(asUtc).toISOString().slice(0, 16) !== wall) return null;
+  if (new Date(asUtc).toISOString().slice(0, 16) !== wall) return [];
   const offsets = new Set([asUtc - 86400000, asUtc, asUtc + 86400000].map((probe) => Date.parse(`${wallAt(probe, timeZone)}:00Z`) - probe));
-  const hits = [...offsets].map((o) => asUtc - o).filter((t) => wallAt(t, timeZone) === wall).sort((a, b) => a - b);
-  return hits.length ? hits[0] : null;
+  return [...offsets].map((o) => asUtc - o).filter((t) => wallAt(t, timeZone) === wall).sort((a, b) => a - b);
 }
+
+/** The instant of a wall-clock reading in `timeZone` (the earlier of two), or null for one the clocks skip. */
+export const instantOf = (wall, timeZone) => instantsOf(wall, timeZone)[0] ?? null;
 
 /** A wall-clock reading plus `minutes`, as the garage's clock reads it after that long. */
 export const wallPlus = (wall, minutes, timeZone) => wallAt(instantOf(wall, timeZone) + minutes * 60000, timeZone);

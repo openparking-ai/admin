@@ -3,7 +3,7 @@ import { Pager, ProblemNote, Stored, useGarageRead, usePaging } from './parts.js
 import { STALE, stayPicturePath } from './api.js';
 import { garageTime } from './time.js';
 import { wallAt } from './rates.js';
-import { REASON_MAX, endedWords, hoursTyped, leftAtTyped, leftNow, passWords, plateParts, reasonProblem, whyListed } from './stuck.js';
+import { REASON_MAX, endedWords, hoursTyped, leftAtTyped, leftKept, leftNow, passWords, plateParts, reasonProblem, whyListed } from './stuck.js';
 import FieldName from './FieldName.jsx';
 
 const COLUMNS = 6;
@@ -242,7 +242,8 @@ function StuckHours({ t, language, client, garage, hours, onChanged }) {
  */
 function EndForm({ t, language, client, garage, stay, outcome, onClose, onEnded, onGone }) {
   const left = outcome === 'ended';
-  const [wall, setWall] = useState(() => leftNow(garage));
+  const [kept] = useState(() => leftKept(garage));
+  const [wall, setWall] = useState(kept.wall);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(null);
@@ -252,7 +253,7 @@ function EndForm({ t, language, client, garage, stay, outcome, onClose, onEnded,
     if (refused) return setProblem(refused);
     let leftAt = null;
     if (left) {
-      const typed = leftAtTyped(wall, stay, garage);
+      const typed = leftAtTyped(wall, stay, garage, Date.now(), kept);
       if (typed.problem) return setProblem(typed.problem);
       leftAt = typed.at;
     }
