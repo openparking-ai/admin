@@ -14,7 +14,7 @@ import { createClient, letOutPicturePath, problemKey } from '../src/api.js';
 import {
   AUTHORISATIONS, AUTHORITIES, CALL_CASES, CALL_OUTCOMES, COPY_STATES, DELIVERY_STATES, KINDS, LANE_KINDS, MESSAGE_CODES, READER_REFUSALS,
   PICTURE_KINDS, SINK_KINDS, TARGET_KINDS, TRANSITIONS, clockSaid, copyPieces, dayOn, daySaid, gateLine, gateRecords, isDay, kindPieces,
-  newestFirst, piecesText, picturesOf, sourceState, storyOf, whoPieces,
+  newestFirst, owedWords, piecesText, picturesOf, sourceState, storyOf, whoPieces,
 } from '../src/exceptions.js';
 import { moneyText } from '../src/rates.js';
 import { exceptionStories } from './exceptions-fixtures.js';
@@ -309,4 +309,25 @@ test('the page only reads: its two calls are GETs, and nothing in it asks for mo
   const api = readFileSync(new URL('../src/api.js', import.meta.url), 'utf8');
   const reads = api.slice(api.indexOf('letOutDay:'), api.indexOf('carsInside:'));
   assert.doesNotMatch(reads, /method:/, 'the two reads send no method but GET');
+});
+
+test('a let-out the rates could not price says so, never "$0.00 owed", in the garage\'s currency, not dollars (OP-3-2)', () => {
+  for (const language of ['en', 'es']) {
+    const t = (key, values) => translate(language, key, values);
+    for (const owed of [null, undefined, '500', 5.5]) {
+      const x = { ...OWING, kind: 'let_out_unpaid', owed_minor: owed };
+      assert.equal(owedWords(t, x, language, 'MXN'), t('exceptions.owedNotPriced'), `${owed}: not priced`);
+      assert.equal(text(kindPieces(t, x, language, 'MXN')), t('exceptions.kind.let_out_unpriced'));
+      assert.ok(!text(kindPieces(t, x, language, 'MXN')).includes('0.00'));
+    }
+    // Nothing owed is still nothing, and a whole amount is the amount.
+    assert.equal(owedWords(t, { ...OWING, owed_minor: 0 }, language, 'USD'), moneyText(0, OWING.currency.toUpperCase(), language));
+    assert.equal(owedWords(t, { ...OPENED, owed_minor: null }, language, 'USD'), t('exceptions.owedNothing'));
+    // A record with no currency is in the garage's, never dollars by default.
+    const noCurrency = { ...OWING, kind: 'let_out_unpaid', owed_minor: 500, currency: null };
+    assert.equal(owedWords(t, noCurrency, language, 'MXN'), moneyText(500, 'MXN', language));
+    assert.ok(text(kindPieces(t, noCurrency, language, 'eur')).includes(moneyText(500, 'EUR', language)));
+    const story = storyOf(t, noCurrency, { lanes: LANES, timeZone: ZONE, language, currency: 'MXN' });
+    assert.equal(text(story.find((i) => i.type === 'let-out').title), t('exceptions.kind.let_out_unpaid', { amount: moneyText(500, 'MXN', language) }));
+  }
 });

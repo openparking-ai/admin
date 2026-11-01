@@ -52,8 +52,24 @@ export function clockSaid(value, timeZone, language, day = null) {
   }).format(at);
 }
 
-/** An amount in the record's currency. The platform's own figure, never one worked out here. */
-export const money = (minor, currency, language) => moneyText(minor, String(currency ?? 'USD').toUpperCase(), language);
+/**
+ * An amount in the record's currency, or else the garage's -- never a
+ * currency guessed here (OP-3-2). The platform's own figure, never one worked
+ * out here.
+ */
+export const money = (minor, currency, language, garageCurrency) => moneyText(minor, String(currency ?? garageCurrency).toUpperCase(), language);
+
+/**
+ * What a let-out owed, as said in the list and the story: nothing for an
+ * opened barrier; "could not be priced" when the platform has no whole
+ * amount for it -- an unpriced stay is not one that owed nothing (OP-3-2, as
+ * src/stuck.js says it).
+ */
+export function owedWords(t, x, language, garageCurrency) {
+  if (x.kind === 'barrier_opened') return t('exceptions.owedNothing');
+  if (!Number.isInteger(x.owed_minor)) return t('exceptions.owedNotPriced');
+  return money(x.owed_minor, x.currency, language, garageCurrency);
+}
 
 /** The day's list, newest first (the platform answers oldest first). */
 export const newestFirst = (list) =>
@@ -117,9 +133,10 @@ export const KINDS = ['let_out_unpaid', 'barrier_opened'];
 export const AUTHORITIES = ['display_code_confirmed', 'human_open_now', 'human_open_and_flag'];
 
 /** What kind of let-out it was, with what it owed. */
-export function kindPieces(t, x, language) {
+export function kindPieces(t, x, language, garageCurrency) {
   if (x.kind === 'barrier_opened') return sentence(t, 'exceptions.kind.barrier_opened');
-  if (x.kind === 'let_out_unpaid') return sentence(t, 'exceptions.kind.let_out_unpaid', { amount: money(x.owed_minor, x.currency, language) });
+  if (x.kind === 'let_out_unpaid' && !Number.isInteger(x.owed_minor)) return sentence(t, 'exceptions.kind.let_out_unpriced');
+  if (x.kind === 'let_out_unpaid') return sentence(t, 'exceptions.kind.let_out_unpaid', { amount: money(x.owed_minor, x.currency, language, garageCurrency) });
   return sentence(t, 'exceptions.kind.other');
 }
 
@@ -325,10 +342,10 @@ export function callLines(t, c, { timeZone, language, day }) {
  * lines, deliveries }`, words as pieces. `lanes` are the garage's, for
  * their names.
  */
-export function storyOf(t, x, { lanes, timeZone, language }) {
+export function storyOf(t, x, { lanes, timeZone, language, currency: garageCurrency }) {
   const day = garageDayOf(x.let_out_at, timeZone);
   const at = (v) => clockSaid(v, timeZone, language, day);
-  const amount = (minor, currency = x.currency) => money(minor, currency, language);
+  const amount = (minor, currency = x.currency) => money(minor, currency, language, garageCurrency);
   const items = [];
   const add = (when, type, title, lines = [], extra = {}) => {
     if (when && !Number.isNaN(Date.parse(when))) items.push({ at: when, type, title, lines, ...extra });
@@ -406,7 +423,7 @@ export function storyOf(t, x, { lanes, timeZone, language }) {
   const letOutLines = [sentence(t, 'exceptions.letOut.who', { who: { pieces: whoPieces(t, x.by) } }), sourcePieces(t, x)];
   letOutLines.push(x.reason ? sentence(t, 'exceptions.letOut.reason', { reason: { stored: x.reason } }) : sentence(t, 'exceptions.letOut.noReason'));
   if (x.paid_minor > 0) letOutLines.push(sentence(t, 'exceptions.letOut.paid', { amount: amount(x.paid_minor) }));
-  add(x.let_out_at, 'let-out', kindPieces(t, x, language), letOutLines);
+  add(x.let_out_at, 'let-out', kindPieces(t, x, language, garageCurrency), letOutLines);
   // Oldest first; two at the same moment in the order they were added.
   return items
     .map((item, i) => [item, i])
