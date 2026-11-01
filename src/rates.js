@@ -75,12 +75,15 @@ export function moneyText(minor, currency, language) {
 export function parseMoney(typed, currency, { zeroOk = false } = {}) {
   const said = String(typed ?? '').trim();
   if (said === '') return { problem: 'empty' };
-  const text = said.replace(/^[^\d]*/, '');
+  // Only a currency's letters or sign come off the front ("$", "USD", "S/",
+  // "Bs."): a point or a minus is part of the amount, so ".50" is half a
+  // dollar and "-5" is refused (OP-3-1).
+  const text = said.replace(/^(?:[\p{L}\p{Sc}/\s]|(?<=\p{L})\.)*/u, '');
   if (text === '') return { problem: 'shape' };
   const digits = currencyDigits(currency);
-  const shape = digits === 0 ? /^(\d{1,7})$/ : new RegExp(`^(\\d{1,7})(?:[.,](\\d{1,${digits}}))?$`);
+  const shape = digits === 0 ? /^(\d{1,7})$/ : new RegExp(`^(\\d{0,7})(?:[.,](\\d{1,${digits}}))?$`);
   const m = shape.exec(text);
-  if (!m) return { problem: 'shape' };
+  if (!m || (m[1] === '' && m[2] === undefined)) return { problem: 'shape' };
   const minor = Number(m[1]) * 10 ** digits + Number((m[2] ?? '').padEnd(digits, '0') || 0);
   if (minor === 0 && !zeroOk) return { problem: 'zero' };
   return { minor };

@@ -183,6 +183,29 @@ test('money in the units the engine reads: a price in pesos or dinars typed, sto
   assert.deepEqual(off, [], `written with other digits than the engine reads: ${off.join(', ')}`);
 });
 
+test('an amount that starts at the point is a part of one, and a minus is refused, with 0, 2 and 3 digits (OP-3-1)', () => {
+  // USD has 2 digits, KWD 3, JPY 0 (src/currencyDigits.js).
+  assert.equal(parseMoney('.50', 'USD', { zeroOk: true }).minor, 50);
+  assert.equal(parseMoney(',5', 'USD', { zeroOk: true }).minor, 50);
+  assert.equal(parseMoney('$.50', 'USD', { zeroOk: true }).minor, 50);
+  assert.equal(parseMoney('.50', 'KWD', { zeroOk: true }).minor, 500);
+  assert.equal(parseMoney(',5', 'KWD', { zeroOk: true }).minor, 500);
+  assert.equal(parseMoney('.5', 'JPY', { zeroOk: true }).problem, 'shape');
+  assert.equal(parseMoney(',5', 'JPY', { zeroOk: true }).problem, 'shape');
+  assert.equal(parseMoney('.', 'USD', { zeroOk: true }).problem, 'shape');
+  for (const currency of ['USD', 'KWD', 'JPY']) {
+    for (const typed of ['-5', '$-5', '-$5', '- 5', 'USD -5', '−5', '-.50']) {
+      assert.equal(parseMoney(typed, currency, { zeroOk: true }).problem, 'shape', `${typed} in ${currency}`);
+    }
+    // A code or a sign before the amount is still read.
+    assert.equal(parseMoney(`${currency} 5`, currency).minor, 5 * 10 ** currencyDigits(currency));
+  }
+  assert.equal(parseMoney('$5', 'USD').minor, 500);
+  assert.equal(parseMoney('€ 8,5', 'EUR').minor, 850);
+  assert.equal(parseMoney('S/ 5', 'PEN').minor, 500);
+  assert.equal(parseMoney('Bs. 5', 'VES').minor, 500);
+});
+
 /** The early bird's rates, and the same with 20 free minutes saved by another owner whose computer runs ahead: dated `ahead` ms after `now`. */
 function savedAhead(now, ahead) {
   const before = { ...plans.early, plan_version: 'before', effective_from: new Date(now - 3600_000).toISOString() };
