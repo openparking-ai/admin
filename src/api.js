@@ -816,6 +816,16 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     openGarage: async (garageId) => object(await request(`/garages/${encodeURIComponent(garageId)}/activate`, { method: 'POST' })),
     taxLists: async (garageId) => list(await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS }), 'tax_sets'),
     /**
+     * The Taxes page's read: the lists, and the platform's clock as it answered
+     * (as ratePlans gives it), so a list that starts "now" is dated by the
+     * platform's clock, not this computer's (OP-3-5). Null when no Date came.
+     */
+    datedTaxLists: async (garageId) => {
+      const answer = await request(`/garages/${encodeURIComponent(garageId)}/tax-sets`, { byStatus: TAX_BY_STATUS, dated: true });
+      const clock = Number.isFinite(answer.date) ? { date: answer.date, local: Date.now() } : null;
+      return { lists: list(answer.data, 'tax_sets'), clock };
+    },
+    /**
      * State a new list of taxes: `{ effective_from, rules }`, an empty `rules`
      * being "this garage charges no tax". The only write the Taxes page makes:
      * a list is never changed or taken back, a later one takes over.
