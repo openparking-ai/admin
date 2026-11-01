@@ -885,8 +885,14 @@ try {
   await page.click(`${laneRow('West Gate 2')} [data-action="connect"]`);
   await page.fill('[data-panel="connect"] input[type="text"]', 'West Gate computer');
   const issuedBefore = stub.issued.length;
-  await page.click('[data-panel="connect"] button[type="submit"]');
+  // Pressed twice before the platform answers: one computer, one live code (OP-3-4).
+  await page.evaluate(() => {
+    const form = document.querySelector('[data-panel="connect"] form');
+    form.requestSubmit();
+    form.requestSubmit();
+  });
   check(await settles(page, () => Boolean(document.querySelector('.connection-code'))), `${LANES_TITLE}: a lane computer connected, its connection code shown`);
+  check(stub.issued.length === issuedBefore + 1, `${LANES_TITLE}: pressed twice, one connection code made (${stub.issued.length - issuedBefore})`);
   const code = stub.issued[issuedBefore];
   const shownCode = await page.textContent('.connection-code');
   check(Boolean(code) && shownCode === code, 'connection code: the code the platform gave, shown once');
