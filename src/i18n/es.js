@@ -1774,6 +1774,8 @@ export default {
   "rates.need.price.empty": "Escriba una cantidad como 12 o 12.50.",
   "rates.need.price.shape": "Escriba una cantidad como 12 o 12.50.",
   "rates.need.price.zero": "Escriba una cantidad como 12 o 12.50, mayor que 0.",
+  "rates.need.price.point": "Ponga un 0 antes del punto, como 0.50.",
+  "rates.need.price.minus": "Escriba la cantidad sin el signo menos, como 12.50.",
   "rates.need.dayKind": "Elija qué es un día.",
   "rates.need.weekKind": "Elija qué es una semana.",
   "rates.need.weekStart": "Elija el día en que empieza una semana.",

@@ -67,24 +67,71 @@ export function moneyText(minor, currency, language) {
   );
 }
 
+// The ways a currency is written before an amount: its code, and its signs in
+// the languages the screens speak ("US$", "MX$", "S/"). Letters are taken only
+// as one of these -- any other letter is refused, never stepped over (OP-3-1).
+const SIGN_LOCALES = ['en-US', 'es-US', 'es', 'es-419', 'es-MX', 'es-PE', 'es-VE'];
+const signsOf = (currency) => {
+  const signs = new Set([currency]);
+  for (const locale of SIGN_LOCALES) {
+    for (const currencyDisplay of ['symbol', 'narrowSymbol']) {
+      try {
+        const part = new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay }).formatToParts(1).find((x) => x.type === 'currency');
+        if (part) signs.add(part.value);
+      } catch {
+        // A code the browser does not know is written by its code alone.
+      }
+    }
+  }
+  return [...signs].sort((a, b) => b.length - a.length);
+};
+
+/** Digits with thousands separators `sep` in their places: "1,000", "1,000,000". */
+const grouped = (text, sep) => new RegExp(`^\\d{1,3}(?:\\${sep}\\d{3})+$`).test(text);
+
+/**
+ * The number part of an amount, `{ whole, part }` as digits, or null: digits,
+ * at most one point ("." or ","), and thousands separators only where the
+ * reading is certain -- both kinds ("1,000.50", "1.000,50"), the same one more
+ * than once ("1,000,000"), or one in a currency with no digits after the point
+ * ("1.000" yen). A lone separator is the point, as before ("1.500" dinars).
+ */
+function numberOf(text, digits) {
+  if (!/^\d[\d.,]*$/.test(text) || /[.,]$/.test(text) || /[.,]{2}/.test(text)) return null;
+  const seps = text.replace(/\d/g, '');
+  if (seps === '') return { whole: text, part: '' };
+  if (new Set(seps).size === 2) {
+    const point = text.lastIndexOf('.') > text.lastIndexOf(',') ? '.' : ',';
+    const at = text.lastIndexOf(point);
+    const head = text.slice(0, at);
+    if (head.includes(point) || !grouped(head, point === '.' ? ',' : '.')) return null;
+    return { whole: head.replace(/[.,]/g, ''), part: text.slice(at + 1) };
+  }
+  if (seps.length > 1 || digits === 0) return grouped(text, seps[0]) ? { whole: text.replace(/[.,]/g, ''), part: '' } : null;
+  const [whole, part] = text.split(seps[0]);
+  return { whole, part };
+}
+
 /**
  * What the owner typed as an amount, in the currency's smallest unit: "8" and
- * "8.00" are 800 for dollars, "8,5" is 850. `{ minor }`, or `{ problem }`:
- * 'empty', 'shape' or 'zero' (zero is allowed only with `zeroOk`).
+ * "8.00" are 800 for dollars, "8,5" is 850, "$8" and "USD 8" are 800.
+ * `{ minor }`, or `{ problem }`: 'empty'; 'point', an amount that starts at
+ * the point (".50" is asked for as "0.50", never read as 50.00); 'minus';
+ * 'shape', anything else -- a letter that is not the currency's, a second
+ * point, a separator out of place; or 'zero' (allowed only with `zeroOk`).
  */
 export function parseMoney(typed, currency, { zeroOk = false } = {}) {
   const said = String(typed ?? '').trim();
   if (said === '') return { problem: 'empty' };
-  // Only a currency's letters or sign come off the front ("$", "USD", "S/",
-  // "Bs."): a point or a minus is part of the amount, so ".50" is half a
-  // dollar and "-5" is refused (OP-3-1).
-  const text = said.replace(/^(?:[\p{L}\p{Sc}/\s]|(?<=\p{L})\.)*/u, '');
-  if (text === '') return { problem: 'shape' };
+  if (/[-−]/.test(said)) return { problem: 'minus' };
   const digits = currencyDigits(currency);
-  const shape = digits === 0 ? /^(\d{1,7})$/ : new RegExp(`^(\\d{0,7})(?:[.,](\\d{1,${digits}}))?$`);
-  const m = shape.exec(text);
-  if (!m || (m[1] === '' && m[2] === undefined)) return { problem: 'shape' };
-  const minor = Number(m[1]) * 10 ** digits + Number((m[2] ?? '').padEnd(digits, '0') || 0);
+  // At most one sign before the amount: the currency's own, or any one currency symbol.
+  const sign = signsOf(String(currency)).find((x) => said.toUpperCase().startsWith(x.toUpperCase())) ?? (/^\p{Sc}/u.test(said) ? said[0] : '');
+  const text = said.slice(sign.length).trimStart();
+  if (/^[.,]/.test(text)) return { problem: 'point' };
+  const n = numberOf(text, digits);
+  if (!n || n.whole.length > 7 || n.part.length > digits) return { problem: 'shape' };
+  const minor = Number(n.whole) * 10 ** digits + Number(n.part.padEnd(digits, '0') || 0);
   if (minor === 0 && !zeroOk) return { problem: 'zero' };
   return { minor };
 }

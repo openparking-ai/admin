@@ -1778,6 +1778,8 @@ export default {
   "rates.need.price.empty": "Type an amount like 12 or 12.50.",
   "rates.need.price.shape": "Type an amount like 12 or 12.50.",
   "rates.need.price.zero": "Type an amount like 12 or 12.50, more than 0.",
+  "rates.need.price.point": "Put a 0 before the point, like 0.50.",
+  "rates.need.price.minus": "Type the amount without a minus sign, like 12.50.",
   "rates.need.dayKind": "Choose what a day is.",
   "rates.need.weekKind": "Choose what a week is.",
   "rates.need.weekStart": "Choose the day a week starts on.",

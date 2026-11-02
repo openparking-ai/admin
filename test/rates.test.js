@@ -183,27 +183,17 @@ test('money in the units the engine reads: a price in pesos or dinars typed, sto
   assert.deepEqual(off, [], `written with other digits than the engine reads: ${off.join(', ')}`);
 });
 
-test('an amount that starts at the point is a part of one, and a minus is refused, with 0, 2 and 3 digits (OP-3-1)', () => {
-  // USD has 2 digits, KWD 3, JPY 0 (src/currencyDigits.js).
-  assert.equal(parseMoney('.50', 'USD', { zeroOk: true }).minor, 50);
-  assert.equal(parseMoney(',5', 'USD', { zeroOk: true }).minor, 50);
-  assert.equal(parseMoney('$.50', 'USD', { zeroOk: true }).minor, 50);
-  assert.equal(parseMoney('.50', 'KWD', { zeroOk: true }).minor, 500);
-  assert.equal(parseMoney(',5', 'KWD', { zeroOk: true }).minor, 500);
-  assert.equal(parseMoney('.5', 'JPY', { zeroOk: true }).problem, 'shape');
-  assert.equal(parseMoney(',5', 'JPY', { zeroOk: true }).problem, 'shape');
-  assert.equal(parseMoney('.', 'USD', { zeroOk: true }).problem, 'shape');
+test('an amount that starts at the point is refused, not read as dollars, and so is a minus, with 0, 2 and 3 digits (OP-3-1)', () => {
+  // USD has 2 digits, KWD 3, JPY 0 (src/currencyDigits.js). ".50" was 5000 cents; now the owner is asked for "0.50".
   for (const currency of ['USD', 'KWD', 'JPY']) {
-    for (const typed of ['-5', '$-5', '-$5', '- 5', 'USD -5', '−5', '-.50']) {
-      assert.equal(parseMoney(typed, currency, { zeroOk: true }).problem, 'shape', `${typed} in ${currency}`);
-    }
-    // A code or a sign before the amount is still read.
+    for (const typed of ['.50', ',5', '$.50', '.']) assert.equal(parseMoney(typed, currency, { zeroOk: true }).problem, 'point', `${typed} in ${currency}`);
+    for (const typed of ['-5', '$-5', '-$5', '- 5', '\u22125', '-.50']) assert.equal(parseMoney(typed, currency, { zeroOk: true }).problem, 'minus', `${typed} in ${currency}`);
+    // The garage's own code before the amount is still read.
     assert.equal(parseMoney(`${currency} 5`, currency).minor, 5 * 10 ** currencyDigits(currency));
   }
+  assert.equal(parseMoney('0.50', 'USD').minor, 50);
+  assert.equal(parseMoney('0,5', 'KWD').minor, 500);
   assert.equal(parseMoney('$5', 'USD').minor, 500);
-  assert.equal(parseMoney('€ 8,5', 'EUR').minor, 850);
-  assert.equal(parseMoney('S/ 5', 'PEN').minor, 500);
-  assert.equal(parseMoney('Bs. 5', 'VES').minor, 500);
 });
 
 /** The early bird's rates, and the same with 20 free minutes saved by another owner whose computer runs ahead: dated `ahead` ms after `now`. */
@@ -298,4 +288,44 @@ test('the longest stay: 90 days is priced, a minute more is not, in real time as
   assert.equal(tooLongToPrice('2031-03-01T10:00', '2031-05-30T10:30', ZONE), false, 'spring: 89 days 23 h 30 min in real time');
   // They go back on 2 November 2031: 89 days 23 h 30 min on the clock is 90 days and 30 minutes.
   assert.equal(tooLongToPrice('2031-09-01T10:00', '2031-11-30T09:30', ZONE), true, 'autumn: 90 days 30 min in real time');
+});
+
+test('an amount is a sign, digits, one point and separators where they belong -- anything else is refused, never guessed (OP-3-1, review of #48)', () => {
+  const minor = (typed, currency = 'USD') => parseMoney(typed, currency, { zeroOk: true }).minor;
+  const problem = (typed, currency = 'USD') => parseMoney(typed, currency, { zeroOk: true }).problem;
+  // Letters straight before the point were taken as part of the sign: "USD.50" was 50.00.
+  for (const typed of ['USD.50', '$.50', '.50', ',5', '€.50']) assert.equal(problem(typed), 'point', typed);
+  // Another currency's letters are not the garage's sign: refused too.
+  for (const typed of ['MXN.50', 'kr.50']) assert.equal(problem(typed), 'shape', typed);
+  assert.equal(problem('MXN.50', 'MXN'), 'point');
+  assert.equal(problem('.5', 'JPY'), 'point');
+  for (const typed of ['5.', '5,', '5..0', '5.,0', '1,00.50', '1.000.5', '12,34,567', '5abc', 'abc5', 'abc 5', 'USD5x', '5 5', '+5', '$$5', 'EUR 5', '1e3', '0x10']) {
+    assert.equal(problem(typed), 'shape', typed);
+  }
+  for (const typed of ['-5', '$-5', '-$5', 'USD -5', '\u22125']) assert.equal(problem(typed), 'minus', typed);
+  // Good input, read as before: the garage's own sign or code, and thousands separators where the reading is certain.
+  assert.equal(minor(' 5 '), 500);
+  assert.equal(minor('$5'), 500);
+  assert.equal(minor('$ 5'), 500);
+  assert.equal(minor('US$5'), 500);
+  assert.equal(minor('USD 5'), 500);
+  assert.equal(minor('usd 0.50'), 50);
+  assert.equal(minor('0.50'), 50);
+  assert.equal(minor('8,5'), 850);
+  assert.equal(minor('1,000.50'), 100050);
+  assert.equal(minor('1.000,50'), 100050);
+  assert.equal(minor('1,000,000'), 100000000);
+  assert.equal(minor('1.000', 'JPY'), 1000);
+  assert.equal(minor('¥1,000', 'JPY'), 1000);
+  assert.equal(minor('1.500', 'IQD'), 1500);
+  assert.equal(minor('1,000.500', 'KWD'), 1000500);
+  assert.equal(minor('€ 8,5', 'EUR'), 850);
+  assert.equal(minor('S/ 5', 'PEN'), 500);
+  assert.equal(minor('MX$5', 'MXN'), 500);
+  // A lone separator is the point: three digits after it in dollars is not a thousand, it is refused.
+  assert.equal(problem('1,000'), 'shape');
+  // Each refusal has its own words, in English and Spanish.
+  for (const kind of ['point', 'minus']) {
+    for (const language of ['en', 'es']) assert.ok(DICTIONARIES[language][`rates.need.price.${kind}`], `${language} rates.need.price.${kind}`);
+  }
 });
