@@ -3,6 +3,7 @@ import { Pager, ProblemNote, Segmented, useGarageRead, useNow, usePaging } from 
 import { STALE } from './api.js';
 import { ROUNDINGS, arrange, garageInstant, linesOf, listToState, parsePercent, percentText, startOfDay, stateWords, taxState } from './taxes.js';
 import { garageDateTime, zoneSaid } from './time.js';
+import { platformNow } from './rates.js';
 import FieldName from './FieldName.jsx';
 
 /**
@@ -14,15 +15,18 @@ import FieldName from './FieldName.jsx';
  */
 export default function TaxesPage({ t, language, client, garage }) {
   const ticking = useNow();
-  const lists = useGarageRead(useCallback((id) => client.taxLists(id), [client]), garage.id);
+  const read = useGarageRead(useCallback((id) => client.datedTaxLists(id), [client]), garage.id);
+  const lists = { ...read, data: read.data?.lists ?? null };
+  const clock = read.data?.clock ?? null;
   const [changing, setChanging] = useState(false);
-  const reread = useCallback(() => lists.refresh().catch(() => lists.retry()), [lists]);
+  const reread = useCallback(() => read.refresh().catch(() => read.retry()), [read]);
 
   if (lists.problem) return <ProblemNote t={t} kind={lists.problem} onRetry={lists.retry} />;
   if (!lists.data) return <p className="quiet">{t('loading')}</p>;
   // Which list is in force is judged at the later of the clock and the read: a
   // list saved "now" is in force the moment the page reads it back.
-  const now = new Date(Math.max(ticking.getTime(), lists.readAt?.getTime() ?? 0));
+  // Both by the platform's clock, as a list saved "now" is dated (OP-3-5).
+  const now = new Date(platformNow(clock, Math.max(ticking.getTime(), lists.readAt?.getTime() ?? 0)));
   const { current, later, earlier } = arrange(lists.data, now);
   const at = (iso) => garageDateTime(iso, garage.timezone, language);
   const zone = zoneSaid(garage.timezone, language, now);
@@ -51,6 +55,7 @@ export default function TaxesPage({ t, language, client, garage }) {
           client={client}
           garage={garage}
           from={current}
+          clock={clock}
           onSaved={() => {
             setChanging(false);
             reread();
@@ -150,7 +155,7 @@ function lineProblem(line) {
  * of a day in the garage's own time. Before saving it says that this starts a
  * new list and the old one stays on record.
  */
-function ChangeTaxes({ t, client, garage, from, onSaved, onClose }) {
+function ChangeTaxes({ t, client, garage, from, clock, onSaved, onClose }) {
   const [charges, setCharges] = useState(from && from.rules.length === 0 ? 'none' : 'taxes');
   const [lines, setLines] = useState(() => {
     const copied = linesOf(from).map((r) => ({ key: (lineKeys += 1), name: r.label, percent: typed(r.percent_bp), rounding: r.rounding }));
@@ -184,7 +189,7 @@ function ChangeTaxes({ t, client, garage, from, onSaved, onClose }) {
       const list = listToState({
         noTax,
         lines: lines.map((l) => ({ name: l.name, bp: parsePercent(l.percent).bp, rounding: l.rounding })),
-        start: start ?? garageInstant(Date.now(), garage.timezone),
+        start: start ?? garageInstant(platformNow(clock), garage.timezone),
       });
       await client.addTaxList(garage.id, list);
       onSaved();

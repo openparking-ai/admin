@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createClient, problemKey } from '../src/api.js';
 import { DICTIONARIES, translate } from '../src/i18n/index.js';
 import { moneyText } from '../src/rates.js';
-import { endedWords, hoursTyped, leftAtTyped, passWords, plateParts, reasonProblem, whyListed } from '../src/stuck.js';
+import { endedWords, hoursTyped, leftAtTyped, leftKept, passWords, plateParts, reasonProblem, whyListed } from '../src/stuck.js';
 
 const T = (language) => (key, values) => translate(language, key, values);
 const garage = { id: 'a1000000-0000-4000-8000-000000000001', timezone: 'America/New_York', currency: 'USD' };
@@ -73,6 +73,25 @@ test('when the car left, typed on the garage\'s clock: sent as that instant; nev
   assert.deepEqual(leftAtTyped('2026-03-10T16:01', stay, garage, NOW), { problem: 'leftInFuture' });
   assert.deepEqual(leftAtTyped('2026-03-08T02:30', stay, garage, NOW), { problem: 'leftTimeOdd' }, 'a time the clocks skip');
   assert.deepEqual(leftAtTyped('', stay, garage, NOW), { problem: 'leftTimeOdd' });
+});
+
+test('in the hour the clocks go back: the time the form opened at is sent as that instant, and a time typed is the one after the stay came in (OP-3-3)', () => {
+  // New York goes back at 2:00 AM EDT on November 1, 2026: 1:30 AM is 05:30 UTC (EDT), then 06:30 UTC (EST).
+  const now = Date.parse('2026-11-01T06:30:00Z');
+  const before = { ...stay, entered_at: '2026-10-31T20:00:00.000Z' };
+  const kept = leftKept(garage, now);
+  assert.equal(kept.wall, '2026-11-01T01:30');
+  // Left as it was: the instant it showed, not the hour before.
+  assert.deepEqual(leftAtTyped(kept.wall, before, garage, now + 60000, kept), { at: '2026-11-01T06:30:00.000Z' });
+  // A stay that came in during the second 1:10 AM: 1:30 AM typed is the second 1:30 AM, not "before it came in".
+  const second = { ...stay, entered_at: '2026-11-01T06:10:00.000Z' };
+  assert.deepEqual(leftAtTyped('2026-11-01T01:30', second, garage, now + 60000), { at: '2026-11-01T06:30:00.000Z' });
+  // One that came in during the first: the first 1:30 AM, as before.
+  const first = { ...stay, entered_at: '2026-11-01T05:10:00.000Z' };
+  assert.deepEqual(leftAtTyped('2026-11-01T01:30', first, garage, now + 60000), { at: '2026-11-01T05:30:00.000Z' });
+  // A time changed from the one the form opened at is read as typed.
+  assert.deepEqual(leftAtTyped('2026-11-01T01:20', second, garage, now + 60000, kept), { at: '2026-11-01T06:20:00.000Z' });
+  assert.deepEqual(leftAtTyped('2026-11-01T01:05', second, garage, now + 60000, kept), { problem: 'leftBeforeEntry' });
 });
 
 test('what became of the stay: what it owes in money, or that it owes nothing -- never that a card was charged', () => {

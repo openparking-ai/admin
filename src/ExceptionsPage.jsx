@@ -3,7 +3,7 @@ import { Email, Pager, ProblemNote, useGarageRead, usePaging } from './parts.jsx
 import { STALE, letOutPicturePath } from './api.js';
 import { garageDateTime } from './time.js';
 import {
-  clockSaid, copyPieces, dayOn, daySaid, garageDayOf, gateLine, isDay, kindPieces, money, newestFirst, picturesOf, sentence, storyOf, whoPieces,
+  clockSaid, copyPieces, dayOn, daySaid, garageDayOf, gateLine, isDay, kindPieces, money, newestFirst, owedWords, picturesOf, sentence, storyOf, whoPieces,
 } from './exceptions.js';
 import FieldName from './FieldName.jsx';
 
@@ -173,7 +173,7 @@ export default function ExceptionsPage({ t, language, client, garage }) {
                         <td data-who>
                           <Pieces pieces={whoPieces(t, x.by)} />
                         </td>
-                        <td data-owed={x.owed_minor}>{x.kind === 'barrier_opened' ? t('exceptions.owedNothing') : money(x.owed_minor, x.currency, language)}</td>
+                        <td data-owed={x.owed_minor}>{owedWords(t, x, language, garage.currency)}</td>
                         <td data-gate={gate.state}>{gate.text}</td>
                         <td>
                           <button type="button" className="link-button" data-action="open-let-out" onClick={() => setOpen(x.id)}>
@@ -221,7 +221,7 @@ function Story({ t, language, garage, lanes, held, summary, day, onBack }) {
   }
   const x = held.whole;
   const zone = garage.timezone;
-  const items = storyOf(t, x, { lanes: lanes.data ?? [], timeZone: zone, language });
+  const items = storyOf(t, x, { lanes: lanes.data ?? [], timeZone: zone, language, currency: garage.currency });
   const pictures = picturesOf(t, x, { lanes: lanes.data ?? [], timeZone: zone, language });
   // The garage's day of the let-out: a time on another day says its date.
   const storyDay = garageDayOf(x.let_out_at, zone);
@@ -250,7 +250,7 @@ function Story({ t, language, garage, lanes, held, summary, day, onBack }) {
             <FieldName t={t} name="exceptions.what" />
           </dt>
           <dd data-fact="what">
-            <Pieces pieces={kindPieces(t, x, language)} />
+            <Pieces pieces={kindPieces(t, x, language, garage.currency)} />
           </dd>
         </div>
         <div>
@@ -271,13 +271,13 @@ function Story({ t, language, garage, lanes, held, summary, day, onBack }) {
           <dt>
             <FieldName t={t} name="exceptions.owed" />
           </dt>
-          <dd data-fact="owed">{x.kind === 'barrier_opened' ? t('exceptions.owedNothing') : money(x.owed_minor, x.currency, language)}</dd>
+          <dd data-fact="owed">{owedWords(t, x, language, garage.currency)}</dd>
         </div>
         <div>
           <dt>
             <FieldName t={t} name="exceptions.paid" />
           </dt>
-          <dd data-fact="paid">{money(x.paid_minor, x.currency, language)}</dd>
+          <dd data-fact="paid">{money(x.paid_minor, x.currency, language, garage.currency)}</dd>
         </div>
         <div>
           <dt>

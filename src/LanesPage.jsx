@@ -370,6 +370,9 @@ function Connect({ t, client, lane, onDone, onShown }) {
   const [copied, setCopied] = useState(false);
   const [problem, setProblem, fail] = useProblem();
   const codeRef = useRef(null);
+  // Each press mints a live token: a second press, however quick, sends nothing while the first is out (OP-3-4).
+  const sending = useRef(false);
+  const [busy, setBusy] = useState(false);
 
   if (code) {
     return (
@@ -411,6 +414,9 @@ function Connect({ t, client, lane, onDone, onShown }) {
       className="setup-form"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (sending.current || !name.trim()) return;
+        sending.current = true;
+        setBusy(true);
         setProblem(null);
         try {
           const made = await client.connectComputer(lane.id, name.trim());
@@ -419,6 +425,9 @@ function Connect({ t, client, lane, onDone, onShown }) {
           onDone();
         } catch (p) {
           fail(p);
+        } finally {
+          sending.current = false;
+          setBusy(false);
         }
       }}
     >
@@ -426,7 +435,7 @@ function Connect({ t, client, lane, onDone, onShown }) {
         <FieldName t={t} name="lanes.computerName" />
         <input type="text" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       </label>
-      <button type="submit" className="primary-button" disabled={!name.trim()}>
+      <button type="submit" className="primary-button" disabled={busy || !name.trim()}>
         {t('lanes.connectButton')}
       </button>
       {problem ? <ProblemNote t={t} kind={problem} /> : null}

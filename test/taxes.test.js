@@ -8,6 +8,8 @@ process.env.TZ = 'Asia/Tokyo';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arrange, garageInstant, listToState, parsePercent, percentText, startOfDay, taxState } from '../src/taxes.js';
+import { createClient } from '../src/api.js';
+import { platformNow } from '../src/rates.js';
 
 test('the computer is in Tokyo, so a page that used its own zone would show here', () => {
   assert.equal(new Date('2026-03-08T00:00:00').toISOString(), '2026-03-07T15:00:00.000Z');
@@ -94,4 +96,19 @@ test('every state of a garage\'s taxes: none said, none yet in force, no tax, an
   assert.equal(taxState([set('2026-01-01T05:00:00.000000Z')], NOW), 'noTax');
   assert.equal(taxState([set('2026-01-01T05:00:00.000000Z', [{ id: 'a' }]), set('2027-01-01T05:00:00.000000Z')], NOW), 'lines');
   assert.equal(taxState([set('2025-01-01T05:00:00.000000Z', [{ id: 'a' }]), set('2026-01-01T05:00:00.000000Z')], NOW), 'noTax');
+});
+
+test('a list that starts "now" is dated by the platform\'s clock: the Taxes read carries its answer\'s Date (OP-3-5)', async () => {
+  const body = JSON.stringify({ tax_sets: [] });
+  const headers = { get: (name) => (name.toLowerCase() === 'date' ? 'Sun, 01 Nov 2026 15:00:00 GMT' : null) };
+  const before = Date.now();
+  const read = await createClient({ fetch: async () => ({ status: 200, ok: true, headers, text: async () => body }) }).datedTaxLists('g');
+  assert.deepEqual(read.lists, []);
+  assert.equal(read.clock.date, Date.parse('2026-11-01T15:00:00Z'));
+  assert.ok(read.clock.local >= before && read.clock.local <= Date.now());
+  // This computer ten minutes slow: "now" is the platform's, in the garage's zone.
+  const clock = { date: read.clock.date, local: read.clock.date - 10 * 60000 };
+  assert.equal(garageInstant(platformNow(clock, clock.local + 30000), 'America/New_York'), '2026-11-01T10:00:30-05:00');
+  const undated = await createClient({ fetch: async () => ({ status: 200, ok: true, text: async () => body }) }).datedTaxLists('g');
+  assert.equal(undated.clock, null);
 });

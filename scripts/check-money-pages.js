@@ -279,6 +279,14 @@ try {
   await page.click('[data-action="save-taxes"]');
   await settles(page, () => !document.querySelector('[data-form="change-taxes"]'));
   check(stated().effective_from === '2027-03-14T05:00:00.000000Z', `2 from the start of a day: 14 March 2027, New York, starts at 05:00 UTC (sent "${stated().effective_from}")`);
+  // From here the platform's answers to the tax lists say ten minutes later than this computer (OP-3-5).
+  const AHEAD = 10 * 60_000;
+  const taxSets = `**/api/v1/garages/${HARBOR.id}/tax-sets`;
+  await page.route(taxSets, async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), date: new Date(Date.now() + AHEAD).toUTCString() } });
+  });
   // No tax, from the start of 1 June 2027.
   await page.click('[data-action="change-taxes"]');
   await page.click('[data-chooser="charges"] [data-value="none"]');
@@ -288,15 +296,16 @@ try {
   await page.click('[data-action="save-taxes"]');
   await settles(page, () => !document.querySelector('[data-form="change-taxes"]'));
   check(stated().effective_from === '2027-06-01T04:00:00.000000Z' && Array.isArray(stated().rules) && stated().rules.length === 0, `2 no tax: sent as a list with no lines, "rules": [] (sent ${JSON.stringify(stated().rules)})`);
-  // Now.
+  // Now, by the platform's clock: from the read after the save above, its answers say ten minutes later than this computer (OP-3-5).
   const before = Date.now();
   await page.click('[data-action="change-taxes"]');
   await page.click('[data-action="save-taxes"]');
   await settles(page, () => !document.querySelector('[data-form="change-taxes"]'));
   const nowSent = Date.parse(stated().effective_from);
-  check(nowSent >= before - 2000 && nowSent <= Date.now() + 1000, `2 now: the list starts at the moment it was saved (${stated().effective_from})`);
+  check(nowSent >= before + AHEAD - 3000 && nowSent <= Date.now() + AHEAD + 1000, `2 now: the list starts at the moment it was saved, by the platform's clock, not this computer's (${stated().effective_from}, ten minutes after this computer's)`);
   check(await settles(page, (at) => document.querySelector('[data-tax-list="current"]')?.dataset.starts === at, stated().effective_from), 'Taxes: the list saved "now" is the one in force');
   check(await settles(page, () => document.querySelectorAll('[data-section="earlier"] [data-tax-list="earlier"]').length === 1), 'Taxes: the list before it stays on record, under "Before"');
+  await page.unroute(taxSets);
   // Check 1, every refusal of the tax routes, both languages.
   for (const language of ['en', 'es']) {
     if (language === 'es') await chooseOnSettings(page, 'language', 'es');

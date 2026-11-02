@@ -2259,7 +2259,7 @@ const BROWSER_CONTROLS = [
   },
   {
     check: 'stuck: the time a car left typed on the browser\'s clock, not the garage\'s (browser)',
-    plant: { file: 'src/stuck.js', anchor: '  const at = instantOf(wall, garage.timezone);', with: '  const at = Number.isNaN(Date.parse(wall)) ? null : Date.parse(wall);' },
+    plant: { file: 'src/stuck.js', anchor: '  const all = instantsOf(wall, garage.timezone);', with: '  const all = Number.isNaN(Date.parse(wall)) ? [] : [Date.parse(wall)];' },
     before: BUILD,
     run: ['node', 'scripts/check-stuck.js'],
     names: ['FAIL exactly { outcome: "ended", reason, left_at:'],

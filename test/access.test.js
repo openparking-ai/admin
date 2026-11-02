@@ -26,7 +26,7 @@ test('every page names the reads it makes, and nothing else is a page', () => {
 // permission the platform names on it (its src/app.js, platform 0035).
 const READS = {
   garages: 'garages:read', setup: 'garages:read', banned: 'garages:read', alerts: 'garages:read', board: 'garages:read',
-  lanes: 'lanes:read', carsInside: 'stays:read', ratePlans: 'rates:read', taxLists: 'rates:read', changes: 'log:read', refused: 'log:read',
+  lanes: 'lanes:read', carsInside: 'stays:read', ratePlans: 'rates:read', taxLists: 'rates:read', datedTaxLists: 'rates:read', changes: 'log:read', refused: 'log:read',
   paymentAccount: 'payments:read', readerPlace: 'payments:read', readerConnections: 'payments:read',
   letOutDay: 'stays:read', letOutStory: 'stays:read', stuckStays: 'stays:read',
 };

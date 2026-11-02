@@ -4,7 +4,7 @@
 // 0043); nothing here decides either. A time the person types is the garage's
 // own clock, turned into an instant here only to send it.
 
-import { instantOf, moneyText, wallAt } from './rates.js';
+import { instantsOf, moneyText, wallAt } from './rates.js';
 
 /** The longest reason the platform keeps (its REASON_MAX). */
 export const REASON_MAX = 500;
@@ -49,18 +49,28 @@ export function reasonProblem(typed) {
 /** The garage's clock now, for the time a person says the car left. */
 export const leftNow = (garage, now = Date.now()) => wallAt(now, garage.timezone);
 
+/** The time the form opens at: the garage's clock, and the instant it reads. */
+export const leftKept = (garage, now = Date.now()) => ({ wall: leftNow(garage, now), at: now });
+
 /**
  * When the car left, as typed on the garage's clock: `{ at }`, an instant to
  * send, or `{ problem }` -- a time the clocks skip, one before the stay came
- * in, or one still to come.
+ * in, or one still to come. `kept` is the time the form opened at, `{ wall,
+ * at }`: left as it was, that instant is sent, not the wall time read back,
+ * which in the hour the clocks go back names two (OP-3-3).
  */
-export function leftAtTyped(wall, stay, garage, now = Date.now()) {
-  const at = instantOf(wall, garage.timezone);
-  if (at === null) return { problem: 'leftTimeOdd' };
+export function leftAtTyped(wall, stay, garage, now = Date.now(), kept = null) {
+  const entered = Date.parse(stay.entered_at);
+  if (kept && wall === kept.wall && kept.at >= entered && kept.at <= now) return { at: new Date(kept.at).toISOString() };
+  const all = instantsOf(wall, garage.timezone);
+  if (all.length === 0) return { problem: 'leftTimeOdd' };
   // The person types minutes; the stay came in at a second within its minute.
-  if (at < Math.floor(Date.parse(stay.entered_at) / 60000) * 60000) return { problem: 'leftBeforeEntry' };
+  // Of two instants the time names, the first one after the stay came in.
+  const after = all.filter((t) => t >= Math.floor(entered / 60000) * 60000);
+  if (after.length === 0) return { problem: 'leftBeforeEntry' };
+  const at = after.find((t) => t <= now) ?? after[0];
   if (at > now) return { problem: 'leftInFuture' };
-  return { at: new Date(Math.max(at, Date.parse(stay.entered_at))).toISOString() };
+  return { at: new Date(Math.max(at, entered)).toISOString() };
 }
 
 /**
