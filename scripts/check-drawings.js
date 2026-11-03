@@ -47,11 +47,14 @@
 //   6  the PDF: every page 11 x 17 in landscape (1224 x 792 points), its text
 //      real text (read back), each sheet's title and title block on its page;
 //      nothing drawn off its sheet or into the title block.
-//  11  the closing loop confirms the entry (U7e): the closing loop L3 stays
-//      wired to the gate, and its loop-active output goes to the relay box,
-//      read only, on K3 -- in the wiring sheet's rule and drawing, every plan
-//      sheet's loop table and the cable list, both languages. No sheet draws
-//      L4 or L5, or says L3 is wired to nothing else.
+//  11  the loops after the gate: the closing loop L3 stays wired to the gate,
+//      and its loop-active output goes to the relay box, read only, on K3
+//      (U7e) -- it confirms the gate closed behind the car. Past it, the
+//      confirmation pair L4/L5, crossed in order, gives the direction:
+//      through, or backed out (the settled loop geometry, 3e; one loop cannot
+//      tell those apart). Both, in both languages: L4 and L5 drawn on every
+//      plan sheet and named in its loop table, the wiring sheet's rules and
+//      loop detector, and cable S1. No sheet says L3 is wired to nothing else.
 //  10  the drawn text: what every test garage's sheets draw, in both
 //      languages -- every text on every sheet, in drawing order, with where it
 //      stands -- equal to the approved snapshot (scripts/drawings-drawn.json,
@@ -493,10 +496,10 @@ const READER_STEMS = ['reader', 'lector'];
       for (const w of want) if (!text.includes(plain(w))) missing.push(`page ${i + 1}: "${w}"`);
     });
     check(missing.length === 0, `${f.language}, ${f.name}: every page's title and title block read back as text${missing.length ? `; not found:\n      ${missing.join('\n      ')}` : ''}`);
-    // 11, read back from the PDF by a reader this project did not write: no confirmation pair, and K3 on the file.
+    // 11, read back from the PDF by a reader this project did not write: the confirmation pair, and K3, on the file.
     const all = pdf.pages.map((p) => plain(p.text)).join(' ');
-    const pair = [...new Set(all.match(/\bL[45]\b/g) ?? [])];
-    check(pair.length === 0 && /\bK3\b/.test(all), `${f.language}, ${f.name}: the PDF read back names no L4 or L5, and names ${MARK.K3}${pair.length ? `; found ${pair.join(', ')}` : ''}`);
+    const absent = [MARK.L4, MARK.L5, MARK.K3].filter((m) => !new RegExp(`\\b${m}\\b`).test(all));
+    check(absent.length === 0, `${f.language}, ${f.name}: the PDF read back names ${MARK.L4}, ${MARK.L5} and ${MARK.K3}${absent.length ? `; not found: ${absent.join(', ')}` : ''}`);
     check(pdf.title === `${t('drawings.doc')} - ${f.garage.garage.name.slice(0, 120).trim()}` || pdf.title?.startsWith(t('drawings.doc')), `${f.language}, ${f.name}: the file's title names the drawings and the garage`);
   }
 
@@ -521,8 +524,8 @@ const READER_STEMS = ['reader', 'lector'];
     check(out.length === 0, `${language}, ${name}: nothing runs off a sheet or into its title block${out.length ? `:\n      ${[...new Set(out)].join('\n      ')}` : ''}`);
   }
 
-  // ── 11 the closing loop confirms the entry ───────────────────────────────
-  console.log('11 the closing loop confirms the entry');
+  // ── 11 the loops after the gate: L3 closes, L4/L5 give the direction ─────
+  console.log('11 the loops after the gate: L3 to the gate and K3, the pair L4/L5 past it');
   // The rule before U7e, in both languages: L3 to the gate and to nothing else.
   const NOTHING_ELSE = ['to nothing else', 'never the relay box', 'a nada más', 'nunca la caja de relés'].map(squash);
   for (const { name, language, made } of SETS) {
@@ -530,6 +533,11 @@ const READER_STEMS = ['reader', 'lector'];
     const rule = pinned('drawings.rule.closing', { mark: MARK.L3, signal: MARK.K3 });
     const wired = pinned('drawings.loop.l3wired');
     const cable = pinned('drawings.cable.k3', { mark: MARK.L3 });
+    const pairMarks = [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
+    const pairRow = pinned('drawings.loop.l45');
+    const pairRule = pinned('drawings.rule.pair', { marks: `${MARK.L4}, ${MARK.L5}` });
+    const detector = pinned('drawings.inside.detector', { marks: pairMarks });
+    const s1 = pinned('drawings.cable.s1', { marks: pairMarks });
     const says = (sheet, text) => runsOf(sheet).some((r) => squash(r.text) === squash(text));
     const draws = (sheet, text) => texts(sheet).some((i) => i.text === text);
     const wrong = [];
@@ -538,11 +546,14 @@ const READER_STEMS = ['reader', 'lector'];
       if (sheet.key === 'wiring' && !(says(sheet, rule) && draws(sheet, MARK.K3))) wrong.push(`"${sheet.title}": no ${MARK.K3} drawn, or no rule sending ${MARK.L3}'s output to the relay box`);
       if (sheet.key === 'plan' && !says(sheet, wired)) wrong.push(`"${sheet.title}": the loop table does not say ${MARK.L3}'s output goes to the relay box`);
       if (sheet.key === 'cabling' && !(says(sheet, cable) && draws(sheet, MARK.K3))) wrong.push(`"${sheet.title}": no ${MARK.K3} row for ${MARK.L3}'s output`);
-      for (const item of texts(sheet)) if (/\bL[45]\b/.test(item.text)) wrong.push(`"${sheet.title}": "${item.text}" draws a confirmation loop that is no longer installed`);
+      if (sheet.key === 'plan' && !(draws(sheet, MARK.L4) && draws(sheet, MARK.L5) && says(sheet, pairRow))) wrong.push(`"${sheet.title}": the confirmation pair ${MARK.L4}/${MARK.L5} is not drawn past ${MARK.L3}, or not in the loop table`);
+      if (sheet.key === 'wiring' && !(says(sheet, pairRule) && says(sheet, detector))) wrong.push(`"${sheet.title}": no rule for the confirmation pair, or the loop detector does not read ${MARK.L4}, ${MARK.L5}`);
+      if (sheet.key === 'cabling' && !says(sheet, s1)) wrong.push(`"${sheet.title}": cable ${MARK.S1} does not carry ${MARK.L4}, ${MARK.L5}`);
       for (const r of runsOf(sheet)) for (const old of NOTHING_ELSE) if (squash(r.text).includes(old)) wrong.push(`"${sheet.title}": "${r.text}" says ${MARK.L3} is wired to nothing else`);
     }
-    for (const key of ['wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
-    check(wrong.length === 0, `${language}, ${name}: ${MARK.L3} to the gate, its output to the relay box on ${MARK.K3}, read only; no L4 or L5${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+    if (!/\bL4\b/.test(pairRule) || !/\bL5\b/.test(pairRule)) wrong.push(`the pair's rule does not name ${MARK.L4}, ${MARK.L5}: "${pairRule}"`);
+    for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
+    check(wrong.length === 0, `${language}, ${name}: ${MARK.L3} to the gate, its output to the relay box on ${MARK.K3}, read only; the pair ${MARK.L4}/${MARK.L5} past it${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
   }
 } finally {
   rmSync(DIR, { recursive: true, force: true });

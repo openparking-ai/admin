@@ -12,6 +12,8 @@ export const MARK = {
   L1: 'L1',
   L2: 'L2',
   L3: 'L3',
+  L4: 'L4',
+  L5: 'L5',
   N1: 'N1',
   N2: 'N2',
   N3: 'N3',

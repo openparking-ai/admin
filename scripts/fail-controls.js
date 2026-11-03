@@ -1460,6 +1460,25 @@ const CONTROLS = [
     run: CHECK_DRAWINGS,
     names: ['no answer, en: asks for "nothing, a set is made", snapshot "drivers"'],
   },
+  // ── the loops after the gate: L3 to the gate and K3, the confirmation pair L4/L5 past it ──
+  {
+    check: '11 loops after the gate: the confirmation pair L5 not drawn on the plan',
+    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l5 + loopW / 2, loopTop - 7, MARK.L5, { ...loopText, anchor: 'middle' });\n", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['"Entry lane, plan view: type 2A, a garage that takes any driver": the confirmation pair L4/L5 is not drawn past L3, or not in the loop table'],
+  },
+  {
+    check: '11 loops after the gate: cable S1 without the confirmation pair',
+    plant: { file: 'src/drawings/sheets.js', anchor: "t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })", with: "t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2].join(', ') })" },
+    run: CHECK_DRAWINGS,
+    names: ['"Cabling and network": cable S1 does not carry L4, L5'],
+  },
+  {
+    check: "11 loops after the gate: the closing loop's output K3 dropped from the cable list",
+    plant: { file: 'src/drawings/sheets.js', anchor: "    [mark(MARK.K3), t('drawings.cable.k3', { mark: MARK.L3 }), t('drawings.cable.k3cable'), t('drawings.cable.k3rule')],\n", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['"Cabling and network": no K3 row for L3\'s output'],
+  },
   // ── U6: Taxes and fees, Getting paid, Card readers ──
   {
     check: 'U6-2 a percent sent as 185',
