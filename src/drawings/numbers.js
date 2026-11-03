@@ -57,6 +57,14 @@ export const NUMBERS = {
 
   // Loops.
   loopWidth: length(30, '0.76', 'msu'),
+  // The two arming loops before the gate (the settled loop geometry): L2 at the
+  // pay station or pedestal, where the card reader is, and L1 behind it, this
+  // far apart, edge to edge. Both must be occupied together, so one vehicle has
+  // to span the gap. 1.5 m typical, a per-site setting (5 ft, as the table
+  // rounds 1.5 m); never less than loopSpacing below.
+  armingSpacing: length(60, '1.5', 'layout'),
+  // L1's centre, worked out: the pay station, half of L2, the spacing, half of L1.
+  armingRear: length(228, '5.8', 'worked'),
   // Across the lane, a loop follows the lane: it ends 12 to 20 in from each
   // edge (the MHTM manual: "about 11.8 in to 19.7 in (300 to 500 mm)"), so
   // in the 10 ft lane drawn it is 6 ft 8 in to 8 ft across, centred. The

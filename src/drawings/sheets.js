@@ -154,8 +154,8 @@ function loopsTable(c, t) {
       { name: t('drawings.col.wiredTo'), share: 0.3 },
     ],
     [
-      [m(MARK.L1), t('drawings.loop.l1'), t('drawings.item.relay')],
-      [m(MARK.L2), t('drawings.loop.l2'), t('drawings.item.relay')],
+      [m(MARK.L0), t('drawings.loop.l0'), t('drawings.item.relay')],
+      [m(`${MARK.L1}, ${MARK.L2}`), t('drawings.loop.l12', { mark: MARK.L2, second: MARK.L1, spacing: say('armingSpacing', t) }), t('drawings.item.relay')],
       [m(MARK.L3), t('drawings.loop.l3'), t('drawings.loop.l3wired')],
       [m(`${MARK.L4}, ${MARK.L5}`), t('drawings.loop.l45'), t('drawings.item.relay')],
     ],
@@ -186,7 +186,8 @@ function planSheet(s, t, spec) {
   if (spec.kind === 'exit') {
     const stop = [
       t('drawings.stop.sized', { stop: say('stopToArm', t) }),
-      t('drawings.stop.oneSpot', { distance: pay }),
+      t('drawings.stop.oneSpot', { distance: pay, mark: MARK.L2 }),
+      t('drawings.stop.underTruck', { marks: `${MARK.L1}, ${MARK.L2}`, third: MARK.L0 }),
       t('drawings.stop.shorter'),
       t('drawings.reach', { distance: say('controlsFromGate', t), here: pay }),
     ];
@@ -199,7 +200,7 @@ function planSheet(s, t, spec) {
       ? [t('drawings.how2A.opens'), t('drawings.how2A.atExit'), t('drawings.how2A.pedestal', { distance: pay }), t('drawings.reach', { distance: say('controlsFromGate', t), here: pay })]
       : [t('drawings.how2B.shows'), t('drawings.how2B.pedestal', { distance: pay }), t('drawings.how2B.noReader'), t('drawings.reach', { distance: say('controlsFromGate', t), here: pay })];
     column(s, at(1), BELOW, w).heading(t('drawings.box.how')).bullets(how);
-    column(s, at(2), BELOW, w).heading(t('drawings.box.sameAsExit')).bullets([t('drawings.same.every'), t('drawings.same.arming', { distance: pay })]);
+    column(s, at(2), BELOW, w).heading(t('drawings.box.sameAsExit')).bullets([t('drawings.same.every'), t('drawings.same.arming', { distance: pay, mark: MARK.L2, second: MARK.L1, spacing: say('armingSpacing', t) })]);
   }
 }
 
@@ -254,11 +255,12 @@ function wiringSheet(s, t, _spec, { reader }) {
       [t('drawings.item.gateControl'), t('drawings.inside.gateControl')],
       [t('drawings.item.switch'), t('drawings.inside.switch')],
       [t('drawings.item.relay'), t('drawings.inside.relay')],
-      [t('drawings.item.detector'), t('drawings.inside.detector', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })],
+      [t('drawings.item.detector'), t('drawings.inside.detector', { marks: [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })],
     ],
   );
   c.heading(t('drawings.box.rules'));
   c.bullets([
+    t('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` }),
     t('drawings.rule.closing', { mark: MARK.L3, signal: MARK.K3 }),
     t('drawings.rule.pair', { marks: `${MARK.L4}, ${MARK.L5}` }),
     t('drawings.rule.pulse', { mark: MARK.K1 }),
@@ -297,7 +299,7 @@ function cablingSheet(s, t, _spec, { reader }) {
     [mark(MARK.N6), t('drawings.cable.n6'), cable, t('drawings.cable.n6rule')],
     [mark(MARK.N7), t('drawings.cable.n7'), cable, t('drawings.cable.n7rule')],
     [mark(MARK.N8), t('drawings.cable.n8'), t('drawings.cable.n8cable'), ''],
-    [mark(MARK.S1), t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') }), t('drawings.cable.s1cable', { twist: say('leadTwist', t) }), t('drawings.cable.s1rule', { longest: say('leadLongest', t) })],
+    [mark(MARK.S1), t('drawings.cable.s1', { marks: [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') }), t('drawings.cable.s1cable', { twist: say('leadTwist', t) }), t('drawings.cable.s1rule', { longest: say('leadLongest', t) })],
     [mark(MARK.S2), t('drawings.cable.s2', { mark: MARK.L3 }), t('drawings.cable.s2cable'), t('drawings.cable.s2rule', { longest: say('gateLeadLongest', t), twist: say('gateLeadTwist', t) })],
     [mark(MARK.K1), t('drawings.cable.k1'), t('drawings.cable.k1cable'), ''],
     [mark(MARK.K2), t('drawings.cable.k2'), t('drawings.cable.k2cable'), t('drawings.cable.k2rule')],

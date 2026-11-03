@@ -9,6 +9,7 @@ export const MARK = {
   backCamera: 'E',
   intercom: 'F',
   scanner: 'G',
+  L0: 'L0',
   L1: 'L1',
   L2: 'L2',
   L3: 'L3',

@@ -55,6 +55,13 @@
 //      tell those apart). Both, in both languages: L4 and L5 drawn on every
 //      plan sheet and named in its loop table, the wiring sheet's rules and
 //      loop detector, and cable S1. No sheet says L3 is wired to nothing else.
+//  12  the arming loops before the gate (the settled loop geometry, 3e): two,
+//      L1 and L2, both read by the loop detector, and the lane arms only when
+//      both are occupied together, so one vehicle has to span the gap. Every
+//      plan sheet draws six loops (L0 to L5) with L1 labelled and in its loop
+//      table; the wiring sheet's rules say both must be occupied together and
+//      its loop detector reads them; cable S1 carries them; the PDF read back
+//      names L1 and L2.
 //  10  the drawn text: what every test garage's sheets draw, in both
 //      languages -- every text on every sheet, in drawing order, with where it
 //      stands -- equal to the approved snapshot (scripts/drawings-drawn.json,
@@ -496,10 +503,11 @@ const READER_STEMS = ['reader', 'lector'];
       for (const w of want) if (!text.includes(plain(w))) missing.push(`page ${i + 1}: "${w}"`);
     });
     check(missing.length === 0, `${f.language}, ${f.name}: every page's title and title block read back as text${missing.length ? `; not found:\n      ${missing.join('\n      ')}` : ''}`);
-    // 11, read back from the PDF by a reader this project did not write: the confirmation pair, and K3, on the file.
+    // 11 and 12, read back from the PDF by a reader this project did not write: both arming loops, the
+    // confirmation pair, and K3, on the file.
     const all = pdf.pages.map((p) => plain(p.text)).join(' ');
-    const absent = [MARK.L4, MARK.L5, MARK.K3].filter((m) => !new RegExp(`\\b${m}\\b`).test(all));
-    check(absent.length === 0, `${f.language}, ${f.name}: the PDF read back names ${MARK.L4}, ${MARK.L5} and ${MARK.K3}${absent.length ? `; not found: ${absent.join(', ')}` : ''}`);
+    const absent = [MARK.L1, MARK.L2, MARK.L4, MARK.L5, MARK.K3].filter((m) => !new RegExp(`\\b${m}\\b`).test(all));
+    check(absent.length === 0, `${f.language}, ${f.name}: the PDF read back names ${MARK.L1}, ${MARK.L2}, ${MARK.L4}, ${MARK.L5} and ${MARK.K3}${absent.length ? `; not found: ${absent.join(', ')}` : ''}`);
     check(pdf.title === `${t('drawings.doc')} - ${f.garage.garage.name.slice(0, 120).trim()}` || pdf.title?.startsWith(t('drawings.doc')), `${f.language}, ${f.name}: the file's title names the drawings and the garage`);
   }
 
@@ -533,7 +541,7 @@ const READER_STEMS = ['reader', 'lector'];
     const rule = pinned('drawings.rule.closing', { mark: MARK.L3, signal: MARK.K3 });
     const wired = pinned('drawings.loop.l3wired');
     const cable = pinned('drawings.cable.k3', { mark: MARK.L3 });
-    const pairMarks = [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
+    const pairMarks = [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
     const pairRow = pinned('drawings.loop.l45');
     const pairRule = pinned('drawings.rule.pair', { marks: `${MARK.L4}, ${MARK.L5}` });
     const detector = pinned('drawings.inside.detector', { marks: pairMarks });
@@ -554,6 +562,38 @@ const READER_STEMS = ['reader', 'lector'];
     if (!/\bL4\b/.test(pairRule) || !/\bL5\b/.test(pairRule)) wrong.push(`the pair's rule does not name ${MARK.L4}, ${MARK.L5}: "${pairRule}"`);
     for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
     check(wrong.length === 0, `${language}, ${name}: ${MARK.L3} to the gate, its output to the relay box on ${MARK.K3}, read only; the pair ${MARK.L4}/${MARK.L5} past it${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 12 the arming loops before the gate: two, both occupied together ─────
+  console.log('12 the arming loops before the gate: L1 and L2, both occupied together');
+  for (const { name, language, made } of SETS) {
+    const pinned = pinnedWords(language);
+    const label = pinned('drawings.plan.l1', { mark: MARK.L1 });
+    // The loop table's row for L1, its spacing written by the table: read as the text either side of it.
+    const [rowStart, rowEnd] = pinned('drawings.loop.l12', { mark: MARK.L2, second: MARK.L1 }).split('{spacing}');
+    const rule = pinned('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` });
+    const loopMarks = [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
+    const detector = pinned('drawings.inside.detector', { marks: loopMarks });
+    const s1 = pinned('drawings.cable.s1', { marks: loopMarks });
+    // Read made alike but with the digits kept (norm, not squash): "L1 arming" and "L2 arming" are two labels.
+    const says = (sheet, text) => runsOf(sheet).some((r) => norm(r.text) === norm(text));
+    const draws = (sheet, text) => texts(sheet).some((i) => norm(i.text) === norm(text));
+    const row = (sheet) => runsOf(sheet).some((r) => norm(r.text).startsWith(norm(rowStart)) && norm(r.text).endsWith(norm(rowEnd ?? '')));
+    const wrong = [];
+    if (rowEnd === undefined) wrong.push(`the loop table's row for ${MARK.L1}, ${MARK.L2} does not give the arming spacing`);
+    if (!/\bL1\b/.test(rule) || !/\bL2\b/.test(rule)) wrong.push(`the arming rule does not name ${MARK.L1}, ${MARK.L2}: "${rule}"`);
+    for (const sheet of made.sheets) {
+      if (sheet.key === 'plan') {
+        const loops = sheet.items.filter((i) => i.role === 'loop').length;
+        if (loops !== 6) wrong.push(`"${sheet.title}": ${loops} loops drawn, not six (${MARK.L0} to ${MARK.L5})`);
+        if (!draws(sheet, label)) wrong.push(`"${sheet.title}": the second arming loop ${MARK.L1} is not drawn`);
+        if (!row(sheet)) wrong.push(`"${sheet.title}": the loop table has no row for the arming loops ${MARK.L1}, ${MARK.L2}`);
+      }
+      if (sheet.key === 'wiring' && !(says(sheet, rule) && says(sheet, detector))) wrong.push(`"${sheet.title}": no rule that both arming loops ${MARK.L1}, ${MARK.L2} must be occupied together, or the loop detector does not read them`);
+      if (sheet.key === 'cabling' && !says(sheet, s1)) wrong.push(`"${sheet.title}": cable ${MARK.S1} does not carry ${MARK.L1}, ${MARK.L2}`);
+    }
+    for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
+    check(wrong.length === 0, `${language}, ${name}: two arming loops ${MARK.L1} and ${MARK.L2} before the gate, both occupied together${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
   }
 } finally {
   rmSync(DIR, { recursive: true, force: true });

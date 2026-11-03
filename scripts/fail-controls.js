@@ -1469,7 +1469,7 @@ const CONTROLS = [
   },
   {
     check: '11 loops after the gate: cable S1 without the confirmation pair',
-    plant: { file: 'src/drawings/sheets.js', anchor: "t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })", with: "t('drawings.cable.s1', { marks: [MARK.L1, MARK.L2].join(', ') })" },
+    plant: { file: 'src/drawings/sheets.js', anchor: "t('drawings.cable.s1', { marks: [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ') })", with: "t('drawings.cable.s1', { marks: [MARK.L0, MARK.L1, MARK.L2].join(', ') })" },
     run: CHECK_DRAWINGS,
     names: ['"Cabling and network": cable S1 does not carry L4, L5'],
   },
@@ -1478,6 +1478,25 @@ const CONTROLS = [
     plant: { file: 'src/drawings/sheets.js', anchor: "    [mark(MARK.K3), t('drawings.cable.k3', { mark: MARK.L3 }), t('drawings.cable.k3cable'), t('drawings.cable.k3rule')],\n", with: '' },
     run: CHECK_DRAWINGS,
     names: ['"Cabling and network": no K3 row for L3\'s output'],
+  },
+  // ── the arming loops before the gate: two, L1 and L2, both occupied together ──
+  {
+    check: '12 arming loops: the second arming loop L1 not drawn on the plan',
+    plant: { file: 'src/drawings/plan.js', anchor: '[[l0, [7, 4]], [l1], [l2], [l3], [l4], [l5]]', with: '[[l0, [7, 4]], [l2], [l3], [l4], [l5]]' },
+    run: CHECK_DRAWINGS,
+    names: ['"Exit lane, plan view": 5 loops drawn, not six (L0 to L5)'],
+  },
+  {
+    check: "12 arming loops: the second arming loop L1's label dropped from the plan",
+    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });\n", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['"Exit lane, plan view": the second arming loop L1 is not drawn'],
+  },
+  {
+    check: '12 arming loops: the wiring rules without "both arming loops occupied together"',
+    plant: { file: 'src/drawings/sheets.js', anchor: "    t('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` }),\n", with: '' },
+    run: CHECK_DRAWINGS,
+    names: ['"Control panel and lane wiring": no rule that both arming loops L1, L2 must be occupied together, or the loop detector does not read them'],
   },
   // ── U6: Taxes and fees, Getting paid, Card readers ──
   {
