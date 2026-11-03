@@ -249,7 +249,19 @@ try {
   await page.fill('[data-line-at="2"] [data-field="tax-percent"]', '6.125');
   check(await settles(page, (w) => document.querySelector('[data-line-problem="2"]')?.textContent === w, EN['taxes.needPercent.shape']), `Taxes: three decimals is said on its line: "${EN['taxes.needPercent.shape']}"`);
   check(requests.filter((r) => r.method === 'POST').length === postsBefore, 'Taxes: ...and nothing was sent');
-  // Check 2: 18.5 and a third line moved to the top, from the start of 1 November 2026 (New York's clocks go back that night).
+  // The days the lists start on are worked out from today, so they always lie ahead: a day that has passed is not a
+  // list that "starts later" (the fixed 1 November 2026 stopped this check on that day). New York's clocks go back on
+  // the first Sunday of November and forward on the second Sunday of March.
+  const sunday = (year, month, nth) => {
+    const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    return new Date(Date.UTC(year, month - 1, 1 + ((7 - first) % 7) + 7 * (nth - 1))).toISOString().slice(0, 10);
+  };
+  const ahead = new Date().getUTCFullYear() + 1;
+  const fallDay = sunday(ahead, 11, 1);
+  const tokyoFall = new Date(Date.parse(`${fallDay}T00:00:00Z`) - 9 * 3600e3).toISOString().slice(0, 16);
+  const springDay = sunday(ahead + 1, 3, 2);
+  const juneDay = `${ahead + 1}-06-01`;
+  // Check 2: 18.5 and a third line moved to the top, from the start of the day New York's clocks go back.
   await page.fill('[data-line-at="2"] [data-field="tax-percent"]', '6');
   await page.click('[data-action="add-line"]');
   await page.fill('[data-line-at="3"] [data-field="tax-name"]', 'County fee');
@@ -258,7 +270,7 @@ try {
   await page.click('[data-line-at="3"] [data-action="move-up"]');
   await page.click('[data-line-at="2"] [data-action="move-up"]');
   await page.click('[data-chooser="starts"] [data-value="day"]');
-  await page.fill('[data-field="tax-day"]', '2026-11-01');
+  await page.fill('[data-field="tax-day"]', fallDay);
   const firstSaveFrom = requests.length;
   await page.click('[data-action="save-taxes"]');
   const stated = () => stub.money(HARBOR.id).taxSets.at(-1);
@@ -266,28 +278,28 @@ try {
   // Check 3 at the first save, before anything that follows could stop on it: one write, POST tax-sets.
   appendOnly(firstSaveFrom, 1, 'the first save');
   const fall = stated();
-  check(fall.effective_from === '2026-11-01T04:00:00.000000Z', `2 from the start of a day: 1 November 2026, New York, starts at its midnight, 04:00 UTC (sent "${fall.effective_from}"; Tokyo's would be 2026-10-31T15:00Z)`);
+  check(fall.effective_from === `${fallDay}T04:00:00.000000Z`, `2 from the start of a day, the night New York's clocks go back (${fallDay}): starts at its midnight, 04:00 UTC (sent "${fall.effective_from}"; Tokyo's would be ${tokyoFall}Z)`);
   check(JSON.stringify(fall.rules.map((r) => [r.label, r.percent_bp, r.rounding, r.sequence])) === JSON.stringify([['County fee', 225, 'down', 1], ['City parking tax', 1850, 'nearest', 2], ['State surcharge', 600, 'up', 3]]), `2 percent: 18.5 is sent as 1850, 2,25 as 225, in the order shown (${JSON.stringify(fall.rules.map((r) => [r.label, r.percent_bp]))})`);
   check(new Set(fall.rules.map((r) => r.id)).size === 3, '2 line ids: made by the page, each once in the list');
   check(await appears(page, '[data-section="later"] [data-tax-list="later"]'), 'Taxes: the new list is shown as one that starts later');
-  const startsAt = EN['taxes.startsAt'].replace('{time}', said('2026-11-01T04:00:00Z', HARBOR.timezone, 'en'));
+  const startsAt = EN['taxes.startsAt'].replace('{time}', said(`${fallDay}T04:00:00Z`, HARBOR.timezone, 'en'));
   check(plain(await page.textContent('[data-section="later"] .tax-when')) === plain(startsAt), `Taxes: ...with when it starts, in the garage's time: "${startsAt}"`);
-  // From the start of 14 March 2027 (New York's clocks go forward that night): midnight is still -05:00.
+  // From the start of the day New York's clocks go forward: midnight is still -05:00.
   await page.click('[data-action="change-taxes"]');
   await page.click('[data-chooser="starts"] [data-value="day"]');
-  await page.fill('[data-field="tax-day"]', '2027-03-14');
+  await page.fill('[data-field="tax-day"]', springDay);
   await page.click('[data-action="save-taxes"]');
   await settles(page, () => !document.querySelector('[data-form="change-taxes"]'));
-  check(stated().effective_from === '2027-03-14T05:00:00.000000Z', `2 from the start of a day: 14 March 2027, New York, starts at 05:00 UTC (sent "${stated().effective_from}")`);
-  // No tax, from the start of 1 June 2027.
+  check(stated().effective_from === `${springDay}T05:00:00.000000Z`, `2 from the start of a day, the night New York's clocks go forward (${springDay}): starts at 05:00 UTC (sent "${stated().effective_from}")`);
+  // No tax, from the start of 1 June, after both.
   await page.click('[data-action="change-taxes"]');
   await page.click('[data-chooser="charges"] [data-value="none"]');
   check((await page.$$('[data-form="change-taxes"] .tax-line')).length === 0, 'Taxes: "This garage charges no tax" is a single choice: no lines on the form');
   await page.click('[data-chooser="starts"] [data-value="day"]');
-  await page.fill('[data-field="tax-day"]', '2027-06-01');
+  await page.fill('[data-field="tax-day"]', juneDay);
   await page.click('[data-action="save-taxes"]');
   await settles(page, () => !document.querySelector('[data-form="change-taxes"]'));
-  check(stated().effective_from === '2027-06-01T04:00:00.000000Z' && Array.isArray(stated().rules) && stated().rules.length === 0, `2 no tax: sent as a list with no lines, "rules": [] (sent ${JSON.stringify(stated().rules)})`);
+  check(stated().effective_from === `${juneDay}T04:00:00.000000Z` && Array.isArray(stated().rules) && stated().rules.length === 0, `2 no tax: sent as a list with no lines, "rules": [] (sent ${JSON.stringify(stated().rules)})`);
   // Now.
   const before = Date.now();
   await page.click('[data-action="change-taxes"]');

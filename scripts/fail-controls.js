@@ -3042,7 +3042,7 @@ const BROWSER_CONTROLS = [
     plant: { file: 'src/taxes.js', anchor: '  const midnight = Date.UTC(y, mo - 1, d);', with: '  return garageInstant(new Date(`${day}T00:00:00`).getTime(), timeZone);\n  const midnight = Date.UTC(y, mo - 1, d);' },
     before: BUILD,
     run: ['node', 'scripts/check-money-pages.js'],
-    names: ['FAIL 2 from the start of a day: 1 November 2026, New York, starts at its midnight, 04:00 UTC (sent "2026-10-31T15:00:00.000000Z"'],
+    names: ["FAIL 2 from the start of a day, the night New York's clocks go back", 'T15:00:00.000000Z"; Tokyo\'s would be'],
   },
   {
     check: 'U6-3 a write that is not POST tax-sets',
