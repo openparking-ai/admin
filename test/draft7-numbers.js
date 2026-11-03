@@ -75,7 +75,8 @@ export const ADDED = {
   gatePeak: 'the gate\'s peak draw, from the Magnetic MHTM manual, table 3 (see CHANGED)',
   gateLeadLongest: 'the closing loop\'s lead to the gate: the Magnetic MHTM manual, p. 57, "must not exceed 49.2 ft (15 m)", written to the inch below it',
   gateLeadTwist: 'the closing loop\'s lead twist: the Magnetic MHTM manual, p. 57, "ca. 6 twists per feet"',
-  armingSpacing: 'the two arming loops apart, edge to edge: the settled loop geometry, 1.5 m typical and a per-site setting (5 ft, as the table rounds 1.5 m); Draft 7 drew one arming loop',
-  armingRear: 'the second arming loop\'s centre, worked out: the pay station (11 ft 6 in), half of L2, the arming spacing, half of L1',
+  frontLoop: 'the arming loop nearest the gate (L2), its centre worked out: half of the closing loop L3, the loop spacing, half of L2; Draft 7 drew one arming loop',
+  readerLoop: 'the arming loop under the driver (L1), its centre worked out: L2\'s centre, half of L2, the loop spacing, half of L1 (the nearest place to the pay station that keeps every loop the loop spacing apart)',
+  shortestCover: 'the shortest car stopped with its front at the stop distance that covers both arming loops whole, worked out: L1\'s far edge less the stop distance',
   controlsFromGate: 'a driver\'s controls from the gate: the Magnetic MHTM manual, p. 48, "at least 6 ft (1.83 m) away from any moving part of the barrier"',
 };

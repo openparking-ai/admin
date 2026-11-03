@@ -19,9 +19,9 @@
 //              as the wiring rule, the loop table and the cable list say it;
 //              and the confirmation pair L4/L5 past it, as the loop table,
 //              the wiring rule, the loop detector and cable S1 say it.
-//   arming     12: the second arming loop L1, as the plan labels it, the
-//              loop table says it and the wiring rule says both arming loops
-//              must be occupied together.
+//   arming     12: the arming loops L1 and L2, as the plan labels them, the
+//              loop table says them and the wiring rule says both must be
+//              occupied together.
 
 import { endOnce } from '../src/i18n/index.js';
 import { committed } from './drawings-snapshot.js';
@@ -30,7 +30,7 @@ export const PINNED = {
   saysNone: ['drawings.stop.passOnly', 'drawings.entryType.passOnly', 'drawings.type.exitNoReader', 'drawings.how2B.noReader'],
   everyLane: ['drawings.about.oneComputer', 'drawings.about.alsoAtExit', 'drawings.about.alsoEveryLane', 'drawings.wiring.scanner', 'drawings.item.cardReader', 'drawings.wiring.intercom'],
   closing: ['drawings.rule.closing', 'drawings.loop.l3wired', 'drawings.cable.k3', 'drawings.loop.l45', 'drawings.rule.pair', 'drawings.inside.detector', 'drawings.cable.s1'],
-  arming: ['drawings.plan.l1', 'drawings.loop.l12', 'drawings.rule.arming'],
+  arming: ['drawings.plan.l1', 'drawings.plan.l2', 'drawings.loop.l12', 'drawings.rule.arming'],
   writing: ['drawings.unit.ft', 'drawings.unit.in', 'drawings.unit.m', 'drawings.unit.mm', 'drawings.unit.length', 'drawings.unit.turns', 'drawings.unit.twist', 'drawings.unit.category', 'drawings.unit.volts', 'drawings.unit.amps', 'drawings.unit.degrees', 'drawings.tb.sheetOf'],
 };
 

@@ -53,19 +53,19 @@ export function drawPlan(g, t, { kind, reader }) {
   g.poly([[ARM - 8, 146], [truckFront, MID - truckHalf - 7], [truckFront, MID + truckHalf + 7]], { closed: true, stroke: null, fill: COLOR.view });
 
   // The longest F-150 where it stops, and a small car beside it, dashed.
-  g.rect(truckBack, MID - truckHalf, truckFront - truckBack, 2 * truckHalf, { fill: COLOR.car, width: 1.2, radius: 10 });
-  // Between the arming loop L2 and the truck's front: behind L2 the second arming loop L1 lies under the truck.
-  const truckText = before('payStation') + U * metres('loopWidth') / 2 + 3;
-  g.text(truckText, 222, t('drawings.plan.truck'), lbl);
-  g.text(truckText, 236, t('drawings.plan.truckLong', { length: say('truckLength', t) }), { ...soft, size: SIZE.small });
-  g.text(truckText, 250, t('drawings.plan.truckWide', { width: say('truckWidth', t) }), { ...soft, size: SIZE.small });
+  g.rect(truckBack, MID - truckHalf, truckFront - truckBack, 2 * truckHalf, { fill: COLOR.car, width: 1.2, radius: 10, role: 'truck' });
+  g.text(truckBack + 8, 222, t('drawings.plan.truck'), lbl);
+  // Small, so the longer Spanish stays clear of the small car's outline.
+  g.text(truckBack + 8, 236, t('drawings.plan.truckLong', { length: say('truckLength', t) }), { ...soft, size: SIZE.small });
+  g.text(truckBack + 8, 250, t('drawings.plan.truckWide', { width: say('truckWidth', t) }), { ...soft, size: SIZE.small });
   const smallHalf = (U * metres('smallCarWidth')) / 2;
   g.rect(truckFront - U * metres('smallCarLength'), MID - smallHalf, U * metres('smallCarLength'), 2 * smallHalf, { width: 1.2, dash: [6, 4], radius: 10 });
   g.text(truckBack + 16, 318, t('drawings.plan.smallCar', { length: say('smallCarLength', t) }), soft);
 
-  // The loops: L0 behind the truck (the optional third loop, dashed), the two arming loops L1 and L2 under the
-  // stopped truck, L2 at the pay station or pedestal, L3 under the arm, L4 and L5 past it. L1 and L2 must both
-  // be occupied together to arm: one vehicle has to span the gap between them. L3 confirms the gate closed
+  // The loops, in the order a car meets them: L0 behind the truck (the optional third loop, dashed), the two
+  // arming loops under the stopped truck -- L1 under the driver at the pay station or pedestal, L2 ahead of it,
+  // toward the gate -- L3 under the arm, L4 and L5 past it, every two at least the loop spacing apart. L1 and L2
+  // must both be occupied together to arm: one vehicle has to span the gap between them. L3 confirms the gate closed
   // behind the car, read through the gate's loop-active output (U7e); L4 and L5, crossed in order, tell which
   // way the car went: through, or backed out.
   const loopW = U * metres('loopWidth');
@@ -73,20 +73,19 @@ export function drawPlan(g, t, { kind, reader }) {
   const loopL = laneWidth - 2 * U * metres('loopEdgeMax');
   const spacing = U * metres('loopSpacing');
   const l0 = before('thirdLoopNear') - loopW;
-  const l2 = before('payStation') - loopW / 2;
-  // L1: the arming spacing behind L2, edge to edge; its centre is the table's armingRear.
-  const l1 = l2 - U * metres('armingSpacing') - loopW;
-  if (Math.abs(l1 + loopW / 2 - before('armingRear')) > 1e-6) throw new Error('armingRear is not L2, the arming spacing and L1 added up');
+  const l1 = before('readerLoop') - loopW / 2;
+  const l2 = before('frontLoop') - loopW / 2;
   const l3 = ARM - loopW / 2;
+  // The table's centres are L3, the spacing and the loops added up; a table edited out of step stops here.
+  if (Math.abs(l3 - spacing - loopW - l2) > 1e-6 || Math.abs(l2 - spacing - loopW - l1) > 1e-6) throw new Error('frontLoop and readerLoop are not L3, the loop spacing and the loops added up');
   const l4 = l3 + loopW + spacing;
   const l5 = l4 + loopW + spacing;
   const loopTop = MID - loopL / 2;
-  for (const [x, dash] of [[l0, [7, 4]], [l1], [l2], [l3], [l4], [l5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop' });
+  for (const [x, mark, dash] of [[l0, MARK.L0, [7, 4]], [l1, MARK.L1], [l2, MARK.L2], [l3, MARK.L3], [l4, MARK.L4], [l5, MARK.L5]]) g.rect(x, loopTop, loopW, loopL, { stroke: COLOR.loop, width: 2, dash: dash ?? null, role: 'loop', mark });
   const loopText = { size: SIZE.text, bold: true, color: COLOR.loop };
   g.text(l0 + loopW / 2, loopTop - 7, t('drawings.plan.l0', { mark: MARK.L0 }), { ...loopText, anchor: 'middle' });
   g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });
-  // Beside its loop, as L3's is: above it runs the pay station's dashed line.
-  g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);
+  g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });
   g.text(l3 + loopW + 4, loopTop - 7, t('drawings.plan.l3', { mark: MARK.L3 }), loopText);
   g.text(l4 + loopW / 2, loopTop - 7, MARK.L4, { ...loopText, anchor: 'middle' });
   g.text(l5 + loopW / 2, loopTop - 7, MARK.L5, { ...loopText, anchor: 'middle' });
@@ -135,10 +134,10 @@ export function drawPlan(g, t, { kind, reader }) {
   const ext = (x, to) => g.line(x, 346, x, to, { width: 1 });
   ext(ARM, 476);
   ext(truckFront, 372);
-  ext(pay, 406);
+  ext(pay, 410);
   ext(truckBack, 440);
-  ext(l0 + loopW, 406);
-  ext(l1 + loopW / 2, 392);
+  ext(l0 + loopW, 410);
+  ext(l2 + loopW / 2, 389);
   ext(backCamera, 476);
   const dim = (from, y, text, after) => {
     g.arrow(from, y, ARM, y, { both: true, width: 1 });
@@ -149,11 +148,11 @@ export function drawPlan(g, t, { kind, reader }) {
   const stop = say('stopToArm', t);
   g.text(ARM + 6, 370, stop, num);
   g.text(ARM + 6 + g.measure(stop, SIZE.text) / g.k + 6, 370, t('drawings.plan.stop'), soft);
-  dim(l1 + loopW / 2, 386, say('armingRear', t), t('drawings.plan.armingAt', { mark: MARK.L1 }));
-  dim(pay, 400, say('payStation', t), t(station ? 'drawings.plan.payAt' : 'drawings.plan.pedestalAt', { mark: MARK.L2 }));
-  g.line(l0 + loopW, 400, pay - 8, 400, { width: 1, dash: [2, 3] });
+  dim(l2 + loopW / 2, 386, say('frontLoop', t), t('drawings.plan.frontAt', { mark: MARK.L2 }));
+  dim(pay, 404, say('payStation', t), t(station ? 'drawings.plan.payAt' : 'drawings.plan.pedestalAt', { mark: MARK.L1 }));
+  g.line(l0 + loopW, 404, pay - 8, 404, { width: 1, dash: [2, 3] });
   // Under its dashed line, right of the truck's witness line, where no witness line runs.
-  g.text(truckBack + 6, 413, t('drawings.plan.l0At', { mark: MARK.L0, length: say('thirdLoopNear', t) }), num);
+  g.text(truckBack + 6, 417, t('drawings.plan.l0At', { mark: MARK.L0, length: say('thirdLoopNear', t) }), num);
   dim(truckBack, 434, say('truckBack', t), t('drawings.plan.truckBack'));
   dim(backCamera, 470, say('backCamera', t), t('drawings.plan.backCameraAt'));
 

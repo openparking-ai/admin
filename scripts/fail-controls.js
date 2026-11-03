@@ -985,9 +985,10 @@ const CONTROLS = [
   },
   {
     check: 'U5 gate 6: a label back on a line',
-    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l2 + loopW + 4, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), loopText);", with: "  g.text(l2 + loopW / 2, loopTop - 7, t('drawings.plan.l2', { mark: MARK.L2 }), { ...loopText, anchor: 'middle' });" },
+    // L1's label run right from its centre: across the pay station's dashed line, just past the loop.
+    plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });", with: "  g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), loopText);" },
     run: CHECK_DRAWINGS,
-    names: ['FAIL en, any driver: no label crossed by a line', '"L2 arming"'],
+    names: ['FAIL en, any driver: no label crossed by a line', '"L1 arming"'],
   },
   {
     check: 'U5 gate 3: a job with no time limit',
@@ -1481,22 +1482,35 @@ const CONTROLS = [
   },
   // ── the arming loops before the gate: two, L1 and L2, both occupied together ──
   {
-    check: '12 arming loops: the second arming loop L1 not drawn on the plan',
-    plant: { file: 'src/drawings/plan.js', anchor: '[[l0, [7, 4]], [l1], [l2], [l3], [l4], [l5]]', with: '[[l0, [7, 4]], [l2], [l3], [l4], [l5]]' },
+    check: '12 arming loops: the arming loop L1 not drawn on the plan',
+    plant: { file: 'src/drawings/plan.js', anchor: '[l1, MARK.L1], ', with: '' },
     run: CHECK_DRAWINGS,
     names: ['"Exit lane, plan view": 5 loops drawn, not six (L0 to L5)'],
   },
   {
-    check: "12 arming loops: the second arming loop L1's label dropped from the plan",
+    check: "12 arming loops: the arming loop L1's label dropped from the plan",
     plant: { file: 'src/drawings/plan.js', anchor: "  g.text(l1 + loopW / 2, loopTop - 7, t('drawings.plan.l1', { mark: MARK.L1 }), { ...loopText, anchor: 'middle' });\n", with: '' },
     run: CHECK_DRAWINGS,
-    names: ['"Exit lane, plan view": the second arming loop L1 is not drawn'],
+    names: ['"Exit lane, plan view": the arming loop L1 is not drawn'],
   },
   {
     check: '12 arming loops: the wiring rules without "both arming loops occupied together"',
     plant: { file: 'src/drawings/sheets.js', anchor: "    t('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` }),\n", with: '' },
     run: CHECK_DRAWINGS,
     names: ['"Control panel and lane wiring": no rule that both arming loops L1, L2 must be occupied together, or the loop detector does not read them'],
+  },
+  // ── the loops as drawn: spaced, in order, under the stopped car (check-drawings 13) ──
+  {
+    check: '13 loops as drawn: L2 drawn closer than the loop spacing to the closing loop L3',
+    plant: { file: 'src/drawings/plan.js', anchor: '[l2, MARK.L2]', with: '[l2 + 20, MARK.L2]' },
+    run: CHECK_DRAWINGS,
+    names: ['"Exit lane, plan view": L2 and L3 are 0.89 m apart, less than 1.22 m'],
+  },
+  {
+    check: '13 loops as drawn: the shortest car the sheet names too short to cover L1',
+    plant: { file: 'src/drawings/numbers.js', anchor: "  shortestCover: length(132, '3.35', 'worked'),", with: "  shortestCover: length(120, '3.05', 'worked')," },
+    run: CHECK_DRAWINGS,
+    names: ['"Exit lane, plan view": the shortest car the sheet names, stopped at the stop line, does not cover the arming loop L1'],
   },
   // ── U6: Taxes and fees, Getting paid, Card readers ──
   {

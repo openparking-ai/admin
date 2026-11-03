@@ -62,6 +62,11 @@
 //      table; the wiring sheet's rules say both must be occupied together and
 //      its loop detector reads them; cable S1 carries them; the PDF read back
 //      names L1 and L2.
+//  13  the loops as drawn (layout A, 2026-11-03): on every plan sheet the
+//      loops run L0 to L5 along the lane, every two at least the loop
+//      spacing apart; both arming loops lie under the stopped F-150 and
+//      under the shortest car the sheet names, stopped at the stop distance;
+//      the third loop starts past the truck's tail; L3 lies under the arm.
 //  10  the drawn text: what every test garage's sheets draw, in both
 //      languages -- every text on every sheet, in drawing order, with where it
 //      stands -- equal to the approved snapshot (scripts/drawings-drawn.json,
@@ -75,7 +80,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { translate } from '../src/i18n/index.js';
-import { NUMBERS, SOURCES, scaleMarks } from '../src/drawings/numbers.js';
+import { NUMBERS, SOURCES, metres, scaleMarks } from '../src/drawings/numbers.js';
 import { MARK_SHAPE } from '../src/drawings/marks.js';
 import { FRAME, PAGE } from '../src/drawings/layout.js';
 import { madeOn } from '../src/drawings/sheets.js';
@@ -568,9 +573,8 @@ const READER_STEMS = ['reader', 'lector'];
   console.log('12 the arming loops before the gate: L1 and L2, both occupied together');
   for (const { name, language, made } of SETS) {
     const pinned = pinnedWords(language);
-    const label = pinned('drawings.plan.l1', { mark: MARK.L1 });
-    // The loop table's row for L1, its spacing written by the table: read as the text either side of it.
-    const [rowStart, rowEnd] = pinned('drawings.loop.l12', { mark: MARK.L2, second: MARK.L1 }).split('{spacing}');
+    const labels = [pinned('drawings.plan.l1', { mark: MARK.L1 }), pinned('drawings.plan.l2', { mark: MARK.L2 })];
+    const rowText = pinned('drawings.loop.l12', { mark: MARK.L1, second: MARK.L2 });
     const rule = pinned('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` });
     const loopMarks = [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
     const detector = pinned('drawings.inside.detector', { marks: loopMarks });
@@ -578,15 +582,14 @@ const READER_STEMS = ['reader', 'lector'];
     // Read made alike but with the digits kept (norm, not squash): "L1 arming" and "L2 arming" are two labels.
     const says = (sheet, text) => runsOf(sheet).some((r) => norm(r.text) === norm(text));
     const draws = (sheet, text) => texts(sheet).some((i) => norm(i.text) === norm(text));
-    const row = (sheet) => runsOf(sheet).some((r) => norm(r.text).startsWith(norm(rowStart)) && norm(r.text).endsWith(norm(rowEnd ?? '')));
+    const row = (sheet) => says(sheet, rowText);
     const wrong = [];
-    if (rowEnd === undefined) wrong.push(`the loop table's row for ${MARK.L1}, ${MARK.L2} does not give the arming spacing`);
     if (!/\bL1\b/.test(rule) || !/\bL2\b/.test(rule)) wrong.push(`the arming rule does not name ${MARK.L1}, ${MARK.L2}: "${rule}"`);
     for (const sheet of made.sheets) {
       if (sheet.key === 'plan') {
         const loops = sheet.items.filter((i) => i.role === 'loop').length;
         if (loops !== 6) wrong.push(`"${sheet.title}": ${loops} loops drawn, not six (${MARK.L0} to ${MARK.L5})`);
-        if (!draws(sheet, label)) wrong.push(`"${sheet.title}": the second arming loop ${MARK.L1} is not drawn`);
+        for (const [i, mark] of [MARK.L1, MARK.L2].entries()) if (!draws(sheet, labels[i])) wrong.push(`"${sheet.title}": the arming loop ${mark} is not drawn`);
         if (!row(sheet)) wrong.push(`"${sheet.title}": the loop table has no row for the arming loops ${MARK.L1}, ${MARK.L2}`);
       }
       if (sheet.key === 'wiring' && !(says(sheet, rule) && says(sheet, detector))) wrong.push(`"${sheet.title}": no rule that both arming loops ${MARK.L1}, ${MARK.L2} must be occupied together, or the loop detector does not read them`);
@@ -594,6 +597,46 @@ const READER_STEMS = ['reader', 'lector'];
     }
     for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
     check(wrong.length === 0, `${language}, ${name}: two arming loops ${MARK.L1} and ${MARK.L2} before the gate, both occupied together${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 13 the loops as drawn: spaced, in order, and under the stopped car ────
+  console.log('13 the loops as drawn: every two at least the loop spacing apart, both arming loops under the stopped car');
+  const ORDER = [MARK.L0, MARK.L1, MARK.L2, MARK.L3, MARK.L4, MARK.L5];
+  for (const { name, language, made } of SETS) {
+    const wrong = [];
+    for (const sheet of made.sheets.filter((x) => x.key === 'plan')) {
+      const truck = sheet.items.find((i) => i.role === 'truck');
+      const arm = sheet.items.find((i) => i.role === 'arm');
+      const loops = sheet.items.filter((i) => i.role === 'loop').sort((a, b) => a.x - b.x);
+      if (!truck || !arm) {
+        wrong.push(`"${sheet.title}": no truck or no gate arm drawn to measure from`);
+        continue;
+      }
+      // Points to the metre, from the truck as drawn: its length along the lane is the table's.
+      const ppm = truck.w / metres('truckLength');
+      const at = (mark) => loops.find((l) => l.mark === mark);
+      const order = loops.map((l) => l.mark).join(' ');
+      if (order !== ORDER.join(' ')) wrong.push(`"${sheet.title}": the loops run ${order || 'nowhere'}, not ${ORDER.join(' ')}`);
+      for (let i = 1; i < loops.length; i += 1) {
+        const gap = (loops[i].x - (loops[i - 1].x + loops[i - 1].w)) / ppm;
+        if (gap < metres('loopSpacing') - 1e-6) wrong.push(`"${sheet.title}": ${loops[i - 1].mark} and ${loops[i].mark} are ${gap.toFixed(2)} m apart, less than ${metres('loopSpacing').toFixed(2)} m`);
+      }
+      const front = truck.x + truck.w;
+      const shortBack = front - metres('shortestCover') * ppm;
+      for (const mark of [MARK.L1, MARK.L2]) {
+        const l = at(mark);
+        if (!l) continue;
+        if (l.x < shortBack - 1e-6 || l.x + l.w > front + 1e-6) wrong.push(`"${sheet.title}": the shortest car the sheet names, stopped at the stop line, does not cover the arming loop ${mark}`);
+        if (l.x < truck.x - 1e-6) wrong.push(`"${sheet.title}": the arming loop ${mark} is not under the stopped F-150`);
+      }
+      const third = at(MARK.L0);
+      if (third && third.x + third.w > truck.x + 1e-6) wrong.push(`"${sheet.title}": the third loop ${MARK.L0} lies under the stopped F-150's tail`);
+      const closing = at(MARK.L3);
+      const armX = arm.x1 ?? arm.x;
+      if (closing && !(closing.x <= armX && armX <= closing.x + closing.w)) wrong.push(`"${sheet.title}": the closing loop ${MARK.L3} is not under the gate arm`);
+      if (Math.abs((armX - front) / ppm - metres('stopToArm')) > 1e-6) wrong.push(`"${sheet.title}": the truck does not stop at the stop distance from the arm`);
+    }
+    check(wrong.length === 0, `${language}, ${name}: the loops as drawn are in order, at least the loop spacing apart, both arming loops under the stopped car${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
   }
 } finally {
   rmSync(DIR, { recursive: true, force: true });
