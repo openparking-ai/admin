@@ -47,11 +47,26 @@
 //   6  the PDF: every page 11 x 17 in landscape (1224 x 792 points), its text
 //      real text (read back), each sheet's title and title block on its page;
 //      nothing drawn off its sheet or into the title block.
-//  11  the closing loop confirms the entry (U7e): the closing loop L3 stays
-//      wired to the gate, and its loop-active output goes to the relay box,
-//      read only, on K3 -- in the wiring sheet's rule and drawing, every plan
-//      sheet's loop table and the cable list, both languages. No sheet draws
-//      L4 or L5, or says L3 is wired to nothing else.
+//  11  the loops after the gate: the closing loop L3 stays wired to the gate,
+//      and its loop-active output goes to the relay box, read only, on K3
+//      (U7e) -- it confirms the gate closed behind the car. Past it, the
+//      confirmation pair L4/L5, crossed in order, gives the direction:
+//      through, or backed out (the settled loop geometry, 3e; one loop cannot
+//      tell those apart). Both, in both languages: L4 and L5 drawn on every
+//      plan sheet and named in its loop table, the wiring sheet's rules and
+//      loop detector, and cable S1. No sheet says L3 is wired to nothing else.
+//  12  the arming loops before the gate (the settled loop geometry, 3e): two,
+//      L1 and L2, both read by the loop detector, and the lane arms only when
+//      both are occupied together, so one vehicle has to span the gap. Every
+//      plan sheet draws six loops (L0 to L5) with L1 labelled and in its loop
+//      table; the wiring sheet's rules say both must be occupied together and
+//      its loop detector reads them; cable S1 carries them; the PDF read back
+//      names L1 and L2.
+//  13  the loops as drawn (layout A, 2026-11-03): on every plan sheet the
+//      loops run L0 to L5 along the lane, every two at least the loop
+//      spacing apart; both arming loops lie under the stopped F-150 and
+//      under the shortest car the sheet names, stopped at the stop distance;
+//      the third loop starts past the truck's tail; L3 lies under the arm.
 //  10  the drawn text: what every test garage's sheets draw, in both
 //      languages -- every text on every sheet, in drawing order, with where it
 //      stands -- equal to the approved snapshot (scripts/drawings-drawn.json,
@@ -65,7 +80,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { translate } from '../src/i18n/index.js';
-import { NUMBERS, SOURCES, scaleMarks } from '../src/drawings/numbers.js';
+import { NUMBERS, SOURCES, metres, scaleMarks } from '../src/drawings/numbers.js';
 import { MARK_SHAPE } from '../src/drawings/marks.js';
 import { FRAME, PAGE } from '../src/drawings/layout.js';
 import { madeOn } from '../src/drawings/sheets.js';
@@ -493,10 +508,11 @@ const READER_STEMS = ['reader', 'lector'];
       for (const w of want) if (!text.includes(plain(w))) missing.push(`page ${i + 1}: "${w}"`);
     });
     check(missing.length === 0, `${f.language}, ${f.name}: every page's title and title block read back as text${missing.length ? `; not found:\n      ${missing.join('\n      ')}` : ''}`);
-    // 11, read back from the PDF by a reader this project did not write: no confirmation pair, and K3 on the file.
+    // 11 and 12, read back from the PDF by a reader this project did not write: both arming loops, the
+    // confirmation pair, and K3, on the file.
     const all = pdf.pages.map((p) => plain(p.text)).join(' ');
-    const pair = [...new Set(all.match(/\bL[45]\b/g) ?? [])];
-    check(pair.length === 0 && /\bK3\b/.test(all), `${f.language}, ${f.name}: the PDF read back names no L4 or L5, and names ${MARK.K3}${pair.length ? `; found ${pair.join(', ')}` : ''}`);
+    const absent = [MARK.L1, MARK.L2, MARK.L4, MARK.L5, MARK.K3].filter((m) => !new RegExp(`\\b${m}\\b`).test(all));
+    check(absent.length === 0, `${f.language}, ${f.name}: the PDF read back names ${MARK.L1}, ${MARK.L2}, ${MARK.L4}, ${MARK.L5} and ${MARK.K3}${absent.length ? `; not found: ${absent.join(', ')}` : ''}`);
     check(pdf.title === `${t('drawings.doc')} - ${f.garage.garage.name.slice(0, 120).trim()}` || pdf.title?.startsWith(t('drawings.doc')), `${f.language}, ${f.name}: the file's title names the drawings and the garage`);
   }
 
@@ -521,8 +537,8 @@ const READER_STEMS = ['reader', 'lector'];
     check(out.length === 0, `${language}, ${name}: nothing runs off a sheet or into its title block${out.length ? `:\n      ${[...new Set(out)].join('\n      ')}` : ''}`);
   }
 
-  // ── 11 the closing loop confirms the entry ───────────────────────────────
-  console.log('11 the closing loop confirms the entry');
+  // ── 11 the loops after the gate: L3 closes, L4/L5 give the direction ─────
+  console.log('11 the loops after the gate: L3 to the gate and K3, the pair L4/L5 past it');
   // The rule before U7e, in both languages: L3 to the gate and to nothing else.
   const NOTHING_ELSE = ['to nothing else', 'never the relay box', 'a nada más', 'nunca la caja de relés'].map(squash);
   for (const { name, language, made } of SETS) {
@@ -530,6 +546,11 @@ const READER_STEMS = ['reader', 'lector'];
     const rule = pinned('drawings.rule.closing', { mark: MARK.L3, signal: MARK.K3 });
     const wired = pinned('drawings.loop.l3wired');
     const cable = pinned('drawings.cable.k3', { mark: MARK.L3 });
+    const pairMarks = [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
+    const pairRow = pinned('drawings.loop.l45');
+    const pairRule = pinned('drawings.rule.pair', { marks: `${MARK.L4}, ${MARK.L5}` });
+    const detector = pinned('drawings.inside.detector', { marks: pairMarks });
+    const s1 = pinned('drawings.cable.s1', { marks: pairMarks });
     const says = (sheet, text) => runsOf(sheet).some((r) => squash(r.text) === squash(text));
     const draws = (sheet, text) => texts(sheet).some((i) => i.text === text);
     const wrong = [];
@@ -538,11 +559,84 @@ const READER_STEMS = ['reader', 'lector'];
       if (sheet.key === 'wiring' && !(says(sheet, rule) && draws(sheet, MARK.K3))) wrong.push(`"${sheet.title}": no ${MARK.K3} drawn, or no rule sending ${MARK.L3}'s output to the relay box`);
       if (sheet.key === 'plan' && !says(sheet, wired)) wrong.push(`"${sheet.title}": the loop table does not say ${MARK.L3}'s output goes to the relay box`);
       if (sheet.key === 'cabling' && !(says(sheet, cable) && draws(sheet, MARK.K3))) wrong.push(`"${sheet.title}": no ${MARK.K3} row for ${MARK.L3}'s output`);
-      for (const item of texts(sheet)) if (/\bL[45]\b/.test(item.text)) wrong.push(`"${sheet.title}": "${item.text}" draws a confirmation loop that is no longer installed`);
+      if (sheet.key === 'plan' && !(draws(sheet, MARK.L4) && draws(sheet, MARK.L5) && says(sheet, pairRow))) wrong.push(`"${sheet.title}": the confirmation pair ${MARK.L4}/${MARK.L5} is not drawn past ${MARK.L3}, or not in the loop table`);
+      if (sheet.key === 'wiring' && !(says(sheet, pairRule) && says(sheet, detector))) wrong.push(`"${sheet.title}": no rule for the confirmation pair, or the loop detector does not read ${MARK.L4}, ${MARK.L5}`);
+      if (sheet.key === 'cabling' && !says(sheet, s1)) wrong.push(`"${sheet.title}": cable ${MARK.S1} does not carry ${MARK.L4}, ${MARK.L5}`);
       for (const r of runsOf(sheet)) for (const old of NOTHING_ELSE) if (squash(r.text).includes(old)) wrong.push(`"${sheet.title}": "${r.text}" says ${MARK.L3} is wired to nothing else`);
     }
-    for (const key of ['wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
-    check(wrong.length === 0, `${language}, ${name}: ${MARK.L3} to the gate, its output to the relay box on ${MARK.K3}, read only; no L4 or L5${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+    if (!/\bL4\b/.test(pairRule) || !/\bL5\b/.test(pairRule)) wrong.push(`the pair's rule does not name ${MARK.L4}, ${MARK.L5}: "${pairRule}"`);
+    for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
+    check(wrong.length === 0, `${language}, ${name}: ${MARK.L3} to the gate, its output to the relay box on ${MARK.K3}, read only; the pair ${MARK.L4}/${MARK.L5} past it${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 12 the arming loops before the gate: two, both occupied together ─────
+  console.log('12 the arming loops before the gate: L1 and L2, both occupied together');
+  for (const { name, language, made } of SETS) {
+    const pinned = pinnedWords(language);
+    const labels = [pinned('drawings.plan.l1', { mark: MARK.L1 }), pinned('drawings.plan.l2', { mark: MARK.L2 })];
+    const rowText = pinned('drawings.loop.l12', { mark: MARK.L1, second: MARK.L2 });
+    const rule = pinned('drawings.rule.arming', { marks: `${MARK.L1}, ${MARK.L2}` });
+    const loopMarks = [MARK.L0, MARK.L1, MARK.L2, MARK.L4, MARK.L5].join(', ');
+    const detector = pinned('drawings.inside.detector', { marks: loopMarks });
+    const s1 = pinned('drawings.cable.s1', { marks: loopMarks });
+    // Read made alike but with the digits kept (norm, not squash): "L1 arming" and "L2 arming" are two labels.
+    const says = (sheet, text) => runsOf(sheet).some((r) => norm(r.text) === norm(text));
+    const draws = (sheet, text) => texts(sheet).some((i) => norm(i.text) === norm(text));
+    const row = (sheet) => says(sheet, rowText);
+    const wrong = [];
+    if (!/\bL1\b/.test(rule) || !/\bL2\b/.test(rule)) wrong.push(`the arming rule does not name ${MARK.L1}, ${MARK.L2}: "${rule}"`);
+    for (const sheet of made.sheets) {
+      if (sheet.key === 'plan') {
+        const loops = sheet.items.filter((i) => i.role === 'loop').length;
+        if (loops !== 6) wrong.push(`"${sheet.title}": ${loops} loops drawn, not six (${MARK.L0} to ${MARK.L5})`);
+        for (const [i, mark] of [MARK.L1, MARK.L2].entries()) if (!draws(sheet, labels[i])) wrong.push(`"${sheet.title}": the arming loop ${mark} is not drawn`);
+        if (!row(sheet)) wrong.push(`"${sheet.title}": the loop table has no row for the arming loops ${MARK.L1}, ${MARK.L2}`);
+      }
+      if (sheet.key === 'wiring' && !(says(sheet, rule) && says(sheet, detector))) wrong.push(`"${sheet.title}": no rule that both arming loops ${MARK.L1}, ${MARK.L2} must be occupied together, or the loop detector does not read them`);
+      if (sheet.key === 'cabling' && !says(sheet, s1)) wrong.push(`"${sheet.title}": cable ${MARK.S1} does not carry ${MARK.L1}, ${MARK.L2}`);
+    }
+    for (const key of ['plan', 'wiring', 'cabling']) if (!made.sheets.some((x) => x.key === key)) wrong.push(`no ${key} sheet`);
+    check(wrong.length === 0, `${language}, ${name}: two arming loops ${MARK.L1} and ${MARK.L2} before the gate, both occupied together${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
+  }
+
+  // ── 13 the loops as drawn: spaced, in order, and under the stopped car ────
+  console.log('13 the loops as drawn: every two at least the loop spacing apart, both arming loops under the stopped car');
+  const ORDER = [MARK.L0, MARK.L1, MARK.L2, MARK.L3, MARK.L4, MARK.L5];
+  for (const { name, language, made } of SETS) {
+    const wrong = [];
+    for (const sheet of made.sheets.filter((x) => x.key === 'plan')) {
+      const truck = sheet.items.find((i) => i.role === 'truck');
+      const arm = sheet.items.find((i) => i.role === 'arm');
+      const loops = sheet.items.filter((i) => i.role === 'loop').sort((a, b) => a.x - b.x);
+      if (!truck || !arm) {
+        wrong.push(`"${sheet.title}": no truck or no gate arm drawn to measure from`);
+        continue;
+      }
+      // Points to the metre, from the truck as drawn: its length along the lane is the table's.
+      const ppm = truck.w / metres('truckLength');
+      const at = (mark) => loops.find((l) => l.mark === mark);
+      const order = loops.map((l) => l.mark).join(' ');
+      if (order !== ORDER.join(' ')) wrong.push(`"${sheet.title}": the loops run ${order || 'nowhere'}, not ${ORDER.join(' ')}`);
+      for (let i = 1; i < loops.length; i += 1) {
+        const gap = (loops[i].x - (loops[i - 1].x + loops[i - 1].w)) / ppm;
+        if (gap < metres('loopSpacing') - 1e-6) wrong.push(`"${sheet.title}": ${loops[i - 1].mark} and ${loops[i].mark} are ${gap.toFixed(2)} m apart, less than ${metres('loopSpacing').toFixed(2)} m`);
+      }
+      const front = truck.x + truck.w;
+      const shortBack = front - metres('shortestCover') * ppm;
+      for (const mark of [MARK.L1, MARK.L2]) {
+        const l = at(mark);
+        if (!l) continue;
+        if (l.x < shortBack - 1e-6 || l.x + l.w > front + 1e-6) wrong.push(`"${sheet.title}": the shortest car the sheet names, stopped at the stop line, does not cover the arming loop ${mark}`);
+        if (l.x < truck.x - 1e-6) wrong.push(`"${sheet.title}": the arming loop ${mark} is not under the stopped F-150`);
+      }
+      const third = at(MARK.L0);
+      if (third && third.x + third.w > truck.x + 1e-6) wrong.push(`"${sheet.title}": the third loop ${MARK.L0} lies under the stopped F-150's tail`);
+      const closing = at(MARK.L3);
+      const armX = arm.x1 ?? arm.x;
+      if (closing && !(closing.x <= armX && armX <= closing.x + closing.w)) wrong.push(`"${sheet.title}": the closing loop ${MARK.L3} is not under the gate arm`);
+      if (Math.abs((armX - front) / ppm - metres('stopToArm')) > 1e-6) wrong.push(`"${sheet.title}": the truck does not stop at the stop distance from the arm`);
+    }
+    check(wrong.length === 0, `${language}, ${name}: the loops as drawn are in order, at least the loop spacing apart, both arming loops under the stopped car${wrong.length ? `:\n      ${[...new Set(wrong)].join('\n      ')}` : ''}`);
   }
 } finally {
   rmSync(DIR, { recursive: true, force: true });

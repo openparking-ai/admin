@@ -57,6 +57,20 @@ export const NUMBERS = {
 
   // Loops.
   loopWidth: length(30, '0.76', 'msu'),
+  // The two arming loops before the gate (the settled loop geometry, layout A
+  // of 2026-11-03), both under a car stopped at the pay station, both occupied
+  // together to arm. Worked out from loopWidth and loopSpacing, loops
+  // loopSpacing apart edge to edge: L2, the loop nearest the gate, starts
+  // loopSpacing past the closing loop L3 under the arm (its centre 15 + 48 +
+  // 15 = 78 in); L1, under the driver at the pay station, starts loopSpacing
+  // behind L2 (its centre 78 + 15 + 48 + 15 = 156 in). L1 is the nearest
+  // place to the pay station that keeps every loop loopSpacing apart: the
+  // pay station (138 in) stands 3 in ahead of L1's near edge.
+  frontLoop: length(78, '1.98', 'worked'),
+  readerLoop: length(156, '3.96', 'worked'),
+  // The shortest car, its front at stopToArm, that covers both arming loops
+  // whole: from 39 in to L1's far edge, 171 in.
+  shortestCover: length(132, '3.35', 'worked'),
   // Across the lane, a loop follows the lane: it ends 12 to 20 in from each
   // edge (the MHTM manual: "about 11.8 in to 19.7 in (300 to 500 mm)"), so
   // in the 10 ft lane drawn it is 6 ft 8 in to 8 ft across, centred. The
