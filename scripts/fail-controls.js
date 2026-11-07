@@ -78,7 +78,7 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 119, 710); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 119, 713); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
