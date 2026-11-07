@@ -46,6 +46,11 @@ export function garageDateTime(value, timeZone, language) {
   });
 }
 
+/** The day of an instant in the garage's zone. */
+export function garageDay(value, timeZone, language) {
+  return parts(new Date(value), timeZone, language, { dateStyle: 'medium' });
+}
+
 /**
  * How a lane's computer is doing, from when it was last heard from.
  *   { state: 'working', minutes }  heard from within `quietMinutes`, the platform's

@@ -521,6 +521,31 @@ export async function recordRates(base, { origin, owner, hooks, plans, stays, re
  * the regular rates of `plans` saved first; `fill` is the rule the Price Lab
  * writes. What a try priced is written down whole, as for the rates.
  */
+/**
+ * The owner's tick that they tested the payment account (platform 0052): the
+ * Getting paid page's one write beside the account's own. `hooks.cards` moves
+ * what Stripe says of the account, on the platform's Stripe stand-in.
+ */
+export async function recordTestConfirm(base, { origin, owner, hooks, elsewhere = 'http://elsewhere.example' }) {
+  const { state, call } = recorder(base, origin);
+  await call('sign-in, for the tick', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });
+  state.garage = (await call('a garage, for the tick', 'POST', '/garages', { name: 'Recorded tick garage', timezone: 'America/New_York', currency: 'USD' }, {}, { quiet: true })).garage.id;
+  const account = '/garages/{garage}/stripe-account';
+  const tick = `${account}/test-confirmed`;
+  await call('the tick, with no account yet', 'POST', tick);
+  await call('the tick, a garage not theirs', 'POST', `/garages/${NOT_THEIRS}/stripe-account/test-confirmed`);
+  const made = (await call('an account, for the tick', 'POST', account, { country: 'US' }, {}, { quiet: true })).stripe_account;
+  await call('the tick, an account never read', 'POST', tick);
+  await call('payment account, before the tick', 'GET', account);
+  await hooks.cards(state.garage, made, { card_payments: 'active', charges_enabled: true, details_submitted: true });
+  await call('the account, read for the tick', 'POST', `${account}/refresh`, undefined, {}, { quiet: true });
+  await call('the tick, from a page at another address', 'POST', tick, undefined, { origin: elsewhere });
+  await call('the tick', 'POST', tick);
+  await call('the tick, again (nothing changes)', 'POST', tick);
+  await call('payment account, after the tick', 'GET', account);
+  return state.out;
+}
+
 export async function recordSpaces(base, { origin, owner, plans, fill, elsewhere = 'http://elsewhere.example' }) {
   const { state, call } = recorder(base, origin);
   await call('sign-in, for the spaces', 'POST', '/auth/sign-in', { email: owner.email, password: owner.password }, {}, { quiet: true });

@@ -1,5 +1,5 @@
 {
-  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. The fill rule, 2026-10-14: the garage's `spaces` (0034, null on every garage here) added to the three answers above that carry a garage -- the list, and the whole row a PATCH answers -- by the measured difference: 'add_garage_answers' recorded again from platform 9bdf1ec differ from their earlier recording by that key alone, on the same two shapes. Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to the two answers above that carry the garage's whole row by the difference measured on 'stuck_answers' (see its header).",
+  "recorded_from": "openparking-ai/platform 3377f4b (u4c/lane-obeys-closing: npm run demo, an admin made with create-admin --password-file, a car (with a plate region) and a ticket-only stay opened by the entry lane, a lane connection added then cancelled, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true), 2026-10-06. The two lanes reads keep the reader shape below (the demo binds no reader) and take the new `screen` key from this recording; every other answer is this recording's, and the 84 answers recorded before it are unchanged but for `screen` and the added lane's `board_prices`. U6, 2026-10-09: the 51 answers about taxes, the payment account and card readers (from \"taxes, a new list\" to \"changes, after the card reader\") are recorded from openparking-ai/platform 14da039 (u6/location-read: the garage's reader Location read added), the same way, in a cloud session: a fresh database, the demo garage as scripts/demo.js makes it, an admin made with create-admin --password-file, the two stays and the lane connection as above, the rate engine at its pin (a4d4324), and the platform's own Stripe stand-in (test/stripe-stub.js) -- no real Stripe account or key -- with Stripe Connect, the engine and Stripe switched as the calls name. Refusals that name an id, a moment or a Stripe account, place or reader are compared with those said as what they are (normalised in test/platform-shapes.js). In that run every one of the 107 answers before them equals this file's but the two lanes reads, whose reader shape is the one taken from source below; \"lanes, with a card reader\" now records it from the platform. U7f, 2026-10-11: \"drivers, answered yes\" and \"drivers, answered yes again (nothing changes)\" are recorded from openparking-ai/platform 96dff3a (u7f/pictures-bans), by the same calls, on a fresh database with npm run demo and an admin made with create-admin --password-file: the garage's whole row gained ban_tailgaters and ban_reach (0033); every key it had before is recorded the same. U7g, 2026-10-11: the 'rates_answers' are recorded from openparking-ai/platform u7g/rates-and-open f366fa4 (its source as recorded, committed after) with rate-engine 23e48e8 (u7g/cheapest-tie), on a fresh database with npm run demo and an admin made with create-admin --password-file, by test/record-rates.js: a garage made for them, each form of test/rates-forms.js tried and saved, a price table tried, and every refusal the Rates page and the Open button meet. The try's answers are kept whole (the engine's prices). U7g fix 1, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open a622dc2 with rate-engine c2991d9 (u7g/cheapest-tie: the cheaper of the special and the time-based rate), the same way, adding the gate's three plans' price tables and a stay the hour prices for less than the early bird; form d's game-day rate is now 5.00 then 2.00. U7g fix 2, 2026-10-12: the 'rates_answers' re-recorded from openparking-ai/platform u7g/rates-and-open ea366a7 with rate-engine 29ae5ff (u7g/cheapest-tie: every other special keeps its why-not line when the hour is charged), the same way, adding four plans where an hour lands exactly on the most, the re-gate's walk plan (a discount and a service fee) as a draft table, and each of its short stays tried on it saved. 2026-10-12 (U7i): the 'rates_answers' re-recorded from openparking-ai/platform main 2edcad0 with rate-engine d636e53 (both as merged and deployed for U7g), the same way, adding the two saves: the regular rates, then each special on its own, then the regular rates changed with the specials in force, each save's price table tried beside what is stored by then, the calculator's stays, and who saved each set of rates. Rates re-recorded for U7i fix 1 from platform bd01a12 (u7i/carry-later-rates, migration 0034) with the engine at d636e53. U7i (rates start when saved, based_on), 2026-10-13: the rates answers re-recorded from openparking-ai/platform cb3ea34 (u7i/no-scheduling) with rate-engine d636e53, npm run demo, an admin made with create-admin --password-file, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true. The fill rule, 2026-10-14: the garage's `spaces` (0034, null on every garage here) added to the three answers above that carry a garage -- the list, and the whole row a PATCH answers -- by the measured difference: 'add_garage_answers' recorded again from platform 9bdf1ec differ from their earlier recording by that key alone, on the same two shapes. Platform 0043, 2026-10-28: the garage's `walk_complete_percent` (0040) and `stuck_after_hours` (0043), both numbers, added to the two answers above that carry the garage's whole row by the difference measured on 'stuck_answers' (see its header). Platform 0052, 2026-11-07: the account's `test_confirmed_at`, null until the owner ticks, added to the five answers above that carry the payment account by the difference measured on 'test_confirm_answers' (see its header): 'payment account, before the tick' differs from 'payment account' here by that key alone.",
   "answers": [
     {
       "what": "who is signed in, before signing in",
@@ -3647,6 +3647,11 @@
                 "types": [
                   "string"
                 ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
+                ]
               }
             }
           }
@@ -3715,6 +3720,11 @@
                 "types": [
                   "string"
                 ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
+                ]
               }
             }
           }
@@ -3782,6 +3792,11 @@
               "garage_id": {
                 "types": [
                   "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
                 ]
               }
             }
@@ -3878,6 +3893,11 @@
               "garage_id": {
                 "types": [
                   "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
                 ]
               }
             }
@@ -3978,6 +3998,11 @@
               "garage_id": {
                 "types": [
                   "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
                 ]
               }
             }
@@ -14217,6 +14242,333 @@
       "status": 404,
       "body": {
         "error": "garage not found"
+      }
+    }
+  ],
+  "test_confirm_recorded_from": "openparking-ai/platform feat/stripe-test-confirm-20261107 9ca3d76 (migration 0052), 2026-11-07, by test/record-test-confirm.js: the platform started on its own test harness (test/exit-harness.js: the rate engine at its pin, its Stripe stand-in test/stripe-stub.js with no Stripe account or key), a scratch database prepared and migrated as its README says, an owner made with its createAdmin, ADMIN_ORIGIN = the page, SESSION_COOKIE_INSECURE=true.",
+  "test_confirm_answers": [
+    {
+      "what": "the tick, with no account yet",
+      "status": 409,
+      "body": {
+        "error": "this garage has no Stripe account yet; create it first",
+        "code": "no_stripe_account"
+      }
+    },
+    {
+      "what": "the tick, a garage not theirs",
+      "status": 404,
+      "body": {
+        "error": "garage not found",
+        "code": "garage_not_found"
+      }
+    },
+    {
+      "what": "the tick, an account never read",
+      "status": 409,
+      "body": {
+        "error": "this garage's Stripe account cannot take a card yet, as last read: finish onboarding, ask again with refresh, then confirm.",
+        "code": "card_payments_not_active"
+      }
+    },
+    {
+      "what": "payment account, before the tick",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "null"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "null"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "null"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "null"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "the tick, from a page at another address",
+      "status": 403,
+      "body": {
+        "error": "This request did not come from the admin site.",
+        "code": "origin_refused"
+      }
+    },
+    {
+      "what": "the tick",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "the tick, again (nothing changes)",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "what": "payment account, after the tick",
+      "status": 200,
+      "shape": {
+        "types": [
+          "object"
+        ],
+        "keys": {
+          "stripe_account": {
+            "types": [
+              "object"
+            ],
+            "keys": {
+              "account_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "account_recorded_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments": {
+                "types": [
+                  "string"
+                ]
+              },
+              "card_payments_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "charges_enabled": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "charges_enabled_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "create_requested_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "details_submitted": {
+                "types": [
+                  "boolean"
+                ]
+              },
+              "details_submitted_read_at": {
+                "types": [
+                  "string"
+                ]
+              },
+              "garage_id": {
+                "types": [
+                  "string"
+                ]
+              },
+              "test_confirmed_at": {
+                "types": [
+                  "string"
+                ]
+              }
+            }
+          }
+        }
       }
     }
   ]

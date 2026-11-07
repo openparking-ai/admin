@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordExceptions, recordRates, recordSpaces, recordStuck, signInAnswer } from './platform-shapes.js';
+import { linkAnswer, record, recordAccountLinks, recordAddGarage, recordBanned, recordExceptions, recordRates, recordSpaces, recordStuck, recordTestConfirm, signInAnswer } from './platform-shapes.js';
 import { FILL_RULE, STAY_LIST, recordedPlans } from './rates-forms.js';
 import { STUCK_LET_IN, startStub } from './stub-platform.js';
 
@@ -139,6 +139,19 @@ test('the stand-in answers the number of spaces and rates with a fill rule as th
     const answers = await recordSpaces(stub.url, { origin: ORIGIN, owner: stub.data.a, plans: recordedPlans(), fill: FILL_RULE });
     assert.deepEqual(answers.map((a) => a.what), recorded.spaces_answers.map((a) => a.what));
     for (const [i, real] of recorded.spaces_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
+  } finally {
+    await stub.close();
+  }
+});
+
+// Platform 0052: the owner's tick that they tested the payment account, on a garage of its own.
+test('the stand-in answers the tick of a tested payment account as the platform does', async () => {
+  const stub = await startStub();
+  try {
+    stub.allowOrigin(ORIGIN);
+    const answers = await recordTestConfirm(stub.url, { origin: ORIGIN, owner: stub.data.a, hooks: { cards: (garageId, _account, side) => stub.setCards(garageId, side) } });
+    assert.deepEqual(answers.map((a) => a.what), recorded.test_confirm_answers.map((a) => a.what));
+    for (const [i, real] of recorded.test_confirm_answers.entries()) assert.deepEqual(answers[i], real, `the stand-in differs from the platform at "${real.what}"`);
   } finally {
     await stub.close();
   }

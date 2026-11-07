@@ -78,13 +78,13 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in English',
     plant: { file: 'src/i18n/en.js', anchor: '  "problem.contactUnreachable": "Give a phone number, an email address, or both.",\n', with: '  "problem.unreachable": "Give a phone number, an email address, or both.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in en.js (lines 119, 710); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in en.js (lines 119, 713); only the last is ever shown'],
   },
   {
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 115, 706); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 115, 709); only the last is ever shown'],
   },
   // The side menu (src/menu.js): its shape, kept open or closed, and
   // the group of the page shown opening itself, each red on its plant.
@@ -1530,6 +1530,12 @@ const CONTROLS = [
     plant: { file: 'src/i18n/en.js', anchor: '"taxes.noTax": "This garage charges no tax.",', with: '"taxes.noTax": "This garage hasn\'t said yet.",' },
     run: ['node', '--test', 'test/words-in-every-state.test.js'],
     names: ['en taxes.noTax: "This garage hasn\'t said yet." does not say it'],
+  },
+  {
+    check: "0052 the owner's statement reworded",
+    plant: { file: 'src/i18n/en.js', anchor: 'Until you confirm this you should NOT use credit card.', with: 'We recommend testing first.' },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['Getting paid says his statement and his box, word for word'],
   },
   {
     check: 'U6-1 a refusal with no words of its own, in the client',
@@ -3041,6 +3047,13 @@ const BROWSER_CONTROLS = [
     names: ['FAIL the page says every way in and out is a lane with this equipment, before download'],
   },
   // ── U6: Taxes and fees, Getting paid and Card readers, in a browser (scripts/check-money-pages.js) ──
+  {
+    check: '0052 a tick that was not saved stays ticked',
+    plant: { file: 'src/GettingPaidPage.jsx', anchor: 'aria-checked={ticking} className="tick tick-words"', with: 'aria-checked={true} className="tick tick-words"' },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['a tick that was not saved unticks'],
+  },
   {
     check: "U6-1 the platform's words on screen",
     plant: [
