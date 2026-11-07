@@ -4,6 +4,7 @@ import { STALE } from './api.js';
 import { accountFacts, accountWords, detailsGiven, driversAnswer, takesCards } from './payments.js';
 import { countryChoices, firstCountry } from './countries.js';
 import { PAGES, hashFor } from './pages.js';
+import { garageDay } from './time.js';
 import FieldName from './FieldName.jsx';
 
 /**
@@ -213,9 +214,11 @@ function StripeLink({ t, url, onUsed }) {
 
 /** An account: what it can do now, each fact with when it was checked; check again; continue on Stripe. */
 function Account({ t, language, client, garage, account, carried, onChecked }) {
-  const [busy, setBusy] = useState(null); // 'check' | 'stripe'
+  const [busy, setBusy] = useState(null); // 'check' | 'stripe' | 'confirm'
   const [problem, setProblem] = useState(carried);
   const [link, setLink] = useState(null);
+  const [saved, setSaved] = useState(null); // when the tick was kept, as the platform answered
+  const confirmedAt = account.test_confirmed_at ?? saved;
   const facts = Object.fromEntries(accountFacts(t, account, garage, language).map((f) => [f.key, f]));
 
   const run = async (what, fn) => {
@@ -258,6 +261,22 @@ function Account({ t, language, client, garage, account, carried, onChecked }) {
           {t('paid.continueSays')}
         </p>
       )}
+      {takesCards(account) ? (
+        <TestConfirm
+          t={t}
+          language={language}
+          garage={garage}
+          confirmedAt={confirmedAt}
+          ticking={busy === 'confirm'}
+          disabled={busy !== null}
+          onTick={() =>
+            run('confirm', async () => {
+              const answer = await client.confirmTested(garage.id);
+              setSaved(answer.test_confirmed_at);
+            })
+          }
+        />
+      ) : null}
       <div className="lane-actions">
         <button
           type="button"
@@ -293,5 +312,35 @@ function Account({ t, language, client, garage, account, carried, onChecked }) {
       {problem ? <ProblemNote t={t} kind={problem} /> : null}
       {link ? <StripeLink t={t} url={link} onUsed={() => setLink(null)} /> : null}
     </section>
+  );
+}
+
+/**
+ * The owner's statement, and their tick that they tested the account. A tick
+ * saves at once and stands: the box shows ticked only while it is being saved,
+ * so a failed save leaves it unticked with the page's own refusal, and a saved
+ * one gives way to the day it was given. Nothing else waits for it.
+ */
+function TestConfirm({ t, language, garage, confirmedAt, ticking, disabled, onTick }) {
+  if (confirmedAt) {
+    return (
+      <p className="quiet" data-notice="test-confirmed">
+        {t('paid.testConfirmed', { date: garageDay(confirmedAt, garage.timezone, language) })}
+      </p>
+    );
+  }
+  return (
+    <div className="paid-test" data-section="test-confirm">
+      <p className="paid-statement" data-notice="test-statement">
+        {t('paid.testStatement')}
+      </p>
+      <p className="quiet" data-notice="test-how">
+        {t('paid.testHow')}
+      </p>
+      <button type="button" role="checkbox" aria-checked={ticking} className="tick tick-words" data-tick="test-confirmed" disabled={disabled} onClick={onTick}>
+        <span aria-hidden="true" className="tick-box" data-on={ticking ? 'yes' : 'no'} />
+        <span>{t('paid.testBox')}</span>
+      </button>
+    </div>
   );
 }

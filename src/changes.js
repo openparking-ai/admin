@@ -21,7 +21,7 @@ import { moneyText } from './rates.js';
 /** The actions the platform writes, each with words of its own for a change made and for one tried. */
 export const ACTIONS = [
   'garage.create', 'garage.update', 'garage.open', 'garage.pass_links', 'garage.validations_link',
-  'payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.reader_place',
+  'payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.test_confirm', 'payment_account.reader_place',
   'lane.add', 'lane.rename', 'lane.remove', 'lane.close', 'lane.close_again', 'lane.reopen',
   'lane.card_reader_connect', 'lane.card_reader_disconnect',
   'computer.connect', 'computer.cancel',
@@ -78,7 +78,7 @@ const NOT_FOUND = ['not_found', 'lane_not_found', 'garage_not_found', 'computer_
 export const FIELDS = [
   'name', 'direction', 'state', 'reason', 'message', 'access', 'lane', 'label', 'transient_available', 'default_action',
   'open', 'language', 'plan_version', 'effective_from', 'taxes', 'account', 'charges_enabled', 'card_payments',
-  'details_submitted', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
+  'details_submitted', 'test_confirmed', 'place_name', 'timezone', 'currency', 'space_class', 'garage_pass', 'monthly_billing',
   'validations', 'last_open_overridden', 'phone', 'email', 'by_text', 'by_email',
   'text', 'lanes', 'starts', 'ends', 'prices', 'messages_off', 'messages_removed',
   'ban_tailgaters', 'ban_reach', 'banned',
@@ -296,7 +296,7 @@ export const KINDS = {
   screens: ['board_message.add', 'board_message.change', 'board_message.remove', 'lane.board_prices'],
   rates: ['rate_plan.add', 'rates.retired'],
   taxes: ['tax_set.add'],
-  paid: ['payment_account.create', 'payment_account.setup_link', 'payment_account.read'],
+  paid: ['payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.test_confirm'],
   readers: ['payment_account.reader_place', 'lane.card_reader_connect', 'lane.card_reader_disconnect'],
   people: ['alert_contact.add', 'alert_contact.change', 'alert_contact.remove', 'alert_contact.choices'],
   keys: ['key.cancel'],

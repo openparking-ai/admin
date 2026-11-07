@@ -46,6 +46,7 @@ const LINES = [
   ['payment_account.create', { account: false }, { account: true }],
   ['payment_account.read', { card_payments: null, charges_enabled: null, details_submitted: null }, { card_payments: 'active', charges_enabled: true, details_submitted: true }],
   ['payment_account.read', { card_payments: 'pending', charges_enabled: false, details_submitted: false }, { card_payments: 'inactive', charges_enabled: false, details_submitted: true }],
+  ['payment_account.test_confirm', { test_confirmed: false }, { test_confirmed: true }],
   ['payment_account.reader_place', null, { place_name: 'Harbor Garage' }],
   ['lane.card_reader_connect', null, { lane: 'North gate', label: 'Exit reader' }],
   ['lane.card_reader_disconnect', { label: 'Exit reader' }, null],
@@ -334,7 +335,7 @@ test('U6 every refused tax list, payment account and card reader is said in word
     }
     assert.equal(new Set(said.values()).size, U6_LOGGED.length, `${language}: two refusals share their words`);
     // What each U6 write tried, never that it was done.
-    for (const action of ['tax_set.add', 'payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.reader_place', 'lane.card_reader_connect', 'lane.card_reader_disconnect']) {
+    for (const action of ['tax_set.add', 'payment_account.create', 'payment_account.setup_link', 'payment_account.read', 'payment_account.test_confirm', 'payment_account.reader_place', 'lane.card_reader_connect', 'lane.card_reader_disconnect']) {
       const tried = whatPieces(t, { outcome: 'refused', action, subject: lane, who: { kind: 'owner', name: 'x' } })[0].words;
       assert.ok(tried.startsWith(language === 'es' ? 'Intentó' : 'Tried'), `${language} ${action}: "${tried}"`);
     }

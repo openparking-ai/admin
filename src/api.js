@@ -834,6 +834,9 @@ export function createClient({ fetch: fetchFn = globalThis.fetch.bind(globalThis
     /** Ask Stripe now what the account can do, and keep the answer with when it was read. */
     checkPaymentAccount: async (garageId) =>
       object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/refresh`, { method: 'POST' })).stripe_account),
+    /** The owner's tick that they tested the account: kept with who and when, and it stands. */
+    confirmTested: async (garageId) =>
+      object(object(await request(`/garages/${encodeURIComponent(garageId)}/stripe-account/test-confirmed`, { method: 'POST' })).stripe_account),
     /**
      * A fresh address of Stripe's own page for the garage's details. Opened for
      * the owner, never shown, kept or put in this page's address.

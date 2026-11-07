@@ -682,6 +682,7 @@ const NO_CONNECT = { error: 'This deployment has no Stripe Connect configured.',
 const GARAGE_NOT_FOUND_NAMED = { error: 'garage not found', code: 'garage_not_found' };
 const BAD_COUNTRY = { error: 'country is required: the garage\'s country as two capital letters (ISO 3166-1 alpha-2), e.g. "US"', code: 'bad_country' };
 const NO_ACCOUNT = { error: 'this garage has no Stripe account yet; create it first', code: 'no_stripe_account' };
+const TICK_CARDS_OFF = { error: "this garage's Stripe account cannot take a card yet, as last read: finish onboarding, ask again with refresh, then confirm.", code: 'card_payments_not_active' };
 const NO_PLACE = { error: 'this garage has no Location yet; create it first', code: 'no_terminal_location' };
 const NO_READER = { error: 'this lane has no reader bound', code: 'no_reader_bound' };
 const cardsNotActive = (state) => ({
@@ -1675,6 +1676,7 @@ export async function startStub({ port = 0 } = {}) {
     ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account$/, 'makeAccount'],
     ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/onboarding-link$/, 'stripePage'],
     ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/refresh$/, 'checkAccount'],
+    ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/test-confirmed$/, 'confirmTested'],
     ['GET', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/location$/, 'place'],
     ['POST', /^\/api\/v1\/garages\/([^/]+)\/stripe-account\/location$/, 'setPlace'],
     ['GET', /^\/api\/v1\/garages\/([^/]+)\/readers$/, 'connections'],
@@ -1682,7 +1684,7 @@ export async function startStub({ port = 0 } = {}) {
     ['POST', /^\/api\/v1\/lanes\/([^/]+)\/reader\/unbind$/, 'disconnect'],
   ];
   const ACTION = {
-    addTaxList: 'tax_set.add', makeAccount: 'payment_account.create', stripePage: 'payment_account.setup_link', checkAccount: 'payment_account.read',
+    addTaxList: 'tax_set.add', makeAccount: 'payment_account.create', stripePage: 'payment_account.setup_link', checkAccount: 'payment_account.read', confirmTested: 'payment_account.test_confirm',
     setPlace: 'payment_account.reader_place', connect: 'lane.card_reader_connect', disconnect: 'lane.card_reader_disconnect',
   };
   /** Every refusal these routes can give, by code, as the platform says it: for a check to ask for (refuseNext). */
@@ -1711,6 +1713,7 @@ export async function startStub({ port = 0 } = {}) {
     garage_id: a.garage_id, account_id: a.account_id, create_requested_at: a.create_requested_at, account_recorded_at: a.account_recorded_at,
     card_payments: a.card_payments, card_payments_read_at: a.card_payments_read_at, charges_enabled: a.charges_enabled, charges_enabled_read_at: a.charges_enabled_read_at,
     details_submitted: a.details_submitted, details_submitted_read_at: a.details_submitted_read_at,
+    test_confirmed_at: a.test_confirmed_at ?? null,
   };
   // What Stripe holds of each account, as its read reports it; the stand-in's own Stripe.
   const stripeSide = new Map(); // account_id -> { card_payments, charges_enabled, details_submitted }
@@ -2203,6 +2206,14 @@ export async function startStub({ port = 0 } = {}) {
       stripeSide.set(held.account.account_id, { card_payments: 'inactive', charges_enabled: false, details_submitted: false });
       line(who, { garageId: garage.id, action: 'payment_account.create', subject: { kind: 'payment_account', id: null, name: null }, before: { account: false }, after: { account: true } });
       return answer(res, 201, { stripe_account: presentAccount(held.account) });
+    }
+    if (name === 'confirmTested') {
+      if (!held.account) return no(409, NO_ACCOUNT);
+      if (held.account.test_confirmed_at) return answer(res, 200, { stripe_account: presentAccount(held.account) });
+      if (held.account.card_payments !== 'active' || held.account.charges_enabled !== true) return no(409, TICK_CARDS_OFF);
+      held.account.test_confirmed_at = new Date().toISOString();
+      line(who, { garageId: garage.id, action: 'payment_account.test_confirm', subject: { kind: 'payment_account', id: null, name: null }, before: { test_confirmed: false }, after: { test_confirmed: true } });
+      return answer(res, 200, { stripe_account: presentAccount(held.account) });
     }
     if (name === 'stripePage' || name === 'checkAccount') {
       if (!held.account) return no(409, NO_ACCOUNT);

@@ -1532,6 +1532,12 @@ const CONTROLS = [
     names: ['en taxes.noTax: "This garage hasn\'t said yet." does not say it'],
   },
   {
+    check: "0052 the owner's statement reworded",
+    plant: { file: 'src/i18n/en.js', anchor: 'Until you confirm this you should NOT use credit card.', with: 'We recommend testing first.' },
+    run: ['node', '--test', 'test/words-in-every-state.test.js'],
+    names: ['Getting paid says his statement and his box, word for word'],
+  },
+  {
     check: 'U6-1 a refusal with no words of its own, in the client',
     plant: { file: 'src/api.js', anchor: "  [409, 'card_payments_not_active', 'cardsNotActive'],\n", with: '' },
     run: ['node', '--test', 'test/api.test.js'],
@@ -3041,6 +3047,13 @@ const BROWSER_CONTROLS = [
     names: ['FAIL the page says every way in and out is a lane with this equipment, before download'],
   },
   // ── U6: Taxes and fees, Getting paid and Card readers, in a browser (scripts/check-money-pages.js) ──
+  {
+    check: '0052 a tick that was not saved stays ticked',
+    plant: { file: 'src/GettingPaidPage.jsx', anchor: 'aria-checked={ticking} className="tick tick-words"', with: 'aria-checked={true} className="tick tick-words"' },
+    before: BUILD,
+    run: ['node', 'scripts/check-money-pages.js'],
+    names: ['a tick that was not saved unticks'],
+  },
   {
     check: "U6-1 the platform's words on screen",
     plant: [

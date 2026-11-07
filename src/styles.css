@@ -1158,6 +1158,22 @@ textarea {
 .paid-value {
   font-weight: 600;
 }
+.paid-test {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+}
+/* The statement stands out: bold, in a coloured panel. */
+.paid-statement {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-weight: 700;
+  max-width: 60ch;
+}
 .setup-form .field > .field-name,
 .setup-question .chooser > .field-name {
   font-weight: 600;

@@ -351,6 +351,23 @@ try {
   check(!/acct_|tml_|tmr_/.test(paidText) && rawIn(paidText).length === 0, 'Getting paid: no account id or Stripe code on screen');
   await checkDescribed(page, 'Getting paid', 'en', 3);
   await screenshot(page, 'getting-paid-english-day');
+  // The owner's statement and tick. His sentences, on screen, in order; a failed
+  // save leaves the box unticked with the page's own refusal; a saved one stands.
+  const testBlock = () => page.$eval('[data-section="test-confirm"]', (b) => [...b.children].map((c) => c.textContent));
+  check(JSON.stringify(await testBlock()) === JSON.stringify([EN['paid.testStatement'], EN['paid.testHow'], EN['paid.testBox']]), 'Getting paid: the statement, the how-to, the box, in that order, on an account that can take cards');
+  check(await page.$eval('[data-notice="test-statement"]', (p) => Number(getComputedStyle(p).fontWeight) >= 700 && getComputedStyle(p).backgroundColor !== 'rgba(0, 0, 0, 0)'), 'Getting paid: the statement is bold, in a coloured panel');
+  stub.refuseNext('stripe_unreachable');
+  await page.click('[data-tick="test-confirmed"]');
+  check(await settles(page, (w) => document.querySelector('[data-paid="account"] .problem, [data-paid="account"] [data-problem]')?.textContent.includes(w) && document.querySelector('[data-tick="test-confirmed"]')?.getAttribute('aria-checked') === 'false', EN['problem.stripeUnreachable']), 'Getting paid: a tick that was not saved unticks, and says why');
+  check(!stub.money(HARBOR.id).account.test_confirmed_at, 'Getting paid: ...and nothing was kept');
+  await page.click('[data-tick="test-confirmed"]');
+  const confirmedOn = EN['paid.testConfirmed'].replace('{date}', new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: HARBOR.timezone }).format(new Date()));
+  check(await settles(page, (w) => document.querySelector('[data-notice="test-confirmed"]')?.textContent.replace(/[\s ]+/g, ' ') === w, plain(confirmedOn)), `Getting paid: a saved tick says "${confirmedOn}"`);
+  check(!(await page.$('[data-tick="test-confirmed"]')) && !(await page.$('[data-notice="test-statement"]')), 'Getting paid: ...and can\'t be unticked');
+  await reload(page, '#/getting-paid', 'page.paid.title');
+  await appears(page, '[data-paid="account"]');
+  check(await settles(page, (w) => document.querySelector('[data-notice="test-confirmed"]')?.textContent.replace(/[\s ]+/g, ' ') === w, plain(confirmedOn)), 'Getting paid: ...and stays after a reload');
+  delete stub.money(HARBOR.id).account.test_confirmed_at;
   for (const language of ['en', 'es']) {
     if (language === 'es') await chooseOnSettings(page, 'language', 'es');
     for (const code of ['connect_not_configured', 'stripe_refused', 'stripe_unreachable', 'no_stripe_account', 'stripe_account_ambiguous', 'garage_not_found']) {
@@ -396,6 +413,7 @@ try {
   const fresh = await page.$$eval('.paid-fact', (fs) => fs.map((f) => [f.querySelector('.paid-value').textContent, f.querySelector('.quiet').textContent]));
   check(fresh.every(([v, c]) => v === EN['paid.notCheckedYet'] && c === EN['paid.notChecked']), `Getting paid: facts never read are "${EN['paid.notCheckedYet']}", "${EN['paid.notChecked']}"`);
   check(Boolean(await page.$('[data-action="continue-on-stripe"]')), 'Getting paid: "Continue on Stripe" while the details are not finished');
+  check(!(await page.$('[data-section="test-confirm"]')) && !(await page.$('[data-notice="test-confirmed"]')), 'Getting paid: no statement and no box until the account can take cards');
   await page.click('[data-action="check-again"]');
   check(await settles(page, (w) => document.querySelector('[data-fact="cards"] .paid-value')?.textContent === w, EN['paid.card.inactive']), 'Getting paid: "Check again" reads what Stripe says now: card payments off');
   check(await settles(page, (w) => document.querySelector('[data-fact="details"] .paid-value')?.textContent === w, EN['paid.details.no']), `Getting paid: ...details "${EN['paid.details.no']}"`);

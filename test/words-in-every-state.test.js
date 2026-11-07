@@ -215,3 +215,11 @@ test('U6 who the pages are for: any driver, pass holders only, or not answered y
   assert.equal(driversAnswer(null), 'unanswered');
   assert.equal(driversAnswer(undefined), 'unanswered');
 });
+
+// The owner's statement and box: his sentences, character for character.
+test('Getting paid says his statement and his box, word for word', () => {
+  const en = DICTIONARIES.en;
+  assert.equal(en['paid.testStatement'], 'You must do test transactions and see the money going into your account. Until you confirm this you should NOT use credit card.');
+  assert.equal(en['paid.testBox'], 'I did test charges and it is working fine. Confirmed');
+  assert.equal(en['paid.testHow'], 'Drive a car through a lane and pay at the exit with your own card, then check the money reached your Stripe account.');
+});
