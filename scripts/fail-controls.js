@@ -84,7 +84,7 @@ const CONTROLS = [
     check: '3 the two languages match: a key written twice in Spanish',
     plant: { file: 'src/i18n/es.js', anchor: '  "problem.contactUnreachable": "Indique un teléfono, un correo, o ambos.",\n', with: '  "problem.unreachable": "Indique un teléfono, un correo, o ambos.",\n' },
     run: ['node', 'scripts/check-languages-match.js'],
-    names: ['problem.unreachable: given 2 times in es.js (lines 115, 706); only the last is ever shown'],
+    names: ['problem.unreachable: given 2 times in es.js (lines 115, 709); only the last is ever shown'],
   },
   // The side menu (src/menu.js): its shape, kept open or closed, and
   // the group of the page shown opening itself, each red on its plant.
